@@ -1,0 +1,965 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Unit {
+  THING
+  PACKAGE
+  MILLILITER
+  LITER
+  GRAM
+  KILOGRAM
+  MILLIMETER
+  METER
+}
+
+model Manufacturer {
+  id            String   @id @default(uuid()) @db.Uuid
+  name          String   @unique(map: "uniq_3d0ae6dc5e237e06") @db.VarChar(64)
+  localizedName String?  @map("localized_name") @db.VarChar(255)
+  logo          String?  @db.VarChar(25)
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdBy     String?  @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
+  parts         Part[]
+
+  @@map("manufacturer")
+}
+
+model Part {
+  id             String       @id @default(uuid()) @db.Uuid
+  manufacturer   Manufacturer @relation(fields: [manufacturerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  manufacturerId String       @map("manufacturer_id") @db.Uuid
+  name           String       @db.VarChar(255)
+  number         String       @db.VarChar(30)
+  universal      Boolean
+  unit           Int          @db.SmallInt
+  warehouseId    String?      @map("warehouse_id") @db.Uuid
+  createdAt      DateTime?    @default(now()) @map("created_at") @db.Timestamptz(0)
+  createdBy      String?      @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
+  PartPrice      PartPrice[]
+
+  @@unique([number, manufacturerId], map: "uniq_490f70c696901f54a23b42d")
+  @@map("part")
+}
+
+model PartPrice {
+  id                String    @id @default(uuid()) @db.Uuid
+  part              Part      @relation(fields: [partId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  partId            String    @map("part_id") @db.Uuid
+  since             DateTime  @db.Timestamp(0)
+  tenantId          String    @default("1ec13d33-3f41-6e3a-a0cb-02420a000f18") @map("tenant_id") @db.Uuid
+  priceAmount       BigInt?   @map("price_amount")
+  priceCurrencyCode String?   @default("RUB") @map("price_currency_code") @db.VarChar(3)
+  createdAt         DateTime? @default(now()) @map("created_at") @db.Timestamptz(0)
+  createdBy         String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
+
+  @@index([partId], map: "idx_59bb753a4ce34bec")
+  @@map("part_price")
+}
+
+model CreatedBy {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  createdAt DateTime @map("created_at") @db.Timestamptz(0)
+
+  @@map("created_by")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+// model appeal_calculator {
+//   id           String    @id @default(uuid()) @db.Uuid
+//   name         String    @db.VarChar(255)
+//   note         String?   @db.VarChar(255)
+//   phone        String    @db.VarChar(35)
+//   date         DateTime? @db.Date
+//   equipment_id String    @db.Uuid
+//   mileage      Int
+//   total        BigInt
+//   works        Json      @db.Json
+//   tenant_id    String    @db.Uuid
+//   created_at   DateTime? @default(now()) @db.Timestamptz(0)
+//   created_by   String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
+// }
+
+// /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+// model appeal_call {
+//   id         String    @id @default(uuid()) @db.Uuid
+//   phone      String    @db.VarChar(35)
+//   tenant_id  String    @db.Uuid
+//   created_at DateTime? @default(now()) @db.Timestamptz(0)
+//   created_by String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
+// }
+
+// /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+// model appeal_cooperation {
+//   id         String    @id @default(uuid()) @db.Uuid
+//   name       String    @db.VarChar(255)
+//   phone      String    @db.VarChar(35)
+//   tenant_id  String    @db.Uuid
+//   created_at DateTime? @default(now()) @db.Timestamptz(0)
+//   created_by String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
+// }
+
+// model appeal_postpone {
+//   id         String    @id @default(uuid()) @db.Uuid
+//   appeal_id  String    @db.Uuid
+//   tenant_id  String    @db.Uuid
+//   created_at DateTime? @default(now()) @db.Timestamptz(0)
+//   created_by String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
+// }
+
+// model appeal_question {
+//   id         String    @id @default(uuid()) @db.Uuid
+//   name       String    @db.VarChar(255)
+//   email      String    @db.VarChar(255)
+//   question   String
+//   tenant_id  String    @db.Uuid
+//   created_at DateTime? @default(now()) @db.Timestamptz(0)
+//   created_by String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
+// }
+
+// /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+// model appeal_schedule {
+//   id         String    @id @default(uuid()) @db.Uuid
+//   name       String    @db.VarChar(255)
+//   phone      String    @db.VarChar(35)
+//   date       DateTime  @db.Date
+//   tenant_id  String    @db.Uuid
+//   created_at DateTime? @default(now()) @db.Timestamptz(0)
+//   created_by String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
+// }
+
+// /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+// model appeal_status {
+//   id         String    @id @default(uuid()) @db.Uuid
+//   appeal_id  String    @db.Uuid
+//   status     Int       @db.SmallInt
+//   tenant_id  String    @db.Uuid
+//   created_at DateTime? @default(now()) @db.Timestamptz(0)
+//   created_by String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
+// }
+
+// /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+// model appeal_tire_fitting {
+//   id         String    @id @default(uuid()) @db.Uuid
+//   name       String    @db.VarChar(255)
+//   phone      String    @db.VarChar(35)
+//   model_id   String?   @db.Uuid
+//   category   Int       @db.SmallInt
+//   diameter   Int?
+//   total      BigInt
+//   works      Json      @db.Json
+//   tenant_id  String    @db.Uuid
+//   created_at DateTime? @default(now()) @db.Timestamptz(0)
+//   created_by String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
+// }
+
+// model calendar_entry {
+//   id                        String                      @id @default(uuid()) @db.Uuid
+//   tenant_id                 String                      @db.Uuid
+//   created_at                DateTime?                   @default(now()) @db.Timestamptz(0)
+//   created_by                String?                     @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
+//   calendar_entry_deletion   calendar_entry_deletion?
+//   calendar_entry_order_info calendar_entry_order_info[]
+//   calendar_entry_schedule   calendar_entry_schedule[]
+// }
+
+// /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+// model calendar_entry_deletion {
+//   id             String         @id @default(uuid()) @db.Uuid
+//   entry_id       String         @unique(map: "uniq_f118663dba364942") @db.Uuid
+//   reason         Int            @db.SmallInt
+//   description    String?
+//   tenant_id      String         @db.Uuid
+//   created_at     DateTime?      @default(now()) @db.Timestamptz(0)
+//   created_by     String?        @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
+//   calendar_entry calendar_entry @relation(fields: [entry_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_f118663dba364942")
+// }
+
+// model calendar_entry_order {
+//   id         String    @id @default(uuid()) @db.Uuid
+//   entry_id   String    @db.Uuid
+//   order_id   String    @db.Uuid
+//   tenant_id  String    @db.Uuid
+//   created_at DateTime? @default(now()) @db.Timestamptz(0)
+//   created_by String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
+// }
+
+// model calendar_entry_order_info {
+//   id             String          @id @default(uuid()) @db.Uuid
+//   entry_id       String?         @db.Uuid
+//   tenant_id      String          @db.Uuid
+//   customer_id    String?         @db.Uuid
+//   car_id         String?         @db.Uuid
+//   description    String?
+//   worker_id      String?         @db.Uuid
+//   created_at     DateTime?       @default(now()) @db.Timestamptz(0)
+//   created_by     String?         @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
+//   calendar_entry calendar_entry? @relation(fields: [entry_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_5fbde1c1ba364942")
+
+//   @@index([entry_id], map: "idx_5fbde1c1ba364942")
+// }
+
+// /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+// model calendar_entry_schedule {
+//   id             String          @id @default(uuid()) @db.Uuid
+//   entry_id       String?         @db.Uuid
+//   tenant_id      String          @db.Uuid
+//   date           DateTime        @db.Timestamp(0)
+//   duration       String          @db.VarChar(255)
+//   created_at     DateTime?       @default(now()) @db.Timestamptz(0)
+//   created_by     String?         @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
+//   calendar_entry calendar_entry? @relation(fields: [entry_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_86fdaee3ba364942")
+
+//   @@index([entry_id], map: "idx_86fdaee3ba364942")
+// }
+
+// /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+// model car {
+//   id                          String               @id @default(uuid()) @db.Uuid
+//   vehicle_id                  String?              @db.Uuid
+//   identifier                  String?              @db.VarChar(17)
+//   year                        Int?
+//   case_type                   Int                  @db.SmallInt
+//   description                 String?
+//   mileage                     Int
+//   gosnomer                    String?              @db.VarChar(255)
+//   tenant_group_id             String               @db.Uuid
+//   equipment_transmission      Int                  @db.SmallInt
+//   equipment_wheel_drive       Int                  @db.SmallInt
+//   equipment_engine_name       String?              @db.VarChar(255)
+//   equipment_engine_type       Int                  @db.SmallInt
+//   equipment_engine_air_intake Int                  @db.SmallInt
+//   equipment_engine_injection  Int                  @db.SmallInt
+//   equipment_engine_capacity   String               @db.VarChar(255)
+//   created_at                  DateTime?            @default(now()) @db.Timestamptz(0)
+//   created_by                  String?              @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
+//   car_recommendation          car_recommendation[]
+
+//   @@unique([identifier, tenant_group_id], map: "uniq_773de69d772e836adff2bbb0")
+// }
+
+// model car_recommendation {
+//   id                      String                    @id @default(uuid()) @db.Uuid
+//   car_id                  String?                   @db.Uuid
+//   service                 String                    @db.VarChar(255)
+//   worker_id               String                    @db.Uuid
+//   expired_at              DateTime?                 @db.Timestamp(0)
+//   realization             String?                   @db.Uuid
+//   tenant_group_id         String                    @db.Uuid
+//   price_amount            BigInt?
+//   price_currency_code     String?                   @db.VarChar(3)
+//   created_at              DateTime?                 @default(now()) @db.Timestamptz(0)
+//   created_by              String?                   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
+//   car                     car?                      @relation(fields: [car_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_8e4baaf2c3c6f69f")
+//   car_recommendation_part car_recommendation_part[]
+
+//   @@index([car_id], map: "idx_8e4baaf2c3c6f69f")
+// }
+
+// model car_recommendation_part {
+//   id                  String             @id @default(uuid()) @db.Uuid
+//   recommendation_id   String             @db.Uuid
+//   part_id             String             @db.Uuid
+//   quantity            Int
+//   tenant_group_id     String             @db.Uuid
+//   price_amount        BigInt?
+//   price_currency_code String?            @db.VarChar(3)
+//   created_at          DateTime?          @default(now()) @db.Timestamptz(0)
+//   created_by          String?            @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
+//   car_recommendation  car_recommendation @relation(fields: [recommendation_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_ddc72d65d173940b")
+
+//   @@index([recommendation_id], map: "idx_ddc72d65d173940b")
+// }
+
+// /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+
+// model cron_job {
+//   id          Int           @id
+//   name        String        @unique(map: "un_name") @db.VarChar(191)
+//   command     String        @db.VarChar(1024)
+//   schedule    String        @db.VarChar(191)
+//   description String        @db.VarChar(191)
+//   enabled     Boolean
+//   cron_report cron_report[]
+// }
+
+// model cron_report {
+//   id        Int       @id
+//   job_id    Int?
+//   run_at    DateTime  @db.Timestamp(0)
+//   run_time  Float
+//   exit_code Int
+//   output    String
+//   error     String
+//   cron_job  cron_job? @relation(fields: [job_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_b6c6a7f5be04ea9")
+
+//   @@index([job_id], map: "idx_b6c6a7f5be04ea9")
+// }
+
+// /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+// model customer_transaction {
+//   id                   String    @id @default(uuid()) @db.Uuid
+//   operand_id           String    @db.Uuid
+//   source               Int       @db.SmallInt
+//   source_id            String    @db.Uuid
+//   description          String?
+//   tenant_id            String    @db.Uuid
+//   amount_amount        BigInt?
+//   amount_currency_code String?   @db.VarChar(3)
+//   created_at           DateTime? @default(now()) @db.Timestamptz(0)
+//   created_by           String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
+
+//   @@index([operand_id, tenant_id])
+// }
+
+// model employee {
+//   id         String    @id @default(uuid()) @db.Uuid
+//   person_id  String    @db.Uuid
+//   ratio      Int
+//   hired_at   DateTime  @db.Timestamp(0)
+//   fired_at   DateTime? @db.Timestamp(0)
+//   tenant_id  String    @db.Uuid
+//   created_at DateTime? @default(now()) @db.Timestamptz(0)
+//   created_by String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
+//   orders     orders[]
+// }
+
+// /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+// model employee_salary {
+//   id                  String               @id @default(uuid()) @db.Uuid
+//   employee_id         String               @db.Uuid
+//   payday              Int
+//   amount              BigInt
+//   tenant_id           String               @db.Uuid
+//   created_at          DateTime?            @default(now()) @db.Timestamptz(0)
+//   created_by          String?              @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
+//   employee_salary_end employee_salary_end?
+// }
+
+// model employee_salary_end {
+//   id              String           @id @default(uuid()) @db.Uuid
+//   salary_id       String?          @unique(map: "uniq_59455a58b0fdf16e") @db.Uuid
+//   tenant_id       String           @db.Uuid
+//   created_at      DateTime?        @default(now()) @db.Timestamptz(0)
+//   created_by      String?          @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
+//   employee_salary employee_salary? @relation(fields: [salary_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_59455a58b0fdf16e")
+// }
+
+// model expense {
+//   id         String    @id @default(uuid()) @db.Uuid
+//   name       String    @db.VarChar(255)
+//   wallet_id  String?   @db.Uuid
+//   tenant_id  String    @db.Uuid
+//   created_at DateTime? @default(now()) @db.Timestamptz(0)
+//   created_by String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
+// }
+
+// model google_review_token {
+//   id         String    @id @default(uuid()) @db.Uuid
+//   payload    Json      @db.Json
+//   tenant_id  String    @db.Uuid
+//   created_at DateTime? @default(now()) @db.Timestamptz(0)
+//   created_by String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
+// }
+
+// model income {
+//   id            String         @id @default(uuid()) @db.Uuid
+//   supplier_id   String         @db.Uuid
+//   document      String?        @db.VarChar(255)
+//   old_id        Int?
+//   tenant_id     String         @db.Uuid
+//   created_at    DateTime?      @default(now()) @db.Timestamptz(0)
+//   created_by    String?        @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
+//   income_accrue income_accrue?
+//   income_part   income_part[]
+// }
+
+// model income_accrue {
+//   id                   String    @id @default(uuid()) @db.Uuid
+//   income_id            String?   @unique(map: "uniq_425dfa41640ed2c0") @db.Uuid
+//   tenant_id            String    @db.Uuid
+//   amount_amount        BigInt?
+//   amount_currency_code String?   @db.VarChar(3)
+//   created_at           DateTime? @default(now()) @db.Timestamptz(0)
+//   created_by           String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
+//   income               income?   @relation(fields: [income_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_425dfa41640ed2c0")
+// }
+
+// model income_part {
+//   id                  String    @id @default(uuid()) @db.Uuid
+//   income_id           String?   @db.Uuid
+//   part_id             String    @db.Uuid
+//   quantity            Int
+//   tenant_id           String    @db.Uuid
+//   price_amount        BigInt?
+//   price_currency_code String?   @db.VarChar(3)
+//   created_at          DateTime? @default(now()) @db.Timestamptz(0)
+//   created_by          String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
+//   income              income?   @relation(fields: [income_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_834566e8640ed2c0")
+
+//   @@index([income_id], map: "idx_834566e8640ed2c0")
+// }
+
+// model inventorization {
+//   id                    String                 @id @default(uuid()) @db.Uuid
+//   tenant_id             String                 @db.Uuid
+//   created_at            DateTime?              @default(now()) @db.Timestamptz(0)
+//   created_by            String?                @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
+//   inventorization_close inventorization_close?
+// }
+
+// model inventorization_close {
+//   id                 String           @id @default(uuid()) @db.Uuid
+//   inventorization_id String?          @unique(map: "uniq_4f6195a04ca655fd") @db.Uuid
+//   tenant_id          String           @db.Uuid
+//   created_at         DateTime?        @default(now()) @db.Timestamptz(0)
+//   created_by         String?          @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
+//   inventorization    inventorization? @relation(fields: [inventorization_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_4f6195a04ca655fd")
+// }
+
+// model inventorization_part {
+//   inventorization_id String @db.Uuid
+//   part_id            String @db.Uuid
+//   quantity           Int
+//   tenant_id          String @db.Uuid
+
+//   @@id([inventorization_id, part_id])
+// }
+
+// /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+// model mc_equipment {
+//   id                          String    @id @default(uuid()) @db.Uuid
+//   vehicle_id                  String    @db.Uuid
+//   period                      Int
+//   tenant_id                   String    @db.Uuid
+//   equipment_transmission      Int       @db.SmallInt
+//   equipment_wheel_drive       Int       @db.SmallInt
+//   equipment_engine_name       String?   @db.VarChar(255)
+//   equipment_engine_type       Int       @db.SmallInt
+//   equipment_engine_air_intake Int       @db.SmallInt
+//   equipment_engine_injection  Int       @db.SmallInt
+//   equipment_engine_capacity   String    @db.VarChar(255)
+//   created_at                  DateTime? @default(now()) @db.Timestamptz(0)
+//   created_by                  String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
+//   mc_line                     mc_line[]
+// }
+
+// model mc_line {
+//   id           String        @id @default(uuid()) @db.Uuid
+//   equipment_id String?       @db.Uuid
+//   work_id      String?       @db.Uuid
+//   period       Int
+//   recommended  Boolean
+//   position     Int
+//   tenant_id    String        @db.Uuid
+//   created_at   DateTime?     @default(now()) @db.Timestamptz(0)
+//   created_by   String?       @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
+//   mc_equipment mc_equipment? @relation(fields: [equipment_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_b37ebc5f517fe9fe")
+//   mc_work      mc_work?      @relation(fields: [work_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_b37ebc5fbb3453db")
+//   mc_part      mc_part[]
+
+//   @@index([equipment_id], map: "idx_b37ebc5f517fe9fe")
+//   @@index([work_id], map: "idx_b37ebc5fbb3453db")
+// }
+
+// model mc_part {
+//   id          String    @id @default(uuid()) @db.Uuid
+//   line_id     String?   @db.Uuid
+//   part_id     String    @db.Uuid
+//   quantity    Int
+//   recommended Boolean
+//   tenant_id   String    @db.Uuid
+//   created_at  DateTime? @default(now()) @db.Timestamptz(0)
+//   created_by  String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
+//   mc_line     mc_line?  @relation(fields: [line_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_2b65786f4d7b7542")
+
+//   @@index([line_id], map: "idx_2b65786f4d7b7542")
+// }
+
+// model mc_work {
+//   id                  String    @id @default(uuid()) @db.Uuid
+//   name                String    @db.VarChar(255)
+//   description         String?   @db.VarChar(255)
+//   comment             String?   @db.VarChar(255)
+//   tenant_id           String    @db.Uuid
+//   price_amount        BigInt?
+//   price_currency_code String?   @db.VarChar(3)
+//   created_at          DateTime? @default(now()) @db.Timestamptz(0)
+//   created_by          String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
+//   mc_line             mc_line[]
+// }
+
+// model migration_versions {
+//   version        String    @id @db.VarChar(1024)
+//   executed_at    DateTime? @db.Timestamp(0)
+//   execution_time Int?
+// }
+
+// /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+// model motion {
+//   id          String    @id @default(uuid()) @db.Uuid
+//   part_id     String?   @db.Uuid
+//   quantity    Int
+//   description String?
+//   tenant_id   String    @db.Uuid
+//   source_type Int       @db.SmallInt
+//   source_id   String    @db.Uuid
+//   created_at  DateTime? @default(now()) @db.Timestamptz(0)
+//   created_by  String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
+
+//   @@index([part_id], map: "idx_f5fea1e84ce34bec")
+// }
+
+// /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+// model note {
+//   id          String       @id @default(uuid()) @db.Uuid
+//   subject     String       @db.Uuid
+//   type        Int          @db.SmallInt
+//   text        String
+//   tenant_id   String       @db.Uuid
+//   created_at  DateTime?    @default(now()) @db.Timestamptz(0)
+//   created_by  String?      @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
+//   is_public   Boolean?     @default(false)
+//   note_delete note_delete?
+// }
+
+// model note_delete {
+//   id          String    @id @default(uuid()) @db.Uuid
+//   note_id     String?   @unique(map: "uniq_22c02b5326ed0855") @db.Uuid
+//   description String    @db.VarChar(255)
+//   tenant_id   String    @db.Uuid
+//   created_at  DateTime? @default(now()) @db.Timestamptz(0)
+//   created_by  String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
+//   note        note?     @relation(fields: [note_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_22c02b5326ed0855")
+// }
+
+// model order_cancel {
+//   id          String      @id @default(uuid()) @db.Uuid
+//   created_at  DateTime?   @default(now()) @db.Timestamptz(0)
+//   created_by  String?     @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
+//   order_close order_close @relation(fields: [id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_9599d5a7bf396750")
+// }
+
+// model order_close {
+//   id           String        @id @default(uuid()) @db.Uuid
+//   order_id     String?       @unique(map: "uniq_909ff5398d9f6d38") @db.Uuid
+//   tenant_id    String        @db.Uuid
+//   type         String        @db.VarChar(255)
+//   order_cancel order_cancel?
+//   orders       orders?       @relation(fields: [order_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_909ff5398d9f6d38")
+//   order_deal   order_deal?
+// }
+
+// /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+// model order_deal {
+//   id           String      @id @default(uuid()) @db.Uuid
+//   balance      BigInt
+//   satisfaction Int         @db.SmallInt
+//   created_at   DateTime?   @default(now()) @db.Timestamptz(0)
+//   created_by   String?     @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
+//   order_close  order_close @relation(fields: [id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_ae0ffb01bf396750")
+// }
+
+// model order_item {
+//   id                 String              @id @default(uuid()) @db.Uuid
+//   order_id           String?             @db.Uuid
+//   parent_id          String?             @db.Uuid
+//   tenant_id          String              @db.Uuid
+//   type               String              @db.VarChar(255)
+//   order_item         order_item?         @relation("order_itemToorder_item", fields: [parent_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_52ea1f09727aca70")
+//   other_order_item   order_item[]        @relation("order_itemToorder_item")
+//   orders             orders?             @relation(fields: [order_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_52ea1f098d9f6d38")
+//   order_item_group   order_item_group?
+//   order_item_part    order_item_part?
+//   order_item_service order_item_service?
+
+//   @@index([parent_id], map: "idx_52ea1f09727aca70")
+//   @@index([order_id], map: "idx_52ea1f098d9f6d38")
+// }
+
+// model order_item_group {
+//   id         String     @id @default(uuid()) @db.Uuid
+//   name       String     @db.VarChar(255)
+//   hide_parts Boolean
+//   created_at DateTime?  @default(now()) @db.Timestamptz(0)
+//   created_by String?    @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
+//   order_item order_item @relation(fields: [id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_f4bda240bf396750")
+// }
+
+// model order_item_part {
+//   id                     String        @id @default(uuid()) @db.Uuid
+//   supplier_id            String?       @db.Uuid
+//   part_id                String        @db.Uuid
+//   quantity               Int
+//   warranty               Boolean
+//   price_amount           BigInt?
+//   price_currency_code    String?       @db.VarChar(3)
+//   discount_amount        BigInt?
+//   discount_currency_code String?       @db.VarChar(3)
+//   created_at             DateTime?     @default(now()) @db.Timestamptz(0)
+//   created_by             String?       @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
+//   order_id               String?       @db.Uuid
+//   order_item             order_item    @relation(fields: [id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_3db84fc5bf396750")
+//   orders                 orders?       @relation(fields: [order_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+//   reservation            reservation[]
+
+//   @@index([part_id])
+// }
+
+// model order_item_service {
+//   id                     String     @id @default(uuid()) @db.Uuid
+//   service                String     @db.VarChar(255)
+//   worker_id              String?    @db.Uuid
+//   warranty               Boolean
+//   price_amount           BigInt?
+//   price_currency_code    String?    @db.VarChar(3)
+//   discount_amount        BigInt?
+//   discount_currency_code String?    @db.VarChar(3)
+//   created_at             DateTime?  @default(now()) @db.Timestamptz(0)
+//   created_by             String?    @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
+//   order_item             order_item @relation(fields: [id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_ee0028ecbf396750")
+// }
+
+// model order_payment {
+//   id                  String    @id @default(uuid()) @db.Uuid
+//   order_id            String?   @db.Uuid
+//   description         String?   @db.VarChar(255)
+//   tenant_id           String    @db.Uuid
+//   money_amount        BigInt?
+//   money_currency_code String?   @db.VarChar(3)
+//   created_at          DateTime? @default(now()) @db.Timestamptz(0)
+//   created_by          String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
+//   orders              orders?   @relation(fields: [order_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_9b522d468d9f6d38")
+
+//   @@index([order_id], map: "idx_9b522d468d9f6d38")
+// }
+
+// /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+// model order_suspend {
+//   id         String    @id @default(uuid()) @db.Uuid
+//   order_id   String?   @db.Uuid
+//   till       DateTime  @db.Timestamp(0)
+//   reason     String    @db.VarChar(255)
+//   tenant_id  String    @db.Uuid
+//   created_at DateTime? @default(now()) @db.Timestamptz(0)
+//   created_by String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
+//   orders     orders?   @relation(fields: [order_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_c789f0d18d9f6d38")
+
+//   @@index([order_id], map: "idx_c789f0d18d9f6d38")
+// }
+
+// /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+// model orders {
+//   id              String            @id @default(uuid()) @db.Uuid
+//   worker_id       String?           @db.Uuid
+//   number          Int
+//   status          Int               @db.SmallInt
+//   car_id          String?           @db.Uuid
+//   customer_id     String?           @db.Uuid
+//   mileage         Int?
+//   description     String?
+//   tenant_id       String            @db.Uuid
+//   created_at      DateTime?         @default(now()) @db.Timestamptz(0)
+//   created_by      String?           @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
+//   order_close     order_close?
+//   order_item      order_item[]
+//   order_item_part order_item_part[]
+//   order_payment   order_payment[]
+//   order_suspend   order_suspend[]
+//   employee        employee?         @relation(fields: [worker_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_e52ffdee6b20ba36")
+
+//   @@unique([number, tenant_id], map: "uniq_e52ffdee96901f549033212a")
+//   @@index([worker_id], map: "idx_e52ffdee6b20ba36")
+// }
+
+// /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+// model organization {
+//   id                      String    @id @default(uuid()) @db.Uuid
+//   name                    String    @db.VarChar(255)
+//   address                 String?   @db.VarChar(255)
+//   telephone               String?   @db.VarChar(35)
+//   office_phone            String?   @db.VarChar(35)
+//   email                   String?   @db.VarChar(255)
+//   contractor              Boolean
+//   seller                  Boolean
+//   tenant_group_id         String    @db.Uuid
+//   requisite_bank          String?   @db.VarChar(255)
+//   requisite_legal_address String?   @db.VarChar(255)
+//   requisite_ogrn          String?   @db.VarChar(255)
+//   requisite_inn           String?   @db.VarChar(255)
+//   requisite_kpp           String?   @db.VarChar(255)
+//   requisite_rs            String?   @db.VarChar(255)
+//   requisite_ks            String?   @db.VarChar(255)
+//   requisite_bik           String?   @db.VarChar(255)
+//   created_at              DateTime? @default(now()) @db.Timestamptz(0)
+//   created_by              String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
+//   balance                 Decimal   @default(0) @db.Decimal
+// }
+
+// /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+
+// model part_case {
+//   id         String    @id @default(uuid()) @db.Uuid
+//   part_id    String    @db.Uuid
+//   vehicle_id String    @db.Uuid
+//   created_at DateTime? @default(now()) @db.Timestamptz(0)
+//   created_by String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
+
+//   @@unique([part_id, vehicle_id], map: "uniq_2a0e7894ce34bec545317d1")
+// }
+
+// model part_cross_part {
+//   part_cross_id String @db.Uuid
+//   part_id       String @db.Uuid
+
+//   @@id([part_cross_id, part_id])
+// }
+
+// /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+// model part_discount {
+//   id                     String    @id @default(uuid()) @db.Uuid
+//   part_id                String    @db.Uuid
+//   since                  DateTime  @db.Timestamp(0)
+//   tenant_id              String    @db.Uuid
+//   discount_amount        BigInt?
+//   discount_currency_code String?   @db.VarChar(3)
+//   created_at             DateTime? @default(now()) @db.Timestamptz(0)
+//   created_by             String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
+
+//   @@index([part_id], map: "idx_76b231714ce34bec")
+// }
+
+// /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+
+// model part_required_availability {
+//   id                   String    @id @default(uuid()) @db.Uuid
+//   part_id              String    @db.Uuid
+//   order_from_quantity  Int
+//   order_up_to_quantity Int
+//   tenant_id            String    @db.Uuid
+//   created_at           DateTime? @default(now()) @db.Timestamptz(0)
+//   created_by           String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
+// }
+
+// /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+// model part_supply {
+//   id          String    @id @default(uuid()) @db.Uuid
+//   part_id     String    @db.Uuid
+//   supplier_id String    @db.Uuid
+//   quantity    Int
+//   source      Int       @db.SmallInt
+//   source_id   String    @db.Uuid
+//   tenant_id   String    @db.Uuid
+//   created_at  DateTime? @default(now()) @db.Timestamptz(0)
+//   created_by  String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
+// }
+
+// /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+// model person {
+//   id              String    @id @default(uuid()) @db.Uuid
+//   firstname       String?   @db.VarChar(32)
+//   lastname        String?   @db.VarChar(255)
+//   telephone       String?   @db.VarChar(35)
+//   office_phone    String?   @db.VarChar(35)
+//   email           String?   @db.VarChar(255)
+//   contractor      Boolean
+//   seller          Boolean
+//   tenant_group_id String    @db.Uuid
+//   created_at      DateTime? @default(now()) @db.Timestamptz(0)
+//   created_by      String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
+//   balance         Decimal   @default(0) @db.Decimal
+
+//   @@unique([telephone, tenant_group_id], map: "uniq_34dcd176450ff010dff2bbb0")
+// }
+
+// model publish {
+//   id         String    @id @default(uuid()) @db.Uuid
+//   entity_id  String    @db.Uuid
+//   published  Boolean
+//   tenant_id  String    @db.Uuid
+//   created_at DateTime? @default(now()) @db.Timestamptz(0)
+//   created_by String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
+// }
+
+// model reservation {
+//   id                 String          @id @default(uuid()) @db.Uuid
+//   order_item_part_id String          @db.Uuid
+//   quantity           Int
+//   tenant_id          String          @db.Uuid
+//   created_at         DateTime?       @default(now()) @db.Timestamptz(0)
+//   created_by         String?         @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
+//   order_item_part    order_item_part @relation(fields: [order_item_part_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_42c84955437ef9d2")
+
+//   @@index([order_item_part_id], map: "idx_42c84955437ef9d2")
+// }
+
+// /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+// model review {
+//   id         String    @id @default(uuid()) @db.Uuid
+//   source_id  String    @db.VarChar(255)
+//   source     Int       @db.SmallInt
+//   author     String    @db.VarChar(255)
+//   text       String
+//   rating     Int       @db.SmallInt
+//   publish_at DateTime  @db.Timestamp(0)
+//   raw        Json      @db.Json
+//   tenant_id  String    @db.Uuid
+//   created_at DateTime? @default(now()) @db.Timestamptz(0)
+//   created_by String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
+
+//   @@unique([source, source_id, tenant_id], map: "uniq_794381c65f8a7f73953c1c619033212a")
+// }
+
+// /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+// model sms {
+//   id           String    @id @default(uuid()) @db.Uuid
+//   phone_number String    @db.VarChar(35)
+//   message      String    @db.VarChar(255)
+//   date_send    DateTime? @db.Timestamp(0)
+//   tenant_id    String    @db.Uuid
+//   created_at   DateTime? @default(now()) @db.Timestamptz(0)
+//   created_by   String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
+// }
+
+// model sms_send {
+//   id         String    @id @default(uuid()) @db.Uuid
+//   sms_id     String    @db.Uuid
+//   success    Boolean
+//   payload    Json      @db.Json
+//   tenant_id  String    @db.Uuid
+//   created_at DateTime? @default(now()) @db.Timestamptz(0)
+//   created_by String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
+// }
+
+// model sms_status {
+//   id         String    @id @default(uuid()) @db.Uuid
+//   sms_id     String    @db.Uuid
+//   payload    Json      @db.Json
+//   created_at DateTime? @default(now()) @db.Timestamptz(0)
+//   created_by String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
+// }
+
+// model tenant {
+//   id                String              @unique(map: "temporal_unique_idx") @db.Uuid
+//   group_id          String              @db.Uuid
+//   identifier        String              @unique(map: "uniq_4e59c462772e836a") @db.VarChar(255)
+//   name              String              @db.VarChar(255)
+//   created_at        DateTime            @default(now()) @db.Timestamptz(6)
+//   updated_at        DateTime            @default(now()) @db.Timestamptz(6)
+//   tenant_group      tenant_group        @relation(fields: [group_id], references: [id], onUpdate: Restrict)
+//   tenant_permission tenant_permission[]
+
+//   @@id([id, group_id])
+// }
+
+// model tenant_group {
+//   id                      String                    @id @default(uuid()) @db.Uuid
+//   identifier              String                    @db.VarChar(255)
+//   name                    String
+//   created_at              DateTime                  @default(now()) @db.Timestamptz(6)
+//   updated_at              DateTime                  @default(now()) @db.Timestamptz(6)
+//   tenant                  tenant[]
+//   tenant_group_permission tenant_group_permission[]
+// }
+
+// model tenant_group_permission {
+//   user_id         String       @db.Uuid
+//   tenant_group_id String       @db.Uuid
+//   created_at      DateTime     @default(now()) @db.Timestamptz(6)
+//   updated_at      DateTime     @default(now()) @db.Timestamptz(6)
+//   tenant_group    tenant_group @relation(fields: [tenant_group_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+//   @@id([user_id, tenant_group_id])
+// }
+
+// model tenant_permission {
+//   id         String   @id(map: "user_permission_pkey") @db.Uuid
+//   user_id    String   @db.Uuid
+//   tenant_id  String   @db.Uuid
+//   created_at DateTime @default(now()) @db.Timestamptz(6)
+//   updated_at DateTime @default(now()) @db.Timestamptz(6)
+//   tenant     tenant   @relation(fields: [tenant_id], references: [id], onUpdate: Restrict)
+// }
+
+// model vehicle_model {
+//   id              String    @id @default(uuid()) @db.Uuid
+//   manufacturer_id String    @db.Uuid
+//   name            String    @db.VarChar(255)
+//   localized_name  String?   @db.VarChar(255)
+//   case_name       String?   @db.VarChar(255)
+//   year_from       Int?      @db.SmallInt
+//   year_till       Int?      @db.SmallInt
+//   created_at      DateTime? @default(now()) @db.Timestamptz(0)
+//   created_by      String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
+
+//   @@unique([manufacturer_id, name, case_name], map: "uniq_b53af235a23b42d5e237e06df3ba4b5")
+// }
+
+// model wallet {
+//   id                            String    @id @default(uuid()) @db.Uuid
+//   name                          String    @db.VarChar(255)
+//   use_in_income                 Boolean
+//   use_in_order                  Boolean
+//   show_in_layout                Boolean
+//   default_in_manual_transaction Boolean
+//   tenant_id                     String    @db.Uuid
+//   currency_code                 String?   @db.VarChar(3)
+//   created_at                    DateTime? @default(now()) @db.Timestamptz(0)
+//   created_by                    String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
+//   balance                       Decimal   @default(0) @db.Decimal
+// }
+
+// /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+// model wallet_transaction {
+//   id                   String    @id @default(uuid()) @db.Uuid
+//   wallet_id            String    @db.Uuid
+//   source               Int       @db.SmallInt
+//   source_id            String    @db.Uuid
+//   description          String?
+//   tenant_id            String    @db.Uuid
+//   amount_amount        BigInt?
+//   amount_currency_code String?   @db.VarChar(3)
+//   created_at           DateTime? @default(now()) @db.Timestamptz(0)
+//   created_by           String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
+// }
+
+// model warehouse {
+//   id         String    @id @default(uuid()) @db.Uuid
+//   tenant_id  String    @db.Uuid
+//   created_at DateTime? @default(now()) @db.Timestamptz(0)
+//   created_by String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
+// }
+
+// model warehouse_code {
+//   id           String    @id @default(uuid()) @db.Uuid
+//   warehouse_id String    @db.Uuid
+//   code         String    @db.VarChar(255)
+//   tenant_id    String    @db.Uuid
+//   created_at   DateTime? @default(now()) @db.Timestamptz(0)
+//   created_by   String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
+// }
+
+// model warehouse_name {
+//   id           String    @id @default(uuid()) @db.Uuid
+//   warehouse_id String    @db.Uuid
+//   name         String    @db.VarChar(255)
+//   tenant_id    String    @db.Uuid
+//   created_at   DateTime? @default(now()) @db.Timestamptz(0)
+//   created_by   String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
+// }
+
+// model warehouse_parent {
+//   id                  String    @id @default(uuid()) @db.Uuid
+//   warehouse_id        String    @db.Uuid
+//   warehouse_parent_id String?   @db.Uuid
+//   tenant_id           String    @db.Uuid
+//   created_at          DateTime? @default(now()) @db.Timestamptz(0)
+//   created_by          String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
+// }

@@ -1,0 +1,197 @@
+# ------------------------------------------------------
+# THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
+# ------------------------------------------------------
+
+"""BigInt custom scalar type"""
+scalar BigInt
+
+input CreateManufacturerInput {
+  """Название производителя на русском"""
+  localized_name: String
+
+  """Логотип производителя"""
+  logo: String
+
+  """Название производителя"""
+  name: String!
+}
+
+input CreatePartInput {
+  """ID производителя"""
+  manufacturerId: ID!
+
+  """Название запчасти"""
+  name: String!
+
+  """Номер запчасти"""
+  number: String!
+
+  """Цена запчасти"""
+  price: BigInt
+
+  """Единица измерения"""
+  unit: Unit!
+
+  """Универсальная запчасть"""
+  universal: Boolean!
+
+  """ID склада"""
+  warehouseId: ID
+}
+
+"""
+A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
+"""
+scalar DateTime
+
+"""Модель производителя"""
+type ManufacturerModel {
+  """Дата создания"""
+  createdAt: DateTime!
+
+  """Кем создан"""
+  createdBy: ID
+  id: ID!
+
+  """Название производителя на русском"""
+  localizedName: String
+
+  """Логотип производителя"""
+  logo: String
+
+  """Название производителя"""
+  name: String!
+
+  """Дата обновления"""
+  updatedAt: DateTime!
+}
+
+type Mutation {
+  createOneManufacturer(input: CreateManufacturerInput!): ManufacturerModel!
+  createOnePart(input: CreatePartInput!): PartModel!
+  deleteOneManufacturer(id: String!): ManufacturerModel!
+  deleteOnePart(id: ID!): PartModel!
+  updateOneManufacturer(input: UpdateManufacturerInput!): ManufacturerModel!
+  updateOnePart(input: UpdatePartInput!): PartModel!
+}
+
+type PaginatedManufacturers {
+  hasMore: Boolean!
+  items: [ManufacturerModel!]!
+  nextCursor: String
+}
+
+"""Запчасть"""
+type PartModel {
+  createdAt: DateTime
+  createdBy: ID
+  id: ID!
+  manufacturer: ManufacturerModel!
+  name: String!
+  number: String!
+  price: PartPriceModel
+  priceHistory: [PartPriceModel!]!
+  unit: Unit!
+  universal: Boolean!
+  warehouseId: ID
+}
+
+"""Цена запчасти"""
+type PartPriceModel {
+  """Дата создания"""
+  createdAt: DateTime
+
+  """Кем создано"""
+  createdBy: ID
+
+  """Уникальный идентификатор"""
+  id: ID!
+
+  """ID запчасти"""
+  partId: ID!
+
+  """Сумма цены"""
+  priceAmount: BigInt
+
+  """Валюта цены"""
+  priceCurrencyCode: String
+
+  """Дата начала действия цены"""
+  since: DateTime!
+
+  """ID тенанта"""
+  tenantId: ID!
+}
+
+type Query {
+  manufacturer(id: String!): ManufacturerModel
+  manufacturers(cursor: ID, take: Int = 10): PaginatedManufacturers!
+  part(id: ID!): PartModel!
+}
+
+"""Единицы измерения"""
+enum Unit {
+  """Грамм (гр)"""
+  GRAM
+
+  """Килограмм (кг)"""
+  KILOGRAM
+
+  """Литр (л)"""
+  LITER
+
+  """Метр (м)"""
+  METER
+
+  """Миллилитр (мл)"""
+  MILLILITER
+
+  """Миллиметр (мм)"""
+  MILLIMETER
+
+  """Упаковка (упак)"""
+  PACKAGE
+
+  """Штука (шт)"""
+  THING
+}
+
+input UpdateManufacturerInput {
+  """ID производителя"""
+  id: ID!
+
+  """Название производителя на русском"""
+  localized_name: String
+
+  """Логотип производителя"""
+  logo: String
+
+  """Название производителя"""
+  name: String
+}
+
+input UpdatePartInput {
+  """ID запчасти"""
+  id: ID!
+
+  """ID производителя"""
+  manufacturerId: ID
+
+  """Название запчасти"""
+  name: String
+
+  """Номер запчасти"""
+  number: String
+
+  """Цена запчасти"""
+  price: BigInt
+
+  """Единица измерения"""
+  unit: Unit
+
+  """Универсальная запчасть"""
+  universal: Boolean
+
+  """ID склада"""
+  warehouseId: ID
+}
