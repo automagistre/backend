@@ -1,9 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreatePersonInput } from './inputs/create.input';
-import { PersonModel } from './models/person.model';
 import { UpdatePersonInput } from './inputs/update.input';
 import { Person } from '@prisma/client';
+
 @Injectable()
 export class PersonService {
   constructor(private readonly prisma: PrismaService) {}

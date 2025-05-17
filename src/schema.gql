@@ -41,7 +41,7 @@ input CreatePartInput {
 
 input CreatePersonInput {
   """Поставщик"""
-  contractor: Boolean!
+  contractor: Boolean! = false
 
   """Email"""
   email: String
@@ -53,16 +53,14 @@ input CreatePersonInput {
   lastname: String
 
   """Телефон офиса"""
-  officePhone: String
+  officePhone: PhoneNumber
 
   """Продавец"""
-  seller: Boolean!
+  seller: Boolean! = false
 
   """Телефон"""
-  telephone: String
-
-  """1ec13d33-3f41-6cf0-b012-02420a000f18"""
-  tenantGroupId: ID!
+  telephone: PhoneNumber
+  tenantGroupId: ID! = "1ec13d33-3f41-6cf0-b012-02420a000f18"
 }
 
 """
@@ -167,11 +165,14 @@ type PersonModel {
   firstname: String
   id: ID!
   lastname: String
-  officePhone: String
+  officePhone: PhoneNumber
   seller: Boolean!
-  telephone: String
+  telephone: PhoneNumber
   tenantGroupId: ID!
 }
+
+"""Телефонный номер в формате +7XXX..."""
+scalar PhoneNumber
 
 type Query {
   manufacturer(id: String!): ManufacturerModel
@@ -254,7 +255,7 @@ input UpdatePartInput {
 
 input UpdatePersonInput {
   """Поставщик"""
-  contractor: Boolean
+  contractor: Boolean = false
 
   """Email"""
   email: String
@@ -267,12 +268,12 @@ input UpdatePersonInput {
   lastname: String
 
   """Телефон офиса"""
-  officePhone: String
+  officePhone: PhoneNumber
 
   """Продавец"""
-  seller: Boolean
-  telephone: String
+  seller: Boolean = false
 
-  """1ec13d33-3f41-6cf0-b012-02420a000f18"""
-  tenantGroupId: ID
+  """Телефон"""
+  telephone: PhoneNumber
+  tenantGroupId: ID = "1ec13d33-3f41-6cf0-b012-02420a000f18"
 }

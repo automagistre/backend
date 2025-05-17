@@ -1,7 +1,8 @@
 import { Field, ID, Int, ObjectType } from '@nestjs/graphql';
 import { Person } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
-import { IsEmail, IsUUID } from 'class-validator';
+import { PhoneNumberScalar } from 'src/common/scalars/phone.scaral';
+
 
 @ObjectType()
 export class PersonModel implements Person {
@@ -14,10 +15,10 @@ export class PersonModel implements Person {
   @Field(() => String, { nullable: true })
   lastname: string | null;
 
-  @Field(() => String, { nullable: true })
+  @Field(() => PhoneNumberScalar, { nullable: true })
   telephone: string | null;
 
-  @Field(() => String, { nullable: true })
+  @Field(() => PhoneNumberScalar, { nullable: true })
   officePhone: string | null;
 
   @Field(() => String, { nullable: true })
