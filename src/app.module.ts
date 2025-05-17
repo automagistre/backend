@@ -8,6 +8,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { getGraphQLConfig } from './config/graphql.config';
 import { UserIdMiddleware } from './middlewares/user-id.middleware';
 import { BigIntScalar } from './common/scalars/bigint.scalar';
+import { PersonModule } from './entities/person/person.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { BigIntScalar } from './common/scalars/bigint.scalar';
     PrismaModule,
     ManufacturerModule,
     PartModule,
+    PersonModule,
   ],
   providers: [UserIdMiddleware, BigIntScalar],
 })

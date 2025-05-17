@@ -39,6 +39,32 @@ input CreatePartInput {
   warehouseId: ID
 }
 
+input CreatePersonInput {
+  """Поставщик"""
+  contractor: Boolean!
+
+  """Email"""
+  email: String
+
+  """Имя"""
+  firstname: String
+
+  """Фамилия"""
+  lastname: String
+
+  """Телефон офиса"""
+  officePhone: String
+
+  """Продавец"""
+  seller: Boolean!
+
+  """Телефон"""
+  telephone: String
+
+  """1ec13d33-3f41-6cf0-b012-02420a000f18"""
+  tenantGroupId: ID!
+}
+
 """
 A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
 """
@@ -69,10 +95,19 @@ type ManufacturerModel {
 type Mutation {
   createOneManufacturer(input: CreateManufacturerInput!): ManufacturerModel!
   createOnePart(input: CreatePartInput!): PartModel!
+
+  """Создать клиента"""
+  createOnePerson(input: CreatePersonInput!): PersonModel!
   deleteOneManufacturer(id: String!): ManufacturerModel!
   deleteOnePart(id: ID!): PartModel!
+
+  """Удалить клиента"""
+  deleteOnePerson(id: String!): PersonModel!
   updateOneManufacturer(input: UpdateManufacturerInput!): ManufacturerModel!
   updateOnePart(input: UpdatePartInput!): PartModel!
+
+  """Обновить клиента"""
+  updateOnePerson(input: UpdatePersonInput!): PersonModel!
 }
 
 type PaginatedManufacturers {
@@ -123,10 +158,31 @@ type PartPriceModel {
   tenantId: ID!
 }
 
+type PersonModel {
+  balance: Int!
+  contractor: Boolean!
+  createdAt: DateTime
+  createdBy: ID
+  email: String
+  firstname: String
+  id: ID!
+  lastname: String
+  officePhone: String
+  seller: Boolean!
+  telephone: String
+  tenantGroupId: ID!
+}
+
 type Query {
   manufacturer(id: String!): ManufacturerModel
   manufacturers(cursor: ID, take: Int = 10): PaginatedManufacturers!
   part(id: ID!): PartModel!
+
+  """Клиент по id"""
+  person(id: String!): PersonModel!
+
+  """Все клиенты"""
+  persons: [PersonModel!]!
 }
 
 """Единицы измерения"""
@@ -194,4 +250,29 @@ input UpdatePartInput {
 
   """ID склада"""
   warehouseId: ID
+}
+
+input UpdatePersonInput {
+  """Поставщик"""
+  contractor: Boolean
+
+  """Email"""
+  email: String
+
+  """Имя"""
+  firstname: String
+  id: String!
+
+  """Фамилия"""
+  lastname: String
+
+  """Телефон офиса"""
+  officePhone: String
+
+  """Продавец"""
+  seller: Boolean
+  telephone: String
+
+  """1ec13d33-3f41-6cf0-b012-02420a000f18"""
+  tenantGroupId: ID
 }

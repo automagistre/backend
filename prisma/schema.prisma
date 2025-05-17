@@ -63,6 +63,24 @@ model PartPrice {
   @@map("part_price")
 }
 
+model Person {
+  id            String    @id @default(uuid()) @db.Uuid
+  firstname     String?   @db.VarChar(32)
+  lastname      String?   @db.VarChar(255)
+  telephone     String?   @db.VarChar(35)
+  officePhone   String?   @map("office_phone") @db.VarChar(35)
+  email         String?   @db.VarChar(255)
+  contractor    Boolean
+  seller        Boolean
+  tenantGroupId String    @map("tenant_group_id") @db.Uuid
+  createdAt     DateTime? @default(now()) @map("created_at") @db.Timestamptz(0)
+  createdBy     String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
+  balance       Decimal   @default(0) @db.Decimal
+
+  @@unique([telephone, tenantGroupId], map: "uniq_34dcd176450ff010dff2bbb0")
+  @@map("person")
+}
+
 model CreatedBy {
   id        String   @id @default(uuid()) @db.Uuid
   userId    String   @map("user_id") @db.Uuid
