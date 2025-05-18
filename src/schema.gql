@@ -63,6 +63,27 @@ input CreatePersonInput {
   tenantGroupId: ID! = "1ec13d33-3f41-6cf0-b012-02420a000f18"
 }
 
+"""Создать модель автомобиля"""
+input CreateVehicleInput {
+  """Код кузова"""
+  caseName: String
+
+  """Локализованное название модели"""
+  localizedName: String
+
+  """ID производителя"""
+  manufacturerId: String!
+
+  """Название модели"""
+  name: String!
+
+  """Год начала производства"""
+  yearFrom: Int
+
+  """Год окончания производства"""
+  yearTill: Int
+}
+
 """
 A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
 """
@@ -96,16 +117,25 @@ type Mutation {
 
   """Создать клиента"""
   createOnePerson(input: CreatePersonInput!): PersonModel!
+
+  """Создать модель автомобиля"""
+  createOneVehicle(data: CreateVehicleInput!): VehicleModel!
   deleteOneManufacturer(id: String!): ManufacturerModel!
   deleteOnePart(id: ID!): PartModel!
 
   """Удалить клиента"""
   deleteOnePerson(id: String!): PersonModel!
+
+  """Удалить модель автомобиля"""
+  deleteOneVehicle(id: String!): VehicleModel!
   updateOneManufacturer(input: UpdateManufacturerInput!): ManufacturerModel!
   updateOnePart(input: UpdatePartInput!): PartModel!
 
   """Обновить клиента"""
   updateOnePerson(input: UpdatePersonInput!): PersonModel!
+
+  """Обновить модель автомобиля"""
+  updateOneVehicle(data: UpdateVehicleInput!): VehicleModel!
 }
 
 type PaginatedManufacturers {
@@ -184,6 +214,12 @@ type Query {
 
   """Все клиенты"""
   persons: [PersonModel!]!
+
+  """Получить модель автомобиля по id"""
+  vehicle(id: String!): VehicleModel!
+
+  """Получить все модели автомобилей"""
+  vehicles: [VehicleModel!]!
 }
 
 """Единицы измерения"""
@@ -276,4 +312,58 @@ input UpdatePersonInput {
   """Телефон"""
   telephone: PhoneNumber
   tenantGroupId: ID = "1ec13d33-3f41-6cf0-b012-02420a000f18"
+}
+
+"""Обновить модель автомобиля"""
+input UpdateVehicleInput {
+  """Код кузова"""
+  caseName: String
+
+  """ID модели"""
+  id: ID!
+
+  """Локализованное название модели"""
+  localizedName: String
+
+  """ID производителя"""
+  manufacturerId: String
+
+  """Название модели"""
+  name: String
+
+  """Год начала производства"""
+  yearFrom: Int
+
+  """Год окончания производства"""
+  yearTill: Int
+}
+
+"""Модель автомобиля"""
+type VehicleModel {
+  """Код кузова"""
+  caseName: String
+
+  """Дата создания"""
+  createdAt: DateTime
+
+  """ID создателя"""
+  createdBy: ID
+
+  """ID модели"""
+  id: ID!
+
+  """Локализованное название модели"""
+  localizedName: String
+
+  """Производитель"""
+  manufacturer: ManufacturerModel!
+
+  """Название модели"""
+  name: String!
+
+  """Год начала производства"""
+  yearFrom: Int
+
+  """Год окончания производства"""
+  yearTill: Int
 }

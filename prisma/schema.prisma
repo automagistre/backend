@@ -19,14 +19,15 @@ enum Unit {
 }
 
 model Manufacturer {
-  id            String   @id @default(uuid()) @db.Uuid
-  name          String   @unique(map: "uniq_3d0ae6dc5e237e06") @db.VarChar(64)
-  localizedName String?  @map("localized_name") @db.VarChar(255)
-  logo          String?  @db.VarChar(25)
-  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
-  createdBy     String?  @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
+  id            String         @id @default(uuid()) @db.Uuid
+  name          String         @unique(map: "uniq_3d0ae6dc5e237e06") @db.VarChar(64)
+  localizedName String?        @map("localized_name") @db.VarChar(255)
+  logo          String?        @db.VarChar(25)
+  createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdBy     String?        @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
   parts         Part[]
+  VehicleModel  Vehicle[]
 
   @@map("manufacturer")
 }
@@ -80,6 +81,46 @@ model Person {
   @@unique([telephone, tenantGroupId], map: "uniq_34dcd176450ff010dff2bbb0")
   @@map("person")
 }
+
+model Vehicle {
+  id             String       @id @default(uuid()) @db.Uuid
+  manufacturerId String       @map("manufacturer_id") @db.Uuid
+  manufacturer   Manufacturer @relation(fields: [manufacturerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  name           String       @db.VarChar(255)
+  localizedName  String?      @map("localized_name") @db.VarChar(255)
+  caseName       String?      @map("case_name") @db.VarChar(255)
+  yearFrom       Int?         @map("year_from") @db.SmallInt
+  yearTill       Int?         @map("year_till") @db.SmallInt
+  createdAt      DateTime?    @default(now()) @map("created_at") @db.Timestamptz(0)
+  createdBy      String?      @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
+
+  @@unique([manufacturerId, name, caseName], map: "uniq_b53af235a23b42d5e237e06df3ba4b5")
+  @@map("vehicle_model")
+}
+
+// model car {
+//   id                          String               @id @default(uuid()) @db.Uuid
+//   vehicle_id                  String?              @db.Uuid
+//   identifier                  String?              @db.VarChar(17)
+//   year                        Int?
+//   case_type                   Int                  @db.SmallInt
+//   description                 String?
+//   mileage                     Int
+//   gosnomer                    String?              @db.VarChar(255)
+//   tenant_group_id             String               @db.Uuid
+//   equipment_transmission      Int                  @db.SmallInt
+//   equipment_wheel_drive       Int                  @db.SmallInt
+//   equipment_engine_name       String?              @db.VarChar(255)
+//   equipment_engine_type       Int                  @db.SmallInt
+//   equipment_engine_air_intake Int                  @db.SmallInt
+//   equipment_engine_injection  Int                  @db.SmallInt
+//   equipment_engine_capacity   String               @db.VarChar(255)
+//   created_at                  DateTime?            @default(now()) @db.Timestamptz(0)
+//   created_by                  String?              @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
+//   car_recommendation          car_recommendation[]
+
+//   @@unique([identifier, tenant_group_id], map: "uniq_773de69d772e836adff2bbb0")
+// }
 
 model CreatedBy {
   id        String   @id @default(uuid()) @db.Uuid
@@ -239,29 +280,6 @@ model CreatedBy {
 // }
 
 // /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
-// model car {
-//   id                          String               @id @default(uuid()) @db.Uuid
-//   vehicle_id                  String?              @db.Uuid
-//   identifier                  String?              @db.VarChar(17)
-//   year                        Int?
-//   case_type                   Int                  @db.SmallInt
-//   description                 String?
-//   mileage                     Int
-//   gosnomer                    String?              @db.VarChar(255)
-//   tenant_group_id             String               @db.Uuid
-//   equipment_transmission      Int                  @db.SmallInt
-//   equipment_wheel_drive       Int                  @db.SmallInt
-//   equipment_engine_name       String?              @db.VarChar(255)
-//   equipment_engine_type       Int                  @db.SmallInt
-//   equipment_engine_air_intake Int                  @db.SmallInt
-//   equipment_engine_injection  Int                  @db.SmallInt
-//   equipment_engine_capacity   String               @db.VarChar(255)
-//   created_at                  DateTime?            @default(now()) @db.Timestamptz(0)
-//   created_by                  String?              @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
-//   car_recommendation          car_recommendation[]
-
-//   @@unique([identifier, tenant_group_id], map: "uniq_773de69d772e836adff2bbb0")
-// }
 
 // model car_recommendation {
 //   id                      String                    @id @default(uuid()) @db.Uuid
@@ -904,20 +922,6 @@ model CreatedBy {
 //   created_at DateTime @default(now()) @db.Timestamptz(6)
 //   updated_at DateTime @default(now()) @db.Timestamptz(6)
 //   tenant     tenant   @relation(fields: [tenant_id], references: [id], onUpdate: Restrict)
-// }
-
-// model vehicle_model {
-//   id              String    @id @default(uuid()) @db.Uuid
-//   manufacturer_id String    @db.Uuid
-//   name            String    @db.VarChar(255)
-//   localized_name  String?   @db.VarChar(255)
-//   case_name       String?   @db.VarChar(255)
-//   year_from       Int?      @db.SmallInt
-//   year_till       Int?      @db.SmallInt
-//   created_at      DateTime? @default(now()) @db.Timestamptz(0)
-//   created_by      String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
-
-//   @@unique([manufacturer_id, name, case_name], map: "uniq_b53af235a23b42d5e237e06df3ba4b5")
 // }
 
 // model wallet {

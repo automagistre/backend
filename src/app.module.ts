@@ -9,6 +9,7 @@ import { getGraphQLConfig } from './config/graphql.config';
 import { UserIdMiddleware } from './middlewares/user-id.middleware';
 import { BigIntScalar } from './common/scalars/bigint.scalar';
 import { PersonModule } from './entities/person/person.module';
+import { VehicleModelModule } from './entities/vehicle/vehicle-model.module';
 
 
 @Module({
@@ -26,6 +27,7 @@ import { PersonModule } from './entities/person/person.module';
     ManufacturerModule,
     PartModule,
     PersonModule,
+    VehicleModelModule,
   ],
   providers: [UserIdMiddleware, BigIntScalar],
 })
