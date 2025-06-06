@@ -18,14 +18,52 @@ enum Unit {
   METER
 }
 
+enum CarEngineType {
+  UNKNOWN
+  PETROL
+  DIESEL
+  ETHANOL
+  ELECTRIC
+  HYBRID
+}
+
+enum CarEngineAirIntake {
+  UNKNOWN
+  ATMOSPHERIC
+  TURBO
+}
+
+enum CarEngineInjection {
+  UNKNOWN
+  CLASSIC
+  DIRECT
+}
+
+enum CarTransmission {
+  UNKNOWN
+  AUTOMATIC
+  ROBOT
+  VARIATOR
+  MECHANICAL
+  AUTOMATIC_5
+  AUTOMATIC_7
+}
+
+enum CarWheelDrive {
+  UNKNOWN
+  FRONT_WHEEL_DRIVE
+  REAR_WHEEL_DRIVE
+  ALL_WHEEL_DRIVE
+}
+
 model Manufacturer {
-  id            String         @id @default(uuid()) @db.Uuid
-  name          String         @unique(map: "uniq_3d0ae6dc5e237e06") @db.VarChar(64)
-  localizedName String?        @map("localized_name") @db.VarChar(255)
-  logo          String?        @db.VarChar(25)
-  createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt     DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
-  createdBy     String?        @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
+  id            String    @id @default(uuid()) @db.Uuid
+  name          String    @unique(map: "uniq_3d0ae6dc5e237e06") @db.VarChar(64)
+  localizedName String?   @map("localized_name") @db.VarChar(255)
+  logo          String?   @db.VarChar(25)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdBy     String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
   parts         Part[]
   VehicleModel  Vehicle[]
 
@@ -39,7 +77,7 @@ model Part {
   name           String       @db.VarChar(255)
   number         String       @db.VarChar(30)
   universal      Boolean
-  unit           Int          @db.SmallInt
+  unit           Int          @default(1) @db.SmallInt
   warehouseId    String?      @map("warehouse_id") @db.Uuid
   createdAt      DateTime?    @default(now()) @map("created_at") @db.Timestamptz(0)
   createdBy      String?      @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
@@ -73,7 +111,7 @@ model Person {
   email         String?   @db.VarChar(255)
   contractor    Boolean
   seller        Boolean
-  tenantGroupId String    @map("tenant_group_id") @db.Uuid
+  tenantGroupId String    @default("1ec13d33-3f41-6cf0-b012-02420a000f18") @map("tenant_group_id") @db.Uuid
   createdAt     DateTime? @default(now()) @map("created_at") @db.Timestamptz(0)
   createdBy     String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
   balance       Decimal   @default(0) @db.Decimal
@@ -93,41 +131,35 @@ model Vehicle {
   yearTill       Int?         @map("year_till") @db.SmallInt
   createdAt      DateTime?    @default(now()) @map("created_at") @db.Timestamptz(0)
   createdBy      String?      @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
+  Car            Car[]
 
   @@unique([manufacturerId, name, caseName], map: "uniq_b53af235a23b42d5e237e06df3ba4b5")
   @@map("vehicle_model")
 }
 
-// model car {
-//   id                          String               @id @default(uuid()) @db.Uuid
-//   vehicle_id                  String?              @db.Uuid
-//   identifier                  String?              @db.VarChar(17)
-//   year                        Int?
-//   case_type                   Int                  @db.SmallInt
-//   description                 String?
-//   mileage                     Int
-//   gosnomer                    String?              @db.VarChar(255)
-//   tenant_group_id             String               @db.Uuid
-//   equipment_transmission      Int                  @db.SmallInt
-//   equipment_wheel_drive       Int                  @db.SmallInt
-//   equipment_engine_name       String?              @db.VarChar(255)
-//   equipment_engine_type       Int                  @db.SmallInt
-//   equipment_engine_air_intake Int                  @db.SmallInt
-//   equipment_engine_injection  Int                  @db.SmallInt
-//   equipment_engine_capacity   String               @db.VarChar(255)
-//   created_at                  DateTime?            @default(now()) @db.Timestamptz(0)
-//   created_by                  String?              @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
-//   car_recommendation          car_recommendation[]
+model Car {
+  id                       String    @id @default(uuid()) @db.Uuid
+  vehicleId                String?   @map("vehicle_id") @db.Uuid
+  vehicle                  Vehicle?  @relation(fields: [vehicleId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  identifier               String?   @db.VarChar(17)
+  year                     Int?
+  caseType                 Int       @default(1) @map("case_type") @db.SmallInt
+  description              String?
+  mileage                  Int
+  gosnomer                 String?   @db.VarChar(255)
+  tenantGroupId            String    @default("1ec13d33-3f41-6cf0-b012-02420a000f18") @map("tenant_group_id") @db.Uuid
+  equipmentTransmission    Int       @default(0) @map("equipment_transmission") @db.SmallInt
+  equipmentWheelDrive      Int       @default(0) @map("equipment_wheel_drive") @db.SmallInt
+  equipmentEngineName      String?   @map("equipment_engine_name") @db.VarChar(255)
+  equipmentEngineType      Int       @default(0) @map("equipment_engine_type") @db.SmallInt
+  equipmentEngineAirIntake Int       @default(0) @map("equipment_engine_air_intake") @db.SmallInt
+  equipmentEngineInjection Int       @default(0) @map("equipment_engine_injection") @db.SmallInt
+  equipmentEngineCapacity  String    @default("0.6") @map("equipment_engine_capacity") @db.VarChar(255)
+  createdAt                DateTime? @default(now()) @map("created_at") @db.Timestamptz(0)
+  createdBy                String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
 
-//   @@unique([identifier, tenant_group_id], map: "uniq_773de69d772e836adff2bbb0")
-// }
-
-model CreatedBy {
-  id        String   @id @default(uuid()) @db.Uuid
-  userId    String   @map("user_id") @db.Uuid
-  createdAt DateTime @map("created_at") @db.Timestamptz(0)
-
-  @@map("created_by")
+  @@unique([identifier, tenantGroupId], map: "uniq_773de69d772e836adff2bbb0")
+  @@map("car")
 }
 
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments

@@ -37,15 +37,15 @@ export class VehicleModelService {
   }
 
   async update({ id, ...data }: UpdateVehicleInput) {
+    if (data?.caseName) {
+      data.caseName = cleanUpcaseString(data.caseName);
+    }
     return this.prisma.vehicle.update({
       include: {
         manufacturer: true,
       },
       where: { id },
-      data: {
-        ...data,
-        caseName: data.caseName ? cleanUpcaseString(data.caseName) : null,
-      },
+      data
     });
   }
 

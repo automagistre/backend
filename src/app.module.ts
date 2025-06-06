@@ -9,8 +9,7 @@ import { getGraphQLConfig } from './config/graphql.config';
 import { UserIdMiddleware } from './middlewares/user-id.middleware';
 import { BigIntScalar } from './common/scalars/bigint.scalar';
 import { PersonModule } from './entities/person/person.module';
-import { VehicleModelModule } from './entities/vehicle/vehicle-model.module';
-
+import { CarModule } from './entities/vehicle/car.module';
 
 @Module({
   imports: [
@@ -27,14 +26,12 @@ import { VehicleModelModule } from './entities/vehicle/vehicle-model.module';
     ManufacturerModule,
     PartModule,
     PersonModule,
-    VehicleModelModule,
+    CarModule,
   ],
   providers: [UserIdMiddleware, BigIntScalar],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer
-      .apply(UserIdMiddleware)
-      .forRoutes('*');
+    consumer.apply(UserIdMiddleware).forRoutes('*');
   }
 }

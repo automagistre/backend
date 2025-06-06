@@ -5,6 +5,239 @@
 """BigInt custom scalar type"""
 scalar BigInt
 
+"""Тип кузова автомобиля"""
+enum BodyType {
+  """Внедорожник (allroad)"""
+  ALLROAD
+
+  """Кабриолет (cabrio)"""
+  CABRIO
+
+  """Купе (coupe)"""
+  COUPE
+
+  """Хэтчбек (hatchback)"""
+  HATCHBACK
+
+  """Лифтбек (liftback)"""
+  LIFTBACK
+
+  """Лимузин (limousine)"""
+  LIMOUSINE
+
+  """Минивэн (minivan)"""
+  MINIVAN
+
+  """Пикап (pickup)"""
+  PICKUP
+
+  """Седан (sedan)"""
+  SEDAN
+
+  """Неизвестно (?)"""
+  UNKNOWN
+
+  """Фургон (van)"""
+  VAN
+
+  """Универсал (wagon)"""
+  WAGON
+}
+
+"""Тип воздухозабора двигателя автомобиля"""
+enum CarEngineAirIntake {
+  """Атмосферный (A)"""
+  ATMOSPHERIC
+
+  """Турбо (T)"""
+  TURBO
+
+  """Неизвестно (?)"""
+  UNKNOWN
+}
+
+"""Тип впрыска двигателя автомобиля"""
+enum CarEngineInjection {
+  """Классический (I)"""
+  CLASSIC
+
+  """Прямой (D)"""
+  DIRECT
+
+  """Неизвестно (?)"""
+  UNKNOWN
+}
+
+"""Тип двигателя автомобиля"""
+enum CarEngineType {
+  """Дизель (D)"""
+  DIESEL
+
+  """Электрический (E)"""
+  ELECTRIC
+
+  """Этанол (ET)"""
+  ETHANOL
+
+  """Гибридный (H)"""
+  HYBRID
+
+  """Бензин (P)"""
+  PETROL
+
+  """Неизвестно (?)"""
+  UNKNOWN
+}
+
+"""Автомобиль"""
+type CarModel {
+  """Тип кузова автомобиля"""
+  caseType: BodyType
+
+  """Дата создания записи"""
+  createdAt: DateTime
+
+  """Информация о автомобиле"""
+  description: String
+
+  """Тип воздухозабора двигателя автомобиля"""
+  equipmentEngineAirIntake: CarEngineAirIntake
+
+  """Объем двигателя автомобиля"""
+  equipmentEngineCapacity: String
+
+  """Тип впрыска двигателя автомобиля"""
+  equipmentEngineInjection: CarEngineInjection
+
+  """Название двигателя автомобиля"""
+  equipmentEngineName: String
+
+  """Тип двигателя автомобиля"""
+  equipmentEngineType: CarEngineType
+
+  """Тип трансмиссии автомобиля"""
+  equipmentTransmission: CarTransmission
+
+  """Тип привода автомобиля"""
+  equipmentWheelDrive: CarWheelDrive
+
+  """Гос. номер автомобиля"""
+  gosnomer: CarNumber
+
+  """ID автомобиля"""
+  id: ID!
+
+  """VIN автомобиля или номер кузова"""
+  identifier: VehicleIdentifier
+
+  """Пробег автомобиля"""
+  mileage: Int
+
+  """ID группы клиента"""
+  tenantGroupId: String
+
+  """Модель автомобиля"""
+  vehicle: VehicleModel!
+
+  """Год выпуска автомобиля"""
+  year: Int
+}
+
+"""Номер автомобиля"""
+type CarNumber {
+  """Гос. номер автомобиля (другой страны)"""
+  gosnomerOther: String
+
+  """Гос. номер автомобиля (RU)"""
+  gosnomerRu: GosNomerRU
+}
+
+"""Тип трансмиссии автомобиля"""
+enum CarTransmission {
+  """Автоматическая (AT)"""
+  AUTOMATIC
+
+  """Автоматическая 5 (AT5)"""
+  AUTOMATIC_5
+
+  """Автоматическая 7 (AT7)"""
+  AUTOMATIC_7
+
+  """Механическая (MT)"""
+  MECHANICAL
+
+  """Робот (AMT)"""
+  ROBOT
+
+  """Неизвестно (?)"""
+  UNKNOWN
+
+  """Вариатор (CVT)"""
+  VARIATOR
+}
+
+"""Тип привода автомобиля"""
+enum CarWheelDrive {
+  """Полный (4WD)"""
+  ALL_WHEEL_DRIVE
+
+  """Передний (FWD)"""
+  FRONT_WHEEL_DRIVE
+
+  """Задний (RWD)"""
+  REAR_WHEEL_DRIVE
+
+  """Неизвестно (?)"""
+  UNKNOWN
+}
+
+input CreateCarInput {
+  """Тип кузова автомобиля"""
+  caseType: BodyType
+
+  """Информация о автомобиле"""
+  description: String
+
+  """Тип воздухозабора двигателя автомобиля"""
+  equipmentEngineAirIntake: CarEngineAirIntake
+
+  """Объем двигателя автомобиля"""
+  equipmentEngineCapacity: String
+
+  """Тип впрыска двигателя автомобиля"""
+  equipmentEngineInjection: CarEngineInjection
+
+  """Название двигателя автомобиля"""
+  equipmentEngineName: String
+
+  """Тип двигателя автомобиля"""
+  equipmentEngineType: CarEngineType
+
+  """Тип трансмиссии автомобиля"""
+  equipmentTransmission: CarTransmission
+
+  """Тип привода автомобиля"""
+  equipmentWheelDrive: CarWheelDrive
+
+  """Номер кузова автомобиля"""
+  frame: String
+
+  """Гос. номер автомобиля (другой страны)"""
+  gosnomerOther: String
+
+  """Гос. номер автомобиля (RU)"""
+  gosnomerRu: GosNomerRU
+
+  """Пробег автомобиля"""
+  mileage: Int
+
+  """VIN автомобиля"""
+  vin: VIN
+
+  """Год выпуска автомобиля"""
+  year: Int
+}
+
 input CreateManufacturerInput {
   """Название производителя на русском"""
   localized_name: String
@@ -60,7 +293,7 @@ input CreatePersonInput {
 
   """Телефон"""
   telephone: PhoneNumber
-  tenantGroupId: ID! = "1ec13d33-3f41-6cf0-b012-02420a000f18"
+  tenantGroupId: ID!
 }
 
 """Создать модель автомобиля"""
@@ -89,6 +322,9 @@ A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date
 """
 scalar DateTime
 
+"""Российский государственный номер автомобиля"""
+scalar GosNomerRU
+
 """Модель производителя"""
 type ManufacturerModel {
   """Дата создания"""
@@ -112,6 +348,7 @@ type ManufacturerModel {
 }
 
 type Mutation {
+  createOneCar(input: CreateCarInput!): CarModel!
   createOneManufacturer(input: CreateManufacturerInput!): ManufacturerModel!
   createOnePart(input: CreatePartInput!): PartModel!
 
@@ -120,6 +357,7 @@ type Mutation {
 
   """Создать модель автомобиля"""
   createOneVehicle(data: CreateVehicleInput!): VehicleModel!
+  deleteOneCar(id: String!): CarModel!
   deleteOneManufacturer(id: String!): ManufacturerModel!
   deleteOnePart(id: ID!): PartModel!
 
@@ -128,6 +366,7 @@ type Mutation {
 
   """Удалить модель автомобиля"""
   deleteOneVehicle(id: String!): VehicleModel!
+  updateOneCar(input: UpdateCarInput!): CarModel!
   updateOneManufacturer(input: UpdateManufacturerInput!): ManufacturerModel!
   updateOnePart(input: UpdatePartInput!): PartModel!
 
@@ -205,6 +444,7 @@ type PersonModel {
 scalar PhoneNumber
 
 type Query {
+  car(id: String!): CarModel!
   manufacturer(id: String!): ManufacturerModel
   manufacturers(cursor: ID, take: Int = 10): PaginatedManufacturers!
   part(id: ID!): PartModel!
@@ -247,6 +487,56 @@ enum Unit {
 
   """Штука (шт)"""
   THING
+}
+
+input UpdateCarInput {
+  """Тип кузова автомобиля"""
+  caseType: BodyType
+
+  """Информация о автомобиле"""
+  description: String
+
+  """Тип воздухозабора двигателя автомобиля"""
+  equipmentEngineAirIntake: CarEngineAirIntake
+
+  """Объем двигателя автомобиля"""
+  equipmentEngineCapacity: String
+
+  """Тип впрыска двигателя автомобиля"""
+  equipmentEngineInjection: CarEngineInjection
+
+  """Название двигателя автомобиля"""
+  equipmentEngineName: String
+
+  """Тип двигателя автомобиля"""
+  equipmentEngineType: CarEngineType
+
+  """Тип трансмиссии автомобиля"""
+  equipmentTransmission: CarTransmission
+
+  """Тип привода автомобиля"""
+  equipmentWheelDrive: CarWheelDrive
+
+  """Номер кузова автомобиля"""
+  frame: String
+
+  """Гос. номер автомобиля (другой страны)"""
+  gosnomerOther: String
+
+  """Гос. номер автомобиля (RU)"""
+  gosnomerRu: GosNomerRU
+
+  """ID автомобиля"""
+  id: ID!
+
+  """Пробег автомобиля"""
+  mileage: Int
+
+  """VIN автомобиля"""
+  vin: VIN
+
+  """Год выпуска автомобиля"""
+  year: Int
 }
 
 input UpdateManufacturerInput {
@@ -311,7 +601,7 @@ input UpdatePersonInput {
 
   """Телефон"""
   telephone: PhoneNumber
-  tenantGroupId: ID = "1ec13d33-3f41-6cf0-b012-02420a000f18"
+  tenantGroupId: ID
 }
 
 """Обновить модель автомобиля"""
@@ -336,6 +626,20 @@ input UpdateVehicleInput {
 
   """Год окончания производства"""
   yearTill: Int
+}
+
+"""
+Идентификационный номер транспортного средства (17 буквенно-цифровых символов, исключая I, O, Q)
+"""
+scalar VIN
+
+"""Идентификатор автомобиля"""
+type VehicleIdentifier {
+  """Номер кузова автомобиля"""
+  frame: String
+
+  """VIN автомобиля"""
+  vin: VIN
 }
 
 """Модель автомобиля"""

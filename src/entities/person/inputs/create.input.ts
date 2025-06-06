@@ -32,6 +32,6 @@ export class CreatePersonInput {
   seller: boolean;
 
   @IsUUID()
-  @Field(() => ID, { defaultValue: '1ec13d33-3f41-6cf0-b012-02420a000f18' })
+  @Field(() => ID)
   tenantGroupId: string;
 }
