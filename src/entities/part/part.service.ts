@@ -3,14 +3,12 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { CreatePartInput } from './inputs/create.input';
 import { PartModel } from './models/part.model';
 import { UpdatePartInput } from './inputs/update.input';
+import { cleanUpcaseString } from 'src/common/utils/clean-upcase.util';
 
 @Injectable()
 export class PartService {
   constructor(private readonly prisma: PrismaService) {}
 
-  formatPartNumber(partNumber: string): string {
-    return partNumber.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
-  }
 
   async findAll(): Promise<PartModel[]> {
     const parts = await this.prisma.part.findMany({
@@ -36,7 +34,7 @@ export class PartService {
     const part = await this.prisma.part.create({
       data: {
         ...input,
-        number: this.formatPartNumber(input.number),
+        number: cleanUpcaseString(input.number),
       },
       include: {
         manufacturer: true,
@@ -49,13 +47,11 @@ export class PartService {
   async update(input: UpdatePartInput): Promise<PartModel> {
     const { id, ...data } = input;
     if (data?.number) {
-      data.number = this.formatPartNumber(data.number);
+      data.number = cleanUpcaseString(data.number);
     }
     const part = await this.prisma.part.update({
       where: { id },
-      data: {
-        ...data,
-      },
+      data,
       include: {
         manufacturer: true,
       },
