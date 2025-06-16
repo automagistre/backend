@@ -1,15 +1,16 @@
 import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { GraphQLModule } from '@nestjs/graphql';
-import { ManufacturerModule } from './entities/manufacturer/manufacturer.module';
-import { PartModule } from './entities/part/part.module';
+import { ManufacturerModule } from './modules/manufacturer/manufacturer.module';
+import { PartModule } from './modules/part/part.module';
 import { ApolloDriver } from '@nestjs/apollo';
 import { PrismaModule } from './prisma/prisma.module';
 import { getGraphQLConfig } from './config/graphql.config';
 import { UserIdMiddleware } from './middlewares/user-id.middleware';
 import { BigIntScalar } from './common/scalars/bigint.scalar';
-import { PersonModule } from './entities/person/person.module';
-import { CarModule } from './entities/vehicle/car.module';
+import { PersonModule } from './modules/person/person.module';
+import { CarModule } from './modules/vehicle/car.module';
+import { CalendarModule } from './modules/calendar/calendar.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { CarModule } from './entities/vehicle/car.module';
     PartModule,
     PersonModule,
     CarModule,
+    CalendarModule,
   ],
   providers: [UserIdMiddleware, BigIntScalar],
 })

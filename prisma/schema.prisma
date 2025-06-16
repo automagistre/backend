@@ -103,18 +103,20 @@ model PartPrice {
 }
 
 model Person {
-  id            String    @id @default(uuid()) @db.Uuid
-  firstname     String?   @db.VarChar(32)
-  lastname      String?   @db.VarChar(255)
-  telephone     String?   @db.VarChar(35)
-  officePhone   String?   @map("office_phone") @db.VarChar(35)
-  email         String?   @db.VarChar(255)
-  contractor    Boolean
-  seller        Boolean
-  tenantGroupId String    @default("1ec13d33-3f41-6cf0-b012-02420a000f18") @map("tenant_group_id") @db.Uuid
-  createdAt     DateTime? @default(now()) @map("created_at") @db.Timestamptz(0)
-  createdBy     String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
-  balance       Decimal   @default(0) @db.Decimal
+  id             String                   @id @default(uuid()) @db.Uuid
+  firstname      String?                  @db.VarChar(32)
+  lastname       String?                  @db.VarChar(255)
+  telephone      String?                  @db.VarChar(35)
+  officePhone    String?                  @map("office_phone") @db.VarChar(35)
+  email          String?                  @db.VarChar(255)
+  contractor     Boolean
+  seller         Boolean
+  tenantGroupId  String                   @default("1ec13d33-3f41-6cf0-b012-02420a000f18") @map("tenant_group_id") @db.Uuid
+  createdAt      DateTime?                @default(now()) @map("created_at") @db.Timestamptz(0)
+  createdBy      String?                  @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
+  balance        Decimal                  @default(0) @db.Decimal
+  customerCalendarEntryOrderInfo CalendarEntryOrderInfo[] @relation("Customer")
+  workerCalendarEntryOrderInfo   CalendarEntryOrderInfo[] @relation("Worker")
 
   @@unique([telephone, tenantGroupId], map: "uniq_34dcd176450ff010dff2bbb0")
   @@map("person")
@@ -138,31 +140,104 @@ model Vehicle {
 }
 
 model Car {
-  id                       String    @id @default(uuid()) @db.Uuid
-  vehicleId                String?   @map("vehicle_id") @db.Uuid
-  vehicle                  Vehicle?  @relation(fields: [vehicleId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  identifier               String?   @db.VarChar(17)
+  id                       String                   @id @default(uuid()) @db.Uuid
+  vehicleId                String?                  @map("vehicle_id") @db.Uuid
+  vehicle                  Vehicle?                 @relation(fields: [vehicleId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  identifier               String?                  @db.VarChar(17)
   year                     Int?
-  caseType                 Int       @default(1) @map("case_type") @db.SmallInt
+  caseType                 Int                      @default(1) @map("case_type") @db.SmallInt
   description              String?
   mileage                  Int
-  gosnomer                 String?   @db.VarChar(255)
-  tenantGroupId            String    @default("1ec13d33-3f41-6cf0-b012-02420a000f18") @map("tenant_group_id") @db.Uuid
-  equipmentTransmission    Int       @default(0) @map("equipment_transmission") @db.SmallInt
-  equipmentWheelDrive      Int       @default(0) @map("equipment_wheel_drive") @db.SmallInt
-  equipmentEngineName      String?   @map("equipment_engine_name") @db.VarChar(255)
-  equipmentEngineType      Int       @default(0) @map("equipment_engine_type") @db.SmallInt
-  equipmentEngineAirIntake Int       @default(0) @map("equipment_engine_air_intake") @db.SmallInt
-  equipmentEngineInjection Int       @default(0) @map("equipment_engine_injection") @db.SmallInt
-  equipmentEngineCapacity  String    @default("0.6") @map("equipment_engine_capacity") @db.VarChar(255)
-  createdAt                DateTime? @default(now()) @map("created_at") @db.Timestamptz(0)
-  createdBy                String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
+  gosnomer                 String?                  @db.VarChar(255)
+  tenantGroupId            String                   @default("1ec13d33-3f41-6cf0-b012-02420a000f18") @map("tenant_group_id") @db.Uuid
+  equipmentTransmission    Int                      @default(0) @map("equipment_transmission") @db.SmallInt
+  equipmentWheelDrive      Int                      @default(0) @map("equipment_wheel_drive") @db.SmallInt
+  equipmentEngineName      String?                  @map("equipment_engine_name") @db.VarChar(255)
+  equipmentEngineType      Int                      @default(0) @map("equipment_engine_type") @db.SmallInt
+  equipmentEngineAirIntake Int                      @default(0) @map("equipment_engine_air_intake") @db.SmallInt
+  equipmentEngineInjection Int                      @default(0) @map("equipment_engine_injection") @db.SmallInt
+  equipmentEngineCapacity  String                   @default("0.6") @map("equipment_engine_capacity") @db.VarChar(255)
+  createdAt                DateTime?                @default(now()) @map("created_at") @db.Timestamptz(0)
+  createdBy                String?                  @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
+  CalendarEntryOrderInfo   CalendarEntryOrderInfo[]
 
   @@unique([identifier, tenantGroupId], map: "uniq_773de69d772e836adff2bbb0")
   @@map("car")
 }
 
-/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+// Calendar models for the calendar module
+
+model CalendarEntry {
+  id                     String                   @id @default(uuid()) @db.Uuid
+  tenantId               String                   @default("1ec13d33-3f41-6e3a-a0cb-02420a000f18") @map("tenant_id") @db.Uuid
+  createdAt              DateTime?                @default(now()) @map("created_at") @db.Timestamptz(0)
+  createdBy              String?                  @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
+  calendarEntryDeletion  CalendarEntryDeletion?
+  calendarEntryOrderInfo CalendarEntryOrderInfo[]
+  calendarEntrySchedule  CalendarEntrySchedule[]
+  CalendarEntryOrder     CalendarEntryOrder[]
+
+  @@map("calendar_entry")
+}
+
+model CalendarEntryDeletion {
+  id            String         @id @default(uuid()) @db.Uuid
+  entryId       String         @unique(map: "uniq_f118663dba364942") @map("entry_id") @db.Uuid
+  calendarEntry CalendarEntry? @relation(fields: [entryId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_f118663dba364942")
+  reason        Int            @db.SmallInt
+  description   String?        @db.VarChar(255)
+  tenantId      String         @default("1ec13d33-3f41-6e3a-a0cb-02420a000f18") @map("tenant_id") @db.Uuid
+  createdAt     DateTime?      @default(now()) @map("created_at") @db.Timestamptz(0)
+  createdBy     String?        @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
+
+  @@map("calendar_entry_deletion")
+}
+
+model CalendarEntryOrder {
+  id            String         @id @default(uuid()) @db.Uuid
+  entryId       String         @map("entry_id") @db.Uuid
+  calendarEntry CalendarEntry? @relation(fields: [entryId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  orderId       String         @map("order_id") @db.Uuid
+  tenantId      String         @default("1ec13d33-3f41-6e3a-a0cb-02420a000f18") @map("tenant_id") @db.Uuid
+  createdAt     DateTime?      @default(now()) @map("created_at") @db.Timestamptz(0)
+  createdBy     String?        @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
+
+  @@map("calendar_entry_order")
+}
+
+model CalendarEntryOrderInfo {
+  id            String         @id @default(uuid()) @db.Uuid
+  entryId       String?        @map("entry_id") @db.Uuid
+  calendarEntry CalendarEntry? @relation(fields: [entryId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tenantId      String         @default("1ec13d33-3f41-6e3a-a0cb-02420a000f18") @map("tenant_id") @db.Uuid
+  customerId    String?        @map("customer_id") @db.Uuid
+  customer      Person?        @relation("Customer", fields: [customerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  carId         String?        @map("car_id") @db.Uuid
+  car           Car?           @relation(fields: [carId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  description   String?
+  workerId      String?        @map("worker_id") @db.Uuid
+  worker        Person?        @relation("Worker", fields: [workerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  createdAt     DateTime?      @default(now()) @map("created_at") @db.Timestamptz(0)
+  createdBy     String?        @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
+
+  @@index([entryId], map: "idx_5fbde1c1ba364942")
+  @@map("calendar_entry_order_info")
+}
+
+model CalendarEntrySchedule {
+  id            String         @id @default(uuid()) @db.Uuid
+  entryId       String?        @map("entry_id") @db.Uuid
+  calendarEntry CalendarEntry? @relation(fields: [entryId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tenantId      String         @default("1ec13d33-3f41-6e3a-a0cb-02420a000f18") @map("tenant_id") @db.Uuid
+  date          DateTime       @db.Timestamp(0)
+  duration      String         @db.VarChar(255)
+  createdAt     DateTime?      @default(now()) @map("created_at") @db.Timestamptz(0)
+  createdBy     String?        @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
+
+  @@index([entryId], map: "idx_86fdaee3ba364942")
+  @@map("calendar_entry_schedule")
+}
+
 // model appeal_calculator {
 //   id           String    @id @default(uuid()) @db.Uuid
 //   name         String    @db.VarChar(255)
@@ -249,66 +324,6 @@ model Car {
 //   tenant_id  String    @db.Uuid
 //   created_at DateTime? @default(now()) @db.Timestamptz(0)
 //   created_by String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
-// }
-
-// model calendar_entry {
-//   id                        String                      @id @default(uuid()) @db.Uuid
-//   tenant_id                 String                      @db.Uuid
-//   created_at                DateTime?                   @default(now()) @db.Timestamptz(0)
-//   created_by                String?                     @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
-//   calendar_entry_deletion   calendar_entry_deletion?
-//   calendar_entry_order_info calendar_entry_order_info[]
-//   calendar_entry_schedule   calendar_entry_schedule[]
-// }
-
-// /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
-// model calendar_entry_deletion {
-//   id             String         @id @default(uuid()) @db.Uuid
-//   entry_id       String         @unique(map: "uniq_f118663dba364942") @db.Uuid
-//   reason         Int            @db.SmallInt
-//   description    String?
-//   tenant_id      String         @db.Uuid
-//   created_at     DateTime?      @default(now()) @db.Timestamptz(0)
-//   created_by     String?        @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
-//   calendar_entry calendar_entry @relation(fields: [entry_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_f118663dba364942")
-// }
-
-// model calendar_entry_order {
-//   id         String    @id @default(uuid()) @db.Uuid
-//   entry_id   String    @db.Uuid
-//   order_id   String    @db.Uuid
-//   tenant_id  String    @db.Uuid
-//   created_at DateTime? @default(now()) @db.Timestamptz(0)
-//   created_by String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
-// }
-
-// model calendar_entry_order_info {
-//   id             String          @id @default(uuid()) @db.Uuid
-//   entry_id       String?         @db.Uuid
-//   tenant_id      String          @db.Uuid
-//   customer_id    String?         @db.Uuid
-//   car_id         String?         @db.Uuid
-//   description    String?
-//   worker_id      String?         @db.Uuid
-//   created_at     DateTime?       @default(now()) @db.Timestamptz(0)
-//   created_by     String?         @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
-//   calendar_entry calendar_entry? @relation(fields: [entry_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_5fbde1c1ba364942")
-
-//   @@index([entry_id], map: "idx_5fbde1c1ba364942")
-// }
-
-// /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
-// model calendar_entry_schedule {
-//   id             String          @id @default(uuid()) @db.Uuid
-//   entry_id       String?         @db.Uuid
-//   tenant_id      String          @db.Uuid
-//   date           DateTime        @db.Timestamp(0)
-//   duration       String          @db.VarChar(255)
-//   created_at     DateTime?       @default(now()) @db.Timestamptz(0)
-//   created_by     String?         @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
-//   calendar_entry calendar_entry? @relation(fields: [entry_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_86fdaee3ba364942")
-
-//   @@index([entry_id], map: "idx_86fdaee3ba364942")
 // }
 
 // /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
@@ -764,7 +779,6 @@ model Car {
 //   requisite_inn           String?   @db.VarChar(255)
 //   requisite_kpp           String?   @db.VarChar(255)
 //   requisite_rs            String?   @db.VarChar(255)
-//   requisite_ks            String?   @db.VarChar(255)
 //   requisite_bik           String?   @db.VarChar(255)
 //   created_at              DateTime? @default(now()) @db.Timestamptz(0)
 //   created_by              String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid

@@ -1,7 +1,7 @@
 import { Field, ID, Int, ObjectType } from '@nestjs/graphql';
 import { Vehicle } from '@prisma/client';
 import { Max, Min } from 'class-validator';
-import { ManufacturerModel } from 'src/entities/manufacturer/models/manufacturer.model';
+import { ManufacturerModel } from 'src/modules/manufacturer/models/manufacturer.model';
 
 @ObjectType({ description: 'Модель автомобиля' })
 export class VehicleModel implements Vehicle {
