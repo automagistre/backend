@@ -11,11 +11,16 @@ import { BigIntScalar } from './common/scalars/bigint.scalar';
 import { PersonModule } from './modules/person/person.module';
 import { CarModule } from './modules/vehicle/car.module';
 import { CalendarModule } from './modules/calendar/calendar.module';
+import { APP_GUARD } from '@nestjs/core';
+import { AuthModule } from './modules/auth/auth.module';
+import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
+import authConfig from './config/auth.config';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
+      load: [authConfig],
     }),
     GraphQLModule.forRootAsync({
       driver: ApolloDriver,
@@ -29,8 +34,16 @@ import { CalendarModule } from './modules/calendar/calendar.module';
     PersonModule,
     CarModule,
     CalendarModule,
+    AuthModule,
   ],
-  providers: [UserIdMiddleware, BigIntScalar],
+  providers: [
+    {
+      provide: APP_GUARD,
+      useClass: JwtAuthGuard,
+    },
+    UserIdMiddleware,
+    BigIntScalar,
+  ],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {

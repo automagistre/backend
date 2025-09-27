@@ -325,6 +325,10 @@ scalar DateTime
 """Российский государственный номер автомобиля"""
 scalar GosNomerRU
 
+input LoginDto {
+  code: String!
+}
+
 """Модель производителя"""
 type ManufacturerModel {
   """Дата создания"""
@@ -366,6 +370,10 @@ type Mutation {
 
   """Удалить модель автомобиля"""
   deleteOneVehicle(id: String!): VehicleModel!
+  login(input: LoginDto!): Tokens!
+  logout(input: RefreshDto!): Boolean!
+  passwordLogin(input: PasswordLoginDto!): Tokens!
+  refresh(input: RefreshDto!): Tokens!
   updateOneCar(input: UpdateCarInput!): CarModel!
   updateOneManufacturer(input: UpdateManufacturerInput!): ManufacturerModel!
   updateOnePart(input: UpdatePartInput!): PartModel!
@@ -425,6 +433,11 @@ type PartPriceModel {
   tenantId: ID!
 }
 
+input PasswordLoginDto {
+  password: String!
+  username: String!
+}
+
 type PersonModel {
   balance: Int!
   contractor: Boolean!
@@ -460,6 +473,17 @@ type Query {
 
   """Получить все модели автомобилей"""
   vehicles: [VehicleModel!]!
+}
+
+input RefreshDto {
+  refreshToken: String!
+}
+
+type Tokens {
+  accessToken: String!
+  expiresIn: Float!
+  refreshExpiresIn: Float!
+  refreshToken: String!
 }
 
 """Единицы измерения"""
