@@ -13,7 +13,8 @@ import { CarModule } from './modules/vehicle/car.module';
 import { CalendarModule } from './modules/calendar/calendar.module';
 import { APP_GUARD } from '@nestjs/core';
 import { AuthModule } from './modules/auth/auth.module';
-import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
+import { DevAuthGuard } from './modules/auth/guards/dev-auth.guard';
+import { Reflector } from '@nestjs/core';
 import authConfig from './config/auth.config';
 
 @Module({
@@ -39,7 +40,10 @@ import authConfig from './config/auth.config';
   providers: [
     {
       provide: APP_GUARD,
-      useClass: JwtAuthGuard,
+      useFactory: (reflector: Reflector, configService: ConfigService) => {
+        return new DevAuthGuard(reflector, configService);
+      },
+      inject: [Reflector, ConfigService],
     },
     UserIdMiddleware,
     BigIntScalar,
