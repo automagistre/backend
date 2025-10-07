@@ -32,6 +32,6 @@ export class CreatePersonInput {
   seller: boolean;
 
   @IsUUID()
-  @Field(() => ID)
+  @Field(() => ID, { nullable: true })
   tenantGroupId: string;
 }

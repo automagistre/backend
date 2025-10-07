@@ -4,14 +4,21 @@ import { PersonService } from './person.service';
 import { PersonModel } from './models/person.model';
 import { CreatePersonInput } from './inputs/create.input';
 import { UpdatePersonInput } from './inputs/update.input';
+import { PaginationArgs } from 'src/common/pagination.args';
+import { PaginatedPersons } from './inputs/paginatedPersons.type';
 
 @Resolver()
 export class PersonResolver {
   constructor(private readonly personService: PersonService) {}
 
-  @Query(() => [PersonModel], { name: 'persons', description: 'Все клиенты' })
-  async getAllPersons(): Promise<Person[]> {
-    return this.personService.findAll();
+  @Query(() => PaginatedPersons, { name: 'persons', description: 'Клиенты с пагинацией' })
+  async getAllPersons(@Args() pagination?: PaginationArgs) {
+    if (!pagination) {
+      pagination = { take: undefined, skip: undefined };
+    }
+    const { take = 25, skip = 0 } = pagination;
+
+    return await this.personService.findMany({ take, skip });
   }
 
   @Query(() => PersonModel || null, { name: 'person', description: 'Клиент по id' })

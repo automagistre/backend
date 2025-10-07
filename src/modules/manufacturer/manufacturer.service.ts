@@ -5,6 +5,9 @@ import { CreateManufacturerInput } from './inputs/create.input';
 import { UpdateManufacturerInput } from './inputs/update.input';
 import { ManufacturerModel } from './models/manufacturer.model';
 
+const DEFAULT_TAKE = 25;
+const DEFAULT_SKIP = 0;
+
 @Injectable()
 export class ManufacturerService {
   constructor(private readonly prismaService: PrismaService) {}
@@ -14,23 +17,19 @@ export class ManufacturerService {
     return manufacturers;
   }
 
-  async findMany({ take, cursor }: { take: number; cursor?: string }) {
-    const items = await this.prismaService.manufacturer.findMany({
-      take: +take + 1,
-      skip: cursor ? 1 : 0,
-      cursor: cursor ? { id: cursor } : undefined,
-    });
-    const hasMore = items.length > take;
-    let nextCursor: string | null = null;
+  async findMany({ take=DEFAULT_TAKE, skip=DEFAULT_SKIP }: { take: number; skip: number }) {
+    const [items, total] = await Promise.all([
+      this.prismaService.manufacturer.findMany({
+        take: +take,
+        skip: +skip,
+        orderBy: { updatedAt: 'desc' },
+      }),
+      this.prismaService.manufacturer.count(),
+    ]);
 
-    if (hasMore) {
-      items.pop();
-      nextCursor = items[items.length - 1].id;
-    }
     return {
       items,
-      hasMore,
-      nextCursor,
+      total,
     };
   }
 

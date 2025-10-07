@@ -293,7 +293,7 @@ input CreatePersonInput {
 
   """Телефон"""
   telephone: PhoneNumber
-  tenantGroupId: ID!
+  tenantGroupId: ID
 }
 
 """Создать модель автомобиля"""
@@ -386,9 +386,13 @@ type Mutation {
 }
 
 type PaginatedManufacturers {
-  hasMore: Boolean!
   items: [ManufacturerModel!]!
-  nextCursor: String
+  total: Int!
+}
+
+type PaginatedPersons {
+  items: [PersonModel!]!
+  total: Int!
 }
 
 """Запчасть"""
@@ -459,14 +463,14 @@ scalar PhoneNumber
 type Query {
   car(id: String!): CarModel!
   manufacturer(id: String!): ManufacturerModel
-  manufacturers(cursor: ID, take: Int = 10): PaginatedManufacturers!
+  manufacturers(skip: Int = 0, take: Int = 25): PaginatedManufacturers!
   part(id: ID!): PartModel!
 
   """Клиент по id"""
   person(id: String!): PersonModel!
 
-  """Все клиенты"""
-  persons: [PersonModel!]!
+  """Клиенты с пагинацией"""
+  persons(skip: Int = 0, take: Int = 25): PaginatedPersons!
 
   """Получить модель автомобиля по id"""
   vehicle(id: String!): VehicleModel!

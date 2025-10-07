@@ -14,13 +14,13 @@ export class ManufacturerResolver {
   @Query(() => PaginatedManufacturers)
   async manufacturers(@Args() pagination?: PaginationArgs) {
     if (!pagination) {
-      pagination = { take: undefined, cursor: undefined };
+      pagination = { take: undefined, skip: undefined };
     }
-    const { take = 10, cursor } = pagination;
+    const { take = 25, skip = 0 } = pagination;
 
     const itemsPaginated = await this.ManufacturerService.findMany({
       take,
-      cursor,
+      skip,
     });
     return itemsPaginated;
   }
