@@ -13,6 +13,8 @@ import { CreatePartInput } from './inputs/create.input';
 import { UpdatePartInput } from './inputs/update.input';
 import { PartPriceService } from './part-price.service';
 import { PartPriceModel } from './models/part-price.model';
+import { PaginationArgs } from 'src/common/pagination.args';
+import { PaginatedParts } from './inputs/paginatedParts.type';
 
 @Resolver(() => PartModel)
 export class PartResolver {
@@ -61,6 +63,19 @@ export class PartResolver {
     @Args('id', { type: () => ID }) id: string,
   ): Promise<PartModel> {
     return this.partService.delete(id);
+  }
+
+  @Query(() => PaginatedParts, { name: 'parts', description: 'Запчасти с пагинацией' })
+  async getAllParts(
+    @Args() pagination?: PaginationArgs,
+    @Args('search', { nullable: true }) search?: string,
+  ) {
+    if (!pagination) {
+      pagination = { take: undefined, skip: undefined };
+    }
+    const { take = 25, skip = 0 } = pagination;
+
+    return await this.partService.findMany({ take, skip, search });
   }
 
   @Query(() => PartModel)

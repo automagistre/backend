@@ -5,6 +5,9 @@ import { PartModel } from './models/part.model';
 import { UpdatePartInput } from './inputs/update.input';
 import { cleanUpcaseString } from 'src/common/utils/clean-upcase.util';
 
+const DEFAULT_TAKE = 25;
+const DEFAULT_SKIP = 0;
+
 @Injectable()
 export class PartService {
   constructor(private readonly prisma: PrismaService) {}
@@ -18,6 +21,43 @@ export class PartService {
       },
     });
     return parts;
+  }
+
+  async findMany({ take=DEFAULT_TAKE, skip=DEFAULT_SKIP, search }: { take: number; skip: number; search?: string }) {
+    let where = {};
+
+    if (search) {
+      const searchTerms = search.trim().split(/\s+/).filter(term => term.length > 0);
+      
+      const andConditions = searchTerms.map(term => ({
+        OR: [
+          { name: { contains: term, mode: 'insensitive' as const } },
+          { number: { contains: term, mode: 'insensitive' as const } },
+          { manufacturer: { name: { contains: term, mode: 'insensitive' as const } } },
+          { manufacturer: { localizedName: { contains: term, mode: 'insensitive' as const } } },
+        ],
+      }));
+
+      where = { AND: andConditions };
+    }
+
+    const [items, total] = await Promise.all([
+      this.prisma.part.findMany({
+        where,
+        take: +take,
+        skip: +skip,
+        include: {
+          manufacturer: true,
+        },
+        orderBy: [{ id: 'desc' }],
+      }),
+      this.prisma.part.count({ where }),
+    ]);
+
+    return {
+      items,
+      total,
+    };
   }
 
   async findOne(id: string): Promise<PartModel | null> {

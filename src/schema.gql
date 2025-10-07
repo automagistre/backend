@@ -390,6 +390,11 @@ type PaginatedManufacturers {
   total: Int!
 }
 
+type PaginatedParts {
+  items: [PartModel!]!
+  total: Int!
+}
+
 type PaginatedPersons {
   items: [PersonModel!]!
   total: Int!
@@ -465,6 +470,9 @@ type Query {
   manufacturer(id: String!): ManufacturerModel
   manufacturers(search: String, skip: Int = 0, take: Int = 25): PaginatedManufacturers!
   part(id: ID!): PartModel!
+
+  """Запчасти с пагинацией"""
+  parts(search: String, skip: Int = 0, take: Int = 25): PaginatedParts!
 
   """Клиент по id"""
   person(id: String!): PersonModel!
