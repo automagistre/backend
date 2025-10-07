@@ -23,14 +23,33 @@ export class PersonService {
     });
   }
 
-  async findMany({ take=DEFAULT_TAKE, skip=DEFAULT_SKIP }: { take: number; skip: number }) {
+  async findMany({ take=DEFAULT_TAKE, skip=DEFAULT_SKIP, search }: { take: number; skip: number; search?: string }) {
+    let where = {};
+
+    if (search) {
+      const searchTerms = search.trim().split(/\s+/).filter(term => term.length > 0);
+      
+      const andConditions = searchTerms.map(term => ({
+        OR: [
+          { firstname: { contains: term, mode: 'insensitive' as const } },
+          { lastname: { contains: term, mode: 'insensitive' as const } },
+          { telephone: { contains: term, mode: 'insensitive' as const } },
+          { officePhone: { contains: term, mode: 'insensitive' as const } },
+          { email: { contains: term, mode: 'insensitive' as const } },
+        ],
+      }));
+
+      where = { AND: andConditions };
+    }
+
     const [items, total] = await Promise.all([
       this.prisma.person.findMany({
+        where,
         take: +take,
         skip: +skip,
         orderBy: [{ id: 'desc' }],
       }),
-      this.prisma.person.count(),
+      this.prisma.person.count({ where }),
     ]);
 
     return {

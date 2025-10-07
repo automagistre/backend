@@ -470,7 +470,7 @@ type Query {
   person(id: String!): PersonModel!
 
   """Клиенты с пагинацией"""
-  persons(skip: Int = 0, take: Int = 25): PaginatedPersons!
+  persons(search: String, skip: Int = 0, take: Int = 25): PaginatedPersons!
 
   """Получить модель автомобиля по id"""
   vehicle(id: String!): VehicleModel!

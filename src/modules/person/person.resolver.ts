@@ -12,13 +12,16 @@ export class PersonResolver {
   constructor(private readonly personService: PersonService) {}
 
   @Query(() => PaginatedPersons, { name: 'persons', description: 'Клиенты с пагинацией' })
-  async getAllPersons(@Args() pagination?: PaginationArgs) {
+  async getAllPersons(
+    @Args() pagination?: PaginationArgs,
+    @Args('search', { nullable: true }) search?: string,
+  ) {
     if (!pagination) {
       pagination = { take: undefined, skip: undefined };
     }
     const { take = 25, skip = 0 } = pagination;
 
-    return await this.personService.findMany({ take, skip });
+    return await this.personService.findMany({ take, skip, search });
   }
 
   @Query(() => PersonModel || null, { name: 'person', description: 'Клиент по id' })
