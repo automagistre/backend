@@ -17,14 +17,28 @@ export class ManufacturerService {
     return manufacturers;
   }
 
-  async findMany({ take=DEFAULT_TAKE, skip=DEFAULT_SKIP }: { take: number; skip: number }) {
+  async findMany({ take=DEFAULT_TAKE, skip=DEFAULT_SKIP, search }: { take: number; skip: number; search?: string }) {
+    let where = {};
+
+    if (search) {
+      const searchTerms = search.trim().split(/\s+/).filter(term => term.length > 0);
+      
+      const orConditions = searchTerms.flatMap(term => [
+        { name: { contains: term, mode: 'insensitive' as const } },
+        { localizedName: { contains: term, mode: 'insensitive' as const } },
+      ]);
+
+      where = { OR: orConditions };
+    }
+
     const [items, total] = await Promise.all([
       this.prismaService.manufacturer.findMany({
+        where,
         take: +take,
         skip: +skip,
         orderBy: { updatedAt: 'desc' },
       }),
-      this.prismaService.manufacturer.count(),
+      this.prismaService.manufacturer.count({ where }),
     ]);
 
     return {

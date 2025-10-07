@@ -463,7 +463,7 @@ scalar PhoneNumber
 type Query {
   car(id: String!): CarModel!
   manufacturer(id: String!): ManufacturerModel
-  manufacturers(skip: Int = 0, take: Int = 25): PaginatedManufacturers!
+  manufacturers(search: String, skip: Int = 0, take: Int = 25): PaginatedManufacturers!
   part(id: ID!): PartModel!
 
   """Клиент по id"""

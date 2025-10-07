@@ -12,7 +12,10 @@ export class ManufacturerResolver {
 
   // Получить всех производителей
   @Query(() => PaginatedManufacturers)
-  async manufacturers(@Args() pagination?: PaginationArgs) {
+  async manufacturers(
+    @Args() pagination?: PaginationArgs,
+    @Args('search', { nullable: true }) search?: string,
+  ) {
     if (!pagination) {
       pagination = { take: undefined, skip: undefined };
     }
@@ -21,6 +24,7 @@ export class ManufacturerResolver {
     const itemsPaginated = await this.ManufacturerService.findMany({
       take,
       skip,
+      search,
     });
     return itemsPaginated;
   }
