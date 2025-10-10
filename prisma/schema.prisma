@@ -72,7 +72,7 @@ model Manufacturer {
 
 model Part {
   id             String       @id @default(uuid()) @db.Uuid
-  manufacturer   Manufacturer @relation(fields: [manufacturerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  manufacturer   Manufacturer @relation(fields: [manufacturerId], references: [id], onDelete: Restrict, onUpdate: NoAction)
   manufacturerId String       @map("manufacturer_id") @db.Uuid
   name           String       @db.VarChar(255)
   number         String       @db.VarChar(30)
@@ -125,7 +125,7 @@ model Person {
 model Vehicle {
   id             String       @id @default(uuid()) @db.Uuid
   manufacturerId String       @map("manufacturer_id") @db.Uuid
-  manufacturer   Manufacturer @relation(fields: [manufacturerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  manufacturer   Manufacturer @relation(fields: [manufacturerId], references: [id], onDelete: Restrict, onUpdate: NoAction)
   name           String       @db.VarChar(255)
   localizedName  String?      @map("localized_name") @db.VarChar(255)
   caseName       String?      @map("case_name") @db.VarChar(255)
@@ -142,7 +142,7 @@ model Vehicle {
 model Car {
   id                       String                   @id @default(uuid()) @db.Uuid
   vehicleId                String?                  @map("vehicle_id") @db.Uuid
-  vehicle                  Vehicle?                 @relation(fields: [vehicleId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  vehicle                  Vehicle?                 @relation(fields: [vehicleId], references: [id], onDelete: Restrict, onUpdate: NoAction)
   identifier               String?                  @db.VarChar(17)
   year                     Int?
   caseType                 Int                      @default(1) @map("case_type") @db.SmallInt
@@ -183,7 +183,7 @@ model CalendarEntry {
 model CalendarEntryDeletion {
   id            String         @id @default(uuid()) @db.Uuid
   entryId       String         @unique(map: "uniq_f118663dba364942") @map("entry_id") @db.Uuid
-  calendarEntry CalendarEntry? @relation(fields: [entryId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_f118663dba364942")
+  calendarEntry CalendarEntry? @relation(fields: [entryId], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "fk_f118663dba364942")
   reason        Int            @db.SmallInt
   description   String?        @db.VarChar(255)
   tenantId      String         @default("1ec13d33-3f41-6e3a-a0cb-02420a000f18") @map("tenant_id") @db.Uuid
@@ -196,7 +196,7 @@ model CalendarEntryDeletion {
 model CalendarEntryOrder {
   id            String         @id @default(uuid()) @db.Uuid
   entryId       String         @map("entry_id") @db.Uuid
-  calendarEntry CalendarEntry? @relation(fields: [entryId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  calendarEntry CalendarEntry? @relation(fields: [entryId], references: [id], onDelete: Restrict, onUpdate: NoAction)
   orderId       String         @map("order_id") @db.Uuid
   tenantId      String         @default("1ec13d33-3f41-6e3a-a0cb-02420a000f18") @map("tenant_id") @db.Uuid
   createdAt     DateTime?      @default(now()) @map("created_at") @db.Timestamptz(0)
@@ -208,15 +208,15 @@ model CalendarEntryOrder {
 model CalendarEntryOrderInfo {
   id            String         @id @default(uuid()) @db.Uuid
   entryId       String?        @map("entry_id") @db.Uuid
-  calendarEntry CalendarEntry? @relation(fields: [entryId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  calendarEntry CalendarEntry? @relation(fields: [entryId], references: [id], onDelete: Restrict, onUpdate: NoAction)
   tenantId      String         @default("1ec13d33-3f41-6e3a-a0cb-02420a000f18") @map("tenant_id") @db.Uuid
   customerId    String?        @map("customer_id") @db.Uuid
-  customer      Person?        @relation("Customer", fields: [customerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  customer      Person?        @relation("Customer", fields: [customerId], references: [id], onDelete: Restrict, onUpdate: NoAction)
   carId         String?        @map("car_id") @db.Uuid
-  car           Car?           @relation(fields: [carId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  car           Car?           @relation(fields: [carId], references: [id], onDelete: Restrict, onUpdate: NoAction)
   description   String?
   workerId      String?        @map("worker_id") @db.Uuid
-  worker        Person?        @relation("Worker", fields: [workerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  worker        Person?        @relation("Worker", fields: [workerId], references: [id], onDelete: Restrict, onUpdate: NoAction)
   createdAt     DateTime?      @default(now()) @map("created_at") @db.Timestamptz(0)
   createdBy     String?        @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
 
@@ -227,7 +227,7 @@ model CalendarEntryOrderInfo {
 model CalendarEntrySchedule {
   id            String         @id @default(uuid()) @db.Uuid
   entryId       String?        @map("entry_id") @db.Uuid
-  calendarEntry CalendarEntry? @relation(fields: [entryId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  calendarEntry CalendarEntry? @relation(fields: [entryId], references: [id], onDelete: Restrict, onUpdate: NoAction)
   tenantId      String         @default("1ec13d33-3f41-6e3a-a0cb-02420a000f18") @map("tenant_id") @db.Uuid
   date          DateTime       @db.Timestamp(0)
   duration      String         @db.VarChar(255)
