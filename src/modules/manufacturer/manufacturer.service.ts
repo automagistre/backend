@@ -23,12 +23,15 @@ export class ManufacturerService {
     if (search) {
       const searchTerms = search.trim().split(/\s+/).filter(term => term.length > 0);
       
-      const orConditions = searchTerms.flatMap(term => [
-        { name: { contains: term, mode: 'insensitive' as const } },
-        { localizedName: { contains: term, mode: 'insensitive' as const } },
-      ]);
+      // Каждое слово должно найтись хотя бы в одном из полей (И между словами, ИЛИ между полями)
+      const andConditions = searchTerms.map(term => ({
+        OR: [
+          { name: { contains: term, mode: 'insensitive' as const } },
+          { localizedName: { contains: term, mode: 'insensitive' as const } },
+        ]
+      }));
 
-      where = { OR: orConditions };
+      where = { AND: andConditions };
     }
 
     const [items, total] = await Promise.all([

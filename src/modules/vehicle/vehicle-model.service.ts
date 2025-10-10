@@ -36,15 +36,18 @@ export class VehicleModelService {
     if (search) {
       const searchTerms = search.trim().split(/\s+/).filter(term => term.length > 0);
       
-      const orConditions = searchTerms.flatMap(term => [
-        { name: { contains: term, mode: 'insensitive' as const } },
-        { localizedName: { contains: term, mode: 'insensitive' as const } },
-        { caseName: { contains: term, mode: 'insensitive' as const } },
-        { manufacturer: { name: { contains: term, mode: 'insensitive' as const } } },
-        { manufacturer: { localizedName: { contains: term, mode: 'insensitive' as const } } },
-      ]);
+      // Каждое слово должно найтись хотя бы в одном из полей (И между словами, ИЛИ между полями)
+      const andConditions = searchTerms.map(term => ({
+        OR: [
+          { name: { contains: term, mode: 'insensitive' as const } },
+          { localizedName: { contains: term, mode: 'insensitive' as const } },
+          { caseName: { contains: term, mode: 'insensitive' as const } },
+          { manufacturer: { name: { contains: term, mode: 'insensitive' as const } } },
+          { manufacturer: { localizedName: { contains: term, mode: 'insensitive' as const } } },
+        ]
+      }));
 
-      where = { AND: orConditions };
+      where = { AND: andConditions };
     }
 
     const [items, total] = await Promise.all([
@@ -55,7 +58,7 @@ export class VehicleModelService {
         include: {
           manufacturer: true,
         },
-        orderBy: { createdAt: 'desc' },
+        orderBy: { id: 'desc' },
       }),
       this.prisma.vehicle.count({ where }),
     ]);
