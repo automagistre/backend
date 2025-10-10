@@ -400,6 +400,11 @@ type PaginatedPersons {
   total: Int!
 }
 
+type PaginatedVehicles {
+  items: [VehicleModel!]!
+  total: Int!
+}
+
 """Запчасть"""
 type PartModel {
   createdAt: DateTime
@@ -483,8 +488,8 @@ type Query {
   """Получить модель автомобиля по id"""
   vehicle(id: String!): VehicleModel!
 
-  """Получить все модели автомобилей"""
-  vehicles: [VehicleModel!]!
+  """Получить модели автомобилей с пагинацией"""
+  vehicles(search: String, skip: Int = 0, take: Int = 25): PaginatedVehicles!
 }
 
 input RefreshDto {

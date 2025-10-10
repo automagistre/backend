@@ -3,6 +3,9 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateVehicleInput, UpdateVehicleInput } from './inputs/vehicle.input';
 import { cleanUpcaseString } from 'src/common/utils/clean-upcase.util';
 
+const DEFAULT_TAKE = 25;
+const DEFAULT_SKIP = 0;
+
 @Injectable()
 export class VehicleModelService {
   constructor(private readonly prisma: PrismaService) {}
@@ -25,6 +28,42 @@ export class VehicleModelService {
         manufacturer: true,
       },
     });
+  }
+
+  async findMany({ take = DEFAULT_TAKE, skip = DEFAULT_SKIP, search }: { take: number; skip: number; search?: string }) {
+    let where = {};
+
+    if (search) {
+      const searchTerms = search.trim().split(/\s+/).filter(term => term.length > 0);
+      
+      const orConditions = searchTerms.flatMap(term => [
+        { name: { contains: term, mode: 'insensitive' as const } },
+        { localizedName: { contains: term, mode: 'insensitive' as const } },
+        { caseName: { contains: term, mode: 'insensitive' as const } },
+        { manufacturer: { name: { contains: term, mode: 'insensitive' as const } } },
+        { manufacturer: { localizedName: { contains: term, mode: 'insensitive' as const } } },
+      ]);
+
+      where = { AND: orConditions };
+    }
+
+    const [items, total] = await Promise.all([
+      this.prisma.vehicle.findMany({
+        where,
+        take: +take,
+        skip: +skip,
+        include: {
+          manufacturer: true,
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.vehicle.count({ where }),
+    ]);
+
+    return {
+      items,
+      total,
+    };
   }
 
   async findOne(id: string) {
