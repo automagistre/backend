@@ -240,7 +240,7 @@ input CreateCarInput {
 
 input CreateManufacturerInput {
   """Название производителя на русском"""
-  localized_name: String
+  localizedName: String
 
   """Логотип производителя"""
   logo: String
@@ -580,7 +580,7 @@ input UpdateManufacturerInput {
   id: ID!
 
   """Название производителя на русском"""
-  localized_name: String
+  localizedName: String
 
   """Логотип производителя"""
   logo: String

@@ -6,7 +6,7 @@ export class CreateManufacturerInput {
   name: string;
 
   @Field({ nullable: true, description: 'Название производителя на русском' })
-  localized_name?: string;
+  localizedName?: string;
 
   @Field({ nullable: true, description: 'Логотип производителя' })
   logo?: string;
