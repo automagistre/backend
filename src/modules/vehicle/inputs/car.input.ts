@@ -25,6 +25,9 @@ export class CreateCarInput {
   })
   description?: string | null;
 
+  @Field(() => String, { description: 'ID модели автомобиля' })
+  vehicleId: string;
+
   // Идентификаторы
   @Field(() => VINScalar, { nullable: true, description: 'VIN автомобиля' })
   vin?: string | null;
@@ -47,10 +50,8 @@ export class CreateCarInput {
   })
   caseType: number;
 
-  @Min(0)
-  @IsInt()
-  @Field(() => Int, { nullable: true, description: 'Пробег автомобиля' })
-  mileage: number;
+  // mileage - не передается в форме, устанавливается автоматически при создании
+  // изменяется только через заказы
 
   // Номера
   @Field(() => GosNomerRUScalar, {

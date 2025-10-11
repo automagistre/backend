@@ -5,6 +5,8 @@ import { VINScalar } from 'src/common/scalars/vin.scalar';
 import { Car } from '@prisma/client';
 import { GosNomerRUScalar } from 'src/common/scalars/gosnomer-ru.scalar';
 import { CreateCarInput, CreateCarInputPrisma, UpdateCarInput, UpdateCarInputPrisma } from './inputs/car.input';
+import { PaginationArgs } from 'src/common/pagination.args';
+import { PaginatedCars } from './inputs/paginatedCar.type';
 
 @Resolver(() => CarModel)
 export class CarResolver {
@@ -16,17 +18,69 @@ export class CarResolver {
 
   private parseInput<T extends CreateCarInput | UpdateCarInput>(
     data: T,
-  ): T & { identifier?: string; gosnomer?: string } {
-    return {
-      ...data,
-      identifier: data?.vin || data?.frame || undefined,
-      gosnomer: data?.gosnomerRu || data?.gosnomerOther || undefined,
-    };
+  ): any {
+    const { vin, frame, gosnomerRu, gosnomerOther, ...rest } = data as any;
+    
+    // Удаляем все null значения, чтобы Prisma использовала defaults
+    const filtered = Object.fromEntries(
+      Object.entries(rest).filter(([_, value]) => value !== null)
+    );
+    
+    // Обработка идентификатора: пустая строка → null для очистки
+    let identifier = undefined;
+    if (vin !== undefined) {
+      identifier = (vin && vin.trim() !== '') ? vin : null;
+    } else if (frame !== undefined) {
+      identifier = (frame && frame.trim() !== '') ? frame : null;
+    }
+    
+    // Обработка госномера: пустая строка → null для очистки
+    let gosnomer = undefined;
+    if (gosnomerRu !== undefined) {
+      gosnomer = (gosnomerRu && gosnomerRu.trim() !== '') ? gosnomerRu : null;
+    } else if (gosnomerOther !== undefined) {
+      gosnomer = (gosnomerOther && gosnomerOther.trim() !== '') ? gosnomerOther : null;
+    }
+    
+    const result: any = { ...filtered };
+    
+    // Добавляем поля только если они определены
+    if (identifier !== undefined) {
+      result.identifier = identifier;
+    }
+    if (gosnomer !== undefined) {
+      result.gosnomer = gosnomer;
+    }
+    
+    return result;
   }
 
-  @Query(() => CarModel)
+  @Query(() => PaginatedCars)
+  async cars(
+    @Args() pagination?: PaginationArgs,
+    @Args('search', { nullable: true }) search?: string,
+  ) {
+    if (!pagination) {
+      pagination = { take: undefined, skip: undefined };
+    }
+    const { take = 25, skip = 0 } = pagination;
+
+    const itemsPaginated = await this.carService.findMany({
+      take,
+      skip,
+      search,
+    });
+    return itemsPaginated;
+  }
+
+  @Query(() => CarModel, { nullable: true })
   async car(@Args('id') id: string): Promise<CarModel | null> {
     return (await this.carService.findById(id)) as CarModel;
+  }
+
+  @Query(() => CarModel, { nullable: true })
+  async carByIdentifier(@Args('identifier') identifier: string): Promise<CarModel | null> {
+    return (await this.carService.findByIdentifier(identifier)) as CarModel;
   }
 
   @Mutation(() => CarModel, { name: 'createOneCar' })

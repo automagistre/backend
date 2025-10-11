@@ -228,8 +228,8 @@ input CreateCarInput {
   """Гос. номер автомобиля (RU)"""
   gosnomerRu: GosNomerRU
 
-  """Пробег автомобиля"""
-  mileage: Int
+  """ID модели автомобиля"""
+  vehicleId: String!
 
   """VIN автомобиля"""
   vin: VIN
@@ -385,6 +385,11 @@ type Mutation {
   updateOneVehicle(data: UpdateVehicleInput!): VehicleModel!
 }
 
+type PaginatedCars {
+  items: [CarModel!]!
+  total: Int!
+}
+
 type PaginatedManufacturers {
   items: [ManufacturerModel!]!
   total: Int!
@@ -471,7 +476,9 @@ type PersonModel {
 scalar PhoneNumber
 
 type Query {
-  car(id: String!): CarModel!
+  car(id: String!): CarModel
+  carByIdentifier(identifier: String!): CarModel
+  cars(search: String, skip: Int = 0, take: Int = 25): PaginatedCars!
   manufacturer(id: String!): ManufacturerModel
   manufacturers(search: String, skip: Int = 0, take: Int = 25): PaginatedManufacturers!
   part(id: ID!): PartModel!
@@ -570,8 +577,8 @@ input UpdateCarInput {
   """ID автомобиля"""
   id: ID!
 
-  """Пробег автомобиля"""
-  mileage: Int
+  """ID модели автомобиля"""
+  vehicleId: String
 
   """VIN автомобиля"""
   vin: VIN
