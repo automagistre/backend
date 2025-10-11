@@ -26,21 +26,30 @@ export class CarResolver {
       Object.entries(rest).filter(([_, value]) => value !== null)
     );
     
-    // Обработка идентификатора: пустая строка → null для очистки
-    let identifier = undefined;
-    if (vin !== undefined) {
-      identifier = (vin && vin.trim() !== '') ? vin : null;
-    } else if (frame !== undefined) {
-      identifier = (frame && frame.trim() !== '') ? frame : null;
+    // Обработка идентификатора: приоритет заполненному полю
+    let identifier: string | null | undefined = undefined;
+    // Проверяем сначала, какое из полей заполнено
+    if (vin !== undefined && vin !== null && vin.trim() !== '') {
+      identifier = vin;
+    } else if (frame !== undefined && frame !== null && frame.trim() !== '') {
+      identifier = frame;
+    } else if (vin !== undefined || frame !== undefined) {
+      // Если одно из полей передано, но пустое/null - очищаем identifier
+      identifier = null;
     }
+    // Если оба undefined - не трогаем (identifier остается undefined и не обновляется)
     
-    // Обработка госномера: пустая строка → null для очистки
-    let gosnomer = undefined;
-    if (gosnomerRu !== undefined) {
-      gosnomer = (gosnomerRu && gosnomerRu.trim() !== '') ? gosnomerRu : null;
-    } else if (gosnomerOther !== undefined) {
-      gosnomer = (gosnomerOther && gosnomerOther.trim() !== '') ? gosnomerOther : null;
+    // Обработка госномера: приоритет заполненному полю
+    let gosnomer: string | null | undefined = undefined;
+    if (gosnomerRu !== undefined && gosnomerRu !== null && gosnomerRu.trim() !== '') {
+      gosnomer = gosnomerRu;
+    } else if (gosnomerOther !== undefined && gosnomerOther !== null && gosnomerOther.trim() !== '') {
+      gosnomer = gosnomerOther;
+    } else if (gosnomerRu !== undefined || gosnomerOther !== undefined) {
+      // Если одно из полей передано, но пустое/null - очищаем gosnomer
+      gosnomer = null;
     }
+    // Если оба undefined - не трогаем (gosnomer остается undefined и не обновляется)
     
     const result: any = { ...filtered };
     
