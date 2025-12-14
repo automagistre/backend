@@ -98,9 +98,10 @@ export class AuthService {
    * This can be used for password-based login or for refresh token logic.
    */
   async generateAccessToken(payload: JwtPayload): Promise<string> {
+    const accessTokenTtl = this.configService.get<number>('auth.jwt.accessTokenTtl');
     return this.jwtService.sign(payload, {
       secret: this.configService.get<string>('auth.jwt.secret'),
-      expiresIn: `${this.configService.get<number>('auth.jwt.accessTokenTtl')}s`,
+      expiresIn: accessTokenTtl ? `${accessTokenTtl}s` : undefined,
     });
   }
 

@@ -4,7 +4,6 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 enum Unit {
@@ -117,6 +116,7 @@ model Person {
   balance        Decimal                  @default(0) @db.Decimal
   customerCalendarEntryOrderInfo CalendarEntryOrderInfo[] @relation("Customer")
   workerCalendarEntryOrderInfo   CalendarEntryOrderInfo[] @relation("Worker")
+  Employee       Employee[]
 
   @@unique([telephone, tenantGroupId], map: "uniq_34dcd176450ff010dff2bbb0")
   @@map("person")
@@ -402,17 +402,20 @@ model CalendarEntrySchedule {
 //   @@index([operand_id, tenant_id])
 // }
 
-// model employee {
-//   id         String    @id @default(uuid()) @db.Uuid
-//   person_id  String    @db.Uuid
-//   ratio      Int
-//   hired_at   DateTime  @db.Timestamp(0)
-//   fired_at   DateTime? @db.Timestamp(0)
-//   tenant_id  String    @db.Uuid
-//   created_at DateTime? @default(now()) @db.Timestamptz(0)
-//   created_by String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
-//   orders     orders[]
-// }
+model Employee {
+  id        String    @id @default(uuid()) @db.Uuid
+  personId  String    @map("person_id") @db.Uuid
+  person    Person    @relation(fields: [personId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  ratio     Int
+  hiredAt   DateTime  @map("hired_at") @db.Timestamp(0)
+  firedAt   DateTime? @map("fired_at") @db.Timestamp(0)
+  tenantId  String    @default("1ec13d33-3f41-6cf0-b012-02420a000f18") @map("tenant_id") @db.Uuid
+  createdAt DateTime? @default(now()) @map("created_at") @db.Timestamptz(0)
+  createdBy String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
+
+  @@unique([personId, firedAt], map: "uniq_person_fired")
+  @@map("employee")
+}
 
 // /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 // model employee_salary {
@@ -763,27 +766,30 @@ model CalendarEntrySchedule {
 // }
 
 // /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
-// model organization {
-//   id                      String    @id @default(uuid()) @db.Uuid
-//   name                    String    @db.VarChar(255)
-//   address                 String?   @db.VarChar(255)
-//   telephone               String?   @db.VarChar(35)
-//   office_phone            String?   @db.VarChar(35)
-//   email                   String?   @db.VarChar(255)
-//   contractor              Boolean
-//   seller                  Boolean
-//   tenant_group_id         String    @db.Uuid
-//   requisite_bank          String?   @db.VarChar(255)
-//   requisite_legal_address String?   @db.VarChar(255)
-//   requisite_ogrn          String?   @db.VarChar(255)
-//   requisite_inn           String?   @db.VarChar(255)
-//   requisite_kpp           String?   @db.VarChar(255)
-//   requisite_rs            String?   @db.VarChar(255)
-//   requisite_bik           String?   @db.VarChar(255)
-//   created_at              DateTime? @default(now()) @db.Timestamptz(0)
-//   created_by              String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
-//   balance                 Decimal   @default(0) @db.Decimal
-// }
+model Organization {
+  id                    String    @id @default(uuid()) @db.Uuid
+  name                  String    @db.VarChar(255)
+  address               String?   @db.VarChar(255)
+  telephone             String?   @db.VarChar(35)
+  officePhone           String?   @map("office_phone") @db.VarChar(35)
+  email                 String?   @db.VarChar(255)
+  contractor            Boolean
+  seller                Boolean
+  tenantGroupId         String    @default("1ec13d33-3f41-6cf0-b012-02420a000f18") @map("tenant_group_id") @db.Uuid
+  requisiteBank         String?   @map("requisite_bank") @db.VarChar(255)
+  requisiteLegalAddress String?   @map("requisite_legal_address") @db.VarChar(255)
+  requisiteOgrn         String?   @map("requisite_ogrn") @db.VarChar(255)
+  requisiteInn          String?   @map("requisite_inn") @db.VarChar(255)
+  requisiteKpp          String?   @map("requisite_kpp") @db.VarChar(255)
+  requisiteRs           String?   @map("requisite_rs") @db.VarChar(255)
+  requisiteKs           String?   @map("requisite_ks") @db.VarChar(255)
+  requisiteBik          String?   @map("requisite_bik") @db.VarChar(255)
+  createdAt             DateTime? @default(now()) @map("created_at") @db.Timestamptz(0)
+  createdBy             String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
+  balance               Decimal   @default(0) @db.Decimal
+
+  @@map("organization")
+}
 
 // /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 

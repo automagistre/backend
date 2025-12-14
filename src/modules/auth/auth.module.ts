@@ -15,12 +15,15 @@ import { TokenIntrospectionStrategy } from './strategies/token-introspection.str
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: async (configService: ConfigService) => ({
-        secret: configService.get<string>('auth.jwt.secret'),
-        signOptions: {
-          expiresIn: `${configService.get<number>('auth.jwt.accessTokenTtl')}s`,
-        },
-      }),
+      useFactory: async (configService: ConfigService) => {
+        const accessTokenTtl = configService.get<number>('auth.jwt.accessTokenTtl');
+        return {
+          secret: configService.get<string>('auth.jwt.secret'),
+          signOptions: {
+            expiresIn: accessTokenTtl ? `${accessTokenTtl}s` : undefined,
+          },
+        };
+      },
     }),
     ConfigModule,
   ],
