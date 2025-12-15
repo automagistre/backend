@@ -11,6 +11,8 @@ import { BigIntScalar } from './common/scalars/bigint.scalar';
 import { PersonModule } from './modules/person/person.module';
 import { CarModule } from './modules/vehicle/car.module';
 import { CalendarModule } from './modules/calendar/calendar.module';
+import { OrganizationModule } from './modules/organization/organization.module';
+// import { EmployeeModule } from './modules/employee/employee.module'; // TODO: раскомментировать когда будет готово
 import { APP_GUARD } from '@nestjs/core';
 import { AuthModule } from './modules/auth/auth.module';
 import { DevAuthGuard } from './modules/auth/guards/dev-auth.guard';
@@ -34,6 +36,8 @@ import authConfig from './config/auth.config';
     PartModule,
     PersonModule,
     CarModule,
+    OrganizationModule,
+    // EmployeeModule, // TODO: раскомментировать когда будет готово
     CalendarModule,
     AuthModule,
   ],
