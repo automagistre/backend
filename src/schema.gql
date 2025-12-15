@@ -249,6 +249,32 @@ input CreateManufacturerInput {
   name: String!
 }
 
+input CreateOrganizationInput {
+  """Адрес"""
+  address: String
+
+  """Является контрагентом"""
+  contractor: Boolean! = false
+
+  """Email"""
+  email: String
+
+  """Название организации"""
+  name: String!
+
+  """Рабочий телефон"""
+  officePhone: PhoneNumber
+
+  """Реквизиты"""
+  requisite: RequisiteInput
+
+  """Является поставщиком"""
+  seller: Boolean! = false
+
+  """Телефон"""
+  telephone: PhoneNumber
+}
+
 input CreatePartInput {
   """ID производителя"""
   manufacturerId: ID!
@@ -354,6 +380,7 @@ type ManufacturerModel {
 type Mutation {
   createOneCar(input: CreateCarInput!): CarModel!
   createOneManufacturer(input: CreateManufacturerInput!): ManufacturerModel!
+  createOneOrganization(input: CreateOrganizationInput!): OrganizationModel!
   createOnePart(input: CreatePartInput!): PartModel!
 
   """Создать клиента"""
@@ -363,6 +390,7 @@ type Mutation {
   createOneVehicle(data: CreateVehicleInput!): VehicleModel!
   deleteOneCar(id: String!): CarModel!
   deleteOneManufacturer(id: String!): ManufacturerModel!
+  deleteOneOrganization(id: String!): OrganizationModel!
   deleteOnePart(id: ID!): PartModel!
 
   """Удалить клиента"""
@@ -376,6 +404,7 @@ type Mutation {
   refresh(input: RefreshDto!): Tokens!
   updateOneCar(input: UpdateCarInput!): CarModel!
   updateOneManufacturer(input: UpdateManufacturerInput!): ManufacturerModel!
+  updateOneOrganization(input: UpdateOrganizationInput!): OrganizationModel!
   updateOnePart(input: UpdatePartInput!): PartModel!
 
   """Обновить клиента"""
@@ -385,6 +414,39 @@ type Mutation {
   updateOneVehicle(data: UpdateVehicleInput!): VehicleModel!
 }
 
+"""Организация"""
+type OrganizationModel {
+  """Адрес"""
+  address: String
+
+  """Баланс"""
+  balance: String!
+
+  """Является контрагентом"""
+  contractor: Boolean!
+  createdAt: DateTime
+
+  """Email"""
+  email: String
+  id: ID!
+
+  """Название организации"""
+  name: String!
+
+  """Рабочий телефон"""
+  officePhone: PhoneNumber
+
+  """Реквизиты"""
+  requisite: RequisiteModel
+
+  """Является поставщиком"""
+  seller: Boolean!
+
+  """Телефон"""
+  telephone: PhoneNumber
+  tenantGroupId: String!
+}
+
 type PaginatedCars {
   items: [CarModel!]!
   total: Int!
@@ -392,6 +454,11 @@ type PaginatedCars {
 
 type PaginatedManufacturers {
   items: [ManufacturerModel!]!
+  total: Int!
+}
+
+type PaginatedOrganizations {
+  items: [OrganizationModel!]!
   total: Int!
 }
 
@@ -481,6 +548,8 @@ type Query {
   cars(search: String, skip: Int = 0, take: Int = 25): PaginatedCars!
   manufacturer(id: String!): ManufacturerModel
   manufacturers(search: String, skip: Int = 0, take: Int = 25): PaginatedManufacturers!
+  organization(id: String!): OrganizationModel
+  organizations(search: String, skip: Int = 0, take: Int = 25): PaginatedOrganizations!
   part(id: ID!): PartModel!
 
   """Запчасти с пагинацией"""
@@ -501,6 +570,60 @@ type Query {
 
 input RefreshDto {
   refreshToken: String!
+}
+
+"""Реквизиты организации"""
+input RequisiteInput {
+  """Банк"""
+  bank: String
+
+  """БИК"""
+  bik: String
+
+  """ИНН"""
+  inn: String
+
+  """КПП"""
+  kpp: String
+
+  """Корреспондентский счет (20 цифр)"""
+  ks: String
+
+  """Юридический адрес"""
+  legalAddress: String
+
+  """ОГРН"""
+  ogrn: String
+
+  """Расчетный счет (20 цифр)"""
+  rs: String
+}
+
+"""Реквизиты организации"""
+type RequisiteModel {
+  """Банк"""
+  bank: String
+
+  """БИК"""
+  bik: String
+
+  """ИНН"""
+  inn: String
+
+  """КПП"""
+  kpp: String
+
+  """Корреспондентский счет"""
+  ks: String
+
+  """Юридический адрес"""
+  legalAddress: String
+
+  """ОГРН"""
+  ogrn: String
+
+  """Расчетный счет"""
+  rs: String
 }
 
 type Tokens {
@@ -599,6 +722,35 @@ input UpdateManufacturerInput {
 
   """Название производителя"""
   name: String
+}
+
+input UpdateOrganizationInput {
+  """Адрес"""
+  address: String
+
+  """Является контрагентом"""
+  contractor: Boolean = false
+
+  """Email"""
+  email: String
+
+  """ID организации"""
+  id: ID!
+
+  """Название организации"""
+  name: String
+
+  """Рабочий телефон"""
+  officePhone: PhoneNumber
+
+  """Реквизиты"""
+  requisite: RequisiteInput
+
+  """Является поставщиком"""
+  seller: Boolean = false
+
+  """Телефон"""
+  telephone: PhoneNumber
 }
 
 input UpdatePartInput {
