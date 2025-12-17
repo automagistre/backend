@@ -15,6 +15,8 @@ import { PartPriceService } from './part-price.service';
 import { PartPriceModel } from './models/part-price.model';
 import { PartDiscountService } from './part-discount.service';
 import { PartDiscountModel } from './models/part-discount.model';
+import { PartCrossService } from './part-cross.service';
+import { AddPartCrossInput } from './inputs/add-part-cross.input';
 import { PaginationArgs } from 'src/common/pagination.args';
 import { PaginatedParts } from './inputs/paginatedParts.type';
 
@@ -24,6 +26,7 @@ export class PartResolver {
     private readonly partService: PartService,
     private readonly partPriceService: PartPriceService,
     private readonly partDiscountService: PartDiscountService,
+    private readonly partCrossService: PartCrossService,
   ) {}
 
   @Mutation(() => PartModel)
@@ -117,5 +120,34 @@ export class PartResolver {
   @ResolveField(() => [PartDiscountModel])
   async discountHistory(@Parent() part: PartModel): Promise<PartDiscountModel[]> {
     return this.partDiscountService.findAllByPartId(part.id);
+  }
+
+  @ResolveField(() => [PartModel])
+  async crossParts(@Parent() part: PartModel): Promise<PartModel[]> {
+    return this.partCrossService.getCrossParts(part.id);
+  }
+
+  @Mutation(() => PartModel)
+  async addPartCross(
+    @Args('input') input: AddPartCrossInput,
+  ): Promise<PartModel> {
+    await this.partCrossService.addCross(input.partId, input.crossPartId);
+    const part = await this.partService.findOne(input.partId);
+    if (!part) {
+      throw new Error('Запчасть не найдена');
+    }
+    return part;
+  }
+
+  @Mutation(() => PartModel)
+  async removePartCross(
+    @Args('partId', { type: () => ID }) partId: string,
+  ): Promise<PartModel> {
+    await this.partCrossService.removeCross(partId);
+    const part = await this.partService.findOne(partId);
+    if (!part) {
+      throw new Error('Запчасть не найдена');
+    }
+    return part;
   }
 }
