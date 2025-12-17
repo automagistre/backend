@@ -1005,36 +1005,57 @@ model Organization {
 //   created_by           String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
 // }
 
-// model warehouse {
-//   id         String    @id @default(uuid()) @db.Uuid
-//   tenant_id  String    @db.Uuid
-//   created_at DateTime? @default(now()) @db.Timestamptz(0)
-//   created_by String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
-// }
+model Warehouse {
+  id              String            @id @default(uuid()) @db.Uuid
+  tenantId        String            @default("1ec13d33-3f41-6e3a-a0cb-02420a000f18") @map("tenant_id") @db.Uuid
+  createdAt       DateTime?         @default(now()) @map("created_at") @db.Timestamptz(0)
+  createdBy       String?           @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
+  names           WarehouseName[]
+  codes           WarehouseCode[]
+  parentRelations WarehouseParent[] @relation("WarehouseChildren")
+  childRelations  WarehouseParent[] @relation("WarehouseParents")
 
-// model warehouse_code {
-//   id           String    @id @default(uuid()) @db.Uuid
-//   warehouse_id String    @db.Uuid
-//   code         String    @db.VarChar(255)
-//   tenant_id    String    @db.Uuid
-//   created_at   DateTime? @default(now()) @db.Timestamptz(0)
-//   created_by   String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
-// }
+  @@map("warehouse")
+}
 
-// model warehouse_name {
-//   id           String    @id @default(uuid()) @db.Uuid
-//   warehouse_id String    @db.Uuid
-//   name         String    @db.VarChar(255)
-//   tenant_id    String    @db.Uuid
-//   created_at   DateTime? @default(now()) @db.Timestamptz(0)
-//   created_by   String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
-// }
+model WarehouseCode {
+  id         String    @id @default(uuid()) @db.Uuid
+  warehouse  Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  warehouseId String   @map("warehouse_id") @db.Uuid
+  code       String    @db.VarChar(255)
+  tenantId   String    @map("tenant_id") @db.Uuid
+  createdAt  DateTime? @default(now()) @map("created_at") @db.Timestamptz(0)
+  createdBy  String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
 
-// model warehouse_parent {
-//   id                  String    @id @default(uuid()) @db.Uuid
-//   warehouse_id        String    @db.Uuid
-//   warehouse_parent_id String?   @db.Uuid
-//   tenant_id           String    @db.Uuid
-//   created_at          DateTime? @default(now()) @db.Timestamptz(0)
-//   created_by          String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
-// }
+  @@index([warehouseId], map: "idx_warehouse_code_warehouse_id")
+  @@unique([code, tenantId], map: "uniq_warehouse_code_code_tenant")
+  @@map("warehouse_code")
+}
+
+model WarehouseName {
+  id         String    @id @default(uuid()) @db.Uuid
+  warehouse  Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  warehouseId String   @map("warehouse_id") @db.Uuid
+  name       String    @db.VarChar(255)
+  tenantId   String    @map("tenant_id") @db.Uuid
+  createdAt  DateTime? @default(now()) @map("created_at") @db.Timestamptz(0)
+  createdBy  String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
+
+  @@index([warehouseId], map: "idx_warehouse_name_warehouse_id")
+  @@map("warehouse_name")
+}
+
+model WarehouseParent {
+  id                String     @id @default(uuid()) @db.Uuid
+  warehouse         Warehouse  @relation("WarehouseChildren", fields: [warehouseId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  warehouseId       String     @map("warehouse_id") @db.Uuid
+  parentWarehouse   Warehouse? @relation("WarehouseParents", fields: [warehouseParentId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  warehouseParentId String?     @map("warehouse_parent_id") @db.Uuid
+  tenantId          String     @map("tenant_id") @db.Uuid
+  createdAt         DateTime?  @default(now()) @map("created_at") @db.Timestamptz(0)
+  createdBy         String?    @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
+
+  @@index([warehouseId], map: "idx_warehouse_parent_warehouse_id")
+  @@index([warehouseParentId], map: "idx_warehouse_parent_parent_id")
+  @@map("warehouse_parent")
+}
