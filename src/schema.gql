@@ -238,6 +238,17 @@ input CreateCarInput {
   year: Int
 }
 
+input CreateEmployeeInput {
+  """Дата найма"""
+  hiredAt: DateTime
+
+  """ID персоны"""
+  personId: String!
+
+  """Коэффициент (процент от работ)"""
+  ratio: Int! = 100
+}
+
 input CreateManufacturerInput {
   """Название производителя на русском"""
   localizedName: String
@@ -348,6 +359,31 @@ A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date
 """
 scalar DateTime
 
+"""Сотрудник"""
+type EmployeeModel {
+  createdAt: DateTime
+
+  """Дата увольнения"""
+  firedAt: DateTime
+
+  """Дата найма"""
+  hiredAt: DateTime!
+  id: ID!
+
+  """Уволен"""
+  isFired: Boolean!
+
+  """Персона (сотрудник)"""
+  person: PersonModel!
+
+  """ID персоны"""
+  personId: String!
+
+  """Коэффициент (процент от работ)"""
+  ratio: Int!
+  tenantId: String!
+}
+
 """Российский государственный номер автомобиля"""
 scalar GosNomerRU
 
@@ -379,6 +415,7 @@ type ManufacturerModel {
 
 type Mutation {
   createOneCar(input: CreateCarInput!): CarModel!
+  createOneEmployee(input: CreateEmployeeInput!): EmployeeModel!
   createOneManufacturer(input: CreateManufacturerInput!): ManufacturerModel!
   createOneOrganization(input: CreateOrganizationInput!): OrganizationModel!
   createOnePart(input: CreatePartInput!): PartModel!
@@ -389,6 +426,7 @@ type Mutation {
   """Создать модель автомобиля"""
   createOneVehicle(data: CreateVehicleInput!): VehicleModel!
   deleteOneCar(id: String!): CarModel!
+  deleteOneEmployee(id: String!): EmployeeModel!
   deleteOneManufacturer(id: String!): ManufacturerModel!
   deleteOneOrganization(id: String!): OrganizationModel!
   deleteOnePart(id: ID!): PartModel!
@@ -398,11 +436,13 @@ type Mutation {
 
   """Удалить модель автомобиля"""
   deleteOneVehicle(id: String!): VehicleModel!
+  fireEmployee(id: String!): EmployeeModel!
   login(input: LoginDto!): Tokens!
   logout(input: RefreshDto!): Boolean!
   passwordLogin(input: PasswordLoginDto!): Tokens!
   refresh(input: RefreshDto!): Tokens!
   updateOneCar(input: UpdateCarInput!): CarModel!
+  updateOneEmployee(input: UpdateEmployeeInput!): EmployeeModel!
   updateOneManufacturer(input: UpdateManufacturerInput!): ManufacturerModel!
   updateOneOrganization(input: UpdateOrganizationInput!): OrganizationModel!
   updateOnePart(input: UpdatePartInput!): PartModel!
@@ -449,6 +489,11 @@ type OrganizationModel {
 
 type PaginatedCars {
   items: [CarModel!]!
+  total: Int!
+}
+
+type PaginatedEmployees {
+  items: [EmployeeModel!]!
   total: Int!
 }
 
@@ -546,6 +591,8 @@ type Query {
   car(id: String!): CarModel
   carByIdentifier(identifier: String!): CarModel
   cars(search: String, skip: Int = 0, take: Int = 25): PaginatedCars!
+  employee(id: String!): EmployeeModel
+  employees(includeFired: Boolean = false, search: String, skip: Int = 0, take: Int = 25): PaginatedEmployees!
   manufacturer(id: String!): ManufacturerModel
   manufacturers(search: String, skip: Int = 0, take: Int = 25): PaginatedManufacturers!
   organization(id: String!): OrganizationModel
@@ -708,6 +755,17 @@ input UpdateCarInput {
 
   """Год выпуска автомобиля"""
   year: Int
+}
+
+input UpdateEmployeeInput {
+  """Дата найма"""
+  hiredAt: DateTime
+
+  """ID сотрудника"""
+  id: ID!
+
+  """Коэффициент (процент от работ)"""
+  ratio: Int
 }
 
 input UpdateManufacturerInput {

@@ -5,6 +5,7 @@ import { PrismaService } from 'src/prisma/prisma.service';
 
 const DEV_USER_ID = '24602e10-629b-4f23-8d8b-1cca08fb8a84';
 const DEV_USER_EMAIL = 'dev@example.com';
+const DEFAULT_TENANT_ID = '1ec13d33-3f41-6e3a-a0cb-02420a000f18';
 
 @Injectable()
 export class UserIdMiddleware implements NestMiddleware {
@@ -40,6 +41,7 @@ export class UserIdMiddleware implements NestMiddleware {
     }
     
     await this.prisma.$executeRawUnsafe(`SET app.user_id = '${userId}'`);
+    await this.prisma.$executeRawUnsafe(`SET app.tenant_id = '${DEFAULT_TENANT_ID}'`);
 
     next();
   }
