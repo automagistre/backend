@@ -1,0 +1,49 @@
+import { Injectable } from '@nestjs/common';
+import { PrismaService } from 'src/prisma/prisma.service';
+import { CreatePartDiscountDto } from './dto/create-part-discount.dto';
+import { PartDiscount } from 'src/generated/prisma/client';
+
+@Injectable()
+export class PartDiscountService {
+  constructor(private readonly prisma: PrismaService) {}
+
+  async create(createPartDiscountDto: CreatePartDiscountDto): Promise<PartDiscount> {
+    return this.prisma.partDiscount.create({
+      data: {
+        ...createPartDiscountDto,
+      },
+    });
+  }
+
+  findAllByPartId(partId: string): Promise<PartDiscount[]> {
+    return this.prisma.partDiscount.findMany({
+      where: {
+        partId,
+      },
+      orderBy: {
+        since: 'desc',
+      },
+    });
+  }
+
+  findActualDiscountPart(partId: string): Promise<PartDiscount | null> {
+    return this.prisma.partDiscount.findFirst({
+      take: 1,
+      where: {
+        partId,
+      },
+      orderBy: {
+        since: 'desc',
+      },
+    });
+  }
+
+  remove(id: string): Promise<PartDiscount> {
+    return this.prisma.partDiscount.delete({
+      where: {
+        id,
+      },
+    });
+  }
+}
+
