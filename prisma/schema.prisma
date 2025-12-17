@@ -410,7 +410,7 @@ model Employee {
   ratio     Int
   hiredAt   DateTime  @map("hired_at") @db.Timestamp(0)
   firedAt   DateTime? @map("fired_at") @db.Timestamp(0)
-  tenantId  String    @default("1ec13d33-3f41-6cf0-b012-02420a000f18") @map("tenant_id") @db.Uuid
+  tenantId  String    @default("1ec13d33-3f41-6e3a-a0cb-02420a000f18") @map("tenant_id") @db.Uuid
   createdAt DateTime? @default(now()) @map("created_at") @db.Timestamptz(0)
   createdBy String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
 
