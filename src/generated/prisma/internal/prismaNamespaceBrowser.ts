@@ -63,7 +63,12 @@ export const ModelName = {
   CalendarEntryOrderInfo: 'CalendarEntryOrderInfo',
   CalendarEntrySchedule: 'CalendarEntrySchedule',
   Employee: 'Employee',
-  Organization: 'Organization'
+  Organization: 'Organization',
+  PartDiscount: 'PartDiscount',
+  Warehouse: 'Warehouse',
+  WarehouseCode: 'WarehouseCode',
+  WarehouseName: 'WarehouseName',
+  WarehouseParent: 'WarehouseParent'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -282,6 +287,66 @@ export const OrganizationScalarFieldEnum = {
 } as const
 
 export type OrganizationScalarFieldEnum = (typeof OrganizationScalarFieldEnum)[keyof typeof OrganizationScalarFieldEnum]
+
+
+export const PartDiscountScalarFieldEnum = {
+  id: 'id',
+  partId: 'partId',
+  since: 'since',
+  tenantId: 'tenantId',
+  discountAmount: 'discountAmount',
+  discountCurrencyCode: 'discountCurrencyCode',
+  createdAt: 'createdAt',
+  createdBy: 'createdBy'
+} as const
+
+export type PartDiscountScalarFieldEnum = (typeof PartDiscountScalarFieldEnum)[keyof typeof PartDiscountScalarFieldEnum]
+
+
+export const WarehouseScalarFieldEnum = {
+  id: 'id',
+  tenantId: 'tenantId',
+  createdAt: 'createdAt',
+  createdBy: 'createdBy'
+} as const
+
+export type WarehouseScalarFieldEnum = (typeof WarehouseScalarFieldEnum)[keyof typeof WarehouseScalarFieldEnum]
+
+
+export const WarehouseCodeScalarFieldEnum = {
+  id: 'id',
+  warehouseId: 'warehouseId',
+  code: 'code',
+  tenantId: 'tenantId',
+  createdAt: 'createdAt',
+  createdBy: 'createdBy'
+} as const
+
+export type WarehouseCodeScalarFieldEnum = (typeof WarehouseCodeScalarFieldEnum)[keyof typeof WarehouseCodeScalarFieldEnum]
+
+
+export const WarehouseNameScalarFieldEnum = {
+  id: 'id',
+  warehouseId: 'warehouseId',
+  name: 'name',
+  tenantId: 'tenantId',
+  createdAt: 'createdAt',
+  createdBy: 'createdBy'
+} as const
+
+export type WarehouseNameScalarFieldEnum = (typeof WarehouseNameScalarFieldEnum)[keyof typeof WarehouseNameScalarFieldEnum]
+
+
+export const WarehouseParentScalarFieldEnum = {
+  id: 'id',
+  warehouseId: 'warehouseId',
+  warehouseParentId: 'warehouseParentId',
+  tenantId: 'tenantId',
+  createdAt: 'createdAt',
+  createdBy: 'createdBy'
+} as const
+
+export type WarehouseParentScalarFieldEnum = (typeof WarehouseParentScalarFieldEnum)[keyof typeof WarehouseParentScalarFieldEnum]
 
 
 export const SortOrder = {

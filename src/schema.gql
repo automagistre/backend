@@ -287,6 +287,9 @@ input CreateOrganizationInput {
 }
 
 input CreatePartInput {
+  """Скидка на запчасть"""
+  discount: BigInt
+
   """ID производителя"""
   manufacturerId: ID!
 
@@ -522,10 +525,37 @@ type PaginatedVehicles {
   total: Int!
 }
 
+"""Скидка на запчасть"""
+type PartDiscountModel {
+  """Дата создания"""
+  createdAt: DateTime
+
+  """Кем создано"""
+  createdBy: ID
+
+  """Сумма скидки"""
+  discountAmount: BigInt
+
+  """Валюта скидки"""
+  discountCurrencyCode: String
+  id: ID!
+
+  """ID запчасти"""
+  partId: ID!
+
+  """Дата начала действия скидки"""
+  since: DateTime!
+
+  """ID автосервиса"""
+  tenantId: ID!
+}
+
 """Запчасть"""
 type PartModel {
   createdAt: DateTime
   createdBy: ID
+  discount: PartDiscountModel
+  discountHistory: [PartDiscountModel!]!
   id: ID!
   manufacturer: ManufacturerModel!
   name: String!
@@ -812,6 +842,9 @@ input UpdateOrganizationInput {
 }
 
 input UpdatePartInput {
+  """Скидка на запчасть"""
+  discount: BigInt
+
   """ID запчасти"""
   id: ID!
 

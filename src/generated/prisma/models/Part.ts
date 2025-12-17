@@ -250,6 +250,7 @@ export type PartWhereInput = {
   createdBy?: Prisma.UuidNullableFilter<"Part"> | string | null
   manufacturer?: Prisma.XOR<Prisma.ManufacturerScalarRelationFilter, Prisma.ManufacturerWhereInput>
   PartPrice?: Prisma.PartPriceListRelationFilter
+  PartDiscount?: Prisma.PartDiscountListRelationFilter
 }
 
 export type PartOrderByWithRelationInput = {
@@ -264,6 +265,7 @@ export type PartOrderByWithRelationInput = {
   createdBy?: Prisma.SortOrderInput | Prisma.SortOrder
   manufacturer?: Prisma.ManufacturerOrderByWithRelationInput
   PartPrice?: Prisma.PartPriceOrderByRelationAggregateInput
+  PartDiscount?: Prisma.PartDiscountOrderByRelationAggregateInput
 }
 
 export type PartWhereUniqueInput = Prisma.AtLeast<{
@@ -282,6 +284,7 @@ export type PartWhereUniqueInput = Prisma.AtLeast<{
   createdBy?: Prisma.UuidNullableFilter<"Part"> | string | null
   manufacturer?: Prisma.XOR<Prisma.ManufacturerScalarRelationFilter, Prisma.ManufacturerWhereInput>
   PartPrice?: Prisma.PartPriceListRelationFilter
+  PartDiscount?: Prisma.PartDiscountListRelationFilter
 }, "id" | "number_manufacturerId">
 
 export type PartOrderByWithAggregationInput = {
@@ -327,6 +330,7 @@ export type PartCreateInput = {
   createdBy?: string | null
   manufacturer: Prisma.ManufacturerCreateNestedOneWithoutPartsInput
   PartPrice?: Prisma.PartPriceCreateNestedManyWithoutPartInput
+  PartDiscount?: Prisma.PartDiscountCreateNestedManyWithoutPartInput
 }
 
 export type PartUncheckedCreateInput = {
@@ -340,6 +344,7 @@ export type PartUncheckedCreateInput = {
   createdAt?: Date | string | null
   createdBy?: string | null
   PartPrice?: Prisma.PartPriceUncheckedCreateNestedManyWithoutPartInput
+  PartDiscount?: Prisma.PartDiscountUncheckedCreateNestedManyWithoutPartInput
 }
 
 export type PartUpdateInput = {
@@ -353,6 +358,7 @@ export type PartUpdateInput = {
   createdBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   manufacturer?: Prisma.ManufacturerUpdateOneRequiredWithoutPartsNestedInput
   PartPrice?: Prisma.PartPriceUpdateManyWithoutPartNestedInput
+  PartDiscount?: Prisma.PartDiscountUpdateManyWithoutPartNestedInput
 }
 
 export type PartUncheckedUpdateInput = {
@@ -366,6 +372,7 @@ export type PartUncheckedUpdateInput = {
   createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   PartPrice?: Prisma.PartPriceUncheckedUpdateManyWithoutPartNestedInput
+  PartDiscount?: Prisma.PartDiscountUncheckedUpdateManyWithoutPartNestedInput
 }
 
 export type PartCreateManyInput = {
@@ -539,6 +546,20 @@ export type PartUpdateOneRequiredWithoutPartPriceNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.PartUpdateToOneWithWhereWithoutPartPriceInput, Prisma.PartUpdateWithoutPartPriceInput>, Prisma.PartUncheckedUpdateWithoutPartPriceInput>
 }
 
+export type PartCreateNestedOneWithoutPartDiscountInput = {
+  create?: Prisma.XOR<Prisma.PartCreateWithoutPartDiscountInput, Prisma.PartUncheckedCreateWithoutPartDiscountInput>
+  connectOrCreate?: Prisma.PartCreateOrConnectWithoutPartDiscountInput
+  connect?: Prisma.PartWhereUniqueInput
+}
+
+export type PartUpdateOneRequiredWithoutPartDiscountNestedInput = {
+  create?: Prisma.XOR<Prisma.PartCreateWithoutPartDiscountInput, Prisma.PartUncheckedCreateWithoutPartDiscountInput>
+  connectOrCreate?: Prisma.PartCreateOrConnectWithoutPartDiscountInput
+  upsert?: Prisma.PartUpsertWithoutPartDiscountInput
+  connect?: Prisma.PartWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.PartUpdateToOneWithWhereWithoutPartDiscountInput, Prisma.PartUpdateWithoutPartDiscountInput>, Prisma.PartUncheckedUpdateWithoutPartDiscountInput>
+}
+
 export type PartCreateWithoutManufacturerInput = {
   id?: string
   name: string
@@ -549,6 +570,7 @@ export type PartCreateWithoutManufacturerInput = {
   createdAt?: Date | string | null
   createdBy?: string | null
   PartPrice?: Prisma.PartPriceCreateNestedManyWithoutPartInput
+  PartDiscount?: Prisma.PartDiscountCreateNestedManyWithoutPartInput
 }
 
 export type PartUncheckedCreateWithoutManufacturerInput = {
@@ -561,6 +583,7 @@ export type PartUncheckedCreateWithoutManufacturerInput = {
   createdAt?: Date | string | null
   createdBy?: string | null
   PartPrice?: Prisma.PartPriceUncheckedCreateNestedManyWithoutPartInput
+  PartDiscount?: Prisma.PartDiscountUncheckedCreateNestedManyWithoutPartInput
 }
 
 export type PartCreateOrConnectWithoutManufacturerInput = {
@@ -614,6 +637,7 @@ export type PartCreateWithoutPartPriceInput = {
   createdAt?: Date | string | null
   createdBy?: string | null
   manufacturer: Prisma.ManufacturerCreateNestedOneWithoutPartsInput
+  PartDiscount?: Prisma.PartDiscountCreateNestedManyWithoutPartInput
 }
 
 export type PartUncheckedCreateWithoutPartPriceInput = {
@@ -626,6 +650,7 @@ export type PartUncheckedCreateWithoutPartPriceInput = {
   warehouseId?: string | null
   createdAt?: Date | string | null
   createdBy?: string | null
+  PartDiscount?: Prisma.PartDiscountUncheckedCreateNestedManyWithoutPartInput
 }
 
 export type PartCreateOrConnectWithoutPartPriceInput = {
@@ -654,6 +679,7 @@ export type PartUpdateWithoutPartPriceInput = {
   createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   manufacturer?: Prisma.ManufacturerUpdateOneRequiredWithoutPartsNestedInput
+  PartDiscount?: Prisma.PartDiscountUpdateManyWithoutPartNestedInput
 }
 
 export type PartUncheckedUpdateWithoutPartPriceInput = {
@@ -666,6 +692,75 @@ export type PartUncheckedUpdateWithoutPartPriceInput = {
   warehouseId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  PartDiscount?: Prisma.PartDiscountUncheckedUpdateManyWithoutPartNestedInput
+}
+
+export type PartCreateWithoutPartDiscountInput = {
+  id?: string
+  name: string
+  number: string
+  universal: boolean
+  unit?: number
+  warehouseId?: string | null
+  createdAt?: Date | string | null
+  createdBy?: string | null
+  manufacturer: Prisma.ManufacturerCreateNestedOneWithoutPartsInput
+  PartPrice?: Prisma.PartPriceCreateNestedManyWithoutPartInput
+}
+
+export type PartUncheckedCreateWithoutPartDiscountInput = {
+  id?: string
+  manufacturerId: string
+  name: string
+  number: string
+  universal: boolean
+  unit?: number
+  warehouseId?: string | null
+  createdAt?: Date | string | null
+  createdBy?: string | null
+  PartPrice?: Prisma.PartPriceUncheckedCreateNestedManyWithoutPartInput
+}
+
+export type PartCreateOrConnectWithoutPartDiscountInput = {
+  where: Prisma.PartWhereUniqueInput
+  create: Prisma.XOR<Prisma.PartCreateWithoutPartDiscountInput, Prisma.PartUncheckedCreateWithoutPartDiscountInput>
+}
+
+export type PartUpsertWithoutPartDiscountInput = {
+  update: Prisma.XOR<Prisma.PartUpdateWithoutPartDiscountInput, Prisma.PartUncheckedUpdateWithoutPartDiscountInput>
+  create: Prisma.XOR<Prisma.PartCreateWithoutPartDiscountInput, Prisma.PartUncheckedCreateWithoutPartDiscountInput>
+  where?: Prisma.PartWhereInput
+}
+
+export type PartUpdateToOneWithWhereWithoutPartDiscountInput = {
+  where?: Prisma.PartWhereInput
+  data: Prisma.XOR<Prisma.PartUpdateWithoutPartDiscountInput, Prisma.PartUncheckedUpdateWithoutPartDiscountInput>
+}
+
+export type PartUpdateWithoutPartDiscountInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  number?: Prisma.StringFieldUpdateOperationsInput | string
+  universal?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  unit?: Prisma.IntFieldUpdateOperationsInput | number
+  warehouseId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  manufacturer?: Prisma.ManufacturerUpdateOneRequiredWithoutPartsNestedInput
+  PartPrice?: Prisma.PartPriceUpdateManyWithoutPartNestedInput
+}
+
+export type PartUncheckedUpdateWithoutPartDiscountInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  manufacturerId?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  number?: Prisma.StringFieldUpdateOperationsInput | string
+  universal?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  unit?: Prisma.IntFieldUpdateOperationsInput | number
+  warehouseId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  PartPrice?: Prisma.PartPriceUncheckedUpdateManyWithoutPartNestedInput
 }
 
 export type PartCreateManyManufacturerInput = {
@@ -689,6 +784,7 @@ export type PartUpdateWithoutManufacturerInput = {
   createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   PartPrice?: Prisma.PartPriceUpdateManyWithoutPartNestedInput
+  PartDiscount?: Prisma.PartDiscountUpdateManyWithoutPartNestedInput
 }
 
 export type PartUncheckedUpdateWithoutManufacturerInput = {
@@ -701,6 +797,7 @@ export type PartUncheckedUpdateWithoutManufacturerInput = {
   createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   PartPrice?: Prisma.PartPriceUncheckedUpdateManyWithoutPartNestedInput
+  PartDiscount?: Prisma.PartDiscountUncheckedUpdateManyWithoutPartNestedInput
 }
 
 export type PartUncheckedUpdateManyWithoutManufacturerInput = {
@@ -721,10 +818,12 @@ export type PartUncheckedUpdateManyWithoutManufacturerInput = {
 
 export type PartCountOutputType = {
   PartPrice: number
+  PartDiscount: number
 }
 
 export type PartCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   PartPrice?: boolean | PartCountOutputTypeCountPartPriceArgs
+  PartDiscount?: boolean | PartCountOutputTypeCountPartDiscountArgs
 }
 
 /**
@@ -744,6 +843,13 @@ export type PartCountOutputTypeCountPartPriceArgs<ExtArgs extends runtime.Types.
   where?: Prisma.PartPriceWhereInput
 }
 
+/**
+ * PartCountOutputType without action
+ */
+export type PartCountOutputTypeCountPartDiscountArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.PartDiscountWhereInput
+}
+
 
 export type PartSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
@@ -757,6 +863,7 @@ export type PartSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   createdBy?: boolean
   manufacturer?: boolean | Prisma.ManufacturerDefaultArgs<ExtArgs>
   PartPrice?: boolean | Prisma.Part$PartPriceArgs<ExtArgs>
+  PartDiscount?: boolean | Prisma.Part$PartDiscountArgs<ExtArgs>
   _count?: boolean | Prisma.PartCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["part"]>
 
@@ -802,6 +909,7 @@ export type PartOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = run
 export type PartInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   manufacturer?: boolean | Prisma.ManufacturerDefaultArgs<ExtArgs>
   PartPrice?: boolean | Prisma.Part$PartPriceArgs<ExtArgs>
+  PartDiscount?: boolean | Prisma.Part$PartDiscountArgs<ExtArgs>
   _count?: boolean | Prisma.PartCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type PartIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -816,6 +924,7 @@ export type $PartPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
   objects: {
     manufacturer: Prisma.$ManufacturerPayload<ExtArgs>
     PartPrice: Prisma.$PartPricePayload<ExtArgs>[]
+    PartDiscount: Prisma.$PartDiscountPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -1223,6 +1332,7 @@ export interface Prisma__PartClient<T, Null = never, ExtArgs extends runtime.Typ
   readonly [Symbol.toStringTag]: "PrismaPromise"
   manufacturer<T extends Prisma.ManufacturerDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.ManufacturerDefaultArgs<ExtArgs>>): Prisma.Prisma__ManufacturerClient<runtime.Types.Result.GetResult<Prisma.$ManufacturerPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
   PartPrice<T extends Prisma.Part$PartPriceArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Part$PartPriceArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$PartPricePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  PartDiscount<T extends Prisma.Part$PartDiscountArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Part$PartDiscountArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$PartDiscountPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -1678,6 +1788,30 @@ export type Part$PartPriceArgs<ExtArgs extends runtime.Types.Extensions.Internal
   take?: number
   skip?: number
   distinct?: Prisma.PartPriceScalarFieldEnum | Prisma.PartPriceScalarFieldEnum[]
+}
+
+/**
+ * Part.PartDiscount
+ */
+export type Part$PartDiscountArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the PartDiscount
+   */
+  select?: Prisma.PartDiscountSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the PartDiscount
+   */
+  omit?: Prisma.PartDiscountOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.PartDiscountInclude<ExtArgs> | null
+  where?: Prisma.PartDiscountWhereInput
+  orderBy?: Prisma.PartDiscountOrderByWithRelationInput | Prisma.PartDiscountOrderByWithRelationInput[]
+  cursor?: Prisma.PartDiscountWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.PartDiscountScalarFieldEnum | Prisma.PartDiscountScalarFieldEnum[]
 }
 
 /**

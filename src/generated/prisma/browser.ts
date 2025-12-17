@@ -82,3 +82,28 @@ export type Employee = Prisma.EmployeeModel
  * 
  */
 export type Organization = Prisma.OrganizationModel
+/**
+ * Model PartDiscount
+ * 
+ */
+export type PartDiscount = Prisma.PartDiscountModel
+/**
+ * Model Warehouse
+ * 
+ */
+export type Warehouse = Prisma.WarehouseModel
+/**
+ * Model WarehouseCode
+ * 
+ */
+export type WarehouseCode = Prisma.WarehouseCodeModel
+/**
+ * Model WarehouseName
+ * 
+ */
+export type WarehouseName = Prisma.WarehouseNameModel
+/**
+ * Model WarehouseParent
+ * 
+ */
+export type WarehouseParent = Prisma.WarehouseParentModel
