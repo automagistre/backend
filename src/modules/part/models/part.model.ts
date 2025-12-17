@@ -3,6 +3,8 @@ import { ManufacturerModel } from '../../manufacturer/models/manufacturer.model'
 import { Unit } from '../enums/unit.enum';
 import { Part } from '@prisma/client';
 import { PartPriceModel } from './part-price.model';
+import { PartDiscountModel } from './part-discount.model';
+
 @ObjectType({ description: 'Запчасть' })
 export class PartModel implements Part {
   @Field(() => ID)
@@ -39,4 +41,10 @@ export class PartModel implements Part {
 
   @Field(() => [PartPriceModel])
   priceHistory?: PartPriceModel[];
+
+  @Field(() => PartDiscountModel, { nullable: true })
+  discount?: PartDiscountModel | null;
+
+  @Field(() => [PartDiscountModel])
+  discountHistory?: PartDiscountModel[];
 }

@@ -13,6 +13,8 @@ import { CreatePartInput } from './inputs/create.input';
 import { UpdatePartInput } from './inputs/update.input';
 import { PartPriceService } from './part-price.service';
 import { PartPriceModel } from './models/part-price.model';
+import { PartDiscountService } from './part-discount.service';
+import { PartDiscountModel } from './models/part-discount.model';
 import { PaginationArgs } from 'src/common/pagination.args';
 import { PaginatedParts } from './inputs/paginatedParts.type';
 
@@ -21,6 +23,7 @@ export class PartResolver {
   constructor(
     private readonly partService: PartService,
     private readonly partPriceService: PartPriceService,
+    private readonly partDiscountService: PartDiscountService,
   ) {}
 
   @Mutation(() => PartModel)
@@ -45,17 +48,28 @@ export class PartResolver {
     @Args('input') input: UpdatePartInput,
   ): Promise<PartModel> {
     const currentPrice = await this.partPriceService.findActualPricePart(input.id);
-    const { price, ...data } = input;
+    const currentDiscount = await this.partDiscountService.findActualDiscountPart(input.id);
+    const { price, discount, ...data } = input;
+    
+    const part = await this.partService.update(data);
+    
     if (price && currentPrice?.priceAmount !== input.price) {
-      const part = await this.partService.update(data);
       await this.partPriceService.create({
         partId: part.id,
         priceAmount: price,
         since: new Date(),
       });
-      return part;
     }
-    return this.partService.update(data);
+    
+    if (discount !== undefined && currentDiscount?.discountAmount !== discount) {
+      await this.partDiscountService.create({
+        partId: part.id,
+        discountAmount: discount,
+        since: new Date(),
+      });
+    }
+    
+    return part;
   }
 
   @Mutation(() => PartModel)
@@ -93,5 +107,15 @@ export class PartResolver {
   @ResolveField(() => [PartPriceModel])
   async priceHistory(@Parent() part: PartModel): Promise<PartPriceModel[]> {
     return this.partPriceService.findAllByPartId(part.id);
+  }
+
+  @ResolveField(() => PartDiscountModel)
+  async discount(@Parent() part: PartModel): Promise<PartDiscountModel | null> {
+    return this.partDiscountService.findActualDiscountPart(part.id);
+  }
+
+  @ResolveField(() => [PartDiscountModel])
+  async discountHistory(@Parent() part: PartModel): Promise<PartDiscountModel[]> {
+    return this.partDiscountService.findAllByPartId(part.id);
   }
 }

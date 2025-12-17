@@ -23,4 +23,7 @@ export class CreatePartInput {
 
   @Field(() => BigInt, { nullable: true, description: 'Цена запчасти' })
   price?: bigint;
+
+  @Field(() => BigInt, { nullable: true, description: 'Скидка на запчасть' })
+  discount?: bigint;
 } 
