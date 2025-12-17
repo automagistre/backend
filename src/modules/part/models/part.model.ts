@@ -47,4 +47,7 @@ export class PartModel implements Part {
 
   @Field(() => [PartDiscountModel])
   discountHistory?: PartDiscountModel[];
+
+  @Field(() => [PartModel])
+  crossParts?: PartModel[];
 }

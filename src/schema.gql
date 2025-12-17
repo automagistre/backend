@@ -2,6 +2,14 @@
 # THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
 # ------------------------------------------------------
 
+input AddPartCrossInput {
+  """ID взаимозаменяемой запчасти"""
+  crossPartId: ID!
+
+  """ID запчасти"""
+  partId: ID!
+}
+
 """BigInt custom scalar type"""
 scalar BigInt
 
@@ -417,6 +425,7 @@ type ManufacturerModel {
 }
 
 type Mutation {
+  addPartCross(input: AddPartCrossInput!): PartModel!
   createOneCar(input: CreateCarInput!): CarModel!
   createOneEmployee(input: CreateEmployeeInput!): EmployeeModel!
   createOneManufacturer(input: CreateManufacturerInput!): ManufacturerModel!
@@ -444,6 +453,7 @@ type Mutation {
   logout(input: RefreshDto!): Boolean!
   passwordLogin(input: PasswordLoginDto!): Tokens!
   refresh(input: RefreshDto!): Tokens!
+  removePartCross(partId: ID!): PartModel!
   updateOneCar(input: UpdateCarInput!): CarModel!
   updateOneEmployee(input: UpdateEmployeeInput!): EmployeeModel!
   updateOneManufacturer(input: UpdateManufacturerInput!): ManufacturerModel!
@@ -554,6 +564,7 @@ type PartDiscountModel {
 type PartModel {
   createdAt: DateTime
   createdBy: ID
+  crossParts: [PartModel!]!
   discount: PartDiscountModel
   discountHistory: [PartDiscountModel!]!
   id: ID!
