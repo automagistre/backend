@@ -1,6 +1,7 @@
 import {
   Args,
   ID,
+  Int,
   Mutation,
   Parent,
   Query,
@@ -19,6 +20,7 @@ import { PartCrossService } from './part-cross.service';
 import { AddPartCrossInput } from './inputs/add-part-cross.input';
 import { PaginationArgs } from 'src/common/pagination.args';
 import { PaginatedParts } from './inputs/paginatedParts.type';
+import { PartMotionService } from './part-motion.service';
 
 @Resolver(() => PartModel)
 export class PartResolver {
@@ -27,6 +29,7 @@ export class PartResolver {
     private readonly partPriceService: PartPriceService,
     private readonly partDiscountService: PartDiscountService,
     private readonly partCrossService: PartCrossService,
+    private readonly partMotionService: PartMotionService,
   ) {}
 
   @Mutation(() => PartModel)
@@ -125,6 +128,11 @@ export class PartResolver {
   @ResolveField(() => [PartModel])
   async crossParts(@Parent() part: PartModel): Promise<PartModel[]> {
     return this.partCrossService.getCrossParts(part.id);
+  }
+
+  @ResolveField(() => Int, { nullable: true })
+  async stockQuantity(@Parent() part: PartModel): Promise<number | null> {
+    return this.partMotionService.getStockQuantity(part.id);
   }
 
   @Mutation(() => PartModel)

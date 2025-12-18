@@ -84,6 +84,7 @@ model Part {
   PartPrice      PartPrice[]
   PartDiscount   PartDiscount[]
   PartCrossPart  PartCrossPart[]
+  Motion         Motion[]
 
   @@unique([number, manufacturerId], map: "uniq_490f70c696901f54a23b42d")
   @@map("part")
@@ -591,20 +592,22 @@ model Employee {
 //   execution_time Int?
 // }
 
-// /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
-// model motion {
-//   id          String    @id @default(uuid()) @db.Uuid
-//   part_id     String?   @db.Uuid
-//   quantity    Int
-//   description String?
-//   tenant_id   String    @db.Uuid
-//   source_type Int       @db.SmallInt
-//   source_id   String    @db.Uuid
-//   created_at  DateTime? @default(now()) @db.Timestamptz(0)
-//   created_by  String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
+model Motion {
+  id          String           @id @default(uuid()) @db.Uuid
+  part        Part?            @relation(fields: [partId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  partId      String?          @map("part_id") @db.Uuid
+  quantity    Int              // может быть положительным или отрицательным
+  description String?          @db.Text
+  tenantId    String           @default("1ec13d33-3f41-6e3a-a0cb-02420a000f18") @map("tenant_id") @db.Uuid
+  sourceType  Int              @map("source_type") @db.SmallInt
+  sourceId    String           @map("source_id") @db.Uuid
+  createdAt   DateTime?        @default(now()) @map("created_at") @db.Timestamptz(0)
+  createdBy   String?          @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
 
-//   @@index([part_id], map: "idx_f5fea1e84ce34bec")
-// }
+  @@index([partId], map: "idx_f5fea1e84ce34bec")
+  @@index([tenantId, partId])
+  @@map("motion")
+}
 
 // /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 // model note {

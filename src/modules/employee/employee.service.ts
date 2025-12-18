@@ -1,27 +1,17 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateEmployeeInput, UpdateEmployeeInput } from './inputs/employee.input';
+import { TenantService } from 'src/common/services/tenant.service';
 
 const DEFAULT_TAKE = 25;
 const DEFAULT_SKIP = 0;
 
 @Injectable()
 export class EmployeeService {
-  constructor(private readonly prisma: PrismaService) {}
-
-  private async getTenantId(): Promise<string> {
-    try {
-      const result = await this.prisma.$queryRawUnsafe<Array<{ current_setting: string }>>(
-        `SELECT current_setting('app.tenant_id', true) as current_setting`
-      );
-      const tenantId = result[0]?.current_setting?.trim();
-      // Если переменная не установлена или пустая, возвращаем пустую строку
-      return tenantId && tenantId !== '' ? tenantId : '';
-    } catch {
-      // В случае ошибки возвращаем пустую строку
-      return '';
-    }
-  }
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly tenantService: TenantService,
+  ) {}
 
   async create(data: CreateEmployeeInput) {
     return this.prisma.employee.create({
@@ -61,7 +51,7 @@ export class EmployeeService {
     search?: string;
     includeFired?: boolean;
   }) {
-    const tenantId = await this.getTenantId();
+    const tenantId = await this.tenantService.getTenantId();
     
     const where: any = {
       tenantId,
@@ -100,7 +90,7 @@ export class EmployeeService {
   }
 
   async findOne(id: string) {
-    const tenantId = await this.getTenantId();
+    const tenantId = await this.tenantService.getTenantId();
     
     return this.prisma.employee.findFirst({
       where: {

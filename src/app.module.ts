@@ -8,6 +8,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { getGraphQLConfig } from './config/graphql.config';
 import { UserIdMiddleware } from './middlewares/user-id.middleware';
 import { BigIntScalar } from './common/scalars/bigint.scalar';
+import { CommonModule } from './common/common.module';
 import { PersonModule } from './modules/person/person.module';
 import { CarModule } from './modules/vehicle/car.module';
 import { CalendarModule } from './modules/calendar/calendar.module';
@@ -32,6 +33,7 @@ import authConfig from './config/auth.config';
       inject: [ConfigService],
     }),
     PrismaModule,
+    CommonModule,
     ManufacturerModule,
     PartModule,
     PersonModule,

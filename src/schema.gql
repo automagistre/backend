@@ -573,6 +573,7 @@ type PartModel {
   number: String!
   price: PartPriceModel
   priceHistory: [PartPriceModel!]!
+  stockQuantity: Int
   unit: Unit!
   universal: Boolean!
   warehouseId: ID

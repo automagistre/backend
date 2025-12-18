@@ -1,4 +1,4 @@
-import { Field, ID, ObjectType } from '@nestjs/graphql';
+import { Field, ID, Int, ObjectType } from '@nestjs/graphql';
 import { ManufacturerModel } from '../../manufacturer/models/manufacturer.model';
 import { Unit } from '../enums/unit.enum';
 import { Part } from '@prisma/client';
@@ -50,4 +50,7 @@ export class PartModel implements Part {
 
   @Field(() => [PartModel])
   crossParts?: PartModel[];
+
+  @Field(() => Int, { nullable: true })
+  stockQuantity?: number | null;
 }
