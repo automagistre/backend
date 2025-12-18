@@ -53,4 +53,10 @@ export class PartModel implements Part {
 
   @Field(() => Int, { nullable: true })
   stockQuantity?: number | null;
+
+  @Field(() => Int, { nullable: true })
+  orderFromQuantity?: number | null;
+
+  @Field(() => Int, { nullable: true })
+  orderUpToQuantity?: number | null;
 }

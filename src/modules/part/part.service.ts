@@ -4,13 +4,17 @@ import { CreatePartInput } from './inputs/create.input';
 import { PartModel } from './models/part.model';
 import { UpdatePartInput } from './inputs/update.input';
 import { cleanUpcaseString } from 'src/common/utils/clean-upcase.util';
+import { TenantService } from '../../common/services/tenant.service';
 
 const DEFAULT_TAKE = 25;
 const DEFAULT_SKIP = 0;
 
 @Injectable()
 export class PartService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly tenantService: TenantService,
+  ) {}
 
 
   async findAll(): Promise<PartModel[]> {
@@ -85,17 +89,58 @@ export class PartService {
   }
 
   async update(input: UpdatePartInput): Promise<PartModel> {
-    const { id, ...data } = input;
+    const { id, orderFromQuantity, orderUpToQuantity, ...data } = input;
     if (data?.number) {
       data.number = cleanUpcaseString(data.number);
     }
-    const part = await this.prisma.part.update({
-      where: { id },
-      data,
-      include: {
-        manufacturer: true,
-      },
+
+    const part = await this.prisma.$transaction(async (tx) => {
+      const updatedPart = await tx.part.update({
+        where: { id },
+        data,
+        include: {
+          manufacturer: true,
+        },
+      });
+
+      const tenantId = await this.tenantService.getTenantId();
+
+      // Обработка PartRequiredAvailability
+      // Обрабатываем только если заданы оба поля
+      if (
+        orderFromQuantity !== undefined && orderFromQuantity !== null &&
+        orderUpToQuantity !== undefined && orderUpToQuantity !== null
+      ) {
+        // Валидация
+        if (orderFromQuantity < 0 || orderUpToQuantity < 0) {
+          throw new Error(
+            'orderFromQuantity и orderUpToQuantity должны быть >= 0',
+          );
+        }
+        if (
+          orderUpToQuantity !== 0 &&
+          orderFromQuantity >= orderUpToQuantity
+        ) {
+          throw new Error(
+            'orderUpToQuantity должен быть > orderFromQuantity (или равен 0)',
+          );
+        }
+
+        // Историческая система: всегда создаем новую запись (как с ценой)
+        // Даже если оба поля = 0, создаем запись (это означает "запасы не контролируются")
+        await tx.partRequiredAvailability.create({
+          data: {
+            partId: id,
+            tenantId,
+            orderFromQuantity,
+            orderUpToQuantity,
+          },
+        });
+      }
+
+      return updatedPart;
     });
+
     return part;
   }
 

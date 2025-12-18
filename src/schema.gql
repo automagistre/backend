@@ -571,6 +571,8 @@ type PartModel {
   manufacturer: ManufacturerModel!
   name: String!
   number: String!
+  orderFromQuantity: Int
+  orderUpToQuantity: Int
   price: PartPriceModel
   priceHistory: [PartPriceModel!]!
   stockQuantity: Int
@@ -868,6 +870,12 @@ input UpdatePartInput {
 
   """Номер запчасти"""
   number: String
+
+  """Когда на складе осталось"""
+  orderFromQuantity: Int
+
+  """Заказывать до"""
+  orderUpToQuantity: Int
 
   """Цена запчасти"""
   price: BigInt

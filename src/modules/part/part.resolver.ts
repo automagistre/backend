@@ -21,6 +21,7 @@ import { AddPartCrossInput } from './inputs/add-part-cross.input';
 import { PaginationArgs } from 'src/common/pagination.args';
 import { PaginatedParts } from './inputs/paginatedParts.type';
 import { PartMotionService } from './part-motion.service';
+import { PartRequiredAvailabilityService } from './part-required-availability.service';
 
 @Resolver(() => PartModel)
 export class PartResolver {
@@ -30,6 +31,7 @@ export class PartResolver {
     private readonly partDiscountService: PartDiscountService,
     private readonly partCrossService: PartCrossService,
     private readonly partMotionService: PartMotionService,
+    private readonly partRequiredAvailabilityService: PartRequiredAvailabilityService,
   ) {}
 
   @Mutation(() => PartModel)
@@ -133,6 +135,18 @@ export class PartResolver {
   @ResolveField(() => Int, { nullable: true })
   async stockQuantity(@Parent() part: PartModel): Promise<number | null> {
     return this.partMotionService.getStockQuantity(part.id);
+  }
+
+  @ResolveField(() => Int, { nullable: true })
+  async orderFromQuantity(@Parent() part: PartModel): Promise<number | null> {
+    const availability = await this.partRequiredAvailabilityService.findForPart(part.id);
+    return availability?.orderFromQuantity ?? null;
+  }
+
+  @ResolveField(() => Int, { nullable: true })
+  async orderUpToQuantity(@Parent() part: PartModel): Promise<number | null> {
+    const availability = await this.partRequiredAvailabilityService.findForPart(part.id);
+    return availability?.orderUpToQuantity ?? null;
   }
 
   @Mutation(() => PartModel)

@@ -81,10 +81,11 @@ model Part {
   warehouseId    String?      @map("warehouse_id") @db.Uuid
   createdAt      DateTime?    @default(now()) @map("created_at") @db.Timestamptz(0)
   createdBy      String?      @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
-  PartPrice      PartPrice[]
-  PartDiscount   PartDiscount[]
-  PartCrossPart  PartCrossPart[]
-  Motion         Motion[]
+  PartPrice                PartPrice[]
+  PartDiscount             PartDiscount[]
+  PartCrossPart            PartCrossPart[]
+  Motion                   Motion[]
+  PartRequiredAvailability PartRequiredAvailability[]
 
   @@unique([number, manufacturerId], map: "uniq_490f70c696901f54a23b42d")
   @@map("part")
@@ -838,15 +839,20 @@ model PartDiscount {
 
 // /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 
-// model part_required_availability {
-//   id                   String    @id @default(uuid()) @db.Uuid
-//   part_id              String    @db.Uuid
-//   order_from_quantity  Int
-//   order_up_to_quantity Int
-//   tenant_id            String    @db.Uuid
-//   created_at           DateTime? @default(now()) @db.Timestamptz(0)
-//   created_by           String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
-// }
+model PartRequiredAvailability {
+  id                String    @id @default(uuid()) @db.Uuid
+  part              Part      @relation(fields: [partId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  partId            String    @map("part_id") @db.Uuid
+  orderFromQuantity Int       @map("order_from_quantity")
+  orderUpToQuantity Int       @map("order_up_to_quantity")
+  tenantId          String    @default("1ec13d33-3f41-6e3a-a0cb-02420a000f18") @map("tenant_id") @db.Uuid
+  createdAt         DateTime? @default(now()) @map("created_at") @db.Timestamptz(0)
+  createdBy         String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
+
+  @@index([partId], map: "idx_part_required_availability_part_id")
+  @@index([partId, tenantId])
+  @@map("part_required_availability")
+}
 
 // /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 // model part_supply {
@@ -860,21 +866,6 @@ model PartDiscount {
 //   created_at  DateTime? @default(now()) @db.Timestamptz(0)
 //   created_by  String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
 // }
-
-// /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
-// model person {
-//   id              String    @id @default(uuid()) @db.Uuid
-//   firstname       String?   @db.VarChar(32)
-//   lastname        String?   @db.VarChar(255)
-//   telephone       String?   @db.VarChar(35)
-//   office_phone    String?   @db.VarChar(35)
-//   email           String?   @db.VarChar(255)
-//   contractor      Boolean
-//   seller          Boolean
-//   tenant_group_id String    @db.Uuid
-//   created_at      DateTime? @default(now()) @db.Timestamptz(0)
-//   created_by      String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
-//   balance         Decimal   @default(0) @db.Decimal
 
 //   @@unique([telephone, tenant_group_id], map: "uniq_34dcd176450ff010dff2bbb0")
 // }
