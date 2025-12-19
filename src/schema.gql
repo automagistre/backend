@@ -467,6 +467,64 @@ type Mutation {
   updateOneVehicle(data: UpdateVehicleInput!): VehicleModel!
 }
 
+"""Заказ"""
+type OrderModel {
+  car: CarModel
+  carId: ID
+  createdAt: DateTime
+  createdBy: ID
+  customer: PersonModel
+  customerId: ID
+  description: String
+  id: ID!
+  mileage: Int
+  number: Int!
+  status: OrderStatus!
+  workerId: ID
+}
+
+"""Статус заказа"""
+enum OrderStatus {
+  """Отменён"""
+  CANCELLED
+
+  """Закрыт"""
+  CLOSED
+
+  """Требуется доставка"""
+  DELIVERY
+
+  """Черновик"""
+  DRAFT
+
+  """Согласование"""
+  MATCHING
+
+  """Уведомление клиента"""
+  NOTIFICATION
+
+  """Заказ запчастей"""
+  ORDERING
+
+  """Ожидает Оплаты"""
+  PAYMENT_WAITING
+
+  """Ожидает выдачи"""
+  READY
+
+  """Ожидание по записи"""
+  SCHEDULING
+
+  """Подбор запчастей"""
+  SELECTION
+
+  """Ожидание запчастей"""
+  TRACKING
+
+  """В работе"""
+  WORKING
+}
+
 """Организация"""
 type OrganizationModel {
   """Адрес"""
@@ -639,6 +697,12 @@ type Query {
   employees(includeFired: Boolean = false, search: String, skip: Int = 0, take: Int = 25): PaginatedEmployees!
   manufacturer(id: String!): ManufacturerModel
   manufacturers(search: String, skip: Int = 0, take: Int = 25): PaginatedManufacturers!
+
+  """Заказ по ID"""
+  order(id: ID!): OrderModel
+
+  """Список всех заказов"""
+  orders: [OrderModel!]!
   organization(id: String!): OrganizationModel
   organizations(search: String, skip: Int = 0, take: Int = 25): PaginatedOrganizations!
   part(id: ID!): PartModel!

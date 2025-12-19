@@ -56,6 +56,22 @@ enum CarWheelDrive {
   ALL_WHEEL_DRIVE
 }
 
+enum OrderStatus {
+  DRAFT
+  SCHEDULING
+  ORDERING
+  MATCHING
+  TRACKING
+  DELIVERY
+  NOTIFICATION
+  WORKING
+  READY
+  CLOSED
+  SELECTION
+  PAYMENT_WAITING
+  CANCELLED
+}
+
 model Manufacturer {
   id            String    @id @default(uuid()) @db.Uuid
   name          String    @unique(map: "uniq_3d0ae6dc5e237e06") @db.VarChar(64)
@@ -121,7 +137,8 @@ model Person {
   balance        Decimal                  @default(0) @db.Decimal
   customerCalendarEntryOrderInfo CalendarEntryOrderInfo[] @relation("Customer")
   workerCalendarEntryOrderInfo   CalendarEntryOrderInfo[] @relation("Worker")
-  Employee       Employee[]
+  Employee                       Employee[]
+  CustomerOrder                  Order[]                  @relation("CustomerOrder")
 
   @@unique([telephone, tenantGroupId], map: "uniq_34dcd176450ff010dff2bbb0")
   @@map("person")
@@ -165,6 +182,7 @@ model Car {
   createdAt                DateTime?                @default(now()) @map("created_at") @db.Timestamptz(0)
   createdBy                String?                  @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
   CalendarEntryOrderInfo   CalendarEntryOrderInfo[]
+  Order                    Order[]
 
   @@unique([identifier, tenantGroupId], map: "uniq_773de69d772e836adff2bbb0")
   @@map("car")
@@ -417,6 +435,7 @@ model Employee {
   tenantId  String    @default("1ec13d33-3f41-6e3a-a0cb-02420a000f18") @map("tenant_id") @db.Uuid
   createdAt DateTime? @default(now()) @map("created_at") @db.Timestamptz(0)
   createdBy String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
+  Order     Order[]
 
   @@unique([personId, firedAt], map: "uniq_person_fired")
   @@map("employee")
@@ -749,28 +768,28 @@ model Motion {
 // }
 
 // /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
-// model orders {
-//   id              String            @id @default(uuid()) @db.Uuid
-//   worker_id       String?           @db.Uuid
-//   number          Int
-//   status          Int               @db.SmallInt
-//   car_id          String?           @db.Uuid
-//   customer_id     String?           @db.Uuid
-//   mileage         Int?
-//   description     String?
-//   tenant_id       String            @db.Uuid
-//   created_at      DateTime?         @default(now()) @db.Timestamptz(0)
-//   created_by      String?           @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
-//   order_close     order_close?
-//   order_item      order_item[]
-//   order_item_part order_item_part[]
-//   order_payment   order_payment[]
-//   order_suspend   order_suspend[]
-//   employee        employee?         @relation(fields: [worker_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_e52ffdee6b20ba36")
+model Order {
+  id          String    @id @default(uuid()) @db.Uuid
+  number      Int
+  status      Int       @default(1) @map("status") @db.SmallInt
+  car         Car?      @relation(fields: [carId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  carId       String?   @map("car_id") @db.Uuid
+  customer    Person?   @relation("CustomerOrder", fields: [customerId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  customerId  String?   @map("customer_id") @db.Uuid
+  worker      Employee? @relation(fields: [workerId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  workerId    String?   @map("worker_id") @db.Uuid
+  mileage     Int?
+  description String?
+  tenantId    String    @default("1ec13d33-3f41-6e3a-a0cb-02420a000f18") @map("tenant_id") @db.Uuid
+  createdAt   DateTime? @default(now()) @map("created_at") @db.Timestamptz(0)
+  createdBy   String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
 
-//   @@unique([number, tenant_id], map: "uniq_e52ffdee96901f549033212a")
-//   @@index([worker_id], map: "idx_e52ffdee6b20ba36")
-// }
+  @@unique([number, tenantId], map: "uniq_e52ffdee96901f549033212a")
+  @@index([workerId], map: "idx_e52ffdee6b20ba36")
+  @@index([carId])
+  @@index([customerId])
+  @@map("orders")
+}
 
 // /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model Organization {
