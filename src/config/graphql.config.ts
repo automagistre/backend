@@ -14,6 +14,7 @@ export async function getGraphQLConfig(
     path: '/api/graphql',
     sortSchema: true,
     playground: isDev(configService),
+    installSubscriptionHandlers: true,
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     context: ({ req, res }) => ({ req, res }),
     // resolvers: {

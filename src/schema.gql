@@ -268,6 +268,37 @@ input CreateManufacturerInput {
   name: String!
 }
 
+input CreateOrderItemGroupInput {
+  hideParts: Boolean = false
+  name: String!
+  orderId: ID!
+  parentId: ID
+  tenantId: ID!
+}
+
+input CreateOrderItemPartInput {
+  discountAmount: BigInt
+  orderId: ID!
+  parentId: ID
+  partId: ID!
+  priceAmount: BigInt
+  quantity: Int!
+  supplierId: ID
+  tenantId: ID!
+  warranty: Boolean = false
+}
+
+input CreateOrderItemServiceInput {
+  discountAmount: BigInt
+  orderId: ID!
+  parentId: ID
+  priceAmount: BigInt
+  service: String!
+  tenantId: ID!
+  warranty: Boolean = false
+  workerId: ID
+}
+
 input CreateOrganizationInput {
   """Адрес"""
   address: String
@@ -437,6 +468,15 @@ type Mutation {
 
   """Создать модель автомобиля"""
   createOneVehicle(data: CreateVehicleInput!): VehicleModel!
+
+  """Создать группу элементов заказа"""
+  createOrderItemGroup(input: CreateOrderItemGroupInput!): OrderItemModel!
+
+  """Создать запчасть в заказе"""
+  createOrderItemPart(input: CreateOrderItemPartInput!): OrderItemModel!
+
+  """Создать услугу в заказе"""
+  createOrderItemService(input: CreateOrderItemServiceInput!): OrderItemModel!
   deleteOneCar(id: String!): CarModel!
   deleteOneEmployee(id: String!): EmployeeModel!
   deleteOneManufacturer(id: String!): ManufacturerModel!
@@ -448,6 +488,9 @@ type Mutation {
 
   """Удалить модель автомобиля"""
   deleteOneVehicle(id: String!): VehicleModel!
+
+  """Удалить элемент заказа"""
+  deleteOrderItem(id: ID!): OrderItemModel!
   fireEmployee(id: String!): EmployeeModel!
   login(input: LoginDto!): Tokens!
   logout(input: RefreshDto!): Boolean!
@@ -467,6 +510,58 @@ type Mutation {
   updateOneVehicle(data: UpdateVehicleInput!): VehicleModel!
 }
 
+"""Группа элементов заказа"""
+type OrderItemGroupModel {
+  createdAt: DateTime
+  createdBy: ID
+  hideParts: Boolean!
+  id: ID!
+  name: String!
+}
+
+"""Элемент заказа"""
+type OrderItemModel {
+  children: [OrderItemModel!]!
+  group: OrderItemGroupModel
+  id: ID!
+  orderId: ID
+  parentId: ID
+  part: OrderItemPartModel
+  service: OrderItemServiceModel
+  type: String!
+}
+
+"""Запчасть в заказе"""
+type OrderItemPartModel {
+  createdAt: DateTime
+  createdBy: ID
+  discountAmount: BigInt
+  discountCurrencyCode: String
+  id: ID!
+  part: PartModel!
+  partId: ID!
+  priceAmount: BigInt
+  priceCurrencyCode: String
+  quantity: Int!
+  supplier: OrganizationModel
+  supplierId: ID
+  warranty: Boolean!
+}
+
+"""Услуга в заказе"""
+type OrderItemServiceModel {
+  createdAt: DateTime
+  createdBy: ID
+  discountAmount: BigInt
+  discountCurrencyCode: String
+  id: ID!
+  priceAmount: BigInt
+  priceCurrencyCode: String
+  service: String!
+  warranty: Boolean!
+  workerId: ID
+}
+
 """Заказ"""
 type OrderModel {
   car: CarModel
@@ -477,6 +572,7 @@ type OrderModel {
   customerId: ID
   description: String
   id: ID!
+  items: [OrderItemModel!]!
   mileage: Int
   number: Int!
   status: OrderStatus!
@@ -701,6 +797,9 @@ type Query {
   """Заказ по ID"""
   order(id: ID!): OrderModel
 
+  """Элементы заказа в виде дерева"""
+  orderItems(orderId: ID!): [OrderItemModel!]!
+
   """Список всех заказов"""
   orders: [OrderModel!]!
   organization(id: String!): OrganizationModel
@@ -779,6 +878,10 @@ type RequisiteModel {
 
   """Расчетный счет"""
   rs: String
+}
+
+type Subscription {
+  orderUpdated(orderId: ID!): OrderModel!
 }
 
 type Tokens {

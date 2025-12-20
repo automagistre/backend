@@ -102,6 +102,7 @@ model Part {
   PartCrossPart            PartCrossPart[]
   Motion                   Motion[]
   PartRequiredAvailability PartRequiredAvailability[]
+  OrderItemPart            OrderItemPart[]
 
   @@unique([number, manufacturerId], map: "uniq_490f70c696901f54a23b42d")
   @@map("part")
@@ -679,65 +680,70 @@ model Motion {
 //   order_close  order_close @relation(fields: [id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_ae0ffb01bf396750")
 // }
 
-// model order_item {
-//   id                 String              @id @default(uuid()) @db.Uuid
-//   order_id           String?             @db.Uuid
-//   parent_id          String?             @db.Uuid
-//   tenant_id          String              @db.Uuid
-//   type               String              @db.VarChar(255)
-//   order_item         order_item?         @relation("order_itemToorder_item", fields: [parent_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_52ea1f09727aca70")
-//   other_order_item   order_item[]        @relation("order_itemToorder_item")
-//   orders             orders?             @relation(fields: [order_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_52ea1f098d9f6d38")
-//   order_item_group   order_item_group?
-//   order_item_part    order_item_part?
-//   order_item_service order_item_service?
+model OrderItem {
+  id        String    @id @default(uuid()) @db.Uuid
+  order     Order?    @relation(fields: [orderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  orderId   String?   @map("order_id") @db.Uuid
+  parent    OrderItem? @relation("OrderItemTree", fields: [parentId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  parentId  String?   @map("parent_id") @db.Uuid
+  type      String    @db.VarChar(255)
+  tenantId  String    @map("tenant_id") @db.Uuid
+  children  OrderItem[] @relation("OrderItemTree")
+  group     OrderItemGroup?
+  service   OrderItemService?
+  part      OrderItemPart?
+  
+  @@index([parentId], map: "idx_52ea1f09727aca70")
+  @@index([orderId], map: "idx_52ea1f098d9f6d38")
+  @@map("order_item")
+}
 
-//   @@index([parent_id], map: "idx_52ea1f09727aca70")
-//   @@index([order_id], map: "idx_52ea1f098d9f6d38")
-// }
+model OrderItemGroup {
+  id        String    @id @default(uuid()) @db.Uuid
+  orderItem OrderItem @relation(fields: [id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  name      String    @db.VarChar(255)
+  hideParts Boolean   @map("hide_parts")
+  createdAt DateTime? @default(now()) @map("created_at") @db.Timestamptz(0)
+  createdBy String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
+  
+  @@map("order_item_group")
+}
 
-// model order_item_group {
-//   id         String     @id @default(uuid()) @db.Uuid
-//   name       String     @db.VarChar(255)
-//   hide_parts Boolean
-//   created_at DateTime?  @default(now()) @db.Timestamptz(0)
-//   created_by String?    @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
-//   order_item order_item @relation(fields: [id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_f4bda240bf396750")
-// }
+model OrderItemService {
+  id                  String    @id @default(uuid()) @db.Uuid
+  orderItem           OrderItem @relation(fields: [id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  service             String    @db.VarChar(255)
+  workerId            String?   @map("worker_id") @db.Uuid
+  warranty            Boolean
+  priceAmount         BigInt?   @map("price_amount")
+  priceCurrencyCode   String?   @map("price_currency_code") @db.VarChar(3)
+  discountAmount      BigInt?   @map("discount_amount")
+  discountCurrencyCode String?  @map("discount_currency_code") @db.VarChar(3)
+  createdAt           DateTime? @default(now()) @map("created_at") @db.Timestamptz(0)
+  createdBy           String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
+  
+  @@map("order_item_service")
+}
 
-// model order_item_part {
-//   id                     String        @id @default(uuid()) @db.Uuid
-//   supplier_id            String?       @db.Uuid
-//   part_id                String        @db.Uuid
-//   quantity               Int
-//   warranty               Boolean
-//   price_amount           BigInt?
-//   price_currency_code    String?       @db.VarChar(3)
-//   discount_amount        BigInt?
-//   discount_currency_code String?       @db.VarChar(3)
-//   created_at             DateTime?     @default(now()) @db.Timestamptz(0)
-//   created_by             String?       @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
-//   order_id               String?       @db.Uuid
-//   order_item             order_item    @relation(fields: [id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_3db84fc5bf396750")
-//   orders                 orders?       @relation(fields: [order_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-//   reservation            reservation[]
-
-//   @@index([part_id])
-// }
-
-// model order_item_service {
-//   id                     String     @id @default(uuid()) @db.Uuid
-//   service                String     @db.VarChar(255)
-//   worker_id              String?    @db.Uuid
-//   warranty               Boolean
-//   price_amount           BigInt?
-//   price_currency_code    String?    @db.VarChar(3)
-//   discount_amount        BigInt?
-//   discount_currency_code String?    @db.VarChar(3)
-//   created_at             DateTime?  @default(now()) @db.Timestamptz(0)
-//   created_by             String?    @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
-//   order_item             order_item @relation(fields: [id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_ee0028ecbf396750")
-// }
+model OrderItemPart {
+  id                  String        @id @default(uuid()) @db.Uuid
+  orderItem           OrderItem     @relation(fields: [id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  part                Part          @relation(fields: [partId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  partId              String        @map("part_id") @db.Uuid
+  supplier            Organization? @relation(fields: [supplierId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  supplierId          String?       @map("supplier_id") @db.Uuid
+  quantity            Int
+  warranty            Boolean
+  priceAmount         BigInt?       @map("price_amount")
+  priceCurrencyCode   String?       @map("price_currency_code") @db.VarChar(3)
+  discountAmount      BigInt?       @map("discount_amount")
+  discountCurrencyCode String?      @map("discount_currency_code") @db.VarChar(3)
+  createdAt           DateTime?     @default(now()) @map("created_at") @db.Timestamptz(0)
+  createdBy           String?       @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
+  
+  @@index([partId])
+  @@map("order_item_part")
+}
 
 // model order_payment {
 //   id                  String    @id @default(uuid()) @db.Uuid
@@ -769,20 +775,21 @@ model Motion {
 
 // /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model Order {
-  id          String    @id @default(uuid()) @db.Uuid
+  id          String      @id @default(uuid()) @db.Uuid
   number      Int
-  status      Int       @default(1) @map("status") @db.SmallInt
-  car         Car?      @relation(fields: [carId], references: [id], onDelete: SetNull, onUpdate: NoAction)
-  carId       String?   @map("car_id") @db.Uuid
-  customer    Person?   @relation("CustomerOrder", fields: [customerId], references: [id], onDelete: SetNull, onUpdate: NoAction)
-  customerId  String?   @map("customer_id") @db.Uuid
-  worker      Employee? @relation(fields: [workerId], references: [id], onDelete: SetNull, onUpdate: NoAction)
-  workerId    String?   @map("worker_id") @db.Uuid
+  status      Int         @default(1) @map("status") @db.SmallInt
+  car         Car?        @relation(fields: [carId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  carId       String?     @map("car_id") @db.Uuid
+  customer    Person?     @relation("CustomerOrder", fields: [customerId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  customerId  String?     @map("customer_id") @db.Uuid
+  worker      Employee?   @relation(fields: [workerId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  workerId    String?     @map("worker_id") @db.Uuid
   mileage     Int?
   description String?
-  tenantId    String    @default("1ec13d33-3f41-6e3a-a0cb-02420a000f18") @map("tenant_id") @db.Uuid
-  createdAt   DateTime? @default(now()) @map("created_at") @db.Timestamptz(0)
-  createdBy   String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
+  tenantId    String      @default("1ec13d33-3f41-6e3a-a0cb-02420a000f18") @map("tenant_id") @db.Uuid
+  createdAt   DateTime?   @default(now()) @map("created_at") @db.Timestamptz(0)
+  createdBy   String?     @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
+  items       OrderItem[]
 
   @@unique([number, tenantId], map: "uniq_e52ffdee96901f549033212a")
   @@index([workerId], map: "idx_e52ffdee6b20ba36")
@@ -793,26 +800,27 @@ model Order {
 
 // /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model Organization {
-  id                    String    @id @default(uuid()) @db.Uuid
-  name                  String    @db.VarChar(255)
-  address               String?   @db.VarChar(255)
-  telephone             String?   @db.VarChar(35)
-  officePhone           String?   @map("office_phone") @db.VarChar(35)
-  email                 String?   @db.VarChar(255)
+  id                    String          @id @default(uuid()) @db.Uuid
+  name                  String          @db.VarChar(255)
+  address               String?         @db.VarChar(255)
+  telephone             String?         @db.VarChar(35)
+  officePhone           String?         @map("office_phone") @db.VarChar(35)
+  email                 String?         @db.VarChar(255)
   contractor            Boolean
   seller                Boolean
-  tenantGroupId         String    @default("1ec13d33-3f41-6cf0-b012-02420a000f18") @map("tenant_group_id") @db.Uuid
-  requisiteBank         String?   @map("requisite_bank") @db.VarChar(255)
-  requisiteLegalAddress String?   @map("requisite_legal_address") @db.VarChar(255)
-  requisiteOgrn         String?   @map("requisite_ogrn") @db.VarChar(255)
-  requisiteInn          String?   @map("requisite_inn") @db.VarChar(255)
-  requisiteKpp          String?   @map("requisite_kpp") @db.VarChar(255)
-  requisiteRs           String?   @map("requisite_rs") @db.VarChar(255)
-  requisiteKs           String?   @map("requisite_ks") @db.VarChar(255)
-  requisiteBik          String?   @map("requisite_bik") @db.VarChar(255)
-  createdAt             DateTime? @default(now()) @map("created_at") @db.Timestamptz(0)
-  createdBy             String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
-  balance               Decimal   @default(0) @db.Decimal
+  tenantGroupId         String          @default("1ec13d33-3f41-6cf0-b012-02420a000f18") @map("tenant_group_id") @db.Uuid
+  requisiteBank         String?         @map("requisite_bank") @db.VarChar(255)
+  requisiteLegalAddress String?         @map("requisite_legal_address") @db.VarChar(255)
+  requisiteOgrn         String?         @map("requisite_ogrn") @db.VarChar(255)
+  requisiteInn          String?         @map("requisite_inn") @db.VarChar(255)
+  requisiteKpp          String?         @map("requisite_kpp") @db.VarChar(255)
+  requisiteRs           String?         @map("requisite_rs") @db.VarChar(255)
+  requisiteKs           String?         @map("requisite_ks") @db.VarChar(255)
+  requisiteBik          String?         @map("requisite_bik") @db.VarChar(255)
+  createdAt             DateTime?       @default(now()) @map("created_at") @db.Timestamptz(0)
+  createdBy             String?         @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
+  balance               Decimal         @default(0) @db.Decimal
+  OrderItemPart         OrderItemPart[]
 
   @@map("organization")
 }

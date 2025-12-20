@@ -1,6 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { OrderModel } from './models/order.model';
+import { OrderStatus } from './enums/order-status.enum';
 
 @Injectable()
 export class OrderService {
@@ -30,6 +31,21 @@ export class OrderService {
       orderBy: [{ number: 'desc' }],
     });
     return orders as OrderModel[];
+  }
+
+  async validateOrderEditable(orderId: string): Promise<void> {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: { status: true },
+    });
+
+    if (!order) {
+      throw new NotFoundException(`Заказ с ID ${orderId} не найден`);
+    }
+
+    if (order.status === OrderStatus.CLOSED || order.status === OrderStatus.CANCELLED) {
+      throw new BadRequestException('Нельзя изменять элементы в закрытом или отмененном заказе');
+    }
   }
 }
 
