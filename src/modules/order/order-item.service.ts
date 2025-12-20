@@ -6,6 +6,7 @@ import { CreateOrderItemGroupInput } from './inputs/create-order-item-group.inpu
 import { CreateOrderItemServiceInput } from './inputs/create-order-item-service.input';
 import { CreateOrderItemPartInput } from './inputs/create-order-item-part.input';
 import { OrderItem, OrderItemGroup, OrderItemService as PrismaOrderItemService, OrderItemPart } from 'src/generated/prisma/client';
+import { OrderItemType } from './enums/order-item-type.enum';
 import { v6 as uuidv6 } from 'uuid';
 
 @Injectable()
@@ -62,12 +63,29 @@ export class OrderItemService {
   }
 
   private toModel(item: OrderItem & { group: OrderItemGroup | null; service: PrismaOrderItemService | null; part: (OrderItemPart & { part: (any & { manufacturer: any }) | null; supplier: any | null }) | null }): OrderItemModel {
-    const { group, service, part, ...orderItemData } = item;
+    const { group, service, part, type, ...orderItemData } = item;
     
+    // Нормализуем тип из БД (может быть '1', '2', '3' или 'group', 'service', 'part')
+    const normalizedType = this.normalizeType(type);
+    
+    // Явно создаем объекты с правильной структурой для GraphQL
     return {
       ...orderItemData,
+      type: normalizedType,
       group: group ? { ...group } : null,
-      service: service ? { ...service } : null,
+      service: service ? {
+        id: service.id,
+        service: service.service,
+        workerId: service.workerId,
+        warranty: service.warranty,
+        priceAmount: service.priceAmount,
+        priceCurrencyCode: service.priceCurrencyCode,
+        discountAmount: service.discountAmount,
+        discountCurrencyCode: service.discountCurrencyCode,
+        createdAt: service.createdAt,
+        createdBy: service.createdBy,
+        // worker будет загружен через ResolveField
+      } : null,
       part: part ? {
         ...part,
         part: part.part,
@@ -75,6 +93,27 @@ export class OrderItemService {
       } : null,
       children: [],
     };
+  }
+
+  /**
+   * Нормализует тип элемента заказа из БД в enum
+   * В БД может храниться как число ('1', '2', '3') или строка ('group', 'service', 'part')
+   */
+  private normalizeType(type: string | number): OrderItemType {
+    // Преобразуем в строку для единообразной обработки
+    const typeStr = String(type);
+    
+    // Маппинг числовых типов: 1 = service, 2 = part, 3 = group
+    const typeMap: Record<string, OrderItemType> = {
+      '1': OrderItemType.SERVICE,
+      '2': OrderItemType.PART,
+      '3': OrderItemType.GROUP,
+      'service': OrderItemType.SERVICE,
+      'part': OrderItemType.PART,
+      'group': OrderItemType.GROUP,
+    };
+
+    return typeMap[typeStr] || OrderItemType.SERVICE; // По умолчанию service
   }
 
   async createGroup(input: CreateOrderItemGroupInput): Promise<OrderItemModel> {
