@@ -528,7 +528,8 @@ type OrderItemModel {
   parentId: ID
   part: OrderItemPartModel
   service: OrderItemServiceModel
-  type: String!
+  serviceWorker: EmployeeModel
+  type: OrderItemType!
 }
 
 """Запчасть в заказе"""
@@ -559,7 +560,20 @@ type OrderItemServiceModel {
   priceCurrencyCode: String
   service: String!
   warranty: Boolean!
+  worker: EmployeeModel
   workerId: ID
+}
+
+"""Тип элемента заказа"""
+enum OrderItemType {
+  """Группа"""
+  GROUP
+
+  """Запчасть"""
+  PART
+
+  """Работа"""
+  SERVICE
 }
 
 """Заказ"""
@@ -576,6 +590,7 @@ type OrderModel {
   mileage: Int
   number: Int!
   status: OrderStatus!
+  worker: EmployeeModel
   workerId: ID
 }
 
