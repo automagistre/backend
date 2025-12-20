@@ -5,12 +5,21 @@ import { OrderModel } from './models/order.model';
 import { OrderItemModel } from './models/order-item.model';
 import { OrderItemService } from './order-item.service';
 import { PubSub } from 'graphql-subscriptions';
+import { CarService } from '../vehicle/car.service';
+import { PersonService } from '../person/person.service';
+import { EmployeeService } from '../employee/employee.service';
+import { CarModel } from '../vehicle/models/car.model';
+import { PersonModel } from '../person/models/person.model';
+import { EmployeeModel } from '../employee/models/employee.model';
 
 @Resolver(() => OrderModel)
 export class OrderResolver {
   constructor(
     private readonly orderService: OrderService,
     private readonly orderItemService: OrderItemService,
+    private readonly carService: CarService,
+    private readonly personService: PersonService,
+    private readonly employeeService: EmployeeService,
     @Inject('PUB_SUB') private readonly pubSub: PubSub,
   ) {}
 
@@ -27,6 +36,30 @@ export class OrderResolver {
   @ResolveField(() => [OrderItemModel])
   async items(@Parent() order: OrderModel): Promise<OrderItemModel[]> {
     return this.orderItemService.findTreeByOrderId(order.id);
+  }
+
+  @ResolveField(() => CarModel, { nullable: true })
+  async car(@Parent() order: OrderModel): Promise<CarModel | null> {
+    if (!order.carId) {
+      return null;
+    }
+    return (await this.carService.findById(order.carId)) as CarModel | null;
+  }
+
+  @ResolveField(() => PersonModel, { nullable: true })
+  async customer(@Parent() order: OrderModel): Promise<PersonModel | null> {
+    if (!order.customerId) {
+      return null;
+    }
+    return (await this.personService.findOne(order.customerId)) as PersonModel | null;
+  }
+
+  @ResolveField(() => EmployeeModel, { nullable: true })
+  async worker(@Parent() order: OrderModel): Promise<EmployeeModel | null> {
+    if (!order.workerId) {
+      return null;
+    }
+    return (await this.employeeService.findOne(order.workerId)) as EmployeeModel | null;
   }
 
   @Subscription(() => OrderModel, {

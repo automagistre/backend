@@ -1,4 +1,5 @@
 import { Field, ID, ObjectType } from '@nestjs/graphql';
+import { EmployeeModel } from '../../employee/models/employee.model';
 
 @ObjectType({ description: 'Услуга в заказе' })
 export class OrderItemServiceModel {
@@ -10,6 +11,9 @@ export class OrderItemServiceModel {
 
   @Field(() => ID, { nullable: true })
   workerId: string | null;
+
+  @Field(() => EmployeeModel, { nullable: true })
+  worker?: EmployeeModel | null;
 
   @Field(() => Boolean)
   warranty: boolean;

@@ -10,27 +10,14 @@ export class OrderService {
   async findOne(id: string): Promise<OrderModel | null> {
     return this.prisma.order.findUnique({
       where: { id },
-    });
+    }) as Promise<OrderModel | null>;
   }
 
   async findAll(): Promise<OrderModel[]> {
-    const orders = await this.prisma.order.findMany({
+    return this.prisma.order.findMany({
       take: 50,
-      include: {
-        car: {
-          include: {
-            vehicle: {
-              include: {
-                manufacturer: true,
-              },
-            },
-          },
-        },
-        customer: true,
-      },
       orderBy: [{ number: 'desc' }],
-    });
-    return orders as OrderModel[];
+    }) as Promise<OrderModel[]>;
   }
 
   async validateOrderEditable(orderId: string): Promise<void> {

@@ -7,6 +7,6 @@ import { PhoneNumberScalar } from 'src/common/scalars/phone.scaral';
   imports: [],
   controllers: [],
   providers: [PersonService, PersonResolver, PhoneNumberScalar],
-  exports: []
+  exports: [PersonService]
 })
 export class PersonModule {}

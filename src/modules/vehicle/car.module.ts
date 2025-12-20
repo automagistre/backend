@@ -9,6 +9,6 @@ import { VINScalar } from 'src/common/scalars/vin.scalar';
   imports: [VehicleModelModule],
   controllers: [],
   providers: [CarService, CarResolver, VINScalar, GosNomerRUScalar],
-  exports: [],
+  exports: [CarService],
 })
 export class CarModule {}

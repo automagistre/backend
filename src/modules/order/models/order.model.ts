@@ -1,11 +1,11 @@
 import { Field, ID, Int, ObjectType } from '@nestjs/graphql';
-import { Order } from 'src/generated/prisma/client';
 import { CarModel } from '../../vehicle/models/car.model';
 import { PersonModel } from '../../person/models/person.model';
+import { EmployeeModel } from '../../employee/models/employee.model';
 import { OrderStatus } from '../enums/order-status.enum';
 
 @ObjectType({ description: 'Заказ' })
-export class OrderModel implements Order {
+export class OrderModel {
   @Field(() => ID)
   id: string;
 
@@ -41,6 +41,9 @@ export class OrderModel implements Order {
 
   @Field(() => PersonModel, { nullable: true })
   customer?: PersonModel | null;
+
+  @Field(() => EmployeeModel, { nullable: true })
+  worker?: EmployeeModel | null;
 
   tenantId: string;
 }

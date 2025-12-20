@@ -91,10 +91,22 @@ export class EmployeeService {
 
   async findOne(id: string) {
     const tenantId = await this.tenantService.getTenantId();
-    
     return this.prisma.employee.findFirst({
       where: {
         id,
+        tenantId,
+      },
+      include: {
+        person: true,
+      },
+    });
+  }
+
+  async findByPersonId(personId: string) {
+    const tenantId = await this.tenantService.getTenantId();
+    return this.prisma.employee.findFirst({
+      where: {
+        personId,
         tenantId,
       },
       include: {
