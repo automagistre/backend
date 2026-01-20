@@ -1,5 +1,5 @@
 import { Inject } from '@nestjs/common';
-import { Args, ID, Parent, Query, ResolveField, Resolver, Subscription } from '@nestjs/graphql';
+import { Args, ID, Parent, Query, ResolveField, Resolver, Subscription, Mutation } from '@nestjs/graphql';
 import { OrderService } from './order.service';
 import { OrderModel } from './models/order.model';
 import { OrderItemModel } from './models/order-item.model';
@@ -11,6 +11,7 @@ import { EmployeeService } from '../employee/employee.service';
 import { CarModel } from '../vehicle/models/car.model';
 import { PersonModel } from '../person/models/person.model';
 import { EmployeeModel } from '../employee/models/employee.model';
+import { UpdateOrderInput } from './inputs/update-order.input';
 
 @Resolver(() => OrderModel)
 export class OrderResolver {
@@ -31,6 +32,20 @@ export class OrderResolver {
   @Query(() => [OrderModel], { name: 'orders', description: 'Список всех заказов' })
   async getOrders(): Promise<OrderModel[]> {
     return this.orderService.findAll();
+  }
+
+  @Mutation(() => OrderModel, { name: 'updateOrder', description: 'Обновить заказ' })
+  async updateOrder(@Args('input') input: UpdateOrderInput): Promise<OrderModel> {
+    const updated = await this.orderService.update(input);
+
+    await this.pubSub.publish(`ORDER_UPDATED_${input.id}`, {
+      orderUpdated: {
+        ...updated,
+        orderId: input.id,
+      },
+    });
+
+    return updated;
   }
 
   @ResolveField(() => [OrderItemModel])

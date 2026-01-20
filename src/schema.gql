@@ -508,6 +508,9 @@ type Mutation {
 
   """Обновить модель автомобиля"""
   updateOneVehicle(data: UpdateVehicleInput!): VehicleModel!
+
+  """Обновить заказ"""
+  updateOrder(input: UpdateOrderInput!): OrderModel!
 }
 
 """Группа элементов заказа"""
@@ -1006,6 +1009,15 @@ input UpdateManufacturerInput {
 
   """Название производителя"""
   name: String
+}
+
+input UpdateOrderInput {
+  carId: ID
+  customerId: ID
+  id: ID!
+  mileage: Int
+  status: OrderStatus
+  workerId: ID
 }
 
 input UpdateOrganizationInput {
