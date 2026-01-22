@@ -726,20 +726,21 @@ model OrderItemService {
 }
 
 model OrderItemPart {
-  id                  String        @id @default(uuid()) @db.Uuid
-  orderItem           OrderItem     @relation(fields: [id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  part                Part          @relation(fields: [partId], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  partId              String        @map("part_id") @db.Uuid
-  supplier            Organization? @relation(fields: [supplierId], references: [id], onDelete: SetNull, onUpdate: NoAction)
-  supplierId          String?       @map("supplier_id") @db.Uuid
-  quantity            Int
-  warranty            Boolean
-  priceAmount         BigInt?       @map("price_amount")
-  priceCurrencyCode   String?       @map("price_currency_code") @db.VarChar(3)
-  discountAmount      BigInt?       @map("discount_amount")
-  discountCurrencyCode String?      @map("discount_currency_code") @db.VarChar(3)
-  createdAt           DateTime?     @default(now()) @map("created_at") @db.Timestamptz(0)
-  createdBy           String?       @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
+  id                   String        @id @default(uuid()) @db.Uuid
+  orderItem            OrderItem     @relation(fields: [id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  part                 Part          @relation(fields: [partId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  partId               String        @map("part_id") @db.Uuid
+  supplier             Organization? @relation(fields: [supplierId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  supplierId           String?       @map("supplier_id") @db.Uuid
+  quantity             Int
+  warranty             Boolean
+  priceAmount          BigInt?       @map("price_amount")
+  priceCurrencyCode    String?       @map("price_currency_code") @db.VarChar(3)
+  discountAmount       BigInt?       @map("discount_amount")
+  discountCurrencyCode String?       @map("discount_currency_code") @db.VarChar(3)
+  createdAt            DateTime?     @default(now()) @map("created_at") @db.Timestamptz(0)
+  createdBy            String?       @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
+  reservations         Reservation[]
   
   @@index([partId])
   @@map("order_item_part")
@@ -906,17 +907,18 @@ model PartRequiredAvailability {
 //   created_by String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
 // }
 
-// model reservation {
-//   id                 String          @id @default(uuid()) @db.Uuid
-//   order_item_part_id String          @db.Uuid
-//   quantity           Int
-//   tenant_id          String          @db.Uuid
-//   created_at         DateTime?       @default(now()) @db.Timestamptz(0)
-//   created_by         String?         @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
-//   order_item_part    order_item_part @relation(fields: [order_item_part_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_42c84955437ef9d2")
+model Reservation {
+  id               String         @id @default(uuid()) @db.Uuid
+  orderItemPartId  String         @map("order_item_part_id") @db.Uuid
+  quantity         Int
+  tenantId         String         @map("tenant_id") @db.Uuid
+  createdAt        DateTime?      @default(now()) @map("created_at") @db.Timestamptz(0)
+  createdBy        String?        @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
+  orderItemPart    OrderItemPart  @relation(fields: [orderItemPartId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_42c84955437ef9d2")
 
-//   @@index([order_item_part_id], map: "idx_42c84955437ef9d2")
-// }
+  @@index([orderItemPartId], map: "idx_42c84955437ef9d2")
+  @@map("reservation")
+}
 
 // /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 // model review {
