@@ -490,13 +490,25 @@ type Mutation {
   deleteOneVehicle(id: String!): VehicleModel!
 
   """Удалить элемент заказа"""
-  deleteOrderItem(id: ID!): OrderItemModel!
+  deleteOrderItem(
+    """
+    Удалить дочерние элементы (по умолчанию true). Если false - дочерние элементы перемещаются в корень.
+    """
+    deleteChildren: Boolean = true
+    id: ID!
+  ): OrderItemModel!
   fireEmployee(id: String!): EmployeeModel!
   login(input: LoginDto!): Tokens!
   logout(input: RefreshDto!): Boolean!
   passwordLogin(input: PasswordLoginDto!): Tokens!
   refresh(input: RefreshDto!): Tokens!
+
+  """Снять резерв с запчасти"""
+  releaseReservation(orderItemPartId: ID!, quantity: Float): Float!
   removePartCross(partId: ID!): PartModel!
+
+  """Зарезервировать запчасть"""
+  reservePart(input: ReservePartInput!): ReservationModel!
   updateOneCar(input: UpdateCarInput!): CarModel!
   updateOneEmployee(input: UpdateEmployeeInput!): EmployeeModel!
   updateOneManufacturer(input: UpdateManufacturerInput!): ManufacturerModel!
@@ -511,6 +523,12 @@ type Mutation {
 
   """Обновить заказ"""
   updateOrder(input: UpdateOrderInput!): OrderModel!
+
+  """Обновить запчасть в заказе"""
+  updateOrderItemPart(input: UpdateOrderItemPartInput!): OrderItemModel!
+
+  """Обновить услугу в заказе"""
+  updateOrderItemService(input: UpdateOrderItemServiceInput!): OrderItemModel!
 }
 
 """Группа элементов заказа"""
@@ -833,6 +851,12 @@ type Query {
   """Клиенты с пагинацией"""
   persons(search: String, skip: Int = 0, take: Int = 25): PaginatedPersons!
 
+  """Резервации для элемента заказа"""
+  reservations(orderItemPartId: ID!): [ReservationModel!]!
+
+  """Общее количество зарезервированных единиц"""
+  totalReserved(orderItemPartId: ID!): Float!
+
   """Получить модель автомобиля по id"""
   vehicle(id: String!): VehicleModel!
 
@@ -896,6 +920,22 @@ type RequisiteModel {
 
   """Расчетный счет"""
   rs: String
+}
+
+"""Резервация запчасти"""
+type ReservationModel {
+  createdAt: DateTime
+  createdBy: ID
+  id: ID!
+  orderItemPartId: ID!
+  quantity: Int!
+  tenantId: ID!
+}
+
+input ReservePartInput {
+  orderItemPartId: ID!
+  quantity: Int!
+  tenantId: ID!
 }
 
 type Subscription {
@@ -1017,6 +1057,31 @@ input UpdateOrderInput {
   id: ID!
   mileage: Int
   status: OrderStatus
+  workerId: ID
+}
+
+input UpdateOrderItemPartInput {
+  discountAmount: BigInt
+  id: ID!
+  orderId: ID
+  parentId: ID
+  partId: ID
+  priceAmount: BigInt
+  quantity: Int
+  supplierId: ID
+  tenantId: ID
+  warranty: Boolean = false
+}
+
+input UpdateOrderItemServiceInput {
+  discountAmount: BigInt
+  id: ID!
+  orderId: ID
+  parentId: ID
+  priceAmount: BigInt
+  service: String
+  tenantId: ID
+  warranty: Boolean = false
   workerId: ID
 }
 
