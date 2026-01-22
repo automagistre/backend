@@ -1,19 +1,23 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { OrderService } from './order.service';
 import { OrderItemModel } from './models/order-item.model';
 import { CreateOrderItemGroupInput } from './inputs/create-order-item-group.input';
 import { CreateOrderItemServiceInput } from './inputs/create-order-item-service.input';
 import { CreateOrderItemPartInput } from './inputs/create-order-item-part.input';
+import { UpdateOrderItemPartInput } from './inputs/update-order-item-part.input';
+import { UpdateOrderItemServiceInput } from './inputs/update-order-item-service.input';
 import { OrderItem, OrderItemGroup, OrderItemService as PrismaOrderItemService, OrderItemPart } from 'src/generated/prisma/client';
 import { OrderItemType } from './enums/order-item-type.enum';
 import { v6 as uuidv6 } from 'uuid';
+import { ReservationService } from '../reservation/reservation.service';
 
 @Injectable()
 export class OrderItemService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly orderService: OrderService,
+    private readonly reservationService: ReservationService,
   ) {}
 
   async findTreeByOrderId(orderId: string): Promise<OrderItemModel[]> {
@@ -216,13 +220,176 @@ export class OrderItemService {
       },
     });
 
+    // Создаём резерв на добавленное количество
+    if (orderItem.part && input.quantity > 0) {
+      await this.reservationService.reserve({
+        orderItemPartId: orderItem.part.id,
+        quantity: input.quantity,
+        tenantId: input.tenantId,
+      });
+    }
+
     return this.toModel(orderItem as any);
   }
 
-  async delete(id: string): Promise<OrderItemModel> {
+  async updatePart(input: UpdateOrderItemPartInput): Promise<OrderItemModel> {
+    const orderItem = await this.prisma.orderItem.findUnique({
+      where: { id: input.id },
+      include: { part: true },
+    });
+
+    if (!orderItem) {
+      throw new NotFoundException(`Элемент заказа с ID ${input.id} не найден`);
+    }
+
+    if (!orderItem.part) {
+      throw new NotFoundException(`Элемент заказа с ID ${input.id} не является запчастью`);
+    }
+
+    await this.orderService.validateOrderEditable(orderItem.orderId!);
+
+    // Обновляем резерв при изменении количества
+    if (input.quantity !== undefined && input.quantity !== orderItem.part.quantity) {
+      const oldQuantity = orderItem.part.quantity;
+      const newQuantity = input.quantity;
+      const quantityDiff = newQuantity - oldQuantity;
+
+      if (quantityDiff > 0) {
+        // Увеличиваем резерв
+        await this.reservationService.reserve({
+          orderItemPartId: orderItem.part.id,
+          quantity: quantityDiff,
+          tenantId: orderItem.tenantId!,
+        });
+      } else if (quantityDiff < 0) {
+        // Уменьшаем резерв
+        await this.reservationService.release({
+          orderItemPartId: orderItem.part.id,
+          quantity: Math.abs(quantityDiff),
+        });
+      }
+    }
+
+    // Обновляем только переданные поля
+    const updateData: any = {};
+    if (input.quantity !== undefined) updateData.quantity = input.quantity;
+    if (input.priceAmount !== undefined) {
+      updateData.priceAmount = input.priceAmount;
+      updateData.priceCurrencyCode = 'RUB';
+    }
+    if (input.discountAmount !== undefined) {
+      updateData.discountAmount = input.discountAmount;
+      updateData.discountCurrencyCode = input.discountAmount ? 'RUB' : null;
+    }
+    if (input.warranty !== undefined) updateData.warranty = input.warranty;
+    if (input.supplierId !== undefined) updateData.supplierId = input.supplierId;
+    if (input.parentId !== undefined) {
+      await this.prisma.orderItem.update({
+        where: { id: input.id },
+        data: { parentId: input.parentId },
+      });
+    }
+
+    if (Object.keys(updateData).length > 0) {
+      await this.prisma.orderItemPart.update({
+        where: { id: orderItem.part.id },
+        data: updateData,
+      });
+    }
+
+    const updated = await this.prisma.orderItem.findUnique({
+      where: { id: input.id },
+      include: {
+        group: true,
+        service: true,
+        part: {
+          include: {
+            part: {
+              include: {
+                manufacturer: true,
+              },
+            },
+            supplier: true,
+          },
+        },
+      },
+    });
+
+    return this.toModel(updated as any);
+  }
+
+  async updateService(input: UpdateOrderItemServiceInput): Promise<OrderItemModel> {
+    const orderItem = await this.prisma.orderItem.findUnique({
+      where: { id: input.id },
+      include: { service: true },
+    });
+
+    if (!orderItem) {
+      throw new NotFoundException(`Элемент заказа с ID ${input.id} не найден`);
+    }
+
+    if (!orderItem.service) {
+      throw new NotFoundException(`Элемент заказа с ID ${input.id} не является услугой`);
+    }
+
+    await this.orderService.validateOrderEditable(orderItem.orderId!);
+
+    // Обновляем только переданные поля
+    const updateData: any = {};
+    if (input.service !== undefined) updateData.service = input.service;
+    if (input.priceAmount !== undefined) {
+      updateData.priceAmount = input.priceAmount;
+      updateData.priceCurrencyCode = 'RUB';
+    }
+    if (input.discountAmount !== undefined) {
+      updateData.discountAmount = input.discountAmount;
+      updateData.discountCurrencyCode = input.discountAmount ? 'RUB' : null;
+    }
+    if (input.warranty !== undefined) updateData.warranty = input.warranty;
+    if (input.workerId !== undefined) updateData.workerId = input.workerId;
+    if (input.parentId !== undefined) {
+      await this.prisma.orderItem.update({
+        where: { id: input.id },
+        data: { parentId: input.parentId },
+      });
+    }
+
+    if (Object.keys(updateData).length > 0) {
+      await this.prisma.orderItemService.update({
+        where: { id: orderItem.service.id },
+        data: updateData,
+      });
+    }
+
+    const updated = await this.prisma.orderItem.findUnique({
+      where: { id: input.id },
+      include: {
+        group: true,
+        service: true,
+        part: {
+          include: {
+            part: {
+              include: {
+                manufacturer: true,
+              },
+            },
+            supplier: true,
+          },
+        },
+      },
+    });
+
+    return this.toModel(updated as any);
+  }
+
+  async delete(id: string, deleteChildren: boolean = true): Promise<OrderItemModel> {
     const orderItem = await this.prisma.orderItem.findUnique({
       where: { id },
-      include: { part: true },
+      include: { 
+        part: true,
+        service: true,
+        group: true,
+      },
     });
 
     if (!orderItem) {
@@ -230,6 +397,35 @@ export class OrderItemService {
     }
 
     await this.orderService.validateOrderEditable(orderItem.orderId!);
+
+    // Снимаем резерв если это запчасть
+    if (orderItem.part) {
+      await this.reservationService.releaseAll(orderItem.part.id);
+    }
+
+    // Обрабатываем дочерние элементы
+    if (!deleteChildren) {
+      // Перемещаем дочерние элементы в корень (parentId = null)
+      await this.prisma.orderItem.updateMany({
+        where: { parentId: id },
+        data: { parentId: null },
+      });
+    } else {
+      // Удаляем дочерние элементы вместе с их резервациями
+      const childParts = await this.prisma.orderItem.findMany({
+        where: { parentId: id },
+        include: { part: true },
+      });
+      
+      // Рекурсивно удаляем резервации для всех дочерних запчастей
+      for (const child of childParts) {
+        if (child.part) {
+          await this.reservationService.releaseAll(child.part.id);
+        }
+        // Рекурсивно обрабатываем внуков
+        await this.deleteChildReservations(child.id);
+      }
+    }
 
     const deleted = await this.prisma.orderItem.delete({
       where: { id },
@@ -250,6 +446,23 @@ export class OrderItemService {
     });
 
     return this.toModel(deleted as any);
+  }
+
+  /**
+   * Рекурсивно удаляет резервации для всех дочерних запчастей
+   */
+  private async deleteChildReservations(parentId: string): Promise<void> {
+    const children = await this.prisma.orderItem.findMany({
+      where: { parentId },
+      include: { part: true },
+    });
+
+    for (const child of children) {
+      if (child.part) {
+        await this.reservationService.releaseAll(child.part.id);
+      }
+      await this.deleteChildReservations(child.id);
+    }
   }
 }
 

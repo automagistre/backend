@@ -4,6 +4,8 @@ import { OrderItemModel } from './models/order-item.model';
 import { CreateOrderItemGroupInput } from './inputs/create-order-item-group.input';
 import { CreateOrderItemServiceInput } from './inputs/create-order-item-service.input';
 import { CreateOrderItemPartInput } from './inputs/create-order-item-part.input';
+import { UpdateOrderItemPartInput } from './inputs/update-order-item-part.input';
+import { UpdateOrderItemServiceInput } from './inputs/update-order-item-service.input';
 import { EmployeeService } from '../employee/employee.service';
 import { EmployeeModel } from '../employee/models/employee.model';
 
@@ -55,9 +57,22 @@ export class OrderItemResolver {
     return this.orderItemService.createPart(input);
   }
 
+  @Mutation(() => OrderItemModel, { name: 'updateOrderItemPart', description: 'Обновить запчасть в заказе' })
+  async updateOrderItemPart(@Args('input') input: UpdateOrderItemPartInput) {
+    return this.orderItemService.updatePart(input);
+  }
+
+  @Mutation(() => OrderItemModel, { name: 'updateOrderItemService', description: 'Обновить услугу в заказе' })
+  async updateOrderItemService(@Args('input') input: UpdateOrderItemServiceInput) {
+    return this.orderItemService.updateService(input);
+  }
+
   @Mutation(() => OrderItemModel, { name: 'deleteOrderItem', description: 'Удалить элемент заказа' })
-  async deleteOrderItem(@Args('id', { type: () => ID }) id: string) {
-    return this.orderItemService.delete(id);
+  async deleteOrderItem(
+    @Args('id', { type: () => ID }) id: string,
+    @Args('deleteChildren', { type: () => Boolean, nullable: true, defaultValue: true, description: 'Удалить дочерние элементы (по умолчанию true). Если false - дочерние элементы перемещаются в корень.' }) deleteChildren?: boolean,
+  ) {
+    return this.orderItemService.delete(id, deleteChildren);
   }
 }
 

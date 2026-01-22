@@ -17,6 +17,7 @@ import { EmployeeModule } from './modules/employee/employee.module';
 import { APP_GUARD } from '@nestjs/core';
 import { AuthModule } from './modules/auth/auth.module';
 import { OrderModule } from './modules/order/order.module';
+import { ReservationModule } from './modules/reservation/reservation.module';
 import { DevAuthGuard } from './modules/auth/guards/dev-auth.guard';
 import { Reflector } from '@nestjs/core';
 import authConfig from './config/auth.config';
@@ -44,6 +45,7 @@ import authConfig from './config/auth.config';
     CalendarModule,
     AuthModule,
     OrderModule,
+    ReservationModule,
   ],
   providers: [
     {
