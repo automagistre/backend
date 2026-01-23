@@ -1,11 +1,12 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { Reservation } from 'src/generated/prisma/client';
+import { TenantService } from 'src/common/services/tenant.service';
 
 export interface ReservePartInput {
   orderItemPartId: string;
   quantity: number;
-  tenantId: string;
+  tenantId?: string;
 }
 
 export interface ReleaseReservationInput {
@@ -15,16 +16,22 @@ export interface ReleaseReservationInput {
 
 @Injectable()
 export class ReservationService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly tenantService: TenantService,
+  ) {}
 
   /**
    * Резервирование запчасти для элемента заказа
    */
   async reserve(input: ReservePartInput): Promise<Reservation> {
-    const { orderItemPartId, quantity, tenantId } = input;
+    const { orderItemPartId, quantity } = input;
+    const tenantId = input.tenantId ?? (await this.tenantService.getTenantId());
 
     if (quantity <= 0) {
-      throw new BadRequestException('Количество для резервирования должно быть больше 0');
+      throw new BadRequestException(
+        'Количество для резервирования должно быть больше 0',
+      );
     }
 
     // Проверяем существование order_item_part
@@ -34,7 +41,9 @@ export class ReservationService {
     });
 
     if (!orderItemPart) {
-      throw new BadRequestException(`Элемент заказа с ID ${orderItemPartId} не найден`);
+      throw new BadRequestException(
+        `Элемент заказа с ID ${orderItemPartId} не найден`,
+      );
     }
 
     // Создаем резервацию

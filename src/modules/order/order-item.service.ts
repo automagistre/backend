@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { OrderService } from './order.service';
 import { OrderItemModel } from './models/order-item.model';
@@ -7,10 +11,16 @@ import { CreateOrderItemServiceInput } from './inputs/create-order-item-service.
 import { CreateOrderItemPartInput } from './inputs/create-order-item-part.input';
 import { UpdateOrderItemPartInput } from './inputs/update-order-item-part.input';
 import { UpdateOrderItemServiceInput } from './inputs/update-order-item-service.input';
-import { OrderItem, OrderItemGroup, OrderItemService as PrismaOrderItemService, OrderItemPart } from 'src/generated/prisma/client';
+import {
+  OrderItem,
+  OrderItemGroup,
+  OrderItemService as PrismaOrderItemService,
+  OrderItemPart,
+} from 'src/generated/prisma/client';
 import { OrderItemType } from './enums/order-item-type.enum';
 import { v6 as uuidv6 } from 'uuid';
 import { ReservationService } from '../reservation/reservation.service';
+import { TenantService } from 'src/common/services/tenant.service';
 
 @Injectable()
 export class OrderItemService {
@@ -18,6 +28,7 @@ export class OrderItemService {
     private readonly prisma: PrismaService,
     private readonly orderService: OrderService,
     private readonly reservationService: ReservationService,
+    private readonly tenantService: TenantService,
   ) {}
 
   async findTreeByOrderId(orderId: string): Promise<OrderItemModel[]> {
@@ -43,7 +54,18 @@ export class OrderItemService {
     return this.buildTree(items);
   }
 
-  private buildTree(items: (OrderItem & { group: OrderItemGroup | null; service: PrismaOrderItemService | null; part: (OrderItemPart & { part: (any & { manufacturer: any }) | null; supplier: any | null }) | null })[]): OrderItemModel[] {
+  private buildTree(
+    items: (OrderItem & {
+      group: OrderItemGroup | null;
+      service: PrismaOrderItemService | null;
+      part:
+        | (OrderItemPart & {
+            part: (any & { manufacturer: any }) | null;
+            supplier: any | null;
+          })
+        | null;
+    })[],
+  ): OrderItemModel[] {
     const map = new Map<string, OrderItemModel>();
     const roots: OrderItemModel[] = [];
 
@@ -66,35 +88,50 @@ export class OrderItemService {
     return roots;
   }
 
-  private toModel(item: OrderItem & { group: OrderItemGroup | null; service: PrismaOrderItemService | null; part: (OrderItemPart & { part: (any & { manufacturer: any }) | null; supplier: any | null }) | null }): OrderItemModel {
+  private toModel(
+    item: OrderItem & {
+      group: OrderItemGroup | null;
+      service: PrismaOrderItemService | null;
+      part:
+        | (OrderItemPart & {
+            part: (any & { manufacturer: any }) | null;
+            supplier: any | null;
+          })
+        | null;
+    },
+  ): OrderItemModel {
     const { group, service, part, type, ...orderItemData } = item;
-    
+
     // Нормализуем тип из БД (может быть '1', '2', '3' или 'group', 'service', 'part')
     const normalizedType = this.normalizeType(type);
-    
+
     // Явно создаем объекты с правильной структурой для GraphQL
     return {
       ...orderItemData,
       type: normalizedType,
       group: group ? { ...group } : null,
-      service: service ? {
-        id: service.id,
-        service: service.service,
-        workerId: service.workerId,
-        warranty: service.warranty,
-        priceAmount: service.priceAmount,
-        priceCurrencyCode: service.priceCurrencyCode,
-        discountAmount: service.discountAmount,
-        discountCurrencyCode: service.discountCurrencyCode,
-        createdAt: service.createdAt,
-        createdBy: service.createdBy,
-        // worker будет загружен через ResolveField
-      } : null,
-      part: part ? {
-        ...part,
-        part: part.part,
-        supplier: part.supplier,
-      } : null,
+      service: service
+        ? {
+            id: service.id,
+            service: service.service,
+            workerId: service.workerId,
+            warranty: service.warranty,
+            priceAmount: service.priceAmount,
+            priceCurrencyCode: service.priceCurrencyCode,
+            discountAmount: service.discountAmount,
+            discountCurrencyCode: service.discountCurrencyCode,
+            createdAt: service.createdAt,
+            createdBy: service.createdBy,
+            // worker будет загружен через ResolveField
+          }
+        : null,
+      part: part
+        ? {
+            ...part,
+            part: part.part,
+            supplier: part.supplier,
+          }
+        : null,
       children: [],
     };
   }
@@ -106,15 +143,15 @@ export class OrderItemService {
   private normalizeType(type: string | number): OrderItemType {
     // Преобразуем в строку для единообразной обработки
     const typeStr = String(type);
-    
+
     // Маппинг числовых типов: 1 = service, 2 = part, 3 = group
     const typeMap: Record<string, OrderItemType> = {
       '1': OrderItemType.SERVICE,
       '2': OrderItemType.PART,
       '3': OrderItemType.GROUP,
-      'service': OrderItemType.SERVICE,
-      'part': OrderItemType.PART,
-      'group': OrderItemType.GROUP,
+      service: OrderItemType.SERVICE,
+      part: OrderItemType.PART,
+      group: OrderItemType.GROUP,
     };
 
     return typeMap[typeStr] || OrderItemType.SERVICE; // По умолчанию service
@@ -122,6 +159,7 @@ export class OrderItemService {
 
   async createGroup(input: CreateOrderItemGroupInput): Promise<OrderItemModel> {
     await this.orderService.validateOrderEditable(input.orderId);
+    const tenantId = input.tenantId ?? (await this.tenantService.getTenantId());
 
     const orderItem = await this.prisma.orderItem.create({
       data: {
@@ -129,7 +167,7 @@ export class OrderItemService {
         orderId: input.orderId,
         parentId: input.parentId,
         type: 'group',
-        tenantId: input.tenantId,
+        tenantId,
         group: {
           create: {
             name: input.name,
@@ -143,8 +181,11 @@ export class OrderItemService {
     return this.toModel(orderItem as any);
   }
 
-  async createService(input: CreateOrderItemServiceInput): Promise<OrderItemModel> {
+  async createService(
+    input: CreateOrderItemServiceInput,
+  ): Promise<OrderItemModel> {
     await this.orderService.validateOrderEditable(input.orderId);
+    const tenantId = input.tenantId ?? (await this.tenantService.getTenantId());
 
     const orderItem = await this.prisma.orderItem.create({
       data: {
@@ -152,7 +193,7 @@ export class OrderItemService {
         orderId: input.orderId,
         parentId: input.parentId,
         type: 'service',
-        tenantId: input.tenantId,
+        tenantId,
         service: {
           create: {
             service: input.service,
@@ -173,16 +214,23 @@ export class OrderItemService {
 
   async createPart(input: CreateOrderItemPartInput): Promise<OrderItemModel> {
     await this.orderService.validateOrderEditable(input.orderId);
+    const tenantId = input.tenantId ?? (await this.tenantService.getTenantId());
 
-    const part = await this.prisma.part.findUnique({ where: { id: input.partId } });
+    const part = await this.prisma.part.findUnique({
+      where: { id: input.partId },
+    });
     if (!part) {
       throw new NotFoundException(`Запчасть с ID ${input.partId} не найдена`);
     }
 
     if (input.supplierId) {
-      const supplier = await this.prisma.organization.findUnique({ where: { id: input.supplierId } });
+      const supplier = await this.prisma.organization.findUnique({
+        where: { id: input.supplierId },
+      });
       if (!supplier) {
-        throw new NotFoundException(`Поставщик с ID ${input.supplierId} не найден`);
+        throw new NotFoundException(
+          `Поставщик с ID ${input.supplierId} не найден`,
+        );
       }
     }
 
@@ -192,7 +240,7 @@ export class OrderItemService {
         orderId: input.orderId,
         parentId: input.parentId,
         type: 'part',
-        tenantId: input.tenantId,
+        tenantId,
         part: {
           create: {
             partId: input.partId,
@@ -225,7 +273,7 @@ export class OrderItemService {
       await this.reservationService.reserve({
         orderItemPartId: orderItem.part.id,
         quantity: input.quantity,
-        tenantId: input.tenantId,
+        tenantId,
       });
     }
 
@@ -243,13 +291,18 @@ export class OrderItemService {
     }
 
     if (!orderItem.part) {
-      throw new NotFoundException(`Элемент заказа с ID ${input.id} не является запчастью`);
+      throw new NotFoundException(
+        `Элемент заказа с ID ${input.id} не является запчастью`,
+      );
     }
 
     await this.orderService.validateOrderEditable(orderItem.orderId!);
 
     // Обновляем резерв при изменении количества
-    if (input.quantity !== undefined && input.quantity !== orderItem.part.quantity) {
+    if (
+      input.quantity !== undefined &&
+      input.quantity !== orderItem.part.quantity
+    ) {
       const oldQuantity = orderItem.part.quantity;
       const newQuantity = input.quantity;
       const quantityDiff = newQuantity - oldQuantity;
@@ -259,7 +312,7 @@ export class OrderItemService {
         await this.reservationService.reserve({
           orderItemPartId: orderItem.part.id,
           quantity: quantityDiff,
-          tenantId: orderItem.tenantId!,
+          tenantId: orderItem.tenantId,
         });
       } else if (quantityDiff < 0) {
         // Уменьшаем резерв
@@ -282,7 +335,8 @@ export class OrderItemService {
       updateData.discountCurrencyCode = input.discountAmount ? 'RUB' : null;
     }
     if (input.warranty !== undefined) updateData.warranty = input.warranty;
-    if (input.supplierId !== undefined) updateData.supplierId = input.supplierId;
+    if (input.supplierId !== undefined)
+      updateData.supplierId = input.supplierId;
     if (input.parentId !== undefined) {
       await this.prisma.orderItem.update({
         where: { id: input.id },
@@ -318,7 +372,9 @@ export class OrderItemService {
     return this.toModel(updated as any);
   }
 
-  async updateService(input: UpdateOrderItemServiceInput): Promise<OrderItemModel> {
+  async updateService(
+    input: UpdateOrderItemServiceInput,
+  ): Promise<OrderItemModel> {
     const orderItem = await this.prisma.orderItem.findUnique({
       where: { id: input.id },
       include: { service: true },
@@ -329,7 +385,9 @@ export class OrderItemService {
     }
 
     if (!orderItem.service) {
-      throw new NotFoundException(`Элемент заказа с ID ${input.id} не является услугой`);
+      throw new NotFoundException(
+        `Элемент заказа с ID ${input.id} не является услугой`,
+      );
     }
 
     await this.orderService.validateOrderEditable(orderItem.orderId!);
@@ -382,10 +440,13 @@ export class OrderItemService {
     return this.toModel(updated as any);
   }
 
-  async delete(id: string, deleteChildren: boolean = true): Promise<OrderItemModel> {
+  async delete(
+    id: string,
+    deleteChildren: boolean = true,
+  ): Promise<OrderItemModel> {
     const orderItem = await this.prisma.orderItem.findUnique({
       where: { id },
-      include: { 
+      include: {
         part: true,
         service: true,
         group: true,
@@ -416,7 +477,7 @@ export class OrderItemService {
         where: { parentId: id },
         include: { part: true },
       });
-      
+
       // Рекурсивно удаляем резервации для всех дочерних запчастей
       for (const child of childParts) {
         if (child.part) {
@@ -465,4 +526,3 @@ export class OrderItemService {
     }
   }
 }
-

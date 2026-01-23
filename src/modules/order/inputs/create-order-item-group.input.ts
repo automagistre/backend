@@ -8,8 +8,8 @@ export class CreateOrderItemGroupInput {
   @Field(() => ID, { nullable: true })
   parentId?: string;
 
-  @Field(() => ID)
-  tenantId: string;
+  @Field(() => ID, { nullable: true })
+  tenantId?: string;
 
   @Field(() => String)
   name: string;
@@ -17,4 +17,3 @@ export class CreateOrderItemGroupInput {
   @Field(() => Boolean, { defaultValue: false, nullable: true })
   hideParts?: boolean;
 }
-

@@ -273,7 +273,7 @@ input CreateOrderItemGroupInput {
   name: String!
   orderId: ID!
   parentId: ID
-  tenantId: ID!
+  tenantId: ID
 }
 
 input CreateOrderItemPartInput {
@@ -284,7 +284,7 @@ input CreateOrderItemPartInput {
   priceAmount: BigInt
   quantity: Int!
   supplierId: ID
-  tenantId: ID!
+  tenantId: ID
   warranty: Boolean = false
 }
 
@@ -294,7 +294,7 @@ input CreateOrderItemServiceInput {
   parentId: ID
   priceAmount: BigInt
   service: String!
-  tenantId: ID!
+  tenantId: ID
   warranty: Boolean = false
   workerId: ID
 }
@@ -851,8 +851,14 @@ type Query {
   """Клиенты с пагинацией"""
   persons(search: String, skip: Int = 0, take: Int = 25): PaginatedPersons!
 
+  """Популярные работы (топ-20 по частоте использования)"""
+  popularServices: [String!]!
+
   """Резервации для элемента заказа"""
   reservations(orderItemPartId: ID!): [ReservationModel!]!
+
+  """Поиск работ по названию (временно из уже созданных работ в заказах)"""
+  services(search: String): [String!]!
 
   """Общее количество зарезервированных единиц"""
   totalReserved(orderItemPartId: ID!): Float!
@@ -935,7 +941,7 @@ type ReservationModel {
 input ReservePartInput {
   orderItemPartId: ID!
   quantity: Int!
-  tenantId: ID!
+  tenantId: ID
 }
 
 type Subscription {

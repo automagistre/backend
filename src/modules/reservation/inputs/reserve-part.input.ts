@@ -8,6 +8,6 @@ export class ReservePartInput {
   @Field(() => Int)
   quantity: number;
 
-  @Field(() => ID)
-  tenantId: string;
+  @Field(() => ID, { nullable: true })
+  tenantId?: string;
 }

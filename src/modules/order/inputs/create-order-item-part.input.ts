@@ -8,8 +8,8 @@ export class CreateOrderItemPartInput {
   @Field(() => ID, { nullable: true })
   parentId?: string;
 
-  @Field(() => ID)
-  tenantId: string;
+  @Field(() => ID, { nullable: true })
+  tenantId?: string;
 
   @Field(() => ID)
   partId: string;
@@ -29,4 +29,3 @@ export class CreateOrderItemPartInput {
   @Field(() => BigInt, { nullable: true })
   discountAmount?: bigint;
 }
-

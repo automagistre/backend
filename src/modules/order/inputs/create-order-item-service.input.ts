@@ -8,8 +8,8 @@ export class CreateOrderItemServiceInput {
   @Field(() => ID, { nullable: true })
   parentId?: string;
 
-  @Field(() => ID)
-  tenantId: string;
+  @Field(() => ID, { nullable: true })
+  tenantId?: string;
 
   @Field(() => String)
   service: string;
@@ -26,4 +26,3 @@ export class CreateOrderItemServiceInput {
   @Field(() => BigInt, { nullable: true })
   discountAmount?: bigint;
 }
-
