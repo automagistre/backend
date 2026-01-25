@@ -81,7 +81,9 @@ export class OrderResolver {
     filter: (payload, variables) => payload.orderUpdated.orderId === variables.orderId,
   })
   async orderUpdated(@Args('orderId', { type: () => ID }) orderId: string) {
-    return (this.pubSub as any).asyncIterator(`ORDER_UPDATED_${orderId}`);
+    // Причина: в текущей версии `graphql-subscriptions` используется `asyncIterableIterator`,
+    // а не `asyncIterator` — иначе подписка падает при подключении по `graphql-ws`.
+    return this.pubSub.asyncIterableIterator(`ORDER_UPDATED_${orderId}`);
   }
 }
 

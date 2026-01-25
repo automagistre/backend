@@ -2,7 +2,6 @@ import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
 import { ConfigService } from '@nestjs/config';
 import { join } from 'path';
 import { isDev } from '../utils/is-dev.util';
-import { PhoneNumberScalar } from 'src/common/scalars/phone.scaral';
 
 // eslint-disable-next-line @typescript-eslint/require-await
 export async function getGraphQLConfig(
@@ -14,11 +13,12 @@ export async function getGraphQLConfig(
     path: '/api/graphql',
     sortSchema: true,
     playground: isDev(configService),
-    installSubscriptionHandlers: true,
+    subscriptions: {
+      'graphql-ws': {
+        path: '/api/graphql',
+      },
+    },
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-    context: ({ req, res }) => ({ req, res }),
-    // resolvers: {
-    //   PhoneNumber: PhoneNumberScalar,
-    // },
+    context: ({ req, res, extra }: any) => ({ req: req ?? extra?.request, res }),
   };
 }
