@@ -20,7 +20,6 @@ export class EmployeeResolver {
       pagination = { take: undefined, skip: undefined };
     }
     const { take = 25, skip = 0 } = pagination;
-    console.log('includeFired', includeFired);
     const itemsPaginated = await this.employeeService.findMany({
       take,
       skip,
