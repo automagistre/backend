@@ -13,9 +13,9 @@ export class TenantService {
    */
   async getTenantId(): Promise<string> {
     try {
-      const result = await this.prisma.$queryRawUnsafe<Array<{ current_setting: string }>>(
-        `SELECT current_setting('app.tenant_id', true) as current_setting`
-      );
+      const result = await this.prisma.$queryRawUnsafe<
+        Array<{ current_setting: string }>
+      >(`SELECT current_setting('app.tenant_id', true) as current_setting`);
       const tenantId = result[0]?.current_setting?.trim();
       // Если переменная не установлена или пустая, возвращаем дефолтный tenantId
       return tenantId && tenantId !== '' ? tenantId : DEFAULT_TENANT_ID;
@@ -32,4 +32,3 @@ export class TenantService {
     return DEFAULT_TENANT_ID;
   }
 }
-

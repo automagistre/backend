@@ -18,7 +18,10 @@ export async function getGraphQLConfig(
         path: '/api/graphql',
       },
     },
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-    context: ({ req, res, extra }: any) => ({ req: req ?? extra?.request, res }),
+
+    context: ({ req, res, extra }: any) => ({
+      req: req ?? extra?.request,
+      res,
+    }),
   };
 }

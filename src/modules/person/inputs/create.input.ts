@@ -18,7 +18,10 @@ export class CreatePersonInput {
   telephone?: string | null;
 
   @IsPhoneNumber()
-  @Field(() => PhoneNumberScalar, { nullable: true, description: 'Телефон офиса' })
+  @Field(() => PhoneNumberScalar, {
+    nullable: true,
+    description: 'Телефон офиса',
+  })
   officePhone?: string | null;
 
   @IsEmail()

@@ -1,6 +1,11 @@
 import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { LoginDto, RefreshDto, TokensDto, PasswordLoginDto } from './dto/auth.dto';
+import {
+  LoginDto,
+  RefreshDto,
+  TokensDto,
+  PasswordLoginDto,
+} from './dto/auth.dto';
 import { Public } from './decorators/public.decorator';
 
 @Controller('auth')
@@ -17,7 +22,9 @@ export class AuthController {
   @Public()
   @Post('password-login')
   @HttpCode(HttpStatus.OK)
-  passwordLogin(@Body() passwordLoginDto: PasswordLoginDto): Promise<TokensDto> {
+  passwordLogin(
+    @Body() passwordLoginDto: PasswordLoginDto,
+  ): Promise<TokensDto> {
     return this.authService.loginWithPassword(passwordLoginDto);
   }
 
@@ -34,4 +41,4 @@ export class AuthController {
   logout(@Body() refreshDto: RefreshDto): Promise<void> {
     return this.authService.logout(refreshDto.refreshToken);
   }
-} 
+}

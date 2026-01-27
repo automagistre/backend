@@ -1,5 +1,14 @@
 import { Inject } from '@nestjs/common';
-import { Args, ID, Parent, Query, ResolveField, Resolver, Subscription, Mutation } from '@nestjs/graphql';
+import {
+  Args,
+  ID,
+  Parent,
+  Query,
+  ResolveField,
+  Resolver,
+  Subscription,
+  Mutation,
+} from '@nestjs/graphql';
 import { OrderService } from './order.service';
 import { OrderModel } from './models/order.model';
 import { OrderItemModel } from './models/order-item.model';
@@ -24,18 +33,32 @@ export class OrderResolver {
     @Inject('PUB_SUB') private readonly pubSub: PubSub,
   ) {}
 
-  @Query(() => OrderModel, { nullable: true, name: 'order', description: 'Заказ по ID' })
-  async getOrder(@Args('id', { type: () => ID }) id: string): Promise<OrderModel | null> {
+  @Query(() => OrderModel, {
+    nullable: true,
+    name: 'order',
+    description: 'Заказ по ID',
+  })
+  async getOrder(
+    @Args('id', { type: () => ID }) id: string,
+  ): Promise<OrderModel | null> {
     return this.orderService.findOne(id);
   }
 
-  @Query(() => [OrderModel], { name: 'orders', description: 'Список всех заказов' })
+  @Query(() => [OrderModel], {
+    name: 'orders',
+    description: 'Список всех заказов',
+  })
   async getOrders(): Promise<OrderModel[]> {
     return this.orderService.findAll();
   }
 
-  @Mutation(() => OrderModel, { name: 'updateOrder', description: 'Обновить заказ' })
-  async updateOrder(@Args('input') input: UpdateOrderInput): Promise<OrderModel> {
+  @Mutation(() => OrderModel, {
+    name: 'updateOrder',
+    description: 'Обновить заказ',
+  })
+  async updateOrder(
+    @Args('input') input: UpdateOrderInput,
+  ): Promise<OrderModel> {
     const updated = await this.orderService.update(input);
 
     await this.pubSub.publish(`ORDER_UPDATED_${input.id}`, {
@@ -66,7 +89,9 @@ export class OrderResolver {
     if (!order.customerId) {
       return null;
     }
-    return (await this.personService.findOne(order.customerId)) as PersonModel | null;
+    return (await this.personService.findOne(
+      order.customerId,
+    )) as PersonModel | null;
   }
 
   @ResolveField(() => EmployeeModel, { nullable: true })
@@ -74,11 +99,14 @@ export class OrderResolver {
     if (!order.workerId) {
       return null;
     }
-    return (await this.employeeService.findOne(order.workerId)) as EmployeeModel | null;
+    return (await this.employeeService.findOne(
+      order.workerId,
+    )) as EmployeeModel | null;
   }
 
   @Subscription(() => OrderModel, {
-    filter: (payload, variables) => payload.orderUpdated.orderId === variables.orderId,
+    filter: (payload, variables) =>
+      payload.orderUpdated.orderId === variables.orderId,
   })
   async orderUpdated(@Args('orderId', { type: () => ID }) orderId: string) {
     // Причина: в текущей версии `graphql-subscriptions` используется `asyncIterableIterator`,
@@ -86,4 +114,3 @@ export class OrderResolver {
     return this.pubSub.asyncIterableIterator(`ORDER_UPDATED_${orderId}`);
   }
 }
-

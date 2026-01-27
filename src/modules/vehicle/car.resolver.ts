@@ -1,10 +1,22 @@
-import { Args, Mutation, Parent, Query, ResolveField, Resolver } from '@nestjs/graphql';
+import {
+  Args,
+  Mutation,
+  Parent,
+  Query,
+  ResolveField,
+  Resolver,
+} from '@nestjs/graphql';
 import { CarService } from './car.service';
 import { CarModel, CarNumber, VehicleIdentifier } from './models/car.model';
 import { VINScalar } from 'src/common/scalars/vin.scalar';
 import { Car } from '@prisma/client';
 import { GosNomerRUScalar } from 'src/common/scalars/gosnomer-ru.scalar';
-import { CreateCarInput, CreateCarInputPrisma, UpdateCarInput, UpdateCarInputPrisma } from './inputs/car.input';
+import {
+  CreateCarInput,
+  CreateCarInputPrisma,
+  UpdateCarInput,
+  UpdateCarInputPrisma,
+} from './inputs/car.input';
 import { PaginationArgs } from 'src/common/pagination.args';
 import { PaginatedCars } from './inputs/paginatedCar.type';
 
@@ -16,16 +28,14 @@ export class CarResolver {
     private readonly gosnomerRUScalar: GosNomerRUScalar,
   ) {}
 
-  private parseInput<T extends CreateCarInput | UpdateCarInput>(
-    data: T,
-  ): any {
+  private parseInput<T extends CreateCarInput | UpdateCarInput>(data: T): any {
     const { vin, frame, gosnomerRu, gosnomerOther, ...rest } = data as any;
-    
+
     // Удаляем все null значения, чтобы Prisma использовала defaults
     const filtered = Object.fromEntries(
-      Object.entries(rest).filter(([_, value]) => value !== null)
+      Object.entries(rest).filter(([_, value]) => value !== null),
     );
-    
+
     // Обработка идентификатора: приоритет заполненному полю
     let identifier: string | null | undefined = undefined;
     // Проверяем сначала, какое из полей заполнено
@@ -38,21 +48,29 @@ export class CarResolver {
       identifier = null;
     }
     // Если оба undefined - не трогаем (identifier остается undefined и не обновляется)
-    
+
     // Обработка госномера: приоритет заполненному полю
     let gosnomer: string | null | undefined = undefined;
-    if (gosnomerRu !== undefined && gosnomerRu !== null && gosnomerRu.trim() !== '') {
+    if (
+      gosnomerRu !== undefined &&
+      gosnomerRu !== null &&
+      gosnomerRu.trim() !== ''
+    ) {
       gosnomer = gosnomerRu;
-    } else if (gosnomerOther !== undefined && gosnomerOther !== null && gosnomerOther.trim() !== '') {
+    } else if (
+      gosnomerOther !== undefined &&
+      gosnomerOther !== null &&
+      gosnomerOther.trim() !== ''
+    ) {
       gosnomer = gosnomerOther;
     } else if (gosnomerRu !== undefined || gosnomerOther !== undefined) {
       // Если одно из полей передано, но пустое/null - очищаем gosnomer
       gosnomer = null;
     }
     // Если оба undefined - не трогаем (gosnomer остается undefined и не обновляется)
-    
+
     const result: any = { ...filtered };
-    
+
     // Добавляем поля только если они определены
     if (identifier !== undefined) {
       result.identifier = identifier;
@@ -60,7 +78,7 @@ export class CarResolver {
     if (gosnomer !== undefined) {
       result.gosnomer = gosnomer;
     }
-    
+
     return result;
   }
 
@@ -88,7 +106,9 @@ export class CarResolver {
   }
 
   @Query(() => CarModel, { nullable: true })
-  async carByIdentifier(@Args('identifier') identifier: string): Promise<CarModel | null> {
+  async carByIdentifier(
+    @Args('identifier') identifier: string,
+  ): Promise<CarModel | null> {
     return (await this.carService.findByIdentifier(identifier)) as CarModel;
   }
 

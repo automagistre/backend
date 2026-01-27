@@ -25,4 +25,3 @@ import './enums/order-item-type.enum';
   exports: [OrderService, OrderItemService, 'PUB_SUB'],
 })
 export class OrderModule {}
-

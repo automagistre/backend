@@ -9,7 +9,10 @@ export class CreateEmployeeInput {
   @IsInt()
   @Min(0)
   @Max(100)
-  @Field(() => Int, { description: 'Коэффициент (процент от работ)', defaultValue: 100 })
+  @Field(() => Int, {
+    description: 'Коэффициент (процент от работ)',
+    defaultValue: 100,
+  })
   ratio: number;
 
   @Field(() => Date, { nullable: true, description: 'Дата найма' })
@@ -24,10 +27,12 @@ export class UpdateEmployeeInput {
   @IsInt()
   @Min(0)
   @Max(100)
-  @Field(() => Int, { nullable: true, description: 'Коэффициент (процент от работ)' })
+  @Field(() => Int, {
+    nullable: true,
+    description: 'Коэффициент (процент от работ)',
+  })
   ratio?: number;
 
   @Field(() => Date, { nullable: true, description: 'Дата найма' })
   hiredAt?: Date;
 }
-

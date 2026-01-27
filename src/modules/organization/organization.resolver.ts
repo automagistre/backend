@@ -1,7 +1,17 @@
-import { Args, Mutation, Parent, Query, ResolveField, Resolver } from '@nestjs/graphql';
+import {
+  Args,
+  Mutation,
+  Parent,
+  Query,
+  ResolveField,
+  Resolver,
+} from '@nestjs/graphql';
 import { OrganizationModel, RequisiteModel } from './models/organization.model';
 import { OrganizationService } from './organization.service';
-import { CreateOrganizationInput, UpdateOrganizationInput } from './inputs/organization.input';
+import {
+  CreateOrganizationInput,
+  UpdateOrganizationInput,
+} from './inputs/organization.input';
 import { PaginationArgs } from 'src/common/pagination.args';
 import { PaginatedOrganizations } from './types/paginated-organizations.type';
 import { Organization } from '@prisma/client';
@@ -49,7 +59,9 @@ export class OrganizationResolver {
   }
 
   @ResolveField(() => RequisiteModel, { nullable: true })
-  async requisite(@Parent() organization: Organization): Promise<RequisiteModel | null> {
+  async requisite(
+    @Parent() organization: Organization,
+  ): Promise<RequisiteModel | null> {
     const hasRequisite =
       organization.requisiteBank ||
       organization.requisiteLegalAddress ||
@@ -76,4 +88,3 @@ export class OrganizationResolver {
     };
   }
 }
-

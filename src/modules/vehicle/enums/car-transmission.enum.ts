@@ -1,4 +1,4 @@
-import { registerEnumType } from "@nestjs/graphql";
+import { registerEnumType } from '@nestjs/graphql';
 
 export enum CarTransmission {
   UNKNOWN,
@@ -8,7 +8,7 @@ export enum CarTransmission {
   MECHANICAL,
   AUTOMATIC_5,
   AUTOMATIC_7,
-} 
+}
 
 export const CarTransmissionLabel = {
   [CarTransmission.UNKNOWN]: 'Неизвестно',
@@ -18,7 +18,7 @@ export const CarTransmissionLabel = {
   [CarTransmission.MECHANICAL]: 'Механическая',
   [CarTransmission.AUTOMATIC_5]: 'Автоматическая 5',
   [CarTransmission.AUTOMATIC_7]: 'Автоматическая 7',
-}
+};
 
 export const CarTransmissionShortLabel = {
   [CarTransmission.UNKNOWN]: '?',
@@ -28,7 +28,7 @@ export const CarTransmissionShortLabel = {
   [CarTransmission.MECHANICAL]: 'MT',
   [CarTransmission.AUTOMATIC_5]: 'AT5',
   [CarTransmission.AUTOMATIC_7]: 'AT7',
-}
+};
 
 registerEnumType(CarTransmission, {
   name: 'CarTransmission',

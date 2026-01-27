@@ -44,7 +44,7 @@ export class VINScalar implements CustomScalar<string, string> {
     const containsForbiddenChars = this.FORBIDDEN_LETTERS.some((char) =>
       cleanedVin.includes(char),
     );
-    
+
     if (containsForbiddenChars) {
       throw new BadRequestException(
         `VIN не может содержать буквы I, O или Q. Получено: ${vin}`,

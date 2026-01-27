@@ -23,16 +23,25 @@ export class VehicleIdentifier {
   @Field(() => VINScalar, { nullable: true, description: 'VIN автомобиля' })
   vin?: string | null;
 
-  @Field(() => String, { nullable: true, description: 'Номер кузова автомобиля' })
+  @Field(() => String, {
+    nullable: true,
+    description: 'Номер кузова автомобиля',
+  })
   frame?: string | null;
 }
 
 @ObjectType({ description: 'Номер автомобиля' })
 export class CarNumber {
-  @Field(() => GosNomerRUScalar, { nullable: true, description: 'Гос. номер автомобиля (RU)' })
+  @Field(() => GosNomerRUScalar, {
+    nullable: true,
+    description: 'Гос. номер автомобиля (RU)',
+  })
   gosnomerRu?: string | null;
 
-  @Field(() => String, { nullable: true, description: 'Гос. номер автомобиля (другой страны)' })
+  @Field(() => String, {
+    nullable: true,
+    description: 'Гос. номер автомобиля (другой страны)',
+  })
   gosnomerOther?: string | null;
 }
 

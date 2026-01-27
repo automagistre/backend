@@ -16,7 +16,6 @@ export class PartService {
     private readonly tenantService: TenantService,
   ) {}
 
-
   async findAll(): Promise<PartModel[]> {
     const parts = await this.prisma.part.findMany({
       take: 2,
@@ -27,18 +26,37 @@ export class PartService {
     return parts;
   }
 
-  async findMany({ take=DEFAULT_TAKE, skip=DEFAULT_SKIP, search }: { take: number; skip: number; search?: string }) {
+  async findMany({
+    take = DEFAULT_TAKE,
+    skip = DEFAULT_SKIP,
+    search,
+  }: {
+    take: number;
+    skip: number;
+    search?: string;
+  }) {
     let where = {};
 
     if (search) {
-      const searchTerms = search.trim().split(/\s+/).filter(term => term.length > 0);
-      
-      const andConditions = searchTerms.map(term => ({
+      const searchTerms = search
+        .trim()
+        .split(/\s+/)
+        .filter((term) => term.length > 0);
+
+      const andConditions = searchTerms.map((term) => ({
         OR: [
           { name: { contains: term, mode: 'insensitive' as const } },
           { number: { contains: term, mode: 'insensitive' as const } },
-          { manufacturer: { name: { contains: term, mode: 'insensitive' as const } } },
-          { manufacturer: { localizedName: { contains: term, mode: 'insensitive' as const } } },
+          {
+            manufacturer: {
+              name: { contains: term, mode: 'insensitive' as const },
+            },
+          },
+          {
+            manufacturer: {
+              localizedName: { contains: term, mode: 'insensitive' as const },
+            },
+          },
         ],
       }));
 
@@ -108,8 +126,10 @@ export class PartService {
       // Обработка PartRequiredAvailability
       // Обрабатываем только если заданы оба поля
       if (
-        orderFromQuantity !== undefined && orderFromQuantity !== null &&
-        orderUpToQuantity !== undefined && orderUpToQuantity !== null
+        orderFromQuantity !== undefined &&
+        orderFromQuantity !== null &&
+        orderUpToQuantity !== undefined &&
+        orderUpToQuantity !== null
       ) {
         // Валидация
         if (orderFromQuantity < 0 || orderUpToQuantity < 0) {
@@ -117,10 +137,7 @@ export class PartService {
             'orderFromQuantity и orderUpToQuantity должны быть >= 0',
           );
         }
-        if (
-          orderUpToQuantity !== 0 &&
-          orderFromQuantity >= orderUpToQuantity
-        ) {
+        if (orderUpToQuantity !== 0 && orderFromQuantity >= orderUpToQuantity) {
           throw new Error(
             'orderUpToQuantity должен быть > orderFromQuantity (или равен 0)',
           );

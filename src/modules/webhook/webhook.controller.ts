@@ -10,11 +10,11 @@ export class WebhookController {
     try {
       await this.webhookService.openThirdGateByClient(query.numa);
       return {
-        text: 'Доступ на территорию разрешен'
+        text: 'Доступ на территорию разрешен',
       };
     } catch (error) {
       return {
-        text: 'Нет доступа, обратитесь в рабочее время'
+        text: 'Нет доступа, обратитесь в рабочее время',
       };
     }
   }

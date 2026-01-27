@@ -11,7 +11,10 @@ import { PaginatedPersons } from './inputs/paginatedPersons.type';
 export class PersonResolver {
   constructor(private readonly personService: PersonService) {}
 
-  @Query(() => PaginatedPersons, { name: 'persons', description: 'Клиенты с пагинацией' })
+  @Query(() => PaginatedPersons, {
+    name: 'persons',
+    description: 'Клиенты с пагинацией',
+  })
   async getAllPersons(
     @Args() pagination?: PaginationArgs,
     @Args('search', { nullable: true }) search?: string,
@@ -24,22 +27,34 @@ export class PersonResolver {
     return await this.personService.findMany({ take, skip, search });
   }
 
-  @Query(() => PersonModel || null, { name: 'person', description: 'Клиент по id' })
+  @Query(() => PersonModel || null, {
+    name: 'person',
+    description: 'Клиент по id',
+  })
   async getPerson(@Args('id') id: string): Promise<PersonModel | null> {
     return this.personService.findOne(id);
   }
 
-  @Mutation(() => PersonModel, { name: 'createOnePerson', description: 'Создать клиента' })
+  @Mutation(() => PersonModel, {
+    name: 'createOnePerson',
+    description: 'Создать клиента',
+  })
   async create(@Args('input') input: CreatePersonInput): Promise<PersonModel> {
     return this.personService.create(input);
   }
 
-  @Mutation(() => PersonModel, { name: 'updateOnePerson', description: 'Обновить клиента' })
+  @Mutation(() => PersonModel, {
+    name: 'updateOnePerson',
+    description: 'Обновить клиента',
+  })
   async update(@Args('input') input: UpdatePersonInput): Promise<PersonModel> {
     return this.personService.update(input);
   }
 
-  @Mutation(() => PersonModel, { name: 'deleteOnePerson', description: 'Удалить клиента' })
+  @Mutation(() => PersonModel, {
+    name: 'deleteOnePerson',
+    description: 'Удалить клиента',
+  })
   async delete(@Args('id') id: string): Promise<PersonModel> {
     return this.personService.delete(id);
   }

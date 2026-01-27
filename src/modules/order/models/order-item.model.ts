@@ -35,4 +35,3 @@ export class OrderItemModel {
   @Field(() => EmployeeModel, { nullable: true })
   serviceWorker?: EmployeeModel | null;
 }
-

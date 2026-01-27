@@ -1,5 +1,11 @@
 import { Field, ID, InputType, PartialType } from '@nestjs/graphql';
-import { IsBoolean, IsEmail, IsOptional, Length, Matches } from 'class-validator';
+import {
+  IsBoolean,
+  IsEmail,
+  IsOptional,
+  Length,
+  Matches,
+} from 'class-validator';
 import { PhoneNumberScalar } from 'src/common/scalars/phone.scaral';
 
 @InputType({ description: 'Реквизиты организации' })
@@ -29,14 +35,26 @@ export class RequisiteInput {
 
   @IsOptional()
   @Length(20, 20, { message: 'Расчетный счет должен содержать 20 цифр' })
-  @Matches(/^\d{20}$/, { message: 'Расчетный счет может содержать только цифры' })
-  @Field(() => String, { nullable: true, description: 'Расчетный счет (20 цифр)' })
+  @Matches(/^\d{20}$/, {
+    message: 'Расчетный счет может содержать только цифры',
+  })
+  @Field(() => String, {
+    nullable: true,
+    description: 'Расчетный счет (20 цифр)',
+  })
   rs?: string | null;
 
   @IsOptional()
-  @Length(20, 20, { message: 'Корреспондентский счет должен содержать 20 цифр' })
-  @Matches(/^\d{20}$/, { message: 'Корреспондентский счет может содержать только цифры' })
-  @Field(() => String, { nullable: true, description: 'Корреспондентский счет (20 цифр)' })
+  @Length(20, 20, {
+    message: 'Корреспондентский счет должен содержать 20 цифр',
+  })
+  @Matches(/^\d{20}$/, {
+    message: 'Корреспондентский счет может содержать только цифры',
+  })
+  @Field(() => String, {
+    nullable: true,
+    description: 'Корреспондентский счет (20 цифр)',
+  })
   ks?: string | null;
 
   @IsOptional()
@@ -59,7 +77,10 @@ export class CreateOrganizationInput {
   telephone?: string | null;
 
   @IsOptional()
-  @Field(() => PhoneNumberScalar, { nullable: true, description: 'Рабочий телефон' })
+  @Field(() => PhoneNumberScalar, {
+    nullable: true,
+    description: 'Рабочий телефон',
+  })
   officePhone?: string | null;
 
   @IsOptional()
@@ -68,11 +89,17 @@ export class CreateOrganizationInput {
   email?: string | null;
 
   @IsBoolean()
-  @Field(() => Boolean, { description: 'Является контрагентом', defaultValue: false })
+  @Field(() => Boolean, {
+    description: 'Является контрагентом',
+    defaultValue: false,
+  })
   contractor: boolean;
 
   @IsBoolean()
-  @Field(() => Boolean, { description: 'Является поставщиком', defaultValue: false })
+  @Field(() => Boolean, {
+    description: 'Является поставщиком',
+    defaultValue: false,
+  })
   seller: boolean;
 
   @IsOptional()
@@ -81,8 +108,9 @@ export class CreateOrganizationInput {
 }
 
 @InputType()
-export class UpdateOrganizationInput extends PartialType(CreateOrganizationInput) {
+export class UpdateOrganizationInput extends PartialType(
+  CreateOrganizationInput,
+) {
   @Field(() => ID, { description: 'ID организации' })
   id: string;
 }
-

@@ -33,4 +33,3 @@ export class PartDiscountModel implements PartDiscount {
   @Field(() => ID, { nullable: true, description: 'Кем создано' })
   createdBy: string | null;
 }
-

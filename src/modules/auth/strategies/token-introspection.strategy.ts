@@ -5,15 +5,24 @@ import { ConfigService } from '@nestjs/config';
 import { JwtPayload } from '../dto/jwt.payload';
 
 @Injectable()
-export class TokenIntrospectionStrategy extends PassportStrategy(Strategy, 'token-introspection') {
+export class TokenIntrospectionStrategy extends PassportStrategy(
+  Strategy,
+  'token-introspection',
+) {
   constructor(private readonly configService: ConfigService) {
     super();
   }
 
   async validate(token: string): Promise<JwtPayload> {
-    const introspectionEndpoint = this.configService.get<string>('auth.keycloak.introspectionEndpoint') as string;
-    const clientId = this.configService.get<string>('auth.keycloak.clientId') as string;
-    const clientSecret = this.configService.get<string>('auth.keycloak.clientSecret') as string;
+    const introspectionEndpoint = this.configService.get<string>(
+      'auth.keycloak.introspectionEndpoint',
+    ) as string;
+    const clientId = this.configService.get<string>(
+      'auth.keycloak.clientId',
+    ) as string;
+    const clientSecret = this.configService.get<string>(
+      'auth.keycloak.clientSecret',
+    ) as string;
 
     const params = new URLSearchParams();
     params.append('token', token);
@@ -43,7 +52,9 @@ export class TokenIntrospectionStrategy extends PassportStrategy(Strategy, 'toke
       };
     } catch (error) {
       console.error('Token introspection failed:', error);
-      throw new UnauthorizedException('Failed to verify token with the provider');
+      throw new UnauthorizedException(
+        'Failed to verify token with the provider',
+      );
     }
   }
-} 
+}

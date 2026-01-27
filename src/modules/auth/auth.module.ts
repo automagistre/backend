@@ -16,7 +16,9 @@ import { TokenIntrospectionStrategy } from './strategies/token-introspection.str
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: async (configService: ConfigService) => {
-        const accessTokenTtl = configService.get<number>('auth.jwt.accessTokenTtl');
+        const accessTokenTtl = configService.get<number>(
+          'auth.jwt.accessTokenTtl',
+        );
         return {
           secret: configService.get<string>('auth.jwt.secret'),
           signOptions: {
@@ -37,4 +39,4 @@ import { TokenIntrospectionStrategy } from './strategies/token-introspection.str
   ],
   exports: [AuthService, JwtAuthGuard],
 })
-export class AuthModule {} 
+export class AuthModule {}

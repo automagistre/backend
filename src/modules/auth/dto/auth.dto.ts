@@ -42,4 +42,4 @@ export class TokensDto {
 
   @IsString()
   refreshExpiresIn: number;
-} 
+}

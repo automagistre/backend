@@ -1,10 +1,10 @@
-import { registerEnumType } from "@nestjs/graphql";
+import { registerEnumType } from '@nestjs/graphql';
 
 export enum CarEngineInjection {
   UNKNOWN,
   CLASSIC,
   DIRECT,
-} 
+}
 
 export const CarEngineInjectionLabel = {
   [CarEngineInjection.UNKNOWN]: 'Неизвестно',
@@ -16,7 +16,7 @@ export const CarEngineInjectionShortLabel = {
   [CarEngineInjection.UNKNOWN]: '?',
   [CarEngineInjection.CLASSIC]: 'I',
   [CarEngineInjection.DIRECT]: 'D',
-}
+};
 
 registerEnumType(CarEngineInjection, {
   name: 'CarEngineInjection',

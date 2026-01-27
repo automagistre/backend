@@ -24,11 +24,14 @@ export class PartRequiredAvailabilityService {
 
     // Если последняя запись имеет значения 0-0, это означает что запасы не контролируются
     // Возвращаем null чтобы показать что запасы не заданы
-    if (availability && availability.orderFromQuantity === 0 && availability.orderUpToQuantity === 0) {
+    if (
+      availability &&
+      availability.orderFromQuantity === 0 &&
+      availability.orderUpToQuantity === 0
+    ) {
       return null;
     }
 
     return availability;
   }
 }
-

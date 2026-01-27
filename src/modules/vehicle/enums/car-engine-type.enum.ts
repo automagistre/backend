@@ -1,7 +1,5 @@
 import { registerEnumType } from '@nestjs/graphql';
 
-
-
 export enum CarEngineType {
   UNKNOWN = 0,
   PETROL = 1,

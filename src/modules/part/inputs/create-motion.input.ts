@@ -6,7 +6,9 @@ export class CreateMotionInput {
   @Field(() => ID, { description: 'ID запчасти' })
   partId: string;
 
-  @Field(() => Int, { description: 'Количество (может быть положительным или отрицательным)' })
+  @Field(() => Int, {
+    description: 'Количество (может быть положительным или отрицательным)',
+  })
   quantity: number;
 
   @Field(() => MotionSourceType, { description: 'Тип источника движения' })
@@ -18,4 +20,3 @@ export class CreateMotionInput {
   @Field(() => String, { nullable: true, description: 'Описание движения' })
   description?: string;
 }
-

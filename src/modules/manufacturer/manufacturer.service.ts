@@ -17,18 +17,29 @@ export class ManufacturerService {
     return manufacturers;
   }
 
-  async findMany({ take=DEFAULT_TAKE, skip=DEFAULT_SKIP, search }: { take: number; skip: number; search?: string }) {
+  async findMany({
+    take = DEFAULT_TAKE,
+    skip = DEFAULT_SKIP,
+    search,
+  }: {
+    take: number;
+    skip: number;
+    search?: string;
+  }) {
     let where = {};
 
     if (search) {
-      const searchTerms = search.trim().split(/\s+/).filter(term => term.length > 0);
-      
+      const searchTerms = search
+        .trim()
+        .split(/\s+/)
+        .filter((term) => term.length > 0);
+
       // Каждое слово должно найтись хотя бы в одном из полей (И между словами, ИЛИ между полями)
-      const andConditions = searchTerms.map(term => ({
+      const andConditions = searchTerms.map((term) => ({
         OR: [
           { name: { contains: term, mode: 'insensitive' as const } },
           { localizedName: { contains: term, mode: 'insensitive' as const } },
-        ]
+        ],
       }));
 
       where = { AND: andConditions };

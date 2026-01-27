@@ -13,4 +13,4 @@ export class Tokens {
 
   @Field(() => Number)
   refreshExpiresIn: number;
-} 
+}

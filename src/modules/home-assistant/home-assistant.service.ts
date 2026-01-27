@@ -21,14 +21,19 @@ export class HomeAssistantService {
     const token = this.configService.get<string>('HOME_ASSISTANT_TOKEN');
 
     if (!baseUrl || !token) {
-      throw new Error('HOME_ASSISTANT_URL и HOME_ASSISTANT_TOKEN должны быть определены');
+      throw new Error(
+        'HOME_ASSISTANT_URL и HOME_ASSISTANT_TOKEN должны быть определены',
+      );
     }
 
     this.baseUrl = baseUrl;
     this.token = token;
   }
 
-  private async request(path: string, options: RequestInit = {}): Promise<Response> {
+  private async request(
+    path: string,
+    options: RequestInit = {},
+  ): Promise<Response> {
     const response = await fetch(`${this.baseUrl}${path}`, {
       ...options,
       headers: {
@@ -39,10 +44,7 @@ export class HomeAssistantService {
     });
 
     if (!response.ok) {
-      throw new HomeAssistantError(
-        response.statusText,
-        response.status,
-      );
+      throw new HomeAssistantError(response.statusText, response.status);
     }
 
     return response;
@@ -58,14 +60,21 @@ export class HomeAssistantService {
     return response.json();
   }
 
-  async callService(domain: string, service: string, data: Record<string, any>) {
+  async callService(
+    domain: string,
+    service: string,
+    data: Record<string, any>,
+  ) {
     const response = await this.request(`/api/services/${domain}/${service}`, {
       method: 'POST',
       body: JSON.stringify(data),
     });
 
     // Проверяем только статус и тип контента
-    if (response.status === 200 && response.headers.get('content-type')?.includes('application/json')) {
+    if (
+      response.status === 200 &&
+      response.headers.get('content-type')?.includes('application/json')
+    ) {
       return response.json();
     }
 
@@ -76,4 +85,4 @@ export class HomeAssistantService {
     const response = await this.request('/api/services');
     return response.json();
   }
-} 
+}

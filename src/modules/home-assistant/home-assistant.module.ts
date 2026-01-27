@@ -7,4 +7,4 @@ import { HomeAssistantService } from './home-assistant.service';
   providers: [HomeAssistantService],
   exports: [HomeAssistantService],
 })
-export class HomeAssistantModule {} 
+export class HomeAssistantModule {}

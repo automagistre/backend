@@ -10,6 +10,14 @@ import { PartRequiredAvailabilityService } from './part-required-availability.se
 
 @Module({
   imports: [],
-  providers: [PartService, PartResolver, PartPriceService, PartDiscountService, PartCrossService, PartMotionService, PartRequiredAvailabilityService],
+  providers: [
+    PartService,
+    PartResolver,
+    PartPriceService,
+    PartDiscountService,
+    PartCrossService,
+    PartMotionService,
+    PartRequiredAvailabilityService,
+  ],
 })
 export class PartModule {}

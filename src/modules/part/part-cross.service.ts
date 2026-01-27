@@ -47,7 +47,11 @@ export class PartCrossService {
             partId: crossPartId,
           },
         });
-      } else if (leftGroup && rightGroup && leftGroup.partCrossId !== rightGroup.partCrossId) {
+      } else if (
+        leftGroup &&
+        rightGroup &&
+        leftGroup.partCrossId !== rightGroup.partCrossId
+      ) {
         // Если обе в разных группах - объединить группы
         await tx.partCrossPart.updateMany({
           where: { partCrossId: rightGroup.partCrossId },
@@ -89,4 +93,3 @@ export class PartCrossService {
     return crossParts.map((cp) => cp.part);
   }
 }
-

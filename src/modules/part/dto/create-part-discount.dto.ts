@@ -5,4 +5,3 @@ export class CreatePartDiscountDto {
   discountCurrencyCode?: string | null;
   tenantId?: string;
 }
-

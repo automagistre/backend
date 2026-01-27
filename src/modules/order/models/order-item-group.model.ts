@@ -17,4 +17,3 @@ export class OrderItemGroupModel {
   @Field(() => ID, { nullable: true })
   createdBy: string | null;
 }
-

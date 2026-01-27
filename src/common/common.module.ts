@@ -7,4 +7,3 @@ import { TenantService } from './services/tenant.service';
   exports: [TenantService],
 })
 export class CommonModule {}
-

@@ -7,4 +7,3 @@ import { OrganizationResolver } from './organization.resolver';
   exports: [OrganizationService],
 })
 export class OrganizationModule {}
-

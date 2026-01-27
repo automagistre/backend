@@ -1,6 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { CreateOrganizationInput, UpdateOrganizationInput } from './inputs/organization.input';
+import {
+  CreateOrganizationInput,
+  UpdateOrganizationInput,
+} from './inputs/organization.input';
 
 const DEFAULT_TAKE = 25;
 const DEFAULT_SKIP = 0;
@@ -11,7 +14,7 @@ export class OrganizationService {
 
   async create(data: CreateOrganizationInput) {
     const { requisite, ...mainData } = data as any;
-    
+
     return this.prisma.organization.create({
       data: {
         ...mainData,
@@ -29,7 +32,11 @@ export class OrganizationService {
     });
   }
 
-  async update({ id, requisite, ...mainData }: UpdateOrganizationInput & { requisite?: any }) {
+  async update({
+    id,
+    requisite,
+    ...mainData
+  }: UpdateOrganizationInput & { requisite?: any }) {
     return this.prisma.organization.update({
       where: { id },
       data: {
@@ -64,8 +71,12 @@ export class OrganizationService {
             { address: { contains: search, mode: 'insensitive' as const } },
             { email: { contains: search, mode: 'insensitive' as const } },
             { telephone: { contains: search, mode: 'insensitive' as const } },
-            { requisiteInn: { contains: search, mode: 'insensitive' as const } },
-            { requisiteOgrn: { contains: search, mode: 'insensitive' as const } },
+            {
+              requisiteInn: { contains: search, mode: 'insensitive' as const },
+            },
+            {
+              requisiteOgrn: { contains: search, mode: 'insensitive' as const },
+            },
           ],
         }
       : {};
@@ -95,4 +106,3 @@ export class OrganizationService {
     });
   }
 }
-

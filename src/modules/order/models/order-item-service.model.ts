@@ -36,4 +36,3 @@ export class OrderItemServiceModel {
   @Field(() => ID, { nullable: true })
   createdBy: string | null;
 }
-

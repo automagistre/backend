@@ -23,7 +23,10 @@ export class RequisiteModel {
   @Field(() => String, { nullable: true, description: 'Расчетный счет' })
   rs?: string | null;
 
-  @Field(() => String, { nullable: true, description: 'Корреспондентский счет' })
+  @Field(() => String, {
+    nullable: true,
+    description: 'Корреспондентский счет',
+  })
   ks?: string | null;
 
   @Field(() => String, { nullable: true, description: 'БИК' })
@@ -44,7 +47,10 @@ export class OrganizationModel implements Organization {
   @Field(() => PhoneNumberScalar, { nullable: true, description: 'Телефон' })
   telephone: string | null;
 
-  @Field(() => PhoneNumberScalar, { nullable: true, description: 'Рабочий телефон' })
+  @Field(() => PhoneNumberScalar, {
+    nullable: true,
+    description: 'Рабочий телефон',
+  })
   officePhone: string | null;
 
   @Field(() => String, { nullable: true, description: 'Email' })
@@ -80,4 +86,3 @@ export class OrganizationModel implements Organization {
   requisiteKs: string | null;
   requisiteBik: string | null;
 }
-

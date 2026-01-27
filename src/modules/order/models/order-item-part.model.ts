@@ -43,4 +43,3 @@ export class OrderItemPartModel {
   @Field(() => ID, { nullable: true })
   createdBy: string | null;
 }
-

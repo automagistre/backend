@@ -33,4 +33,3 @@ export class EmployeeModel implements Employee {
   @Field(() => Boolean, { description: 'Уволен' })
   isFired: boolean;
 }
-

@@ -3,7 +3,6 @@ import { Person } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/client';
 import { PhoneNumberScalar } from 'src/common/scalars/phone.scaral';
 
-
 @ObjectType()
 export class PersonModel implements Person {
   @Field(() => ID)

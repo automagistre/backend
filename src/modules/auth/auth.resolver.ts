@@ -21,7 +21,9 @@ export class AuthResolver {
 
   @Public()
   @Mutation(() => Tokens)
-  async passwordLogin(@Args('input') passwordLoginDto: PasswordLoginDto): Promise<Tokens> {
+  async passwordLogin(
+    @Args('input') passwordLoginDto: PasswordLoginDto,
+  ): Promise<Tokens> {
     return this.authService.loginWithPassword(passwordLoginDto);
   }
 
@@ -37,4 +39,4 @@ export class AuthResolver {
     await this.authService.logout(refreshDto.refreshToken);
     return true;
   }
-} 
+}

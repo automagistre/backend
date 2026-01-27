@@ -25,4 +25,3 @@ registerEnumType(MotionSourceType, {
     },
   },
 });
-

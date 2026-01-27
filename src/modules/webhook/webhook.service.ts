@@ -27,10 +27,9 @@ export class WebhookService {
       }),
     );
     if (result) {
-      await this.automationHubService.openRearGate()
-    }
-    else {
+      await this.automationHubService.openRearGate();
+    } else {
       throw new Error('No access');
     }
-  }    
+  }
 }

@@ -9,4 +9,3 @@ export class PaginatedCars {
   @Field(() => Int)
   total: number;
 }
-

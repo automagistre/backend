@@ -7,4 +7,4 @@ import { HomeAssistantModule } from '../home-assistant/home-assistant.module';
   providers: [AutomationHubService],
   exports: [AutomationHubService],
 })
-export class AutomationHubModule {} 
+export class AutomationHubModule {}

@@ -15,10 +15,11 @@ export class UserIdMiddleware implements NestMiddleware {
   ) {}
 
   async use(req: FastifyRequest, res: FastifyReply, next: () => void) {
-    const isDevMode = this.configService.get<string>('NODE_ENV') !== 'production';
-    
+    const isDevMode =
+      this.configService.get<string>('NODE_ENV') !== 'production';
+
     let userId: string;
-    
+
     if (isDevMode) {
       // В dev режиме используем дефолтный UUID и устанавливаем фиктивного пользователя
       userId = DEV_USER_ID;
@@ -30,7 +31,7 @@ export class UserIdMiddleware implements NestMiddleware {
       // В production получаем UUID из авторизованного пользователя (установленного guard'ом)
       const user = (req as any).user;
       userId = user?.sub;
-      
+
       // В production режиме пользователь должен быть установлен guard'ом
       if (!userId) {
         // Не бросаем ошибку здесь, пусть guard'ы решают вопросы авторизации
@@ -39,9 +40,11 @@ export class UserIdMiddleware implements NestMiddleware {
         return;
       }
     }
-    
+
     await this.prisma.$executeRawUnsafe(`SET app.user_id = '${userId}'`);
-    await this.prisma.$executeRawUnsafe(`SET app.tenant_id = '${DEFAULT_TENANT_ID}'`);
+    await this.prisma.$executeRawUnsafe(
+      `SET app.tenant_id = '${DEFAULT_TENANT_ID}'`,
+    );
 
     next();
   }

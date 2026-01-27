@@ -16,4 +16,4 @@ export const CurrentUser = createParamDecorator(
     const httpReq = context.switchToHttp().getRequest();
     return httpReq.user;
   },
-); 
+);

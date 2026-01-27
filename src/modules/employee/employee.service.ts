@@ -1,6 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { CreateEmployeeInput, UpdateEmployeeInput } from './inputs/employee.input';
+import {
+  CreateEmployeeInput,
+  UpdateEmployeeInput,
+} from './inputs/employee.input';
 import { TenantService } from 'src/common/services/tenant.service';
 
 const DEFAULT_TAKE = 25;
@@ -28,7 +31,7 @@ export class EmployeeService {
   async update({ id, ...data }: UpdateEmployeeInput) {
     // Фильтруем null значения для Prisma
     const updateData = Object.fromEntries(
-      Object.entries(data).filter(([_, value]) => value !== null)
+      Object.entries(data).filter(([_, value]) => value !== null),
     );
 
     return this.prisma.employee.update({
@@ -52,7 +55,7 @@ export class EmployeeService {
     includeFired?: boolean;
   }) {
     const tenantId = await this.tenantService.getTenantId();
-    
+
     const where: any = {
       tenantId,
       ...(includeFired ? {} : { firedAt: null }),
@@ -60,9 +63,15 @@ export class EmployeeService {
         ? {
             person: {
               OR: [
-                { firstname: { contains: search, mode: 'insensitive' as const } },
-                { lastname: { contains: search, mode: 'insensitive' as const } },
-                { telephone: { contains: search, mode: 'insensitive' as const } },
+                {
+                  firstname: { contains: search, mode: 'insensitive' as const },
+                },
+                {
+                  lastname: { contains: search, mode: 'insensitive' as const },
+                },
+                {
+                  telephone: { contains: search, mode: 'insensitive' as const },
+                },
               ],
             },
           }
@@ -133,4 +142,3 @@ export class EmployeeService {
     });
   }
 }
-

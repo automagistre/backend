@@ -59,7 +59,7 @@ export class UpdateCalendarEntryInput extends PartialType(
   @Field(() => ID, { name: 'CalendarEntryId' })
   id: string;
 
-  @Field(() => Date, { name: 'startDate'})
+  @Field(() => Date, { name: 'startDate' })
   date: Date;
 
   @Field(() => String)
@@ -71,7 +71,7 @@ export class DeleteCalendarEntryInput {
   @Field(() => ID, { name: 'CalendarEntryId' })
   id: string;
 
-  @Field(() => DeletionReason, { name: 'reason'})
+  @Field(() => DeletionReason, { name: 'reason' })
   reason: number;
 
   @Field(() => String, { nullable: true, name: 'description' })

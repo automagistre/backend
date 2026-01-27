@@ -28,7 +28,7 @@ export const BodyTypeLabel = {
   [BodyType.LIMOUSINE]: 'Лимузин',
   [BodyType.VAN]: 'Фургон',
   [BodyType.CABRIO]: 'Кабриолет',
-}
+};
 
 export const BodyTypeShortLabel = {
   [BodyType.UNKNOWN]: '?',
@@ -43,7 +43,7 @@ export const BodyTypeShortLabel = {
   [BodyType.LIMOUSINE]: 'limousine',
   [BodyType.VAN]: 'van',
   [BodyType.CABRIO]: 'cabrio',
-}
+};
 
 registerEnumType(BodyType, {
   name: 'BodyType',

@@ -18,4 +18,3 @@ export class ChangeStockInput {
   @Field(() => String, { nullable: true, description: 'Описание движения' })
   description?: string;
 }
-

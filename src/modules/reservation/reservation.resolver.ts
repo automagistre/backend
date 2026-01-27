@@ -7,11 +7,15 @@ import { ReservePartInput } from './inputs/reserve-part.input';
 export class ReservationResolver {
   constructor(private readonly reservationService: ReservationService) {}
 
-  @Query(() => [ReservationModel], { name: 'reservations', description: 'Резервации для элемента заказа' })
+  @Query(() => [ReservationModel], {
+    name: 'reservations',
+    description: 'Резервации для элемента заказа',
+  })
   async getReservations(
     @Args('orderItemPartId', { type: () => ID }) orderItemPartId: string,
   ): Promise<ReservationModel[]> {
-    const reservations = await this.reservationService.getByOrderItemPart(orderItemPartId);
+    const reservations =
+      await this.reservationService.getByOrderItemPart(orderItemPartId);
     return reservations.map((r) => ({
       id: r.id,
       orderItemPartId: r.orderItemPartId,
@@ -22,15 +26,23 @@ export class ReservationResolver {
     }));
   }
 
-  @Query(() => Number, { name: 'totalReserved', description: 'Общее количество зарезервированных единиц' })
+  @Query(() => Number, {
+    name: 'totalReserved',
+    description: 'Общее количество зарезервированных единиц',
+  })
   async getTotalReserved(
     @Args('orderItemPartId', { type: () => ID }) orderItemPartId: string,
   ): Promise<number> {
     return this.reservationService.getTotalReserved(orderItemPartId);
   }
 
-  @Mutation(() => ReservationModel, { name: 'reservePart', description: 'Зарезервировать запчасть' })
-  async reservePart(@Args('input') input: ReservePartInput): Promise<ReservationModel> {
+  @Mutation(() => ReservationModel, {
+    name: 'reservePart',
+    description: 'Зарезервировать запчасть',
+  })
+  async reservePart(
+    @Args('input') input: ReservePartInput,
+  ): Promise<ReservationModel> {
     const reservation = await this.reservationService.reserve({
       orderItemPartId: input.orderItemPartId,
       quantity: input.quantity,
@@ -46,7 +58,10 @@ export class ReservationResolver {
     };
   }
 
-  @Mutation(() => Number, { name: 'releaseReservation', description: 'Снять резерв с запчасти' })
+  @Mutation(() => Number, {
+    name: 'releaseReservation',
+    description: 'Снять резерв с запчасти',
+  })
   async releaseReservation(
     @Args('orderItemPartId', { type: () => ID }) orderItemPartId: string,
     @Args('quantity', { type: () => Number, nullable: true }) quantity?: number,

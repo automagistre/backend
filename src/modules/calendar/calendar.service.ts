@@ -28,9 +28,8 @@ export class CalendarService {
     return entry;
   }
 
-  
   async createEntry(data: CreateCalendarEntryInput): Promise<CalendarEntry> {
-    let entry: Prisma.CalendarEntryCreateInput = {
+    const entry: Prisma.CalendarEntryCreateInput = {
       calendarEntrySchedule: {
         create: {
           date: data.date,
@@ -95,7 +94,7 @@ export class CalendarService {
   async getEntriesByDate(date: Date) {
     const startOfDay = new Date(date);
     startOfDay.setHours(0, 0, 0, 0);
-    
+
     const endOfDay = new Date(date);
     endOfDay.setHours(23, 59, 59, 999);
 

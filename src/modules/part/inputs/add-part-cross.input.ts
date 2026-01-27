@@ -8,4 +8,3 @@ export class AddPartCrossInput {
   @Field(() => ID, { description: 'ID взаимозаменяемой запчасти' })
   crossPartId: string;
 }
-

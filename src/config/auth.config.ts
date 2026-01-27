@@ -24,4 +24,4 @@ export default registerAs('auth', () => ({
   password: {
     enabled: process.env.PASSWORD_AUTH_ENABLED === 'true',
   },
-})); 
+}));

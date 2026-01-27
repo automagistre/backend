@@ -23,13 +23,24 @@ export class PersonService {
     });
   }
 
-  async findMany({ take=DEFAULT_TAKE, skip=DEFAULT_SKIP, search }: { take: number; skip: number; search?: string }) {
+  async findMany({
+    take = DEFAULT_TAKE,
+    skip = DEFAULT_SKIP,
+    search,
+  }: {
+    take: number;
+    skip: number;
+    search?: string;
+  }) {
     let where = {};
 
     if (search) {
-      const searchTerms = search.trim().split(/\s+/).filter(term => term.length > 0);
-      
-      const andConditions = searchTerms.map(term => ({
+      const searchTerms = search
+        .trim()
+        .split(/\s+/)
+        .filter((term) => term.length > 0);
+
+      const andConditions = searchTerms.map((term) => ({
         OR: [
           { firstname: { contains: term, mode: 'insensitive' as const } },
           { lastname: { contains: term, mode: 'insensitive' as const } },

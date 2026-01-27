@@ -29,4 +29,4 @@ export class JwtAuthGuard extends AuthGuard('token-introspection') {
     }
     return context.switchToHttp().getRequest();
   }
-} 
+}

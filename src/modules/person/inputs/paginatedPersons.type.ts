@@ -9,4 +9,3 @@ export class PaginatedPersons {
   @Field(() => Int)
   total: number;
 }
-

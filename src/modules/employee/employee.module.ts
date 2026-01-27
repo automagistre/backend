@@ -7,4 +7,3 @@ import { EmployeeResolver } from './employee.resolver';
   exports: [EmployeeService],
 })
 export class EmployeeModule {}
-

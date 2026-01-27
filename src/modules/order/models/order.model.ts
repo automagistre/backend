@@ -47,4 +47,3 @@ export class OrderModel {
 
   tenantId: string;
 }
-

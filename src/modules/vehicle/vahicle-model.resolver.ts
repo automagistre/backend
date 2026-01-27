@@ -9,7 +9,10 @@ import { PaginatedVehicles } from './inputs/paginatedVehicles.type';
 export class VahicleModelResolver {
   constructor(private readonly vehicleModelService: VehicleModelService) {}
 
-  @Query(() => PaginatedVehicles, { name: 'vehicles', description: 'Получить модели автомобилей с пагинацией' })
+  @Query(() => PaginatedVehicles, {
+    name: 'vehicles',
+    description: 'Получить модели автомобилей с пагинацией',
+  })
   async GetAllVehicles(
     @Args() pagination?: PaginationArgs,
     @Args('search', { nullable: true }) search?: string,
@@ -26,22 +29,38 @@ export class VahicleModelResolver {
     });
   }
 
-  @Query(() => VehicleModel, { name: 'vehicle', description: 'Получить модель автомобиля по id' })
+  @Query(() => VehicleModel, {
+    name: 'vehicle',
+    description: 'Получить модель автомобиля по id',
+  })
   async GetVehicle(@Args('id') id: string): Promise<VehicleModel | null> {
     return this.vehicleModelService.findOne(id);
   }
 
-  @Mutation(() => VehicleModel, { name: 'createOneVehicle', description: 'Создать модель автомобиля' })
-  async CreateOneVehicle(@Args('data') data: CreateVehicleInput): Promise<VehicleModel> {
+  @Mutation(() => VehicleModel, {
+    name: 'createOneVehicle',
+    description: 'Создать модель автомобиля',
+  })
+  async CreateOneVehicle(
+    @Args('data') data: CreateVehicleInput,
+  ): Promise<VehicleModel> {
     return this.vehicleModelService.create(data);
   }
 
-  @Mutation(() => VehicleModel, { name: 'updateOneVehicle', description: 'Обновить модель автомобиля' })
-  async UpdateOneVehicle(@Args('data') data: UpdateVehicleInput): Promise<VehicleModel> {
+  @Mutation(() => VehicleModel, {
+    name: 'updateOneVehicle',
+    description: 'Обновить модель автомобиля',
+  })
+  async UpdateOneVehicle(
+    @Args('data') data: UpdateVehicleInput,
+  ): Promise<VehicleModel> {
     return this.vehicleModelService.update(data);
   }
 
-  @Mutation(() => VehicleModel, { name: 'deleteOneVehicle', description: 'Удалить модель автомобиля' })
+  @Mutation(() => VehicleModel, {
+    name: 'deleteOneVehicle',
+    description: 'Удалить модель автомобиля',
+  })
   async DeleteOneVehicle(@Args('id') id: string): Promise<VehicleModel> {
     return this.vehicleModelService.remove(id);
   }

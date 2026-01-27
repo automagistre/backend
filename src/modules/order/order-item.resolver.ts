@@ -1,5 +1,13 @@
 import { Inject } from '@nestjs/common';
-import { Args, ID, Mutation, Parent, Query, ResolveField, Resolver } from '@nestjs/graphql';
+import {
+  Args,
+  ID,
+  Mutation,
+  Parent,
+  Query,
+  ResolveField,
+  Resolver,
+} from '@nestjs/graphql';
 import { OrderItemService } from './order-item.service';
 import { OrderItemModel } from './models/order-item.model';
 import { CreateOrderItemGroupInput } from './inputs/create-order-item-group.input';
@@ -35,33 +43,42 @@ export class OrderItemResolver {
     });
   }
 
-  @Query(() => [OrderItemModel], { name: 'orderItems', description: 'Элементы заказа в виде дерева' })
+  @Query(() => [OrderItemModel], {
+    name: 'orderItems',
+    description: 'Элементы заказа в виде дерева',
+  })
   async getOrderItems(@Args('orderId', { type: () => ID }) orderId: string) {
     return this.orderItemService.findTreeByOrderId(orderId);
   }
 
   @ResolveField(() => EmployeeModel, { nullable: true })
-  async serviceWorker(@Parent() item: OrderItemModel): Promise<EmployeeModel | null> {
+  async serviceWorker(
+    @Parent() item: OrderItemModel,
+  ): Promise<EmployeeModel | null> {
     // Резолвим worker для service внутри OrderItem
     // Проверяем наличие service (type может быть '1' или 'service' в зависимости от версии данных)
     if (!item.service) {
       return null;
     }
-    
+
     // Если workerId не указан, возвращаем null
     // В workerId хранится personId, а не employeeId
     if (!item.service.workerId) {
       return null;
     }
-    
+
     // Ищем сотрудника по personId (в workerId хранится UUID персоны)
     //TODO: переделать на поиск по employeeId
-    const employee = await this.employeeService.findByPersonId(item.service.workerId);
+    const employee = await this.employeeService.findByPersonId(
+      item.service.workerId,
+    );
     return employee as EmployeeModel | null;
   }
 
-
-  @Mutation(() => OrderItemModel, { name: 'createOrderItemGroup', description: 'Создать группу элементов заказа' })
+  @Mutation(() => OrderItemModel, {
+    name: 'createOrderItemGroup',
+    description: 'Создать группу элементов заказа',
+  })
   async createOrderItemGroup(@Args('input') input: CreateOrderItemGroupInput) {
     const created = await this.orderItemService.createGroup(input);
     if (created.orderId) {
@@ -70,8 +87,13 @@ export class OrderItemResolver {
     return created;
   }
 
-  @Mutation(() => OrderItemModel, { name: 'createOrderItemService', description: 'Создать услугу в заказе' })
-  async createOrderItemService(@Args('input') input: CreateOrderItemServiceInput) {
+  @Mutation(() => OrderItemModel, {
+    name: 'createOrderItemService',
+    description: 'Создать услугу в заказе',
+  })
+  async createOrderItemService(
+    @Args('input') input: CreateOrderItemServiceInput,
+  ) {
     const created = await this.orderItemService.createService(input);
     if (created.orderId) {
       await this.publishOrderUpdated(created.orderId);
@@ -79,7 +101,10 @@ export class OrderItemResolver {
     return created;
   }
 
-  @Mutation(() => OrderItemModel, { name: 'createOrderItemPart', description: 'Создать запчасть в заказе' })
+  @Mutation(() => OrderItemModel, {
+    name: 'createOrderItemPart',
+    description: 'Создать запчасть в заказе',
+  })
   async createOrderItemPart(@Args('input') input: CreateOrderItemPartInput) {
     const created = await this.orderItemService.createPart(input);
     if (created.orderId) {
@@ -88,7 +113,10 @@ export class OrderItemResolver {
     return created;
   }
 
-  @Mutation(() => OrderItemModel, { name: 'updateOrderItemPart', description: 'Обновить запчасть в заказе' })
+  @Mutation(() => OrderItemModel, {
+    name: 'updateOrderItemPart',
+    description: 'Обновить запчасть в заказе',
+  })
   async updateOrderItemPart(@Args('input') input: UpdateOrderItemPartInput) {
     const updated = await this.orderItemService.updatePart(input);
     if (updated.orderId) {
@@ -97,8 +125,13 @@ export class OrderItemResolver {
     return updated;
   }
 
-  @Mutation(() => OrderItemModel, { name: 'updateOrderItemService', description: 'Обновить услугу в заказе' })
-  async updateOrderItemService(@Args('input') input: UpdateOrderItemServiceInput) {
+  @Mutation(() => OrderItemModel, {
+    name: 'updateOrderItemService',
+    description: 'Обновить услугу в заказе',
+  })
+  async updateOrderItemService(
+    @Args('input') input: UpdateOrderItemServiceInput,
+  ) {
     const updated = await this.orderItemService.updateService(input);
     if (updated.orderId) {
       await this.publishOrderUpdated(updated.orderId);
@@ -106,10 +139,20 @@ export class OrderItemResolver {
     return updated;
   }
 
-  @Mutation(() => OrderItemModel, { name: 'deleteOrderItem', description: 'Удалить элемент заказа' })
+  @Mutation(() => OrderItemModel, {
+    name: 'deleteOrderItem',
+    description: 'Удалить элемент заказа',
+  })
   async deleteOrderItem(
     @Args('id', { type: () => ID }) id: string,
-    @Args('deleteChildren', { type: () => Boolean, nullable: true, defaultValue: true, description: 'Удалить дочерние элементы (по умолчанию true). Если false - дочерние элементы перемещаются в корень.' }) deleteChildren?: boolean,
+    @Args('deleteChildren', {
+      type: () => Boolean,
+      nullable: true,
+      defaultValue: true,
+      description:
+        'Удалить дочерние элементы (по умолчанию true). Если false - дочерние элементы перемещаются в корень.',
+    })
+    deleteChildren?: boolean,
   ) {
     const deleted = await this.orderItemService.delete(id, deleteChildren);
     if (deleted.orderId) {
@@ -118,4 +161,3 @@ export class OrderItemResolver {
     return deleted;
   }
 }
-

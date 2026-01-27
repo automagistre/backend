@@ -1,7 +1,17 @@
-import { Args, Mutation, Parent, Query, ResolveField, Resolver } from '@nestjs/graphql';
+import {
+  Args,
+  Mutation,
+  Parent,
+  Query,
+  ResolveField,
+  Resolver,
+} from '@nestjs/graphql';
 import { EmployeeModel } from './models/employee.model';
 import { EmployeeService } from './employee.service';
-import { CreateEmployeeInput, UpdateEmployeeInput } from './inputs/employee.input';
+import {
+  CreateEmployeeInput,
+  UpdateEmployeeInput,
+} from './inputs/employee.input';
 import { PaginationArgs } from 'src/common/pagination.args';
 import { PaginatedEmployees } from './types/paginated-employees.type';
 import { Employee } from '@prisma/client';
@@ -14,7 +24,8 @@ export class EmployeeResolver {
   async employees(
     @Args() pagination?: PaginationArgs,
     @Args('search', { nullable: true }) search?: string,
-    @Args('includeFired', { nullable: true, defaultValue: false }) includeFired?: boolean,
+    @Args('includeFired', { nullable: true, defaultValue: false })
+    includeFired?: boolean,
   ) {
     if (!pagination) {
       pagination = { take: undefined, skip: undefined };
@@ -59,4 +70,3 @@ export class EmployeeResolver {
     return employee.firedAt !== null;
   }
 }
-

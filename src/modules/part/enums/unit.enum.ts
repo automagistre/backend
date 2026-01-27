@@ -62,4 +62,4 @@ registerEnumType(Unit, {
       description: 'Метр (м)',
     },
   },
-}); 
+});

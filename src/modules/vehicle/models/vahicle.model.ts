@@ -16,7 +16,10 @@ export class VehicleModel implements Vehicle {
   @Field(() => ManufacturerModel, { description: 'Производитель' })
   manufacturer: ManufacturerModel;
 
-  @Field(() => String, { nullable: true, description: 'Локализованное название модели' })
+  @Field(() => String, {
+    nullable: true,
+    description: 'Локализованное название модели',
+  })
   localizedName: string | null;
 
   @Field(() => String, { nullable: true, description: 'Код кузова' })
@@ -29,7 +32,10 @@ export class VehicleModel implements Vehicle {
 
   @Min(1970)
   @Max(new Date().getFullYear())
-  @Field(() => Int, { nullable: true, description: 'Год окончания производства' })
+  @Field(() => Int, {
+    nullable: true,
+    description: 'Год окончания производства',
+  })
   yearTill: number | null;
 
   @Field(() => Date, { nullable: true, description: 'Дата создания' })

@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { OrderModel } from './models/order.model';
 import { OrderStatus } from './enums/order-status.enum';
@@ -32,16 +36,26 @@ export class OrderService {
       throw new NotFoundException(`Заказ с ID ${orderId} не найден`);
     }
 
-    if (order.status === OrderStatus.CLOSED || order.status === OrderStatus.CANCELLED) {
-      throw new BadRequestException('Нельзя изменять элементы в закрытом или отмененном заказе');
+    if (
+      order.status === OrderStatus.CLOSED ||
+      order.status === OrderStatus.CANCELLED
+    ) {
+      throw new BadRequestException(
+        'Нельзя изменять элементы в закрытом или отмененном заказе',
+      );
     }
   }
 
   async update(input: UpdateOrderInput): Promise<OrderModel> {
     await this.validateOrderEditable(input.id);
 
-    if (input.status === OrderStatus.CLOSED || input.status === OrderStatus.CANCELLED) {
-      throw new BadRequestException('Нельзя переводить заказ в закрытый или отмененный статус');
+    if (
+      input.status === OrderStatus.CLOSED ||
+      input.status === OrderStatus.CANCELLED
+    ) {
+      throw new BadRequestException(
+        'Нельзя переводить заказ в закрытый или отмененный статус',
+      );
     }
 
     const data: Prisma.OrderUncheckedUpdateInput = {};
@@ -62,7 +76,11 @@ export class OrderService {
       data.mileage = input.mileage ?? null;
     }
 
-    if ('status' in input && input.status !== null && input.status !== undefined) {
+    if (
+      'status' in input &&
+      input.status !== null &&
+      input.status !== undefined
+    ) {
       data.status = input.status;
     }
 
@@ -72,4 +90,3 @@ export class OrderService {
     }) as Promise<OrderModel>;
   }
 }
-

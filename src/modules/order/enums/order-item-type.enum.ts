@@ -21,4 +21,3 @@ registerEnumType(OrderItemType, {
     },
   },
 });
-

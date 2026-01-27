@@ -12,4 +12,4 @@ export interface JwtPayload {
   /**
    * Add any other user-related properties you want in the token
    */
-} 
+}

@@ -2,7 +2,6 @@ import { Scalar, CustomScalar } from '@nestjs/graphql';
 import { GraphQLScalarType, Kind, ValueNode } from 'graphql';
 import { PhoneValidationPipe } from '../pipes/phone-validation.pipe';
 
-
 @Scalar('PhoneNumber')
 export class PhoneNumberScalar implements CustomScalar<string, string> {
   description = 'Телефонный номер в формате +7XXX...';
