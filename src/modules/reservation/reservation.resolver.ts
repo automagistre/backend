@@ -1,11 +1,33 @@
-import { Args, ID, Mutation, Query, Resolver } from '@nestjs/graphql';
+import { Inject } from '@nestjs/common';
+import { Args, ID, Int, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { ReservationService } from './reservation.service';
 import { ReservationModel } from './models/reservation.model';
 import { ReservePartInput } from './inputs/reserve-part.input';
+import { PartReservationSourceModel } from './models/part-reservation-source.model';
+import { TransferReservationInput } from './inputs/transfer-reservation.input';
+import { PubSub } from 'graphql-subscriptions';
+import { OrderService } from '../order/order.service';
 
 @Resolver(() => ReservationModel)
 export class ReservationResolver {
-  constructor(private readonly reservationService: ReservationService) {}
+  constructor(
+    private readonly reservationService: ReservationService,
+    private readonly orderService: OrderService,
+    @Inject('PUB_SUB') private readonly pubSub: PubSub,
+  ) {}
+
+  private async publishOrderUpdated(orderId: string | null): Promise<void> {
+    if (!orderId) return;
+    const order = await this.orderService.findOne(orderId);
+    if (!order) return;
+
+    await this.pubSub.publish(`ORDER_UPDATED_${orderId}`, {
+      orderUpdated: {
+        ...order,
+        orderId,
+      },
+    });
+  }
 
   @Query(() => [ReservationModel], {
     name: 'reservations',
@@ -36,6 +58,42 @@ export class ReservationResolver {
     return this.reservationService.getTotalReserved(orderItemPartId);
   }
 
+  @Query(() => Int, {
+    name: 'partReservable',
+    description:
+      'Доступно к резерву по запчасти (склад - резервы в активных заказах)',
+  })
+  async partReservable(
+    @Args('partId', { type: () => ID }) partId: string,
+    @Args('tenantId', { type: () => ID, nullable: true }) tenantId?: string,
+  ): Promise<number> {
+    return this.reservationService.getReservable(partId, tenantId);
+  }
+
+  @Query(() => [PartReservationSourceModel], {
+    name: 'partReservationSources',
+    description: 'Источники резерва по запчасти (для сценария "занять")',
+  })
+  async partReservationSources(
+    @Args('partId', { type: () => ID }) partId: string,
+    @Args('excludeOrderId', { type: () => ID, nullable: true })
+    excludeOrderId?: string,
+    @Args('tenantId', { type: () => ID, nullable: true }) tenantId?: string,
+  ): Promise<PartReservationSourceModel[]> {
+    const sources = await this.reservationService.getReservationSources(
+      partId,
+      excludeOrderId,
+      tenantId,
+    );
+    return sources.map((s) => ({
+      orderId: s.orderId,
+      orderNumber: s.orderNumber,
+      orderStatus: s.orderStatus as any,
+      orderItemPartId: s.orderItemPartId,
+      reservedQuantity: s.reservedQuantity,
+    }));
+  }
+
   @Mutation(() => ReservationModel, {
     name: 'reservePart',
     description: 'Зарезервировать запчасть',
@@ -48,6 +106,11 @@ export class ReservationResolver {
       quantity: input.quantity,
       tenantId: input.tenantId,
     });
+    await this.publishOrderUpdated(
+      await this.reservationService.getOrderIdByOrderItemPartId(
+        input.orderItemPartId,
+      ),
+    );
     return {
       id: reservation.id,
       orderItemPartId: reservation.orderItemPartId,
@@ -66,6 +129,35 @@ export class ReservationResolver {
     @Args('orderItemPartId', { type: () => ID }) orderItemPartId: string,
     @Args('quantity', { type: () => Number, nullable: true }) quantity?: number,
   ): Promise<number> {
-    return this.reservationService.release({ orderItemPartId, quantity });
+    const result = await this.reservationService.release({
+      orderItemPartId,
+      quantity,
+    });
+    await this.publishOrderUpdated(
+      await this.reservationService.getOrderIdByOrderItemPartId(orderItemPartId),
+    );
+    return result;
+  }
+
+  @Mutation(() => Boolean, {
+    name: 'transferReservation',
+    description: 'Перенести резерв между позициями заказов (сценарий "занять")',
+  })
+  async transferReservation(
+    @Args('input') input: TransferReservationInput,
+  ): Promise<boolean> {
+    const { fromOrderId, toOrderId } =
+      await this.reservationService.transferReservation({
+      fromOrderItemPartId: input.fromOrderItemPartId,
+      toOrderItemPartId: input.toOrderItemPartId,
+      quantity: input.quantity,
+      tenantId: input.tenantId,
+    });
+    // Причина: изменяются оба заказа — источник и получатель.
+    await this.publishOrderUpdated(fromOrderId);
+    if (toOrderId !== fromOrderId) {
+      await this.publishOrderUpdated(toOrderId);
+    }
+    return true;
   }
 }

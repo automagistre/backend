@@ -509,6 +509,9 @@ type Mutation {
 
   """Зарезервировать запчасть"""
   reservePart(input: ReservePartInput!): ReservationModel!
+
+  """Перенести резерв между позициями заказов (сценарий "занять")"""
+  transferReservation(input: TransferReservationInput!): Boolean!
   updateOneCar(input: UpdateCarInput!): CarModel!
   updateOneEmployee(input: UpdateEmployeeInput!): EmployeeModel!
   updateOneManufacturer(input: UpdateManufacturerInput!): ManufacturerModel!
@@ -565,6 +568,11 @@ type OrderItemPartModel {
   priceAmount: BigInt
   priceCurrencyCode: String
   quantity: Int!
+
+  """
+  Количество в резерве по этой позиции (сумма резерва по orderItemPartId)
+  """
+  reservedQuantity: Int!
   supplier: OrganizationModel
   supplierId: ID
   warranty: Boolean!
@@ -798,6 +806,15 @@ type PartPriceModel {
   tenantId: ID!
 }
 
+"""Источник резерва по запчасти (для сценария "занять")"""
+type PartReservationSourceModel {
+  orderId: ID!
+  orderItemPartId: ID!
+  orderNumber: Int!
+  orderStatus: OrderStatus!
+  reservedQuantity: Int!
+}
+
 input PasswordLoginDto {
   password: String!
   username: String!
@@ -841,6 +858,12 @@ type Query {
   organization(id: String!): OrganizationModel
   organizations(search: String, skip: Int = 0, take: Int = 25): PaginatedOrganizations!
   part(id: ID!): PartModel!
+
+  """Доступно к резерву по запчасти (склад - резервы в активных заказах)"""
+  partReservable(partId: ID!, tenantId: ID): Int!
+
+  """Источники резерва по запчасти (для сценария "занять")"""
+  partReservationSources(excludeOrderId: ID, partId: ID!, tenantId: ID): [PartReservationSourceModel!]!
 
   """Запчасти с пагинацией"""
   parts(search: String, skip: Int = 0, take: Int = 25): PaginatedParts!
@@ -953,6 +976,13 @@ type Tokens {
   expiresIn: Float!
   refreshExpiresIn: Float!
   refreshToken: String!
+}
+
+input TransferReservationInput {
+  fromOrderItemPartId: ID!
+  quantity: Int!
+  tenantId: ID
+  toOrderItemPartId: ID!
 }
 
 """Единицы измерения"""

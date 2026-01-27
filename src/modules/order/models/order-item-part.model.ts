@@ -42,4 +42,10 @@ export class OrderItemPartModel {
 
   @Field(() => ID, { nullable: true })
   createdBy: string | null;
+
+  @Field(() => Int, {
+    description:
+      'Количество в резерве по этой позиции (сумма резерва по orderItemPartId)',
+  })
+  reservedQuantity?: number;
 }

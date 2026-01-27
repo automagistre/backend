@@ -272,13 +272,18 @@ export class OrderItemService {
       },
     });
 
-    // Создаём резерв на добавленное количество
+    // Пытаемся создать резерв на добавленное количество.
+    // Причина: позицию важно создать даже при дефиците, чтобы сотрудник видел проблему и мог действовать дальше.
     if (orderItem.part && input.quantity > 0) {
-      await this.reservationService.reserve({
-        orderItemPartId: orderItem.part.id,
-        quantity: input.quantity,
-        tenantId,
-      });
+      try {
+        await this.reservationService.reserve({
+          orderItemPartId: orderItem.part.id,
+          quantity: input.quantity,
+          tenantId,
+        });
+      } catch {
+        // no-op
+      }
     }
 
     return this.toModel(orderItem as any);
@@ -302,28 +307,24 @@ export class OrderItemService {
 
     await this.orderService.validateOrderEditable(orderItem.orderId!);
 
-    // Обновляем резерв при изменении количества
+    // Обновляем резерв при изменении количества по правилу "полный резерв или ничего".
+    // Причина: сотруднику проще понимать состояние — либо зарезервировано всё, либо резерв отсутствует (дефицит).
     if (
       input.quantity !== undefined &&
       input.quantity !== orderItem.part.quantity
     ) {
-      const oldQuantity = orderItem.part.quantity;
       const newQuantity = input.quantity;
-      const quantityDiff = newQuantity - oldQuantity;
-
-      if (quantityDiff > 0) {
-        // Увеличиваем резерв
-        await this.reservationService.reserve({
-          orderItemPartId: orderItem.part.id,
-          quantity: quantityDiff,
-          tenantId: orderItem.tenantId,
-        });
-      } else if (quantityDiff < 0) {
-        // Уменьшаем резерв
-        await this.reservationService.release({
-          orderItemPartId: orderItem.part.id,
-          quantity: Math.abs(quantityDiff),
-        });
+      await this.reservationService.releaseAll(orderItem.part.id);
+      if (newQuantity > 0) {
+        try {
+          await this.reservationService.reserve({
+            orderItemPartId: orderItem.part.id,
+            quantity: newQuantity,
+            tenantId: orderItem.tenantId,
+          });
+        } catch {
+          // no-op
+        }
       }
     }
 
