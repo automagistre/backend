@@ -2,15 +2,23 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreatePartDiscountDto } from './dto/create-part-discount.dto';
 import { PartDiscount } from 'src/generated/prisma/client';
+import {
+  normalizeMoneyAmount,
+  rubCurrencyCode,
+} from 'src/common/utils/money.util';
 
 @Injectable()
 export class PartDiscountService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(createPartDiscountDto: CreatePartDiscountDto): Promise<PartDiscount> {
+  async create(
+    createPartDiscountDto: CreatePartDiscountDto,
+  ): Promise<PartDiscount> {
     return this.prisma.partDiscount.create({
       data: {
         ...createPartDiscountDto,
+        discountAmount: normalizeMoneyAmount(createPartDiscountDto.discountAmount),
+        discountCurrencyCode: rubCurrencyCode(),
       },
     });
   }
@@ -46,4 +54,3 @@ export class PartDiscountService {
     });
   }
 }
-

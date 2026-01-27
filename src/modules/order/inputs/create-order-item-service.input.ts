@@ -21,8 +21,8 @@ export class CreateOrderItemServiceInput {
   warranty?: boolean;
 
   @Field(() => BigInt, { nullable: true })
-  priceAmount?: bigint;
+  priceAmount?: bigint | null;
 
   @Field(() => BigInt, { nullable: true })
-  discountAmount?: bigint;
+  discountAmount?: bigint | null;
 }

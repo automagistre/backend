@@ -22,6 +22,7 @@ import { PaginationArgs } from 'src/common/pagination.args';
 import { PaginatedParts } from './inputs/paginatedParts.type';
 import { PartMotionService } from './part-motion.service';
 import { PartRequiredAvailabilityService } from './part-required-availability.service';
+import { normalizeMoneyAmount } from 'src/common/utils/money.util';
 
 @Resolver(() => PartModel)
 export class PartResolver {
@@ -38,12 +39,12 @@ export class PartResolver {
   async createOnePart(
     @Args('input') input: CreatePartInput,
   ): Promise<PartModel> {
-    if (input?.price) {
+    if (input.price !== undefined) {
       const { price, ...data } = input;
       const part = await this.partService.create(data);
       await this.partPriceService.create({
         partId: part.id,
-        priceAmount: input.price,
+        priceAmount: normalizeMoneyAmount(price),
         since: new Date(),
       });
       return part;
@@ -55,28 +56,37 @@ export class PartResolver {
   async updateOnePart(
     @Args('input') input: UpdatePartInput,
   ): Promise<PartModel> {
-    const currentPrice = await this.partPriceService.findActualPricePart(input.id);
-    const currentDiscount = await this.partDiscountService.findActualDiscountPart(input.id);
+    const currentPrice = await this.partPriceService.findActualPricePart(
+      input.id,
+    );
+    const currentDiscount =
+      await this.partDiscountService.findActualDiscountPart(input.id);
     const { price, discount, ...data } = input;
-    
+
     const part = await this.partService.update(data);
-    
-    if (price && currentPrice?.priceAmount !== input.price) {
+
+    if (price !== undefined) {
+      const normalizedPrice = normalizeMoneyAmount(price);
+      if (currentPrice?.priceAmount !== normalizedPrice) {
       await this.partPriceService.create({
         partId: part.id,
-        priceAmount: price,
+          priceAmount: normalizedPrice,
         since: new Date(),
       });
+      }
     }
-    
-    if (discount !== undefined && currentDiscount?.discountAmount !== discount) {
+
+    if (
+      discount !== undefined &&
+      currentDiscount?.discountAmount !== normalizeMoneyAmount(discount)
+    ) {
       await this.partDiscountService.create({
         partId: part.id,
-        discountAmount: discount,
+        discountAmount: normalizeMoneyAmount(discount),
         since: new Date(),
       });
     }
-    
+
     return part;
   }
 
@@ -87,7 +97,10 @@ export class PartResolver {
     return this.partService.delete(id);
   }
 
-  @Query(() => PaginatedParts, { name: 'parts', description: 'Запчасти с пагинацией' })
+  @Query(() => PaginatedParts, {
+    name: 'parts',
+    description: 'Запчасти с пагинацией',
+  })
   async getAllParts(
     @Args() pagination?: PaginationArgs,
     @Args('search', { nullable: true }) search?: string,
@@ -123,7 +136,9 @@ export class PartResolver {
   }
 
   @ResolveField(() => [PartDiscountModel])
-  async discountHistory(@Parent() part: PartModel): Promise<PartDiscountModel[]> {
+  async discountHistory(
+    @Parent() part: PartModel,
+  ): Promise<PartDiscountModel[]> {
     return this.partDiscountService.findAllByPartId(part.id);
   }
 
@@ -139,13 +154,17 @@ export class PartResolver {
 
   @ResolveField(() => Int, { nullable: true })
   async orderFromQuantity(@Parent() part: PartModel): Promise<number | null> {
-    const availability = await this.partRequiredAvailabilityService.findForPart(part.id);
+    const availability = await this.partRequiredAvailabilityService.findForPart(
+      part.id,
+    );
     return availability?.orderFromQuantity ?? null;
   }
 
   @ResolveField(() => Int, { nullable: true })
   async orderUpToQuantity(@Parent() part: PartModel): Promise<number | null> {
-    const availability = await this.partRequiredAvailabilityService.findForPart(part.id);
+    const availability = await this.partRequiredAvailabilityService.findForPart(
+      part.id,
+    );
     return availability?.orderUpToQuantity ?? null;
   }
 

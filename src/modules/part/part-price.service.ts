@@ -2,6 +2,10 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreatePartPriceDto } from './dto/create-part-price.dto';
 import { PartPrice } from '@prisma/client';
+import {
+  normalizeMoneyAmount,
+  rubCurrencyCode,
+} from 'src/common/utils/money.util';
 
 @Injectable()
 export class PartPriceService {
@@ -10,6 +14,8 @@ export class PartPriceService {
     return this.prisma.partPrice.create({
       data: {
         ...createPartPriceDto,
+        priceAmount: normalizeMoneyAmount(createPartPriceDto.priceAmount),
+        priceCurrencyCode: rubCurrencyCode(),
       },
     });
   }

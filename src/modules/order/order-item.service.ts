@@ -21,6 +21,10 @@ import { OrderItemType } from './enums/order-item-type.enum';
 import { v6 as uuidv6 } from 'uuid';
 import { ReservationService } from '../reservation/reservation.service';
 import { TenantService } from 'src/common/services/tenant.service';
+import {
+  normalizeMoneyAmount,
+  rubCurrencyCode,
+} from 'src/common/utils/money.util';
 
 @Injectable()
 export class OrderItemService {
@@ -166,7 +170,7 @@ export class OrderItemService {
         id: uuidv6(),
         orderId: input.orderId,
         parentId: input.parentId,
-        type: 'group',
+        type: '3',
         tenantId,
         group: {
           create: {
@@ -192,17 +196,17 @@ export class OrderItemService {
         id: uuidv6(),
         orderId: input.orderId,
         parentId: input.parentId,
-        type: 'service',
+        type: '1',
         tenantId,
         service: {
           create: {
             service: input.service,
             workerId: input.workerId,
             warranty: input.warranty ?? false,
-            priceAmount: input.priceAmount,
-            priceCurrencyCode: input.priceAmount ? 'RUB' : null,
-            discountAmount: input.discountAmount,
-            discountCurrencyCode: input.discountAmount ? 'RUB' : null,
+            priceAmount: normalizeMoneyAmount(input.priceAmount),
+            priceCurrencyCode: rubCurrencyCode(),
+            discountAmount: normalizeMoneyAmount(input.discountAmount),
+            discountCurrencyCode: rubCurrencyCode(),
           },
         },
       },
@@ -239,7 +243,7 @@ export class OrderItemService {
         id: uuidv6(),
         orderId: input.orderId,
         parentId: input.parentId,
-        type: 'part',
+        type: '2',
         tenantId,
         part: {
           create: {
@@ -247,10 +251,10 @@ export class OrderItemService {
             supplierId: input.supplierId,
             quantity: input.quantity,
             warranty: input.warranty ?? false,
-            priceAmount: input.priceAmount,
-            priceCurrencyCode: input.priceAmount ? 'RUB' : null,
-            discountAmount: input.discountAmount,
-            discountCurrencyCode: input.discountAmount ? 'RUB' : null,
+            priceAmount: normalizeMoneyAmount(input.priceAmount),
+            priceCurrencyCode: rubCurrencyCode(),
+            discountAmount: normalizeMoneyAmount(input.discountAmount),
+            discountCurrencyCode: rubCurrencyCode(),
           },
         },
       },
@@ -327,12 +331,12 @@ export class OrderItemService {
     const updateData: any = {};
     if (input.quantity !== undefined) updateData.quantity = input.quantity;
     if (input.priceAmount !== undefined) {
-      updateData.priceAmount = input.priceAmount;
-      updateData.priceCurrencyCode = 'RUB';
+      updateData.priceAmount = normalizeMoneyAmount(input.priceAmount);
+      updateData.priceCurrencyCode = rubCurrencyCode();
     }
     if (input.discountAmount !== undefined) {
-      updateData.discountAmount = input.discountAmount;
-      updateData.discountCurrencyCode = input.discountAmount ? 'RUB' : null;
+      updateData.discountAmount = normalizeMoneyAmount(input.discountAmount);
+      updateData.discountCurrencyCode = rubCurrencyCode();
     }
     if (input.warranty !== undefined) updateData.warranty = input.warranty;
     if (input.supplierId !== undefined)
@@ -396,12 +400,12 @@ export class OrderItemService {
     const updateData: any = {};
     if (input.service !== undefined) updateData.service = input.service;
     if (input.priceAmount !== undefined) {
-      updateData.priceAmount = input.priceAmount;
-      updateData.priceCurrencyCode = 'RUB';
+      updateData.priceAmount = normalizeMoneyAmount(input.priceAmount);
+      updateData.priceCurrencyCode = rubCurrencyCode();
     }
     if (input.discountAmount !== undefined) {
-      updateData.discountAmount = input.discountAmount;
-      updateData.discountCurrencyCode = input.discountAmount ? 'RUB' : null;
+      updateData.discountAmount = normalizeMoneyAmount(input.discountAmount);
+      updateData.discountCurrencyCode = rubCurrencyCode();
     }
     if (input.warranty !== undefined) updateData.warranty = input.warranty;
     if (input.workerId !== undefined) updateData.workerId = input.workerId;

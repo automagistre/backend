@@ -22,8 +22,8 @@ export class CreatePartInput {
   warehouseId?: string;
 
   @Field(() => BigInt, { nullable: true, description: 'Цена запчасти' })
-  price?: bigint;
+  price?: bigint | null;
 
   @Field(() => BigInt, { nullable: true, description: 'Скидка на запчасть' })
-  discount?: bigint;
-} 
+  discount?: bigint | null;
+}
