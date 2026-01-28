@@ -808,6 +808,8 @@ type PartPriceModel {
 
 """Источник резерва по запчасти (для сценария "занять")"""
 type PartReservationSourceModel {
+  carName: String
+  customerName: String
   orderId: ID!
   orderItemPartId: ID!
   orderNumber: Int!

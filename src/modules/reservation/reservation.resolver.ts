@@ -91,6 +91,8 @@ export class ReservationResolver {
       orderStatus: s.orderStatus as any,
       orderItemPartId: s.orderItemPartId,
       reservedQuantity: s.reservedQuantity,
+      customerName: s.customerName,
+      carName: s.carName,
     }));
   }
 

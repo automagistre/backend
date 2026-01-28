@@ -81,6 +81,8 @@ export class ReservationService {
       orderStatus: number;
       orderItemPartId: string;
       reservedQuantity: number;
+      customerName: string | null;
+      carName: string | null;
     }>
   > {
     const resolvedTenantId = tenantId ?? (await this.tenantService.getTenantId());
@@ -118,7 +120,26 @@ export class ReservationService {
     const ids = filtered.map((g) => g.orderItemPartId);
     const parts = await this.prisma.orderItemPart.findMany({
       where: { id: { in: ids } },
-      include: { orderItem: { include: { order: true } } },
+      include: {
+        orderItem: {
+          include: {
+            order: {
+              include: {
+                customer: true,
+                car: {
+                  include: {
+                    vehicle: {
+                      include: {
+                        manufacturer: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
     });
 
     const byId = new Map(parts.map((p) => [p.id, p]));
@@ -128,12 +149,27 @@ export class ReservationService {
         const oip = byId.get(g.orderItemPartId);
         const order = oip?.orderItem?.order;
         if (!oip || !order) return null;
+
+        const customerName = [order.customer?.lastname, order.customer?.firstname]
+          .filter(Boolean)
+          .join(' ')
+          .trim();
+
+        const manufacturer = (order.car as any)?.vehicle?.manufacturer?.name as
+          | string
+          | undefined;
+        const modelName = (order.car as any)?.vehicle?.name as string | undefined;
+        const caseName = (order.car as any)?.vehicle?.caseName as string | undefined;
+        const carName = [manufacturer, modelName, caseName].filter(Boolean).join(' ').trim();
+
         return {
           orderId: order.id,
           orderNumber: order.number,
           orderStatus: order.status,
           orderItemPartId: g.orderItemPartId,
           reservedQuantity: g.reservedQuantity,
+          customerName: customerName.length > 0 ? customerName : null,
+          carName: carName.length > 0 ? carName : null,
         };
       })
       .filter(Boolean) as Array<{
@@ -142,6 +178,8 @@ export class ReservationService {
       orderStatus: number;
       orderItemPartId: string;
       reservedQuantity: number;
+      customerName: string | null;
+      carName: string | null;
     }>;
   }
 
@@ -230,6 +268,15 @@ export class ReservationService {
       await tx.reservation.deleteMany({
         where: { tenantId, orderItemPartId: fromOrderItemPartId },
       });
+
+      // Переводим заказ-источник в статус "Заказ запчастей".
+      // Причина: после снятия резерва по позиции заказу потребуется заказать запчасти заново.
+      if (from.orderItem?.orderId) {
+        await tx.order.update({
+          where: { id: from.orderItem.orderId },
+          data: { status: OrderStatus.ORDERING },
+        });
+      }
 
       await tx.reservation.create({
         data: {

@@ -17,5 +17,11 @@ export class PartReservationSourceModel {
 
   @Field(() => Int)
   reservedQuantity: number;
+
+  @Field(() => String, { nullable: true })
+  customerName?: string | null;
+
+  @Field(() => String, { nullable: true })
+  carName?: string | null;
 }
 
