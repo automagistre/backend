@@ -19,6 +19,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { OrderModule } from './modules/order/order.module';
 import { ReservationModule } from './modules/reservation/reservation.module';
 import { ServiceModule } from './modules/service/service.module';
+import { RecommendationModule } from './modules/recommendation/recommendation.module';
 import { DevAuthGuard } from './modules/auth/guards/dev-auth.guard';
 import { Reflector } from '@nestjs/core';
 import authConfig from './config/auth.config';
@@ -48,6 +49,7 @@ import authConfig from './config/auth.config';
     OrderModule,
     ReservationModule,
     ServiceModule,
+    RecommendationModule,
   ],
   providers: [
     {

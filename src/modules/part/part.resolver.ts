@@ -23,6 +23,7 @@ import { PaginatedParts } from './inputs/paginatedParts.type';
 import { PartMotionService } from './part-motion.service';
 import { PartRequiredAvailabilityService } from './part-required-availability.service';
 import { normalizeMoneyAmount } from 'src/common/utils/money.util';
+import { ReservationService } from '../reservation/reservation.service';
 
 @Resolver(() => PartModel)
 export class PartResolver {
@@ -33,6 +34,7 @@ export class PartResolver {
     private readonly partCrossService: PartCrossService,
     private readonly partMotionService: PartMotionService,
     private readonly partRequiredAvailabilityService: PartRequiredAvailabilityService,
+    private readonly reservationService: ReservationService,
   ) {}
 
   @Mutation(() => PartModel)
@@ -150,6 +152,16 @@ export class PartResolver {
   @ResolveField(() => Int, { nullable: true })
   async stockQuantity(@Parent() part: PartModel): Promise<number | null> {
     return this.partMotionService.getStockQuantity(part.id);
+  }
+
+  
+  @ResolveField(() => Int, { nullable: true })
+  async reservedInActiveOrders(@Parent() part: PartModel): Promise<number | null> {
+    // TODO: резолвить массив заказов, где запчасть в резерве.
+    const map = await this.reservationService.getTotalReservedInActiveOrdersByPartIds(
+      [part.id],
+    );
+    return map.get(part.id) ?? 0;
   }
 
   @ResolveField(() => Int, { nullable: true })

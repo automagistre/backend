@@ -54,6 +54,13 @@ export class PartModel implements Part {
   @Field(() => Int, { nullable: true })
   stockQuantity?: number | null;
 
+  @Field(() => Int, {
+    nullable: true,
+    description:
+      'Сумма резерва по этой запчасти в активных заказах (для информативности)',
+  })
+  reservedInActiveOrders?: number | null;
+
   @Field(() => Int, { nullable: true })
   orderFromQuantity?: number | null;
 

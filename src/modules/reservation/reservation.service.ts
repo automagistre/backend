@@ -60,6 +60,43 @@ export class ReservationService {
     return result._sum.quantity ?? 0;
   }
 
+  /**
+   * Агрегация: сумма резерва по запчастям в активных заказах.
+   * Причина: это ответственность модуля резервации; другие модули не должны лезть в prisma.reservation напрямую.
+   */
+  async getTotalReservedInActiveOrdersByPartIds(
+    partIds: string[],
+    tenantId?: string,
+  ): Promise<Map<string, number>> {
+    const resolvedTenantId = tenantId ?? (await this.tenantService.getTenantId());
+    if (partIds.length === 0) return new Map();
+
+    const rows = await this.prisma.reservation.findMany({
+      where: {
+        tenantId: resolvedTenantId,
+        orderItemPart: {
+          partId: { in: partIds },
+          orderItem: {
+            order: {
+              status: { notIn: [OrderStatus.CLOSED, OrderStatus.CANCELLED] },
+            },
+          },
+        },
+      },
+      select: {
+        quantity: true,
+        orderItemPart: { select: { partId: true } },
+      },
+    });
+
+    const result = new Map<string, number>();
+    for (const r of rows) {
+      const pid = r.orderItemPart.partId;
+      result.set(pid, (result.get(pid) ?? 0) + (r.quantity ?? 0));
+    }
+    return result;
+  }
+
   async getReservable(partId: string, tenantId?: string): Promise<number> {
     const resolvedTenantId = tenantId ?? (await this.tenantService.getTenantId());
     const stockQuantity = await this.getStockQuantity(partId, resolvedTenantId);

@@ -103,6 +103,7 @@ model Part {
   Motion                   Motion[]
   PartRequiredAvailability PartRequiredAvailability[]
   OrderItemPart            OrderItemPart[]
+  CarRecommendationPart    CarRecommendationPart[]
 
   @@unique([number, manufacturerId], map: "uniq_490f70c696901f54a23b42d")
   @@map("part")
@@ -184,9 +185,46 @@ model Car {
   createdBy                String?                  @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
   CalendarEntryOrderInfo   CalendarEntryOrderInfo[]
   Order                    Order[]
+  CarRecommendation        CarRecommendation[]
 
   @@unique([identifier, tenantGroupId], map: "uniq_773de69d772e836adff2bbb0")
   @@map("car")
+}
+
+model CarRecommendation {
+  id                 String                  @id @default(uuid()) @db.Uuid
+  carId              String?                 @map("car_id") @db.Uuid
+  car                Car?                    @relation(fields: [carId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  service            String                  @db.VarChar(255)
+  workerId           String                  @map("worker_id") @db.Uuid
+  expiredAt          DateTime?               @map("expired_at") @db.Timestamp(0)
+  realization        String?                 @db.Uuid
+  tenantGroupId      String                  @default("1ec13d33-3f41-6cf0-b012-02420a000f18") @map("tenant_group_id") @db.Uuid
+  priceAmount        BigInt?                 @map("price_amount")
+  priceCurrencyCode  String?                 @map("price_currency_code") @db.VarChar(3)
+  createdAt          DateTime?               @default(now()) @map("created_at") @db.Timestamptz(0)
+  createdBy          String?                 @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
+  parts              CarRecommendationPart[]
+
+  @@index([carId], map: "idx_8e4baaf2c3c6f69f")
+  @@map("car_recommendation")
+}
+
+model CarRecommendationPart {
+  id               String            @id @default(uuid()) @db.Uuid
+  recommendationId String            @map("recommendation_id") @db.Uuid
+  recommendation   CarRecommendation @relation(fields: [recommendationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  partId           String            @map("part_id") @db.Uuid
+  part             Part              @relation(fields: [partId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  quantity         Int
+  tenantGroupId    String            @default("1ec13d33-3f41-6cf0-b012-02420a000f18") @map("tenant_group_id") @db.Uuid
+  priceAmount      BigInt?           @map("price_amount")
+  priceCurrencyCode String?          @map("price_currency_code") @db.VarChar(3)
+  createdAt        DateTime?         @default(now()) @map("created_at") @db.Timestamptz(0)
+  createdBy        String?           @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
+
+  @@index([recommendationId], map: "idx_ddc72d65d173940b")
+  @@map("car_recommendation_part")
 }
 
 // Calendar models for the calendar module

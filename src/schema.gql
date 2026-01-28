@@ -160,6 +160,36 @@ type CarNumber {
   gosnomerRu: GosNomerRU
 }
 
+"""Рекомендация по автомобилю (результат диагностики)"""
+type CarRecommendationModel {
+  car: CarModel
+  carId: ID
+  createdAt: DateTime
+  createdBy: ID
+  expiredAt: DateTime
+  id: ID!
+  parts: [CarRecommendationPartModel!]!
+  priceAmount: BigInt
+  priceCurrencyCode: String
+  realization: ID
+  service: String!
+  worker: EmployeeModel
+  workerId: ID!
+}
+
+"""Запчасть в рекомендации по автомобилю"""
+type CarRecommendationPartModel {
+  createdAt: DateTime
+  createdBy: ID
+  id: ID!
+  part: PartModel!
+  partId: ID!
+  priceAmount: BigInt
+  priceCurrencyCode: String
+  quantity: Int!
+  recommendationId: ID!
+}
+
 """Тип трансмиссии автомобиля"""
 enum CarTransmission {
   """Автоматическая (AT)"""
@@ -244,6 +274,25 @@ input CreateCarInput {
 
   """Год выпуска автомобиля"""
   year: Int
+}
+
+input CreateCarRecommendationInput {
+  carId: ID!
+  expiredAt: DateTime
+  priceAmount: BigInt
+  priceCurrencyCode: String
+  service: String!
+
+  """ID сотрудника (employeeId) — диагност/исполнитель рекомендации"""
+  workerId: ID!
+}
+
+input CreateCarRecommendationPartInput {
+  partId: ID!
+  priceAmount: BigInt
+  priceCurrencyCode: String
+  quantity: Int!
+  recommendationId: ID!
 }
 
 input CreateEmployeeInput {
@@ -457,6 +506,12 @@ type ManufacturerModel {
 
 type Mutation {
   addPartCross(input: AddPartCrossInput!): PartModel!
+
+  """Создать рекомендацию по автомобилю"""
+  createCarRecommendation(input: CreateCarRecommendationInput!): CarRecommendationModel!
+
+  """Добавить запчасть к рекомендации"""
+  createCarRecommendationPart(input: CreateCarRecommendationPartInput!): CarRecommendationPartModel!
   createOneCar(input: CreateCarInput!): CarModel!
   createOneEmployee(input: CreateEmployeeInput!): EmployeeModel!
   createOneManufacturer(input: CreateManufacturerInput!): ManufacturerModel!
@@ -477,6 +532,12 @@ type Mutation {
 
   """Создать услугу в заказе"""
   createOrderItemService(input: CreateOrderItemServiceInput!): OrderItemModel!
+
+  """Удалить рекомендацию по автомобилю"""
+  deleteCarRecommendation(id: ID!): Boolean!
+
+  """Удалить запчасть из рекомендации"""
+  deleteCarRecommendationPart(id: ID!): Boolean!
   deleteOneCar(id: String!): CarModel!
   deleteOneEmployee(id: String!): EmployeeModel!
   deleteOneManufacturer(id: String!): ManufacturerModel!
@@ -512,6 +573,12 @@ type Mutation {
 
   """Перенести резерв между позициями заказов (сценарий "занять")"""
   transferReservation(input: TransferReservationInput!): Boolean!
+
+  """Обновить рекомендацию по автомобилю"""
+  updateCarRecommendation(input: UpdateCarRecommendationInput!): CarRecommendationModel!
+
+  """Обновить запчасть рекомендации"""
+  updateCarRecommendationPart(input: UpdateCarRecommendationPartInput!): CarRecommendationPartModel!
   updateOneCar(input: UpdateCarInput!): CarModel!
   updateOneEmployee(input: UpdateEmployeeInput!): EmployeeModel!
   updateOneManufacturer(input: UpdateManufacturerInput!): ManufacturerModel!
@@ -773,6 +840,11 @@ type PartModel {
   orderUpToQuantity: Int
   price: PartPriceModel
   priceHistory: [PartPriceModel!]!
+
+  """
+  Сумма резерва по этой запчасти в активных заказах (для информативности)
+  """
+  reservedInActiveOrders: Int
   stockQuantity: Int
   unit: Unit!
   universal: Boolean!
@@ -843,6 +915,11 @@ scalar PhoneNumber
 type Query {
   car(id: String!): CarModel
   carByIdentifier(identifier: String!): CarModel
+
+  """
+  Список рекомендаций по автомобилю (для отображения в заказах и карточке авто)
+  """
+  carRecommendations(carId: ID!): [CarRecommendationModel!]!
   cars(search: String, skip: Int = 0, take: Int = 25): PaginatedCars!
   employee(id: String!): EmployeeModel
   employees(includeFired: Boolean = false, search: String, skip: Int = 0, take: Int = 25): PaginatedEmployees!
@@ -1062,6 +1139,24 @@ input UpdateCarInput {
 
   """Год выпуска автомобиля"""
   year: Int
+}
+
+input UpdateCarRecommendationInput {
+  expiredAt: DateTime
+  id: ID!
+  priceAmount: BigInt
+  priceCurrencyCode: String
+  service: String
+
+  """ID сотрудника (employeeId)"""
+  workerId: ID
+}
+
+input UpdateCarRecommendationPartInput {
+  id: ID!
+  priceAmount: BigInt
+  priceCurrencyCode: String
+  quantity: Int
 }
 
 input UpdateEmployeeInput {
