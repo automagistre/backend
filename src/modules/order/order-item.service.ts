@@ -1,8 +1,4 @@
-import {
-  Injectable,
-  NotFoundException,
-  BadRequestException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { OrderService } from './order.service';
 import { OrderItemModel } from './models/order-item.model';
@@ -16,6 +12,7 @@ import {
   OrderItemGroup,
   OrderItemService as PrismaOrderItemService,
   OrderItemPart,
+  Prisma,
 } from 'src/generated/prisma/client';
 import { OrderItemType } from './enums/order-item-type.enum';
 import { v6 as uuidv6 } from 'uuid';
@@ -287,6 +284,98 @@ export class OrderItemService {
     }
 
     return this.toModel(orderItem as any);
+  }
+
+  async createPartsForService(
+    input: {
+      orderId: string;
+      parentId: string;
+      tenantId?: string;
+      parts: {
+        partId: string;
+        quantity: number;
+        priceAmount?: bigint | null;
+      }[];
+      validateOrderEditable?: boolean;
+    },
+    prismaClient?: Prisma.TransactionClient,
+  ): Promise<{ orderItemPartId: string; quantity: number }[]> {
+    if (input.validateOrderEditable !== false) {
+      await this.orderService.validateOrderEditable(input.orderId);
+    }
+
+    if (input.parts.length === 0) {
+      return [];
+    }
+
+    const tenantId = input.tenantId ?? (await this.tenantService.getTenantId());
+    const client = prismaClient ?? this.prisma;
+    const partIds = Array.from(new Set(input.parts.map((part) => part.partId)));
+
+    const existing = await client.part.findMany({
+      where: { id: { in: partIds } },
+      select: { id: true },
+    });
+
+    if (existing.length !== partIds.length) {
+      const existingIds = new Set(existing.map((part) => part.id));
+      const missingId = partIds.find((id) => !existingIds.has(id));
+      throw new NotFoundException(`Запчасть с ID ${missingId} не найдена`);
+    }
+
+    const orderItemsData: Prisma.OrderItemCreateManyInput[] = [];
+    const orderItemPartsData: Prisma.OrderItemPartCreateManyInput[] = [];
+    const result: { orderItemPartId: string; quantity: number }[] = [];
+
+    for (const part of input.parts) {
+      const orderItemPartId = uuidv6();
+      const priceAmount = normalizeMoneyAmount(part.priceAmount ?? null);
+
+      orderItemsData.push({
+        id: orderItemPartId,
+        orderId: input.orderId,
+        parentId: input.parentId,
+        type: '2',
+        tenantId,
+      });
+
+      orderItemPartsData.push({
+        id: orderItemPartId,
+        partId: part.partId,
+        supplierId: null,
+        quantity: part.quantity,
+        warranty: false,
+        priceAmount,
+        priceCurrencyCode: rubCurrencyCode(),
+        discountAmount: normalizeMoneyAmount(undefined),
+        discountCurrencyCode: rubCurrencyCode(),
+      });
+
+      result.push({ orderItemPartId, quantity: part.quantity });
+    }
+
+    await client.orderItem.createMany({ data: orderItemsData });
+    await client.orderItemPart.createMany({ data: orderItemPartsData });
+
+    return result;
+  }
+
+  async reservePartsBestEffort(
+    parts: { orderItemPartId: string; quantity: number }[],
+    tenantId: string,
+  ): Promise<void> {
+    for (const part of parts) {
+      if (part.quantity <= 0) continue;
+      try {
+        await this.reservationService.reserve({
+          orderItemPartId: part.orderItemPartId,
+          quantity: part.quantity,
+          tenantId,
+        });
+      } catch {
+        // no-op
+      }
+    }
   }
 
   async updatePart(input: UpdateOrderItemPartInput): Promise<OrderItemModel> {

@@ -562,6 +562,9 @@ type Mutation {
   login(input: LoginDto!): Tokens!
   logout(input: RefreshDto!): Boolean!
   passwordLogin(input: PasswordLoginDto!): Tokens!
+
+  """Реализовать рекомендацию в заказе"""
+  realizeCarRecommendation(input: RealizeCarRecommendationInput!): [RealizeCarRecommendationPayload!]!
   refresh(input: RefreshDto!): Tokens!
 
   """Снять резерв с запчасти"""
@@ -970,6 +973,22 @@ type Query {
 
   """Получить модели автомобилей с пагинацией"""
   vehicles(search: String, skip: Int = 0, take: Int = 25): PaginatedVehicles!
+}
+
+input RealizeCarRecommendationInput {
+  orderId: ID!
+  recommendations: [RealizeCarRecommendationItemInput!]!
+}
+
+input RealizeCarRecommendationItemInput {
+  partIds: [ID!]!
+  recommendationId: ID!
+}
+
+type RealizeCarRecommendationPayload {
+  orderId: ID!
+  orderItemServiceId: ID!
+  recommendationId: ID!
 }
 
 input RefreshDto {
