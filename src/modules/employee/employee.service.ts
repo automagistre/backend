@@ -124,6 +124,31 @@ export class EmployeeService {
     });
   }
 
+  async resolvePersonIdByEmployeeId(employeeId: string | null): Promise<string | null> {
+    if (!employeeId) return null;
+    const employee = await this.findOne(employeeId);
+    return employee?.personId ?? null;
+  }
+
+  async resolveEmployeeIdByPersonId(personId: string | null): Promise<string | null> {
+    if (!personId) return null;
+    const employee = await this.findByPersonId(personId);
+    return employee?.id ?? null;
+  }
+
+  async resolveEmployeeByWorkerId(workerId: string) {
+    const byPerson = await this.findByPersonId(workerId);
+    if (byPerson) return byPerson;
+    return this.findOne(workerId);
+  }
+
+  async resolvePersonIdByWorkerId(workerId: string | null): Promise<string | null> {
+    if (!workerId) return null;
+    const byPerson = await this.findByPersonId(workerId);
+    if (byPerson) return byPerson.personId;
+    return this.resolvePersonIdByEmployeeId(workerId);
+  }
+
   async fire(id: string) {
     return this.prisma.employee.update({
       where: { id },

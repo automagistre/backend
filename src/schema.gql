@@ -574,6 +574,9 @@ type Mutation {
   """Зарезервировать запчасть"""
   reservePart(input: ReservePartInput!): ReservationModel!
 
+  """Вернуть работу в рекомендацию"""
+  returnWorkToRecommendation(input: ReturnWorkToRecommendationInput!): ReturnWorkToRecommendationPayload!
+
   """Перенести резерв между позициями заказов (сценарий "занять")"""
   transferReservation(input: TransferReservationInput!): Boolean!
 
@@ -1065,7 +1068,18 @@ input ReservePartInput {
   tenantId: ID
 }
 
+input ReturnWorkToRecommendationInput {
+  orderItemServiceId: ID!
+}
+
+type ReturnWorkToRecommendationPayload {
+  orderId: ID!
+  orderItemServiceId: ID!
+  recommendationId: ID!
+}
+
 type Subscription {
+  carRecommendationsUpdated(carId: ID!): [CarRecommendationModel!]!
   orderUpdated(orderId: ID!): OrderModel!
 }
 

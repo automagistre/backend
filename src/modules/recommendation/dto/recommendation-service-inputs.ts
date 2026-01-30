@@ -10,6 +10,7 @@ export type CarRecommendationWriteFields = {
   service: string;
   workerId: string;
   expiredAt?: Date | null;
+  realization?: string | null;
   priceAmount?: bigint | null;
   priceCurrencyCode?: string | null;
 };

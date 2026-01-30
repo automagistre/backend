@@ -6,9 +6,10 @@ import { EmployeeModule } from 'src/modules/employee/employee.module';
 import { CarModule } from 'src/modules/vehicle/car.module';
 import { CommonModule } from 'src/common/common.module';
 import { ReservationModule } from 'src/modules/reservation/reservation.module';
+import { OrderModule } from 'src/modules/order/order.module';
 
 @Module({
-  imports: [PrismaModule, CommonModule, EmployeeModule, CarModule, ReservationModule],
+  imports: [PrismaModule, CommonModule, EmployeeModule, CarModule, ReservationModule, OrderModule],
   providers: [RecommendationService, RecommendationResolver],
   exports: [RecommendationService],
 })

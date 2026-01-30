@@ -308,6 +308,8 @@ export class OrderItemService {
       return [];
     }
 
+    // TODO: унифицировать резервирование в одном методе создания/удаления запчастей
+    // и перевести массовое создание на единый метод.
     const tenantId = input.tenantId ?? (await this.tenantService.getTenantId());
     const client = prismaClient ?? this.prisma;
     const partIds = Array.from(new Set(input.parts.map((part) => part.partId)));
@@ -537,8 +539,14 @@ export class OrderItemService {
   async delete(
     id: string,
     deleteChildren: boolean = true,
+    options?: {
+      tx?: Prisma.TransactionClient;
+      skipValidation?: boolean;
+    },
   ): Promise<OrderItemModel> {
-    const orderItem = await this.prisma.orderItem.findUnique({
+    const client = options?.tx ?? this.prisma;
+
+    const orderItem = await client.orderItem.findUnique({
       where: { id },
       include: {
         part: true,
@@ -551,9 +559,11 @@ export class OrderItemService {
       throw new NotFoundException(`Элемент заказа с ID ${id} не найден`);
     }
 
-    await this.orderService.validateOrderEditable(orderItem.orderId!);
+    if (!options?.skipValidation) {
+      await this.orderService.validateOrderEditable(orderItem.orderId!);
+    }
 
-    // Снимаем резерв если это запчасть
+    // Снимаем резерв если это запчасть (best-effort, вне транзакции)
     if (orderItem.part) {
       await this.reservationService.releaseAll(orderItem.part.id);
     }
@@ -561,13 +571,13 @@ export class OrderItemService {
     // Обрабатываем дочерние элементы
     if (!deleteChildren) {
       // Перемещаем дочерние элементы в корень (parentId = null)
-      await this.prisma.orderItem.updateMany({
+      await client.orderItem.updateMany({
         where: { parentId: id },
         data: { parentId: null },
       });
     } else {
       // Удаляем дочерние элементы вместе с их резервациями
-      const childParts = await this.prisma.orderItem.findMany({
+      const childParts = await client.orderItem.findMany({
         where: { parentId: id },
         include: { part: true },
       });
@@ -578,11 +588,11 @@ export class OrderItemService {
           await this.reservationService.releaseAll(child.part.id);
         }
         // Рекурсивно обрабатываем внуков
-        await this.deleteChildReservations(child.id);
+        await this.deleteChildReservations(child.id, client);
       }
     }
 
-    const deleted = await this.prisma.orderItem.delete({
+    const deleted = await client.orderItem.delete({
       where: { id },
       include: {
         group: true,
@@ -606,8 +616,12 @@ export class OrderItemService {
   /**
    * Рекурсивно удаляет резервации для всех дочерних запчастей
    */
-  private async deleteChildReservations(parentId: string): Promise<void> {
-    const children = await this.prisma.orderItem.findMany({
+  private async deleteChildReservations(
+    parentId: string,
+    client?: Prisma.TransactionClient | PrismaService,
+  ): Promise<void> {
+    const prismaClient = client ?? this.prisma;
+    const children = await prismaClient.orderItem.findMany({
       where: { parentId },
       include: { part: true },
     });
@@ -616,7 +630,7 @@ export class OrderItemService {
       if (child.part) {
         await this.reservationService.releaseAll(child.part.id);
       }
-      await this.deleteChildReservations(child.id);
+      await this.deleteChildReservations(child.id, prismaClient);
     }
   }
 }

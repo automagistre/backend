@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma } from 'src/generated/prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { v6 as uuidv6 } from 'uuid';
 import { TenantService } from 'src/common/services/tenant.service';
@@ -67,13 +68,40 @@ export class RecommendationService {
     }));
   }
 
-  async createRecommendation(input: CreateCarRecommendationServiceInput) {
-    const car = await this.prisma.car.findUnique({ where: { id: input.carId } });
+  async findByRealization(orderItemServiceId: string) {
+    return this.prisma.carRecommendation.findFirst({
+      where: { realization: orderItemServiceId },
+      include: { parts: true },
+    });
+  }
+
+  async findById(id: string) {
+    return this.prisma.carRecommendation.findUnique({
+      where: { id },
+      include: { parts: true },
+    });
+  }
+
+  async findRecommendationPartById(id: string) {
+    return this.prisma.carRecommendationPart.findUnique({
+      where: { id },
+      include: {
+        recommendation: true,
+      },
+    });
+  }
+
+  async createRecommendation(
+    input: CreateCarRecommendationServiceInput,
+    tx?: Prisma.TransactionClient,
+  ) {
+    const client = tx ?? this.prisma;
+    const car = await client.car.findUnique({ where: { id: input.carId } });
     if (!car) {
       throw new NotFoundException(`Автомобиль с ID ${input.carId} не найден`);
     }
 
-    return this.prisma.carRecommendation.create({
+    return client.carRecommendation.create({
       data: {
         id: uuidv6(),
         carId: input.carId,
@@ -94,8 +122,12 @@ export class RecommendationService {
     });
   }
 
-  async updateRecommendation(input: UpdateCarRecommendationServiceInput) {
-    const exists = await this.prisma.carRecommendation.findUnique({
+  async updateRecommendation(
+    input: UpdateCarRecommendationServiceInput & { realization?: string | null },
+    tx?: Prisma.TransactionClient,
+  ) {
+    const client = tx ?? this.prisma;
+    const exists = await client.carRecommendation.findUnique({
       where: { id: input.id },
     });
     if (!exists) {
@@ -104,7 +136,7 @@ export class RecommendationService {
 
     const { id, ...data } = input;
 
-    return this.prisma.carRecommendation.update({
+    return client.carRecommendation.update({
       where: { id },
       data,
       include: {
@@ -117,22 +149,34 @@ export class RecommendationService {
     });
   }
 
-  async deleteRecommendation(id: string) {
-    const exists = await this.prisma.carRecommendation.findUnique({ where: { id } });
+  async deleteRecommendation(id: string, tx?: Prisma.TransactionClient) {
+    const client = tx ?? this.prisma;
+    const exists = await client.carRecommendation.findUnique({ where: { id } });
     if (!exists) {
       throw new NotFoundException(`Рекомендация с ID ${id} не найдена`);
     }
 
-    await this.prisma.$transaction([
-      this.prisma.carRecommendationPart.deleteMany({ where: { recommendationId: id } }),
-      this.prisma.carRecommendation.delete({ where: { id } }),
-    ]);
+    // Если передан внешний клиент транзакции — выполняем последовательно
+    // Если нет — используем вложенную транзакцию для атомарности
+    if (tx) {
+      await client.carRecommendationPart.deleteMany({ where: { recommendationId: id } });
+      await client.carRecommendation.delete({ where: { id } });
+    } else {
+      await this.prisma.$transaction([
+        this.prisma.carRecommendationPart.deleteMany({ where: { recommendationId: id } }),
+        this.prisma.carRecommendation.delete({ where: { id } }),
+      ]);
+    }
 
     return true;
   }
 
-  async createRecommendationPart(input: CreateCarRecommendationPartServiceInput) {
-    const rec = await this.prisma.carRecommendation.findUnique({
+  async createRecommendationPart(
+    input: CreateCarRecommendationPartServiceInput,
+    tx?: Prisma.TransactionClient,
+  ) {
+    const client = tx ?? this.prisma;
+    const rec = await client.carRecommendation.findUnique({
       where: { id: input.recommendationId },
     });
     if (!rec) {
@@ -141,12 +185,12 @@ export class RecommendationService {
       );
     }
 
-    const part = await this.prisma.part.findUnique({ where: { id: input.partId } });
+    const part = await client.part.findUnique({ where: { id: input.partId } });
     if (!part) {
       throw new NotFoundException(`Запчасть с ID ${input.partId} не найдена`);
     }
 
-    return this.prisma.carRecommendationPart.create({
+    return client.carRecommendationPart.create({
       data: {
         id: uuidv6(),
         recommendationId: input.recommendationId,
@@ -161,8 +205,12 @@ export class RecommendationService {
     });
   }
 
-  async updateRecommendationPart(input: UpdateCarRecommendationPartServiceInput) {
-    const exists = await this.prisma.carRecommendationPart.findUnique({
+  async updateRecommendationPart(
+    input: UpdateCarRecommendationPartServiceInput,
+    tx?: Prisma.TransactionClient,
+  ) {
+    const client = tx ?? this.prisma;
+    const exists = await client.carRecommendationPart.findUnique({
       where: { id: input.id },
     });
     if (!exists) {
@@ -173,7 +221,7 @@ export class RecommendationService {
 
     const { id, ...data } = input;
 
-    return this.prisma.carRecommendationPart.update({
+    return client.carRecommendationPart.update({
       where: { id },
       data,
       include: {
