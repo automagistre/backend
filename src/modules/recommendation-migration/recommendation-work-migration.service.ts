@@ -323,6 +323,9 @@ export class RecommendationWorkMigrationService {
     const sameComposition = recommendation
       ? this.isSameParts(workPartsMap, recommendationPartsMap)
       : false;
+    const isSameServiceName = recommendation
+      ? orderItem.service.service === recommendation.service
+      : false;
 
     const serviceNetPrice = this.toNetAmount(
       orderItem.service.priceAmount ?? null,
@@ -379,6 +382,19 @@ export class RecommendationWorkMigrationService {
             tx,
           );
         }
+      } else if (recommendation && workParts.length === 0 && isSameServiceName) {
+        resultRecommendationId = recommendation.id;
+        await this.recommendationService.updateRecommendation(
+          {
+            id: recommendation.id,
+            service: orderItem.service!.service,
+            priceAmount: serviceNetPrice,
+            priceCurrencyCode: rubCurrencyCode(),
+            expiredAt: null,
+            realization: null,
+          },
+          tx,
+        );
       } else {
         if (!carId) {
           throw new BadRequestException('Не указан автомобиль для рекомендации');
