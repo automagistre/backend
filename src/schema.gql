@@ -682,6 +682,7 @@ enum OrderItemType {
 type OrderModel {
   car: CarModel
   carId: ID
+  closedAt: DateTime
   createdAt: DateTime
   createdBy: ID
   customer: PersonModel
@@ -783,6 +784,11 @@ type PaginatedEmployees {
 
 type PaginatedManufacturers {
   items: [ManufacturerModel!]!
+  total: Int!
+}
+
+type PaginatedOrders {
+  items: [OrderModel!]!
   total: Int!
 }
 
@@ -919,6 +925,8 @@ type PersonModel {
 scalar PhoneNumber
 
 type Query {
+  """Список активных заказов"""
+  activeOrders(search: String, status: [OrderStatus!]): [OrderModel!]!
   car(id: String!): CarModel
   carByIdentifier(identifier: String!): CarModel
 
@@ -938,8 +946,8 @@ type Query {
   """Элементы заказа в виде дерева"""
   orderItems(orderId: ID!): [OrderItemModel!]!
 
-  """Список всех заказов"""
-  orders: [OrderModel!]!
+  """Список всех заказов с пагинацией"""
+  orders(search: String, skip: Int = 0, status: [OrderStatus!], take: Int = 25): PaginatedOrders!
   organization(id: String!): OrganizationModel
   organizations(search: String, skip: Int = 0, take: Int = 25): PaginatedOrganizations!
   part(id: ID!): PartModel!

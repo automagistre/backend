@@ -21,6 +21,9 @@ import { CarModel } from '../vehicle/models/car.model';
 import { PersonModel } from '../person/models/person.model';
 import { EmployeeModel } from '../employee/models/employee.model';
 import { UpdateOrderInput } from './inputs/update-order.input';
+import { PaginationArgs } from 'src/common/pagination.args';
+import { PaginatedOrders } from './inputs/paginatedOrders.type';
+import { OrderStatus } from './enums/order-status.enum';
 
 @Resolver(() => OrderModel)
 export class OrderResolver {
@@ -44,12 +47,33 @@ export class OrderResolver {
     return this.orderService.findOne(id);
   }
 
-  @Query(() => [OrderModel], {
+  @Query(() => PaginatedOrders, {
     name: 'orders',
-    description: 'Список всех заказов',
+    description: 'Список всех заказов с пагинацией',
   })
-  async getOrders(): Promise<OrderModel[]> {
-    return this.orderService.findAll();
+  async getOrders(
+    @Args() pagination?: PaginationArgs,
+    @Args('search', { nullable: true }) search?: string,
+    @Args('status', { type: () => [OrderStatus], nullable: true })
+    status?: OrderStatus[],
+  ): Promise<PaginatedOrders> {
+    if (!pagination) {
+      pagination = { take: undefined, skip: undefined };
+    }
+    const { take = 25, skip = 0 } = pagination;
+    return this.orderService.findMany({ take, skip, search, status });
+  }
+
+  @Query(() => [OrderModel], {
+    name: 'activeOrders',
+    description: 'Список активных заказов',
+  })
+  async getActiveOrders(
+    @Args('search', { nullable: true }) search?: string,
+    @Args('status', { type: () => [OrderStatus], nullable: true })
+    status?: OrderStatus[],
+  ): Promise<OrderModel[]> {
+    return this.orderService.findActiveOrders({ search, status });
   }
 
   @Mutation(() => OrderModel, {
@@ -102,6 +126,11 @@ export class OrderResolver {
     return (await this.employeeService.findOne(
       order.workerId,
     )) as EmployeeModel | null;
+  }
+
+  @ResolveField(() => Date, { nullable: true })
+  async closedAt(@Parent() order: OrderModel): Promise<Date | null> {
+    return this.orderService.getClosedAt(order.id);
   }
 
   @Subscription(() => OrderModel, {

@@ -691,32 +691,39 @@ model Motion {
 //   note        note?     @relation(fields: [note_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_22c02b5326ed0855")
 // }
 
-// model order_cancel {
-//   id          String      @id @default(uuid()) @db.Uuid
-//   created_at  DateTime?   @default(now()) @db.Timestamptz(0)
-//   created_by  String?     @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
-//   order_close order_close @relation(fields: [id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_9599d5a7bf396750")
-// }
 
-// model order_close {
-//   id           String        @id @default(uuid()) @db.Uuid
-//   order_id     String?       @unique(map: "uniq_909ff5398d9f6d38") @db.Uuid
-//   tenant_id    String        @db.Uuid
-//   type         String        @db.VarChar(255)
-//   order_cancel order_cancel?
-//   orders       orders?       @relation(fields: [order_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_909ff5398d9f6d38")
-//   order_deal   order_deal?
-// }
+model OrderCancel {
+  id         String     @id @default(uuid()) @db.Uuid
+  createdAt  DateTime?  @default(now()) @map("created_at") @db.Timestamptz(0)
+  createdBy  String?    @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
+  orderClose OrderClose @relation(fields: [id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_9599d5a7bf396750")
 
-// /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
-// model order_deal {
-//   id           String      @id @default(uuid()) @db.Uuid
-//   balance      BigInt
-//   satisfaction Int         @db.SmallInt
-//   created_at   DateTime?   @default(now()) @db.Timestamptz(0)
-//   created_by   String?     @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
-//   order_close  order_close @relation(fields: [id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_ae0ffb01bf396750")
-// }
+  @@map("order_cancel")
+}
+
+model OrderClose {
+  id          String      @id @default(uuid()) @db.Uuid
+  orderId     String?     @unique(map: "uniq_909ff5398d9f6d38") @map("order_id") @db.Uuid
+  tenantId    String      @map("tenant_id") @db.Uuid
+  type        String      @db.VarChar(255)
+  orderCancel OrderCancel?
+  orderDeal   OrderDeal?
+  order       Order?      @relation("OrderCloseOrder", fields: [orderId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_909ff5398d9f6d38")
+
+  @@map("order_close")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model OrderDeal {
+  id           String     @id @default(uuid()) @db.Uuid
+  balance      BigInt
+  satisfaction Int        @db.SmallInt
+  createdAt    DateTime?  @default(now()) @map("created_at") @db.Timestamptz(0)
+  createdBy    String?    @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
+  orderClose   OrderClose @relation(fields: [id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_ae0ffb01bf396750")
+
+  @@map("order_deal")
+}
 
 model OrderItem {
   id        String    @id @default(uuid()) @db.Uuid
@@ -829,6 +836,7 @@ model Order {
   createdAt   DateTime?   @default(now()) @map("created_at") @db.Timestamptz(0)
   createdBy   String?     @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
   items       OrderItem[]
+  close       OrderClose? @relation("OrderCloseOrder")
 
   @@unique([number, tenantId], map: "uniq_e52ffdee96901f549033212a")
   @@index([workerId], map: "idx_e52ffdee6b20ba36")
