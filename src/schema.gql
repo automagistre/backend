@@ -317,6 +317,12 @@ input CreateManufacturerInput {
   name: String!
 }
 
+input CreateOrderInput {
+  carId: ID
+  customerId: ID
+  workerId: ID
+}
+
 input CreateOrderItemGroupInput {
   hideParts: Boolean = false
   name: String!
@@ -523,6 +529,9 @@ type Mutation {
 
   """Создать модель автомобиля"""
   createOneVehicle(data: CreateVehicleInput!): VehicleModel!
+
+  """Создать заказ"""
+  createOrder(input: CreateOrderInput!): OrderModel!
 
   """Создать группу элементов заказа"""
   createOrderItemGroup(input: CreateOrderItemGroupInput!): OrderItemModel!

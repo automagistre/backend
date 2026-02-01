@@ -21,6 +21,7 @@ import { CarModel } from '../vehicle/models/car.model';
 import { PersonModel } from '../person/models/person.model';
 import { EmployeeModel } from '../employee/models/employee.model';
 import { UpdateOrderInput } from './inputs/update-order.input';
+import { CreateOrderInput } from './inputs/create-order.input';
 import { PaginationArgs } from 'src/common/pagination.args';
 import { PaginatedOrders } from './inputs/paginatedOrders.type';
 import { OrderStatus } from './enums/order-status.enum';
@@ -74,6 +75,16 @@ export class OrderResolver {
     status?: OrderStatus[],
   ): Promise<OrderModel[]> {
     return this.orderService.findActiveOrders({ search, status });
+  }
+
+  @Mutation(() => OrderModel, {
+    name: 'createOrder',
+    description: 'Создать заказ',
+  })
+  async createOrder(
+    @Args('input') input: CreateOrderInput,
+  ): Promise<OrderModel> {
+    return this.orderService.create(input);
   }
 
   @Mutation(() => OrderModel, {

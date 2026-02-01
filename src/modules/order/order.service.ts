@@ -7,6 +7,7 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { OrderModel } from './models/order.model';
 import { OrderStatus } from './enums/order-status.enum';
 import { UpdateOrderInput } from './inputs/update-order.input';
+import { CreateOrderInput } from './inputs/create-order.input';
 import { Prisma } from 'src/generated/prisma/client';
 import { TenantService } from 'src/common/services/tenant.service';
 
@@ -154,6 +155,25 @@ export class OrderService {
     end.setDate(start.getDate() + 1);
 
     return { start, end };
+  }
+
+  async create(input: CreateOrderInput): Promise<OrderModel> {
+    const tenantId = await this.tenantService.getTenantId();
+    const agg = await this.prisma.order.aggregate({
+      where: { tenantId },
+      _max: { number: true },
+    });
+    const nextNumber = (agg._max?.number ?? 0) + 1;
+    return this.prisma.order.create({
+      data: {
+        tenantId,
+        number: nextNumber,
+        status: OrderStatus.WORKING,
+        customerId: input.customerId ?? null,
+        carId: input.carId ?? null,
+        workerId: input.workerId ?? null,
+      },
+    }) as Promise<OrderModel>;
   }
 
   async validateOrderEditable(orderId: string): Promise<void> {
