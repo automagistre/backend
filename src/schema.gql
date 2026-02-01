@@ -559,6 +559,9 @@ type Mutation {
   """Удалить модель автомобиля"""
   deleteOneVehicle(id: String!): VehicleModel!
 
+  """Удалить пустой заказ (в течение 3 ч с создания)"""
+  deleteOrder(id: ID!): Boolean!
+
   """Удалить элемент заказа"""
   deleteOrderItem(
     """
@@ -689,6 +692,8 @@ enum OrderItemType {
 
 """Заказ"""
 type OrderModel {
+  """Можно удалить заказ (пустой, в течение периода охлаждения)"""
+  canDelete: Boolean!
   car: CarModel
   carId: ID
   closedAt: DateTime

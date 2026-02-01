@@ -11,6 +11,8 @@ import { CreateOrderInput } from './inputs/create-order.input';
 import { Prisma } from 'src/generated/prisma/client';
 import { TenantService } from 'src/common/services/tenant.service';
 
+const DELETE_COOLING_HOURS = 3;
+
 @Injectable()
 export class OrderService {
   constructor(
@@ -125,6 +127,65 @@ export class OrderService {
       }
     }
     return and.length === 1 ? (and[0] as Record<string, unknown>) : { AND: and };
+  }
+
+  private async checkCanDelete(orderId: string): Promise<
+    | { deletable: true }
+    | { deletable: false; notFound?: boolean; message: string }
+  > {
+    const tenantId = await this.tenantService.getTenantId();
+    const order = await this.prisma.order.findFirst({
+      where: { id: orderId, tenantId },
+      select: {
+        createdAt: true,
+        close: { select: { id: true } },
+        _count: { select: { items: true } },
+      },
+    });
+    if (!order) {
+      return {
+        deletable: false,
+        notFound: true,
+        message: `Заказ с ID ${orderId} не найден`,
+      };
+    }
+    if (order.close) {
+      return { deletable: false, message: 'Нельзя удалить закрытый заказ' };
+    }
+    if (order._count.items > 0) {
+      return {
+        deletable: false,
+        message: 'Нельзя удалить заказ с работами или запчастями',
+      };
+    }
+    const createdAt = order.createdAt ?? new Date(0);
+    const deadline = new Date(
+      createdAt.getTime() + DELETE_COOLING_HOURS * 60 * 60 * 1000,
+    );
+    if (new Date() > deadline) {
+      return {
+        deletable: false,
+        message: `Время для удаления истекло (${DELETE_COOLING_HOURS} ч с момента создания)`,
+      };
+    }
+    return { deletable: true };
+  }
+
+  async canDeleteOrder(orderId: string): Promise<boolean> {
+    const result = await this.checkCanDelete(orderId);
+    return result.deletable;
+  }
+
+  async deleteOrder(orderId: string): Promise<boolean> {
+    const result = await this.checkCanDelete(orderId);
+    if (!result.deletable) {
+      if (result.notFound) {
+        throw new NotFoundException(result.message);
+      }
+      throw new BadRequestException(result.message);
+    }
+    await this.prisma.order.delete({ where: { id: orderId } });
+    return true;
   }
 
   async getClosedAt(orderId: string): Promise<Date | null> {

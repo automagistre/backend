@@ -39,6 +39,12 @@ export class OrderModel {
   @Field(() => ID, { nullable: true })
   createdBy: string | null;
 
+  @Field(() => Boolean, {
+    description:
+      'Можно удалить заказ (пустой, в течение периода охлаждения)',
+  })
+  canDelete?: boolean;
+
   @Field(() => CarModel, { nullable: true })
   car?: CarModel | null;
 

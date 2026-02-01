@@ -144,6 +144,21 @@ export class OrderResolver {
     return this.orderService.getClosedAt(order.id);
   }
 
+  @ResolveField(() => Boolean)
+  async canDelete(@Parent() order: OrderModel): Promise<boolean> {
+    return this.orderService.canDeleteOrder(order.id);
+  }
+
+  @Mutation(() => Boolean, {
+    name: 'deleteOrder',
+    description: 'Удалить пустой заказ (в течение 3 ч с создания)',
+  })
+  async deleteOrder(
+    @Args('id', { type: () => ID }) id: string,
+  ): Promise<boolean> {
+    return this.orderService.deleteOrder(id);
+  }
+
   @Subscription(() => OrderModel, {
     filter: (payload, variables) =>
       payload.orderUpdated.orderId === variables.orderId,
