@@ -227,8 +227,6 @@ model CarRecommendationPart {
   @@map("car_recommendation_part")
 }
 
-// Calendar models for the calendar module
-
 model CalendarEntry {
   id                     String                   @id @default(uuid()) @db.Uuid
   tenantId               String                   @default("1ec13d33-3f41-6e3a-a0cb-02420a000f18") @map("tenant_id") @db.Uuid
@@ -713,7 +711,6 @@ model OrderClose {
   @@map("order_close")
 }
 
-/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model OrderDeal {
   id           String     @id @default(uuid()) @db.Uuid
   balance      BigInt
@@ -845,7 +842,6 @@ model Order {
   @@map("orders")
 }
 
-// /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model Organization {
   id                    String          @id @default(uuid()) @db.Uuid
   name                  String          @db.VarChar(255)
@@ -895,7 +891,6 @@ model PartCrossPart {
   @@map("part_cross_part")
 }
 
-// /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model PartDiscount {
   id                  String    @id @default(uuid()) @db.Uuid
   part                Part      @relation(fields: [partId], references: [id], onDelete: Cascade, onUpdate: NoAction)
@@ -910,8 +905,6 @@ model PartDiscount {
   @@index([partId], map: "idx_76b231714ce34bec")
   @@map("part_discount")
 }
-
-// /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 
 model PartRequiredAvailability {
   id                String    @id @default(uuid()) @db.Uuid
@@ -1054,33 +1047,38 @@ model Reservation {
 //   tenant     tenant   @relation(fields: [tenant_id], references: [id], onUpdate: Restrict)
 // }
 
-// model wallet {
-//   id                            String    @id @default(uuid()) @db.Uuid
-//   name                          String    @db.VarChar(255)
-//   use_in_income                 Boolean
-//   use_in_order                  Boolean
-//   show_in_layout                Boolean
-//   default_in_manual_transaction Boolean
-//   tenant_id                     String    @db.Uuid
-//   currency_code                 String?   @db.VarChar(3)
-//   created_at                    DateTime? @default(now()) @db.Timestamptz(0)
-//   created_by                    String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
-//   balance                       Decimal   @default(0) @db.Decimal
-// }
+model Wallet {
+  id                            String               @id @default(uuid()) @db.Uuid
+  name                          String               @db.VarChar(255)
+  useInIncome                   Boolean              @map("use_in_income")
+  useInOrder                    Boolean              @map("use_in_order")
+  showInLayout                  Boolean              @map("show_in_layout")
+  defaultInManualTransaction    Boolean              @map("default_in_manual_transaction")
+  tenantId                      String               @map("tenant_id") @db.Uuid
+  currencyCode                  String?              @map("currency_code") @db.VarChar(3)
+  createdAt                     DateTime?            @default(now()) @map("created_at") @db.Timestamptz(0)
+  createdBy                     String?              @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
+  balance                       Decimal              @default(0) @db.Decimal
+  transactions                  WalletTransaction[]
 
-// /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
-// model wallet_transaction {
-//   id                   String    @id @default(uuid()) @db.Uuid
-//   wallet_id            String    @db.Uuid
-//   source               Int       @db.SmallInt
-//   source_id            String    @db.Uuid
-//   description          String?
-//   tenant_id            String    @db.Uuid
-//   amount_amount        BigInt?
-//   amount_currency_code String?   @db.VarChar(3)
-//   created_at           DateTime? @default(now()) @db.Timestamptz(0)
-//   created_by           String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
-// }
+  @@map("wallet")
+}
+
+model WalletTransaction {
+  id                String    @id @default(uuid()) @db.Uuid
+  walletId          String    @map("wallet_id") @db.Uuid
+  wallet            Wallet    @relation(fields: [walletId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  source            Int       @db.SmallInt
+  sourceId          String    @map("source_id") @db.Uuid
+  description       String?
+  tenantId          String    @map("tenant_id") @db.Uuid
+  amountAmount      BigInt?   @map("amount_amount")
+  amountCurrencyCode String?  @map("amount_currency_code") @db.VarChar(3)
+  createdAt         DateTime? @default(now()) @map("created_at") @db.Timestamptz(0)
+  createdBy         String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
+
+  @@map("wallet_transaction")
+}
 
 model Warehouse {
   id              String            @id @default(uuid()) @db.Uuid

@@ -21,6 +21,7 @@ import { ReservationModule } from './modules/reservation/reservation.module';
 import { ServiceModule } from './modules/service/service.module';
 import { RecommendationModule } from './modules/recommendation/recommendation.module';
 import { RecommendationMigrationModule } from './modules/recommendation-migration/recommendation-migration.module';
+import { WalletModule } from './modules/wallet/wallet.module';
 import { DevAuthGuard } from './modules/auth/guards/dev-auth.guard';
 import { Reflector } from '@nestjs/core';
 import authConfig from './config/auth.config';
@@ -52,6 +53,7 @@ import authConfig from './config/auth.config';
     ServiceModule,
     RecommendationModule,
     RecommendationMigrationModule,
+    WalletModule,
   ],
   providers: [
     {

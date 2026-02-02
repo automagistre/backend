@@ -451,6 +451,26 @@ input CreateVehicleInput {
   yearTill: Int
 }
 
+input CreateWalletInput {
+  """Код валюты"""
+  currencyCode: String
+
+  """По умолчанию в ручной транзакции"""
+  defaultInManualTransaction: Boolean! = false
+
+  """Название"""
+  name: String!
+
+  """Показывать в раскладке"""
+  showInLayout: Boolean! = true
+
+  """Использовать в доходах"""
+  useInIncome: Boolean! = true
+
+  """Использовать в заказе"""
+  useInOrder: Boolean! = true
+}
+
 """
 A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
 """
@@ -529,6 +549,7 @@ type Mutation {
 
   """Создать модель автомобиля"""
   createOneVehicle(data: CreateVehicleInput!): VehicleModel!
+  createOneWallet(input: CreateWalletInput!): WalletModel!
 
   """Создать заказ"""
   createOrder(input: CreateOrderInput!): OrderModel!
@@ -558,6 +579,7 @@ type Mutation {
 
   """Удалить модель автомобиля"""
   deleteOneVehicle(id: String!): VehicleModel!
+  deleteOneWallet(id: String!): WalletModel!
 
   """Удалить пустой заказ (в течение 3 ч с создания)"""
   deleteOrder(id: ID!): Boolean!
@@ -608,6 +630,7 @@ type Mutation {
 
   """Обновить модель автомобиля"""
   updateOneVehicle(data: UpdateVehicleInput!): VehicleModel!
+  updateOneWallet(input: UpdateWalletInput!): WalletModel!
 
   """Обновить заказ"""
   updateOrder(input: UpdateOrderInput!): OrderModel!
@@ -826,6 +849,11 @@ type PaginatedVehicles {
   total: Int!
 }
 
+type PaginatedWallets {
+  items: [WalletModel!]!
+  total: Int!
+}
+
 """Скидка на запчасть"""
 type PartDiscountModel {
   """Дата создания"""
@@ -998,6 +1026,8 @@ type Query {
 
   """Получить модели автомобилей с пагинацией"""
   vehicles(search: String, skip: Int = 0, take: Int = 25): PaginatedVehicles!
+  wallet(id: String!): WalletModel
+  wallets(search: String, skip: Int = 0, take: Int = 25): PaginatedWallets!
 }
 
 input RealizeCarRecommendationInput {
@@ -1386,6 +1416,29 @@ input UpdateVehicleInput {
   yearTill: Int
 }
 
+input UpdateWalletInput {
+  """Код валюты"""
+  currencyCode: String
+
+  """По умолчанию в ручной транзакции"""
+  defaultInManualTransaction: Boolean
+
+  """ID кошелька"""
+  id: ID!
+
+  """Название"""
+  name: String
+
+  """Показывать в раскладке"""
+  showInLayout: Boolean
+
+  """Использовать в доходах"""
+  useInIncome: Boolean
+
+  """Использовать в заказе"""
+  useInOrder: Boolean
+}
+
 """
 Идентификационный номер транспортного средства (17 буквенно-цифровых символов, исключая I, O, Q)
 """
@@ -1428,4 +1481,31 @@ type VehicleModel {
 
   """Год окончания производства"""
   yearTill: Int
+}
+
+"""Кошелёк"""
+type WalletModel {
+  """Баланс"""
+  balance: String!
+  createdAt: DateTime
+
+  """Код валюты"""
+  currencyCode: String
+
+  """По умолчанию в ручной транзакции"""
+  defaultInManualTransaction: Boolean!
+  id: ID!
+
+  """Название"""
+  name: String!
+
+  """Показывать в раскладке"""
+  showInLayout: Boolean!
+  tenantId: String!
+
+  """Использовать в доходах"""
+  useInIncome: Boolean!
+
+  """Использовать в заказе"""
+  useInOrder: Boolean!
 }
