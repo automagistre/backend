@@ -471,6 +471,26 @@ input CreateWalletInput {
   useInOrder: Boolean! = true
 }
 
+input CreateWalletTransactionInput {
+  """Сумма в минорных единицах (копейки)"""
+  amountAmount: BigInt
+
+  """Код валюты"""
+  amountCurrencyCode: String
+
+  """Описание"""
+  description: String
+
+  """Источник проводки (enum)"""
+  source: Int!
+
+  """ID источника (заказ, приход и т.д.)"""
+  sourceId: String!
+
+  """ID кошелька"""
+  walletId: ID!
+}
+
 """
 A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
 """
@@ -550,6 +570,7 @@ type Mutation {
   """Создать модель автомобиля"""
   createOneVehicle(data: CreateVehicleInput!): VehicleModel!
   createOneWallet(input: CreateWalletInput!): WalletModel!
+  createOneWalletTransaction(input: CreateWalletTransactionInput!): WalletTransactionModel!
 
   """Создать заказ"""
   createOrder(input: CreateOrderInput!): OrderModel!
@@ -849,6 +870,11 @@ type PaginatedVehicles {
   total: Int!
 }
 
+type PaginatedWalletTransactions {
+  items: [WalletTransactionModel!]!
+  total: Int!
+}
+
 type PaginatedWallets {
   items: [WalletModel!]!
   total: Int!
@@ -1027,6 +1053,8 @@ type Query {
   """Получить модели автомобилей с пагинацией"""
   vehicles(search: String, skip: Int = 0, take: Int = 25): PaginatedVehicles!
   wallet(id: String!): WalletModel
+  walletTransaction(id: String!): WalletTransactionModel
+  walletTransactions(skip: Int = 0, take: Int = 25, walletId: String): PaginatedWalletTransactions!
   wallets(search: String, skip: Int = 0, take: Int = 25): PaginatedWallets!
 }
 
@@ -1508,4 +1536,26 @@ type WalletModel {
 
   """Использовать в заказе"""
   useInOrder: Boolean!
+}
+
+"""Проводка по кошельку"""
+type WalletTransactionModel {
+  """Сумма в минорных единицах (копейки)"""
+  amountAmount: BigInt
+  amountCurrencyCode: String
+  createdAt: DateTime
+  description: String
+  id: ID!
+
+  """Источник проводки (enum)"""
+  source: Int!
+
+  """Строка объекта: номер заказа/ФИО и т.д. Фронт склеивает с меткой типа."""
+  sourceDisplay: String!
+
+  """ID источника"""
+  sourceId: String!
+  tenantId: String!
+  wallet: WalletModel
+  walletId: String!
 }

@@ -27,6 +27,34 @@ export class OrderService {
     }) as Promise<OrderModel | null>;
   }
 
+  /**
+   * Строка для отображения в проводках: номер заказа и имя клиента (ФИО персоны или название организации).
+   */
+  async getDisplayContext(orderId: string): Promise<string> {
+    const tenantId = await this.tenantService.getTenantId();
+    const order = await this.prisma.order.findFirst({
+      where: { id: orderId, tenantId },
+      select: { number: true, customerId: true, customer: { select: { lastname: true, firstname: true } } },
+    });
+    if (!order) return '';
+    const parts = [`№${order.number}`];
+    if (order.customerId) {
+      const personName =
+        order.customer &&
+        [order.customer.lastname, order.customer.firstname].filter(Boolean).join(' ');
+      if (personName) {
+        parts.push(personName);
+      } else {
+        const org = await this.prisma.organization.findUnique({
+          where: { id: order.customerId },
+          select: { name: true },
+        });
+        if (org?.name) parts.push(org.name);
+      }
+    }
+    return parts.join(', ');
+  }
+
   async findMany({
     take,
     skip,
