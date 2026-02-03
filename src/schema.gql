@@ -644,6 +644,11 @@ type Mutation {
   realizeCarRecommendation(input: RealizeCarRecommendationInput!): [RealizeCarRecommendationPayload!]!
   refresh(input: RefreshDto!): Tokens!
 
+  """
+  Возврат предоплаты: order_payment с отрицательной суммой + проводка списания по выбранному счёту
+  """
+  refundOrderPrepay(input: RefundOrderPrepayInput!): WalletTransactionModel!
+
   """Снять резерв с запчасти"""
   releaseReservation(orderItemPartId: ID!, quantity: Float): Float!
   removePartCross(partId: ID!): PartModel!
@@ -1113,6 +1118,23 @@ type RealizeCarRecommendationPayload {
 
 input RefreshDto {
   refreshToken: String!
+}
+
+input RefundOrderPrepayInput {
+  """Сумма возврата в минорных единицах (копейки), положительное число"""
+  amountAmount: BigInt!
+
+  """Код валюты (например RUB)"""
+  amountCurrencyCode: String
+
+  """Описание"""
+  description: String
+
+  """ID заказа"""
+  orderId: String!
+
+  """ID счёта, с которого выдаётся возврат"""
+  walletId: String!
 }
 
 """Реквизиты организации"""

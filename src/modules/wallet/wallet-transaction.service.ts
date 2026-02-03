@@ -121,6 +121,7 @@ export class WalletTransactionService {
     switch (source as WalletTransactionSource) {
       case WalletTransactionSource.OrderPrepay:
       case WalletTransactionSource.OrderDebit:
+      case WalletTransactionSource.OrderPrepayRefund:
         return this.orderService.getDisplayContext(sourceId);
       case WalletTransactionSource.Payroll:
         /** 

@@ -25,6 +25,7 @@ import { OrderPaymentModel } from './models/order-payment.model';
 import { UpdateOrderInput } from './inputs/update-order.input';
 import { CreateOrderInput } from './inputs/create-order.input';
 import { CreateOrderPrepayInput } from './inputs/create-order-prepay.input';
+import { RefundOrderPrepayInput } from './inputs/refund-order-prepay.input';
 import { PaginationArgs } from 'src/common/pagination.args';
 import { PaginatedOrders } from './inputs/paginatedOrders.type';
 import { OrderStatus } from './enums/order-status.enum';
@@ -98,6 +99,16 @@ export class OrderResolver {
     @Args('input') input: CreateOrderPrepayInput,
   ): Promise<WalletTransactionModel> {
     return this.orderService.createPrepay(input);
+  }
+
+  @Mutation(() => WalletTransactionModel, {
+    name: 'refundOrderPrepay',
+    description: 'Возврат предоплаты: order_payment с отрицательной суммой + проводка списания по выбранному счёту',
+  })
+  async refundOrderPrepay(
+    @Args('input') input: RefundOrderPrepayInput,
+  ): Promise<WalletTransactionModel> {
+    return this.orderService.refundPrepay(input);
   }
 
   @Mutation(() => OrderModel, {

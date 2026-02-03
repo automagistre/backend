@@ -9,6 +9,7 @@ import { OrderStatus } from './enums/order-status.enum';
 import { UpdateOrderInput } from './inputs/update-order.input';
 import { CreateOrderInput } from './inputs/create-order.input';
 import { CreateOrderPrepayInput } from './inputs/create-order-prepay.input';
+import { RefundOrderPrepayInput } from './inputs/refund-order-prepay.input';
 import { Prisma } from 'src/generated/prisma/client';
 import { TenantService } from 'src/common/services/tenant.service';
 import { WalletTransactionService } from 'src/modules/wallet/wallet-transaction.service';
@@ -63,6 +64,57 @@ export class OrderService {
           source: WalletTransactionSource.OrderPrepay,
           sourceId: input.orderId,
           amountAmount: input.amountAmount,
+          amountCurrencyCode,
+          description: input.description ?? null,
+        },
+        tenantId,
+      );
+    });
+  }
+
+  /**
+   * Возврат предоплаты: создаём order_payment с отрицательной суммой + проводку списания по кошельку.
+   * Сумма возврата не больше текущей суммы предоплат по заказу.
+   */
+  async refundPrepay(input: RefundOrderPrepayInput) {
+    await this.validateOrderEditable(input.orderId);
+    const tenantId = await this.tenantService.getTenantId();
+    const wallet = await this.prisma.wallet.findFirst({
+      where: { id: input.walletId, tenantId },
+    });
+    if (!wallet) throw new NotFoundException('Счёт не найден');
+    const payments = await this.prisma.orderPayment.findMany({
+      where: { orderId: input.orderId, tenantId },
+      select: { amountAmount: true },
+    });
+    const prepaymentTotal = payments.reduce(
+      (acc, p) => acc + (p.amountAmount ?? 0n),
+      0n,
+    );
+    const refundAmount = input.amountAmount > 0n ? input.amountAmount : -input.amountAmount;
+    if (refundAmount > prepaymentTotal) {
+      throw new BadRequestException(
+        `Сумма возврата не может превышать сумму предоплат по заказу`,
+      );
+    }
+    const amountCurrencyCode = input.amountCurrencyCode ?? 'RUB';
+    return this.prisma.$transaction(async (tx) => {
+      await tx.orderPayment.create({
+        data: {
+          orderId: input.orderId,
+          tenantId,
+          amountAmount: -refundAmount,
+          amountCurrencyCode,
+          description: input.description ?? null,
+        },
+      });
+      return this.walletTransactionService.createWithinTransaction(
+        tx,
+        {
+          walletId: input.walletId,
+          source: WalletTransactionSource.OrderPrepayRefund,
+          sourceId: input.orderId,
+          amountAmount: -refundAmount,
           amountCurrencyCode,
           description: input.description ?? null,
         },
