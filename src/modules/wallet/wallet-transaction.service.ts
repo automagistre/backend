@@ -1,4 +1,5 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { forwardRef, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma } from 'src/generated/prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateWalletTransactionInput } from './inputs/create-wallet-transaction.input';
 import { TenantService } from 'src/common/services/tenant.service';
@@ -16,6 +17,7 @@ export class WalletTransactionService {
     private readonly prisma: PrismaService,
     private readonly tenantService: TenantService,
     private readonly walletService: WalletService,
+    @Inject(forwardRef(() => OrderService))
     private readonly orderService: OrderService,
     private readonly personService: PersonService,
   ) {}
@@ -25,6 +27,29 @@ export class WalletTransactionService {
     const wallet = await this.walletService.findOne(data.walletId);
     if (!wallet) throw new NotFoundException('Счёт не найден');
     return this.prisma.walletTransaction.create({
+      data: {
+        walletId: data.walletId,
+        source: data.source,
+        sourceId: data.sourceId,
+        description: data.description ?? null,
+        amountAmount: data.amountAmount ?? null,
+        amountCurrencyCode: data.amountCurrencyCode ?? null,
+        tenantId,
+      },
+      include: { wallet: true },
+    });
+  }
+
+  /**
+   * Создание проводки внутри переданной транзакции (для атомарности с order_payment и т.д.).
+   * Вызывающий обязан проверить существование кошелька до старта транзакции.
+   */
+  async createWithinTransaction(
+    tx: Prisma.TransactionClient,
+    data: CreateWalletTransactionInput,
+    tenantId: string,
+  ) {
+    return tx.walletTransaction.create({
       data: {
         walletId: data.walletId,
         source: data.source,
@@ -65,6 +90,20 @@ export class WalletTransactionService {
     return { items, total };
   }
 
+  /** Проводки предоплаты по заказу (source = OrderPrepay, sourceId = orderId). */
+  async findPrepaymentsByOrderId(orderId: string) {
+    const tenantId = await this.tenantService.getTenantId();
+    return this.prisma.walletTransaction.findMany({
+      where: {
+        tenantId,
+        source: WalletTransactionSource.OrderPrepay,
+        sourceId: orderId,
+      },
+      orderBy: { createdAt: 'desc' },
+      include: { wallet: true },
+    });
+  }
+
   async findOne(id: string) {
     const tenantId = await this.tenantService.getTenantId();
     return this.prisma.walletTransaction.findFirst({
@@ -77,6 +116,7 @@ export class WalletTransactionService {
    * Контекстная строка для отображения (номер заказа, ФИО и т.д.).
    * Фронт склеивает с меткой типа источника.
    */
+  // TODO избавиться от циклической зависимости. 
   async getSourceDisplay(source: number, sourceId: string): Promise<string> {
     switch (source as WalletTransactionSource) {
       case WalletTransactionSource.OrderPrepay:

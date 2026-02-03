@@ -20,8 +20,11 @@ import { EmployeeService } from '../employee/employee.service';
 import { CarModel } from '../vehicle/models/car.model';
 import { PersonModel } from '../person/models/person.model';
 import { EmployeeModel } from '../employee/models/employee.model';
+import { WalletTransactionModel } from '../wallet/models/wallet-transaction.model';
+import { OrderPaymentModel } from './models/order-payment.model';
 import { UpdateOrderInput } from './inputs/update-order.input';
 import { CreateOrderInput } from './inputs/create-order.input';
+import { CreateOrderPrepayInput } from './inputs/create-order-prepay.input';
 import { PaginationArgs } from 'src/common/pagination.args';
 import { PaginatedOrders } from './inputs/paginatedOrders.type';
 import { OrderStatus } from './enums/order-status.enum';
@@ -87,6 +90,16 @@ export class OrderResolver {
     return this.orderService.create(input);
   }
 
+  @Mutation(() => WalletTransactionModel, {
+    name: 'createOrderPrepay',
+    description: 'Создать предоплату по заказу (order_payment + проводка по кошельку в одной транзакции)',
+  })
+  async createOrderPrepay(
+    @Args('input') input: CreateOrderPrepayInput,
+  ): Promise<WalletTransactionModel> {
+    return this.orderService.createPrepay(input);
+  }
+
   @Mutation(() => OrderModel, {
     name: 'updateOrder',
     description: 'Обновить заказ',
@@ -147,6 +160,11 @@ export class OrderResolver {
   @ResolveField(() => Boolean)
   async canDelete(@Parent() order: OrderModel): Promise<boolean> {
     return this.orderService.canDeleteOrder(order.id);
+  }
+
+  @ResolveField(() => [OrderPaymentModel])
+  async prepayments(@Parent() order: OrderModel): Promise<OrderPaymentModel[]> {
+    return this.orderService.findPaymentsByOrderId(order.id);
   }
 
   @Mutation(() => Boolean, {

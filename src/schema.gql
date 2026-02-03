@@ -354,6 +354,23 @@ input CreateOrderItemServiceInput {
   workerId: ID
 }
 
+input CreateOrderPrepayInput {
+  """Сумма в минорных единицах (копейки)"""
+  amountAmount: BigInt!
+
+  """Код валюты (например RUB)"""
+  amountCurrencyCode: String
+
+  """Описание"""
+  description: String
+
+  """ID заказа"""
+  orderId: String!
+
+  """ID счёта"""
+  walletId: String!
+}
+
 input CreateOrganizationInput {
   """Адрес"""
   address: String
@@ -584,6 +601,11 @@ type Mutation {
   """Создать услугу в заказе"""
   createOrderItemService(input: CreateOrderItemServiceInput!): OrderItemModel!
 
+  """
+  Создать предоплату по заказу (order_payment + проводка по кошельку в одной транзакции)
+  """
+  createOrderPrepay(input: CreateOrderPrepayInput!): WalletTransactionModel!
+
   """Удалить рекомендацию по автомобилю"""
   deleteCarRecommendation(id: ID!): Boolean!
 
@@ -750,9 +772,24 @@ type OrderModel {
   items: [OrderItemModel!]!
   mileage: Int
   number: Int!
+
+  """Предоплаты по заказу"""
+  prepayments: [OrderPaymentModel!]!
   status: OrderStatus!
   worker: EmployeeModel
   workerId: ID
+}
+
+"""Предоплата по заказу (order_payment)"""
+type OrderPaymentModel {
+  """Сумма в минорных единицах (копейки)"""
+  amountAmount: BigInt
+  amountCurrencyCode: String
+  createdAt: DateTime
+  createdBy: ID
+  description: String
+  id: ID!
+  orderId: String!
 }
 
 """Статус заказа"""

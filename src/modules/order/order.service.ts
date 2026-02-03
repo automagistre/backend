@@ -8,8 +8,11 @@ import { OrderModel } from './models/order.model';
 import { OrderStatus } from './enums/order-status.enum';
 import { UpdateOrderInput } from './inputs/update-order.input';
 import { CreateOrderInput } from './inputs/create-order.input';
+import { CreateOrderPrepayInput } from './inputs/create-order-prepay.input';
 import { Prisma } from 'src/generated/prisma/client';
 import { TenantService } from 'src/common/services/tenant.service';
+import { WalletTransactionService } from 'src/modules/wallet/wallet-transaction.service';
+import { WalletTransactionSource } from 'src/modules/wallet/enums/wallet-transaction-source.enum';
 
 const DELETE_COOLING_HOURS = 3;
 
@@ -18,6 +21,7 @@ export class OrderService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly tenantService: TenantService,
+    private readonly walletTransactionService: WalletTransactionService,
   ) {}
 
   async findOne(id: string): Promise<OrderModel | null> {
@@ -30,6 +34,52 @@ export class OrderService {
   /**
    * Строка для отображения в проводках: номер заказа и имя клиента (ФИО персоны или название организации).
    */
+  /**
+   * Создание предоплаты по заказу: order_payment + wallet_transaction в одной транзакции.
+   * Возвращает созданную проводку по кошельку (для списка предоплат).
+   */
+  async createPrepay(input: CreateOrderPrepayInput) {
+    await this.validateOrderEditable(input.orderId);
+    const tenantId = await this.tenantService.getTenantId();
+    const wallet = await this.prisma.wallet.findFirst({
+      where: { id: input.walletId, tenantId },
+    });
+    if (!wallet) throw new NotFoundException('Счёт не найден');
+    const amountCurrencyCode = input.amountCurrencyCode ?? 'RUB';
+    return this.prisma.$transaction(async (tx) => {
+      await tx.orderPayment.create({
+        data: {
+          orderId: input.orderId,
+          tenantId,
+          amountAmount: input.amountAmount,
+          amountCurrencyCode,
+          description: input.description ?? null,
+        },
+      });
+      return this.walletTransactionService.createWithinTransaction(
+        tx,
+        {
+          walletId: input.walletId,
+          source: WalletTransactionSource.OrderPrepay,
+          sourceId: input.orderId,
+          amountAmount: input.amountAmount,
+          amountCurrencyCode,
+          description: input.description ?? null,
+        },
+        tenantId,
+      );
+    });
+  }
+
+  /** Предоплаты по заказу из таблицы order_payment. */
+  async findPaymentsByOrderId(orderId: string) {
+    const tenantId = await this.tenantService.getTenantId();
+    return this.prisma.orderPayment.findMany({
+      where: { orderId, tenantId },
+      orderBy: [{ createdAt: 'asc' }],
+    });
+  }
+
   async getDisplayContext(orderId: string): Promise<string> {
     const tenantId = await this.tenantService.getTenantId();
     const order = await this.prisma.order.findFirst({

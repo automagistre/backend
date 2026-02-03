@@ -9,6 +9,7 @@ import { CarModule } from '../vehicle/car.module';
 import { PersonModule } from '../person/person.module';
 import { EmployeeModule } from '../employee/employee.module';
 import { ReservationModule } from '../reservation/reservation.module';
+import { WalletModule } from '../wallet/wallet.module';
 import './enums/order-item-type.enum';
 
 @Module({
@@ -16,8 +17,8 @@ import './enums/order-item-type.enum';
     CarModule,
     PersonModule,
     EmployeeModule,
-    // forwardRef: ReservationModule тоже будет импортировать OrderModule для PUB_SUB и OrderService
     forwardRef(() => ReservationModule),
+    WalletModule,
   ],
   providers: [
     OrderService,

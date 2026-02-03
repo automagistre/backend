@@ -2,6 +2,7 @@ import { Field, ID, Int, ObjectType } from '@nestjs/graphql';
 import { CarModel } from '../../vehicle/models/car.model';
 import { PersonModel } from '../../person/models/person.model';
 import { EmployeeModel } from '../../employee/models/employee.model';
+import { OrderPaymentModel } from './order-payment.model';
 import { OrderStatus } from '../enums/order-status.enum';
 
 @ObjectType({ description: 'Заказ' })
@@ -53,6 +54,11 @@ export class OrderModel {
 
   @Field(() => EmployeeModel, { nullable: true })
   worker?: EmployeeModel | null;
+
+  @Field(() => [OrderPaymentModel], {
+    description: 'Предоплаты по заказу',
+  })
+  prepayments?: OrderPaymentModel[];
 
   tenantId: string;
 }
