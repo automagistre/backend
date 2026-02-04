@@ -1,13 +1,12 @@
-import { Module, forwardRef } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { WalletService } from './wallet.service';
 import { WalletResolver } from './wallet.resolver';
 import { WalletTransactionService } from './wallet-transaction.service';
 import { WalletTransactionResolver } from './wallet-transaction.resolver';
-import { PersonModule } from 'src/modules/person/person.module';
-import { OrderModule } from 'src/modules/order/order.module';
+import { DisplayContextModule } from 'src/modules/display-context/display-context.module';
 
 @Module({
-  imports: [PersonModule, forwardRef(() => OrderModule)],
+  imports: [DisplayContextModule],
   providers: [
     WalletService,
     WalletResolver,

@@ -15,10 +15,15 @@ import {
 import { PaginationArgs } from 'src/common/pagination.args';
 import { PaginatedOrganizations } from './types/paginated-organizations.type';
 import { Organization } from '@prisma/client';
+import { CustomerTransactionService } from 'src/modules/customer-transaction/customer-transaction.service';
+import { PaginatedCustomerTransactions } from 'src/modules/customer-transaction/types/paginated-customer-transactions.type';
 
 @Resolver(() => OrganizationModel)
 export class OrganizationResolver {
-  constructor(private readonly organizationService: OrganizationService) {}
+  constructor(
+    private readonly organizationService: OrganizationService,
+    private readonly customerTransactionService: CustomerTransactionService,
+  ) {}
 
   @Query(() => PaginatedOrganizations)
   async organizations(
@@ -56,6 +61,30 @@ export class OrganizationResolver {
   @Mutation(() => OrganizationModel)
   async deleteOneOrganization(@Args('id') id: string) {
     return await this.organizationService.remove(id);
+  }
+
+  @ResolveField(() => BigInt, {
+    description: 'Баланс по проводкам',
+  })
+  async operandBalance(@Parent() organization: OrganizationModel): Promise<bigint> {
+    return this.customerTransactionService.getBalance(organization.id);
+  }
+
+  @ResolveField(() => PaginatedCustomerTransactions)
+  async transactions(
+    @Parent() organization: OrganizationModel,
+    @Args() pagination: PaginationArgs,
+    @Args('dateFrom', { nullable: true }) dateFrom?: Date,
+    @Args('dateTo', { nullable: true }) dateTo?: Date,
+  ) {
+    const { take = 25, skip = 0 } = pagination;
+    return this.customerTransactionService.findMany({
+      operandId: organization.id,
+      take,
+      skip,
+      dateFrom,
+      dateTo,
+    });
   }
 
   @ResolveField(() => RequisiteModel, { nullable: true })

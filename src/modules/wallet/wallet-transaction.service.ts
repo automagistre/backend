@@ -1,11 +1,10 @@
-import { forwardRef, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from 'src/generated/prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateWalletTransactionInput } from './inputs/create-wallet-transaction.input';
 import { TenantService } from 'src/common/services/tenant.service';
 import { WalletService } from './wallet.service';
-import { OrderService } from 'src/modules/order/order.service';
-import { PersonService } from 'src/modules/person/person.service';
+import { DisplayContextService } from 'src/modules/display-context/display-context.service';
 import { WalletTransactionSource } from './enums/wallet-transaction-source.enum';
 
 const DEFAULT_TAKE = 25;
@@ -17,9 +16,7 @@ export class WalletTransactionService {
     private readonly prisma: PrismaService,
     private readonly tenantService: TenantService,
     private readonly walletService: WalletService,
-    @Inject(forwardRef(() => OrderService))
-    private readonly orderService: OrderService,
-    private readonly personService: PersonService,
+    private readonly displayContextService: DisplayContextService,
   ) {}
 
   async create(data: CreateWalletTransactionInput) {
@@ -116,30 +113,20 @@ export class WalletTransactionService {
    * Контекстная строка для отображения (номер заказа, ФИО и т.д.).
    * Фронт склеивает с меткой типа источника.
    */
-  // TODO избавиться от циклической зависимости. 
   async getSourceDisplay(source: number, sourceId: string): Promise<string> {
     switch (source as WalletTransactionSource) {
       case WalletTransactionSource.OrderPrepay:
       case WalletTransactionSource.OrderDebit:
       case WalletTransactionSource.OrderPrepayRefund:
-        return this.orderService.getDisplayContext(sourceId);
+        return this.displayContextService.getOrderContext(sourceId);
       case WalletTransactionSource.Payroll:
-        /** 
-         * TODO: Для проводок «Выдача зарплаты» в wallet_transaction.source_id лежит id записи 
-         * в customer_transaction, а не person/employee. 
-         * В CRM при создании проводки туда пишется $customerTransactionId->toUuid
-         * */ 
+        // source_id — id записи customer_transaction
         return '';
-      case WalletTransactionSource.OperandManual: {
-        const person = await this.personService.findOne(sourceId);
-        if (!person) return '';
-        return [person.lastname, person.firstname].filter(Boolean).join(' ');
-      }
+      case WalletTransactionSource.OperandManual:
+        return this.displayContextService.getPersonDisplay(sourceId);
       case WalletTransactionSource.IncomePayment:
-        // TODO: название поставщика
         return '';
       case WalletTransactionSource.Expense:
-        // TODO: название статьи расходов
         return '';
       case WalletTransactionSource.Legacy:
       case WalletTransactionSource.Initial:

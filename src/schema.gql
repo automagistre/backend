@@ -306,6 +306,21 @@ input CreateEmployeeInput {
   ratio: Int! = 100
 }
 
+input CreateManualCustomerTransactionInput {
+  """
+  Сумма в копейках. Положительная — начисление, отрицательная — списание.
+  """
+  amountAmount: BigInt!
+  amountCurrencyCode: String = "RUB"
+  description: String
+
+  """ID операнда (Person или Organization)"""
+  operandId: ID!
+
+  """ID счёта. Если не указан — проводка без счёта (ManualWithoutWallet)."""
+  walletId: ID
+}
+
 input CreateManufacturerInput {
   """Название производителя на русском"""
   localizedName: String
@@ -508,6 +523,29 @@ input CreateWalletTransactionInput {
   walletId: ID!
 }
 
+"""Проводка по клиенту (операнду)"""
+type CustomerTransactionModel {
+  """Сумма в минорных единицах (копейки)"""
+  amountAmount: BigInt
+  amountCurrencyCode: String
+  createdAt: DateTime
+  description: String
+  id: ID!
+
+  """ID заказчика (Person или Organization)"""
+  operandId: String!
+
+  """Источник проводки (enum)"""
+  source: Int!
+
+  """Строка объекта для отображения. Фронт склеивает с меткой типа."""
+  sourceDisplay: String!
+
+  """ID источника (заказ, счет и т.д.)"""
+  sourceId: String!
+  tenantId: String!
+}
+
 """
 A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
 """
@@ -575,6 +613,7 @@ type Mutation {
 
   """Добавить запчасть к рекомендации"""
   createCarRecommendationPart(input: CreateCarRecommendationPartInput!): CarRecommendationPartModel!
+  createManualCustomerTransaction(input: CreateManualCustomerTransactionInput!): CustomerTransactionModel!
   createOneCar(input: CreateCarInput!): CarModel!
   createOneEmployee(input: CreateEmployeeInput!): EmployeeModel!
   createOneManufacturer(input: CreateManufacturerInput!): ManufacturerModel!
@@ -861,6 +900,9 @@ type OrganizationModel {
   """Рабочий телефон"""
   officePhone: PhoneNumber
 
+  """Баланс по проводкам"""
+  operandBalance: BigInt!
+
   """Реквизиты"""
   requisite: RequisiteModel
 
@@ -870,10 +912,16 @@ type OrganizationModel {
   """Телефон"""
   telephone: PhoneNumber
   tenantGroupId: String!
+  transactions(dateFrom: DateTime, dateTo: DateTime, skip: Int = 0, take: Int = 25): PaginatedCustomerTransactions!
 }
 
 type PaginatedCars {
   items: [CarModel!]!
+  total: Int!
+}
+
+type PaginatedCustomerTransactions {
+  items: [CustomerTransactionModel!]!
   total: Int!
 }
 
@@ -1026,9 +1074,13 @@ type PersonModel {
   id: ID!
   lastname: String
   officePhone: PhoneNumber
+
+  """Баланс по проводкам (сумма customer_transaction по операнду)"""
+  operandBalance: BigInt!
   seller: Boolean!
   telephone: PhoneNumber
   tenantGroupId: ID!
+  transactions(dateFrom: DateTime, dateTo: DateTime, skip: Int = 0, take: Int = 25): PaginatedCustomerTransactions!
 }
 
 """Телефонный номер в формате +7XXX..."""
@@ -1045,6 +1097,10 @@ type Query {
   """
   carRecommendations(carId: ID!): [CarRecommendationModel!]!
   cars(search: String, skip: Int = 0, take: Int = 25): PaginatedCars!
+
+  """Баланс операнда (сумма проводок)"""
+  customerBalance(operandId: String!): BigInt!
+  customerTransactions(dateFrom: DateTime, dateTo: DateTime, operandId: String!, skip: Int = 0, take: Int = 25): PaginatedCustomerTransactions!
   employee(id: String!): EmployeeModel
   employees(includeFired: Boolean = false, search: String, skip: Int = 0, take: Int = 25): PaginatedEmployees!
   manufacturer(id: String!): ManufacturerModel

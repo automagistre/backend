@@ -1,15 +1,26 @@
-import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
-import { Person } from '@prisma/client';
+import {
+  Args,
+  Mutation,
+  Parent,
+  Query,
+  ResolveField,
+  Resolver,
+} from '@nestjs/graphql';
 import { PersonService } from './person.service';
 import { PersonModel } from './models/person.model';
 import { CreatePersonInput } from './inputs/create.input';
 import { UpdatePersonInput } from './inputs/update.input';
 import { PaginationArgs } from 'src/common/pagination.args';
 import { PaginatedPersons } from './inputs/paginatedPersons.type';
+import { CustomerTransactionService } from 'src/modules/customer-transaction/customer-transaction.service';
+import { PaginatedCustomerTransactions } from 'src/modules/customer-transaction/types/paginated-customer-transactions.type';
 
-@Resolver()
+@Resolver(() => PersonModel)
 export class PersonResolver {
-  constructor(private readonly personService: PersonService) {}
+  constructor(
+    private readonly personService: PersonService,
+    private readonly customerTransactionService: CustomerTransactionService,
+  ) {}
 
   @Query(() => PaginatedPersons, {
     name: 'persons',
@@ -57,5 +68,29 @@ export class PersonResolver {
   })
   async delete(@Args('id') id: string): Promise<PersonModel> {
     return this.personService.delete(id);
+  }
+
+  @ResolveField(() => BigInt, {
+    description: 'Баланс по проводкам (сумма customer_transaction по операнду)',
+  })
+  async operandBalance(@Parent() person: PersonModel): Promise<bigint> {
+    return this.customerTransactionService.getBalance(person.id);
+  }
+
+  @ResolveField(() => PaginatedCustomerTransactions)
+  async transactions(
+    @Parent() person: PersonModel,
+    @Args() pagination: PaginationArgs,
+    @Args('dateFrom', { nullable: true }) dateFrom?: Date,
+    @Args('dateTo', { nullable: true }) dateTo?: Date,
+  ) {
+    const { take = 25, skip = 0 } = pagination;
+    return this.customerTransactionService.findMany({
+      operandId: person.id,
+      take,
+      skip,
+      dateFrom,
+      dateTo,
+    });
   }
 }
