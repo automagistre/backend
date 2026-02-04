@@ -386,43 +386,6 @@ model CalendarEntrySchedule {
 //   created_by String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
 // }
 
-// /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
-
-// model car_recommendation {
-//   id                      String                    @id @default(uuid()) @db.Uuid
-//   car_id                  String?                   @db.Uuid
-//   service                 String                    @db.VarChar(255)
-//   worker_id               String                    @db.Uuid
-//   expired_at              DateTime?                 @db.Timestamp(0)
-//   realization             String?                   @db.Uuid
-//   tenant_group_id         String                    @db.Uuid
-//   price_amount            BigInt?
-//   price_currency_code     String?                   @db.VarChar(3)
-//   created_at              DateTime?                 @default(now()) @db.Timestamptz(0)
-//   created_by              String?                   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
-//   car                     car?                      @relation(fields: [car_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_8e4baaf2c3c6f69f")
-//   car_recommendation_part car_recommendation_part[]
-
-//   @@index([car_id], map: "idx_8e4baaf2c3c6f69f")
-// }
-
-// model car_recommendation_part {
-//   id                  String             @id @default(uuid()) @db.Uuid
-//   recommendation_id   String             @db.Uuid
-//   part_id             String             @db.Uuid
-//   quantity            Int
-//   tenant_group_id     String             @db.Uuid
-//   price_amount        BigInt?
-//   price_currency_code String?            @db.VarChar(3)
-//   created_at          DateTime?          @default(now()) @db.Timestamptz(0)
-//   created_by          String?            @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
-//   car_recommendation  car_recommendation @relation(fields: [recommendation_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_ddc72d65d173940b")
-
-//   @@index([recommendation_id], map: "idx_ddc72d65d173940b")
-// }
-
-// /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
-
 // model cron_job {
 //   id          Int           @id
 //   name        String        @unique(map: "un_name") @db.VarChar(191)
@@ -446,21 +409,21 @@ model CalendarEntrySchedule {
 //   @@index([job_id], map: "idx_b6c6a7f5be04ea9")
 // }
 
-// /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
-// model customer_transaction {
-//   id                   String    @id @default(uuid()) @db.Uuid
-//   operand_id           String    @db.Uuid
-//   source               Int       @db.SmallInt
-//   source_id            String    @db.Uuid
-//   description          String?
-//   tenant_id            String    @db.Uuid
-//   amount_amount        BigInt?
-//   amount_currency_code String?   @db.VarChar(3)
-//   created_at           DateTime? @default(now()) @db.Timestamptz(0)
-//   created_by           String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
+model CustomerTransaction {
+  id                String    @id @default(uuid()) @db.Uuid
+  operandId         String    @map("operand_id") @db.Uuid
+  source            Int       @db.SmallInt
+  sourceId          String    @map("source_id") @db.Uuid
+  description       String?
+  tenantId          String    @map("tenant_id") @db.Uuid
+  amountAmount      BigInt?   @map("amount_amount")
+  amountCurrencyCode String?  @map("amount_currency_code") @db.VarChar(3)
+  createdAt         DateTime? @default(now()) @map("created_at") @db.Timestamptz(0)
+  createdBy         String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
 
-//   @@index([operand_id, tenant_id])
-// }
+  @@index([operandId, tenantId])
+  @@map("customer_transaction")
+}
 
 model Employee {
   id        String    @id @default(uuid()) @db.Uuid
