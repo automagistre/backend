@@ -10,6 +10,7 @@ import { CreateCustomerTransactionInput } from './inputs/create-customer-transac
 import { CreateManualCustomerTransactionInput } from './inputs/create-manual-customer-transaction.input';
 import { CustomerTransactionSource } from './enums/customer-transaction-source.enum';
 import { SettingsService } from 'src/modules/settings/settings.service';
+import { applyDefaultCurrency } from 'src/common/money';
 
 const DEFAULT_TAKE = 25;
 const DEFAULT_SKIP = 0;
@@ -41,14 +42,20 @@ export class CustomerTransactionService {
     data: CreateCustomerTransactionInput,
     tenantId: string,
   ) {
+    const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
+    const moneyData =
+      data.amount != null
+        ? applyDefaultCurrency(data.amount, defaultCurrency)
+        : { amountMinor: 0n, currencyCode: defaultCurrency };
+
     return tx.customerTransaction.create({
       data: {
         operandId: data.operandId,
         source: data.source,
         sourceId: data.sourceId,
         description: data.description ?? null,
-        amountAmount: data.amountAmount ?? null,
-        amountCurrencyCode: data.amountCurrencyCode ?? null,
+        amountAmount: moneyData.amountMinor,
+        amountCurrencyCode: moneyData.currencyCode,
         tenantId,
       },
     });
@@ -57,18 +64,21 @@ export class CustomerTransactionService {
   /**
    * Создание одной проводки без внешней транзакции (для фонового job, напр. начисление зарплаты по заказу).
    */
-  async create(
-    data: CreateCustomerTransactionInput,
-    tenantId: string,
-  ) {
+  async create(data: CreateCustomerTransactionInput, tenantId: string) {
+    const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
+    const moneyData =
+      data.amount != null
+        ? applyDefaultCurrency(data.amount, defaultCurrency)
+        : { amountMinor: 0n, currencyCode: defaultCurrency };
+
     return this.prisma.customerTransaction.create({
       data: {
         operandId: data.operandId,
         source: data.source,
         sourceId: data.sourceId,
         description: data.description ?? null,
-        amountAmount: data.amountAmount ?? null,
-        amountCurrencyCode: data.amountCurrencyCode ?? null,
+        amountAmount: moneyData.amountMinor,
+        amountCurrencyCode: moneyData.currencyCode,
         tenantId,
       },
     });
@@ -141,9 +151,9 @@ export class CustomerTransactionService {
 
   async createManualTransaction(input: CreateManualCustomerTransactionInput) {
     const tenantId = await this.tenantService.getTenantId();
-    const amountAmount = input.amountAmount;
-    const amountCurrencyCode =
-      input.amountCurrencyCode ?? (await this.settingsService.getDefaultCurrencyCode());
+    const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
+    const { amountMinor: amountAmount, currencyCode: amountCurrencyCode } =
+      applyDefaultCurrency(input.amount, defaultCurrency);
 
     if (input.walletId) {
       const wallet = await this.walletService.findOne(input.walletId);
@@ -166,8 +176,7 @@ export class CustomerTransactionService {
             walletId: input.walletId!,
             source: WalletTransactionSource.OperandManual,
             sourceId: ct.id,
-            amountAmount,
-            amountCurrencyCode,
+            amount: { amountMinor: amountAmount, currencyCode: amountCurrencyCode },
             description: input.description ?? null,
           },
           tenantId,

@@ -4,9 +4,9 @@ import {
   IsOptional,
   IsString,
   IsUUID,
-  Length,
   MaxLength,
 } from 'class-validator';
+import { MoneyInput } from 'src/common/inputs/money.input';
 
 /** Внутренний инпут для создания проводки (при закрытии заказа и т.д.). */
 @InputType()
@@ -30,12 +30,6 @@ export class CreateCustomerTransactionInput {
   description?: string | null;
 
   @IsOptional()
-  @Field(() => BigInt, { nullable: true })
-  amountAmount?: bigint | null;
-
-  @IsOptional()
-  @IsString()
-  @Length(3, 3)
-  @Field(() => String, { nullable: true })
-  amountCurrencyCode?: string | null;
+  @Field(() => MoneyInput, { nullable: true })
+  amount?: MoneyInput | null;
 }

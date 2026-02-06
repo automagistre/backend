@@ -72,8 +72,7 @@ export class SalaryService {
         operandId: employee.personId,
         source: CustomerTransactionSource.OrderSalary,
         sourceId: orderId,
-        amountAmount: amount,
-        amountCurrencyCode: defaultCurrency,
+        amount: { amountMinor: amount, currencyCode: defaultCurrency },
       });
     }
 
