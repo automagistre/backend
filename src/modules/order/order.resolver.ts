@@ -26,6 +26,7 @@ import { UpdateOrderInput } from './inputs/update-order.input';
 import { CreateOrderInput } from './inputs/create-order.input';
 import { CreateOrderPrepayInput } from './inputs/create-order-prepay.input';
 import { RefundOrderPrepayInput } from './inputs/refund-order-prepay.input';
+import { CloseOrderInput } from './inputs/close-order.input';
 import { PaginationArgs } from 'src/common/pagination.args';
 import { PaginatedOrders } from './inputs/paginatedOrders.type';
 import { OrderStatus } from './enums/order-status.enum';
@@ -109,6 +110,29 @@ export class OrderResolver {
     @Args('input') input: RefundOrderPrepayInput,
   ): Promise<WalletTransactionModel> {
     return this.orderService.refundPrepay(input);
+  }
+
+  @Mutation(() => OrderModel, {
+    name: 'closeOrder',
+    description: 'Закрыть заказ',
+  })
+  async closeOrder(
+    @Args('input') input: CloseOrderInput,
+  ): Promise<OrderModel> {
+    return this.orderService.closeOrder(input);
+  }
+
+  @Mutation(() => Boolean, {
+    name: 'chargeOrderSalary',
+    description:
+      'Начислить зарплату по закрытому заказу. Проверяет, что заказ закрыт; идемпотентно по начислению.',
+  })
+  async chargeOrderSalary(
+    @Args('orderId', { type: () => ID }) orderId: string,
+  ): Promise<boolean> {
+    await this.orderService.ensureOrderClosed(orderId);
+    await this.orderService.chargeOrderSalary(orderId);
+    return true;
   }
 
   @Mutation(() => OrderModel, {

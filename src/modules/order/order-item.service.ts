@@ -18,10 +18,8 @@ import { OrderItemType } from './enums/order-item-type.enum';
 import { v6 as uuidv6 } from 'uuid';
 import { ReservationService } from '../reservation/reservation.service';
 import { TenantService } from 'src/common/services/tenant.service';
-import {
-  normalizeMoneyAmount,
-  rubCurrencyCode,
-} from 'src/common/utils/money.util';
+import { normalizeMoneyAmount } from 'src/common/utils/money.util';
+import { SettingsService } from 'src/modules/settings/settings.service';
 
 @Injectable()
 export class OrderItemService {
@@ -30,6 +28,7 @@ export class OrderItemService {
     private readonly orderService: OrderService,
     private readonly reservationService: ReservationService,
     private readonly tenantService: TenantService,
+    private readonly settingsService: SettingsService,
   ) {}
 
   async findTreeByOrderId(orderId: string): Promise<OrderItemModel[]> {
@@ -201,9 +200,9 @@ export class OrderItemService {
             workerId: input.workerId,
             warranty: input.warranty ?? false,
             priceAmount: normalizeMoneyAmount(input.priceAmount),
-            priceCurrencyCode: rubCurrencyCode(),
+            priceCurrencyCode: (await this.settingsService.getDefaultCurrencyCode()),
             discountAmount: normalizeMoneyAmount(input.discountAmount),
-            discountCurrencyCode: rubCurrencyCode(),
+            discountCurrencyCode: (await this.settingsService.getDefaultCurrencyCode()),
           },
         },
       },
@@ -249,9 +248,9 @@ export class OrderItemService {
             quantity: input.quantity,
             warranty: input.warranty ?? false,
             priceAmount: normalizeMoneyAmount(input.priceAmount),
-            priceCurrencyCode: rubCurrencyCode(),
+            priceCurrencyCode: (await this.settingsService.getDefaultCurrencyCode()),
             discountAmount: normalizeMoneyAmount(input.discountAmount),
-            discountCurrencyCode: rubCurrencyCode(),
+            discountCurrencyCode: (await this.settingsService.getDefaultCurrencyCode()),
           },
         },
       },
@@ -325,6 +324,7 @@ export class OrderItemService {
       throw new NotFoundException(`Запчасть с ID ${missingId} не найдена`);
     }
 
+    const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
     const orderItemsData: Prisma.OrderItemCreateManyInput[] = [];
     const orderItemPartsData: Prisma.OrderItemPartCreateManyInput[] = [];
     const result: { orderItemPartId: string; quantity: number }[] = [];
@@ -348,9 +348,9 @@ export class OrderItemService {
         quantity: part.quantity,
         warranty: false,
         priceAmount,
-        priceCurrencyCode: rubCurrencyCode(),
+        priceCurrencyCode: defaultCurrency,
         discountAmount: normalizeMoneyAmount(undefined),
-        discountCurrencyCode: rubCurrencyCode(),
+        discountCurrencyCode: defaultCurrency,
       });
 
       result.push({ orderItemPartId, quantity: part.quantity });
@@ -424,11 +424,11 @@ export class OrderItemService {
     if (input.quantity !== undefined) updateData.quantity = input.quantity;
     if (input.priceAmount !== undefined) {
       updateData.priceAmount = normalizeMoneyAmount(input.priceAmount);
-      updateData.priceCurrencyCode = rubCurrencyCode();
+      updateData.priceCurrencyCode = (await this.settingsService.getDefaultCurrencyCode());
     }
     if (input.discountAmount !== undefined) {
       updateData.discountAmount = normalizeMoneyAmount(input.discountAmount);
-      updateData.discountCurrencyCode = rubCurrencyCode();
+      updateData.discountCurrencyCode = (await this.settingsService.getDefaultCurrencyCode());
     }
     if (input.warranty !== undefined) updateData.warranty = input.warranty;
     if (input.supplierId !== undefined)
@@ -493,11 +493,11 @@ export class OrderItemService {
     if (input.service !== undefined) updateData.service = input.service;
     if (input.priceAmount !== undefined) {
       updateData.priceAmount = normalizeMoneyAmount(input.priceAmount);
-      updateData.priceCurrencyCode = rubCurrencyCode();
+      updateData.priceCurrencyCode = (await this.settingsService.getDefaultCurrencyCode());
     }
     if (input.discountAmount !== undefined) {
       updateData.discountAmount = normalizeMoneyAmount(input.discountAmount);
-      updateData.discountCurrencyCode = rubCurrencyCode();
+      updateData.discountCurrencyCode = (await this.settingsService.getDefaultCurrencyCode());
     }
     if (input.warranty !== undefined) updateData.warranty = input.warranty;
     if (input.workerId !== undefined) updateData.workerId = input.workerId;

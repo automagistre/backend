@@ -10,6 +10,8 @@ import { PersonModule } from '../person/person.module';
 import { EmployeeModule } from '../employee/employee.module';
 import { ReservationModule } from '../reservation/reservation.module';
 import { WalletModule } from '../wallet/wallet.module';
+import { SalaryModule } from '../salary/salary.module';
+import { CustomerTransactionModule } from '../customer-transaction/customer-transaction.module';
 import './enums/order-item-type.enum';
 
 @Module({
@@ -19,6 +21,8 @@ import './enums/order-item-type.enum';
     EmployeeModule,
     forwardRef(() => ReservationModule),
     WalletModule,
+    SalaryModule,
+    CustomerTransactionModule,
   ],
   providers: [
     OrderService,

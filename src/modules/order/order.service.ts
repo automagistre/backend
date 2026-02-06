@@ -10,12 +10,19 @@ import { UpdateOrderInput } from './inputs/update-order.input';
 import { CreateOrderInput } from './inputs/create-order.input';
 import { CreateOrderPrepayInput } from './inputs/create-order-prepay.input';
 import { RefundOrderPrepayInput } from './inputs/refund-order-prepay.input';
+import { CloseOrderInput } from './inputs/close-order.input';
 import { Prisma } from 'src/generated/prisma/client';
 import { TenantService } from 'src/common/services/tenant.service';
 import { WalletTransactionService } from 'src/modules/wallet/wallet-transaction.service';
 import { WalletTransactionSource } from 'src/modules/wallet/enums/wallet-transaction-source.enum';
+import { SalaryService } from 'src/modules/salary/salary.service';
+import { CustomerTransactionService } from 'src/modules/customer-transaction/customer-transaction.service';
+import { CustomerTransactionSource } from 'src/modules/customer-transaction/enums/customer-transaction-source.enum';
+import { SettingsService } from 'src/modules/settings/settings.service';
 
 const DELETE_COOLING_HOURS = 3;
+/** Совместимость со старой CRM: DiscriminatorMap OrderClose — 1 = OrderDeal, 2 = OrderCancel */
+const ORDER_CLOSE_TYPE_DEAL = '1';
 
 @Injectable()
 export class OrderService {
@@ -23,6 +30,9 @@ export class OrderService {
     private readonly prisma: PrismaService,
     private readonly tenantService: TenantService,
     private readonly walletTransactionService: WalletTransactionService,
+    private readonly salaryService: SalaryService,
+    private readonly customerTransactionService: CustomerTransactionService,
+    private readonly settingsService: SettingsService,
   ) {}
 
   async findOne(id: string): Promise<OrderModel | null> {
@@ -46,7 +56,8 @@ export class OrderService {
       where: { id: input.walletId, tenantId },
     });
     if (!wallet) throw new NotFoundException('Счёт не найден');
-    const amountCurrencyCode = input.amountCurrencyCode ?? 'RUB';
+    const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
+    const amountCurrencyCode = input.amountCurrencyCode ?? defaultCurrency;
     return this.prisma.$transaction(async (tx) => {
       await tx.orderPayment.create({
         data: {
@@ -97,7 +108,8 @@ export class OrderService {
         `Сумма возврата не может превышать сумму предоплат по заказу`,
       );
     }
-    const amountCurrencyCode = input.amountCurrencyCode ?? 'RUB';
+    const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
+    const amountCurrencyCode = input.amountCurrencyCode ?? defaultCurrency;
     return this.prisma.$transaction(async (tx) => {
       await tx.orderPayment.create({
         data: {
@@ -130,6 +142,33 @@ export class OrderService {
       where: { orderId, tenantId },
       orderBy: [{ createdAt: 'asc' }],
     });
+  }
+
+  /**
+   * Сумма заказа: услуги (priceAmount - discountAmount) + запчасти (priceAmount - discountAmount) * (quantity / 100).
+   * Количество запчастей приходит в сотых долях (100 = 1 ед., 250 = 2.5 ед.), нормализуем до единиц делением на 100.
+   */
+  async getOrderTotal(orderId: string): Promise<bigint> {
+    const tenantId = await this.tenantService.getTenantId();
+    const items = await this.prisma.orderItem.findMany({
+      where: { orderId, tenantId },
+      include: { service: true, part: true },
+    });
+    let total = 0n;
+    for (const item of items) {
+      if (item.service) {
+        const p = item.service.priceAmount ?? 0n;
+        const d = item.service.discountAmount ?? 0n;
+        total += p - d;
+      }
+      if (item.part) {
+        const p = item.part.priceAmount ?? 0n;
+        const d = item.part.discountAmount ?? 0n;
+        // quantity в сотых долях (100 = 1 ед.) → (p-d)*quantity/100
+        total += (p - d) * BigInt(item.part.quantity) / 100n;
+      }
+    }
+    return total;
   }
 
   async getDisplayContext(orderId: string): Promise<string> {
@@ -430,5 +469,165 @@ export class OrderService {
       where: { id: input.id },
       data,
     }) as Promise<OrderModel>;
+  }
+
+  /**
+   * Закрыть заказ: OrderClose + OrderDeal, платежи при закрытии, перенос предоплат, списание заказа, статус CLOSED, затем зарплата по работам.
+   * В OrderDeal.balance сохраняется баланс заказчика на момент закрытия до списания/начисления по заказу.
+   */
+  async closeOrder(input: CloseOrderInput): Promise<OrderModel> {
+    const tenantId = await this.tenantService.getTenantId();
+    const order = await this.prisma.order.findFirst({
+      where: { id: input.orderId, tenantId },
+      select: { id: true, customerId: true, close: { select: { id: true } } },
+    });
+    if (!order) {
+      throw new NotFoundException(`Заказ с ID ${input.orderId} не найден`);
+    }
+
+    await this.validateOrderEditable(input.orderId);
+
+    const payments = input.payments ?? [];
+    for (const p of payments) {
+      if (p.amountAmount <= 0n) {
+        throw new BadRequestException(
+          'Сумма платежа при закрытии должна быть положительной',
+        );
+      }
+      const wallet = await this.prisma.wallet.findFirst({
+        where: { id: p.walletId, tenantId },
+      });
+      if (!wallet) {
+        throw new BadRequestException(`Счёт с ID ${p.walletId} не найден`);
+      }
+    }
+
+    const satisfaction = input.satisfaction ?? 0;
+    const balance =
+      order.customerId != null
+        ? await this.customerTransactionService.getBalance(order.customerId)
+        : 0n;
+    const orderTotal = await this.getOrderTotal(input.orderId);
+    const currencyCode = await this.settingsService.getDefaultCurrencyCode();
+
+    await this.prisma.$transaction(async (tx) => {
+      const orderClose = await tx.orderClose.create({
+        data: {
+          orderId: input.orderId,
+          tenantId,
+          type: ORDER_CLOSE_TYPE_DEAL,
+        },
+      });
+      await tx.orderDeal.create({
+        data: {
+          id: orderClose.id,
+          balance,
+          satisfaction,
+        },
+      });
+
+      for (const p of payments) {
+        await this.walletTransactionService.createWithinTransaction(
+          tx,
+          {
+            walletId: p.walletId,
+            source: WalletTransactionSource.OrderDebit,
+            sourceId: input.orderId,
+            amountAmount: p.amountAmount,
+            amountCurrencyCode: currencyCode,
+          },
+          tenantId,
+        );
+        if (order.customerId != null) {
+          await this.customerTransactionService.createWithinTransaction(
+            tx,
+            {
+              operandId: order.customerId,
+              source: CustomerTransactionSource.OrderDebit,
+              sourceId: input.orderId,
+              amountAmount: p.amountAmount,
+              amountCurrencyCode: currencyCode,
+            },
+            tenantId,
+          );
+        }
+      }
+
+      const prepayments = await tx.orderPayment.findMany({
+        where: { orderId: input.orderId, tenantId },
+      });
+      if (order.customerId != null) {
+        for (const prepay of prepayments) {
+          const amount = prepay.amountAmount ?? 0n;
+          if (amount === 0n) continue;
+          const source =
+            amount > 0n
+              ? CustomerTransactionSource.OrderPrepay
+              : CustomerTransactionSource.OrderPrepayRefund;
+          await this.customerTransactionService.createWithinTransaction(
+            tx,
+            {
+              operandId: order.customerId,
+              source,
+              sourceId: input.orderId,
+              amountAmount: amount,
+              amountCurrencyCode: prepay.amountCurrencyCode ?? currencyCode,
+            },
+            tenantId,
+          );
+        }
+      }
+
+      if (
+        order.customerId != null &&
+        orderTotal > 0n
+      ) {
+        await this.customerTransactionService.createWithinTransaction(
+          tx,
+          {
+            operandId: order.customerId,
+            source: CustomerTransactionSource.OrderPayment,
+            sourceId: input.orderId,
+            amountAmount: -orderTotal,
+            amountCurrencyCode: currencyCode,
+          },
+          tenantId,
+        );
+      }
+
+      await tx.order.update({
+        where: { id: input.orderId },
+        data: { status: OrderStatus.CLOSED },
+      });
+    });
+
+    await this.salaryService.chargeByOrder(input.orderId);
+
+    return this.findOne(input.orderId) as Promise<OrderModel>;
+  }
+
+  /**
+   * Проверить, что заказ существует и закрыт по сделке (OrderDeal). Иначе — исключение.
+   */
+  async ensureOrderClosed(orderId: string): Promise<void> {
+    const tenantId = await this.tenantService.getTenantId();
+    const order = await this.prisma.order.findFirst({
+      where: { id: orderId, tenantId },
+      select: { id: true, close: { select: { orderDeal: { select: { id: true } } } } },
+    });
+    if (!order) {
+      throw new NotFoundException(`Заказ с ID ${orderId} не найден`);
+    }
+    if (!order.close?.orderDeal) {
+      throw new BadRequestException('Заказ не закрыт');
+    }
+  }
+
+  /**
+   * Начислить зарплату по закрытому заказу (проводки source=4). Идемпотентно.
+   * Проверку закрытости выполняет вызывающая сторона (например, мутация).
+   */
+  async chargeOrderSalary(orderId: string): Promise<void> {
+    await this.salaryService.chargeByOrder(orderId);
   }
 }
