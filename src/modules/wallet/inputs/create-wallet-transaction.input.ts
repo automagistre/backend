@@ -4,9 +4,9 @@ import {
   IsOptional,
   IsString,
   IsUUID,
-  Length,
   MaxLength,
 } from 'class-validator';
+import { MoneyInput } from 'src/common/inputs/money.input';
 
 @InputType()
 export class CreateWalletTransactionInput {
@@ -28,16 +28,8 @@ export class CreateWalletTransactionInput {
   @Field(() => String, { nullable: true, description: 'Описание' })
   description?: string | null;
 
-  @IsOptional()
-  @Field(() => BigInt, {
-    nullable: true,
-    description: 'Сумма в минорных единицах (копейки)',
+  @Field(() => MoneyInput, {
+    description: 'Сумма (минорные единицы + валюта)',
   })
-  amountAmount?: bigint | null;
-
-  @IsOptional()
-  @IsString()
-  @Length(3, 3)
-  @Field(() => String, { nullable: true, description: 'Код валюты' })
-  amountCurrencyCode?: string | null;
+  amount: MoneyInput;
 }

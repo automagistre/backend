@@ -6,6 +6,8 @@ import { TenantService } from 'src/common/services/tenant.service';
 import { WalletService } from './wallet.service';
 import { DisplayContextService } from 'src/modules/display-context/display-context.service';
 import { WalletTransactionSource } from './enums/wallet-transaction-source.enum';
+import { applyDefaultCurrency } from 'src/common/money';
+import { SettingsService } from 'src/modules/settings/settings.service';
 
 const DEFAULT_TAKE = 25;
 const DEFAULT_SKIP = 0;
@@ -17,20 +19,31 @@ export class WalletTransactionService {
     private readonly tenantService: TenantService,
     private readonly walletService: WalletService,
     private readonly displayContextService: DisplayContextService,
+    private readonly settingsService: SettingsService,
   ) {}
+
+  private async normalizeAmountFields(
+    input: CreateWalletTransactionInput,
+  ): Promise<{ amountAmount: bigint; amountCurrencyCode: string }> {
+    const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
+    const m = applyDefaultCurrency(input.amount, defaultCurrency);
+    return { amountAmount: m.amountMinor, amountCurrencyCode: m.currencyCode };
+  }
 
   async create(data: CreateWalletTransactionInput) {
     const tenantId = await this.tenantService.getTenantId();
     const wallet = await this.walletService.findOne(data.walletId);
     if (!wallet) throw new NotFoundException('Счёт не найден');
+    const { amountAmount, amountCurrencyCode } =
+      await this.normalizeAmountFields(data);
     return this.prisma.walletTransaction.create({
       data: {
         walletId: data.walletId,
         source: data.source,
         sourceId: data.sourceId,
         description: data.description ?? null,
-        amountAmount: data.amountAmount ?? null,
-        amountCurrencyCode: data.amountCurrencyCode ?? null,
+        amountAmount,
+        amountCurrencyCode,
         tenantId,
       },
       include: { wallet: true },
@@ -46,14 +59,16 @@ export class WalletTransactionService {
     data: CreateWalletTransactionInput,
     tenantId: string,
   ) {
+    const { amountAmount, amountCurrencyCode } =
+      await this.normalizeAmountFields(data);
     return tx.walletTransaction.create({
       data: {
         walletId: data.walletId,
         source: data.source,
         sourceId: data.sourceId,
         description: data.description ?? null,
-        amountAmount: data.amountAmount ?? null,
-        amountCurrencyCode: data.amountCurrencyCode ?? null,
+        amountAmount,
+        amountCurrencyCode,
         tenantId,
       },
       include: { wallet: true },
