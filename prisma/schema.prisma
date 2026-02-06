@@ -630,28 +630,31 @@ model Motion {
   @@map("motion")
 }
 
-// /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
-// model note {
-//   id          String       @id @default(uuid()) @db.Uuid
-//   subject     String       @db.Uuid
-//   type        Int          @db.SmallInt
-//   text        String
-//   tenant_id   String       @db.Uuid
-//   created_at  DateTime?    @default(now()) @db.Timestamptz(0)
-//   created_by  String?      @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
-//   is_public   Boolean?     @default(false)
-//   note_delete note_delete?
-// }
+model Note {
+  id         String      @id @default(uuid()) @db.Uuid
+  subject    String      @db.Uuid
+  type       Int         @db.SmallInt
+  text       String      @db.Text
+  isPublic   Boolean?    @default(false) @map("is_public")
+  tenantId   String      @map("tenant_id") @db.Uuid
+  createdAt  DateTime?   @default(now()) @map("created_at") @db.Timestamptz(0)
+  createdBy  String?     @map("created_by") @db.Uuid
+  noteDelete NoteDelete?
 
-// model note_delete {
-//   id          String    @id @default(uuid()) @db.Uuid
-//   note_id     String?   @unique(map: "uniq_22c02b5326ed0855") @db.Uuid
-//   description String    @db.VarChar(255)
-//   tenant_id   String    @db.Uuid
-//   created_at  DateTime? @default(now()) @db.Timestamptz(0)
-//   created_by  String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
-//   note        note?     @relation(fields: [note_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_22c02b5326ed0855")
-// }
+  @@map("note")
+}
+
+model NoteDelete {
+  id          String    @id @default(uuid()) @db.Uuid
+  noteId      String?   @unique(map: "uniq_22c02b5326ed0855") @map("note_id") @db.Uuid
+  description String    @default("") @map("description") @db.VarChar(255)
+  tenantId    String    @map("tenant_id") @db.Uuid
+  createdAt   DateTime? @default(now()) @map("created_at") @db.Timestamptz(0)
+  createdBy   String?   @map("created_by") @db.Uuid
+  note        Note?     @relation(fields: [noteId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_22c02b5326ed0855")
+
+  @@map("note_delete")
+}
 
 model OrderCancel {
   id         String     @id @default(uuid()) @db.Uuid

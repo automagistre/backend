@@ -350,6 +350,19 @@ input CreateManufacturerInput {
   name: String!
 }
 
+input CreateNoteInput {
+  isPublic: Boolean = false
+
+  """ID сущности (Order, Car, Person)"""
+  subjectId: ID!
+
+  """Текст заметки"""
+  text: String!
+
+  """Тип заметки"""
+  type: NoteType!
+}
+
 input CreateOrderInput {
   carId: ID
   customerId: ID
@@ -648,6 +661,7 @@ type Mutation {
   """Добавить запчасть к рекомендации"""
   createCarRecommendationPart(input: CreateCarRecommendationPartInput!): CarRecommendationPartModel!
   createManualCustomerTransaction(input: CreateManualCustomerTransactionInput!): CustomerTransactionModel!
+  createNote(input: CreateNoteInput!): NoteModel!
   createOneCar(input: CreateCarInput!): CarModel!
   createOneEmployee(input: CreateEmployeeInput!): EmployeeModel!
   createOneManufacturer(input: CreateManufacturerInput!): ManufacturerModel!
@@ -684,6 +698,7 @@ type Mutation {
 
   """Удалить запчасть из рекомендации"""
   deleteCarRecommendationPart(id: ID!): Boolean!
+  deleteNote(description: String, id: ID!): NoteModel!
   deleteOneCar(id: String!): CarModel!
   deleteOneEmployee(id: String!): EmployeeModel!
   deleteOneManufacturer(id: String!): ManufacturerModel!
@@ -740,6 +755,7 @@ type Mutation {
 
   """Обновить запчасть рекомендации"""
   updateCarRecommendationPart(input: UpdateCarRecommendationPartInput!): CarRecommendationPartModel!
+  updateNote(input: UpdateNoteInput!): NoteModel!
   updateOneCar(input: UpdateCarInput!): CarModel!
   updateOneEmployee(input: UpdateEmployeeInput!): EmployeeModel!
   updateOneManufacturer(input: UpdateManufacturerInput!): ManufacturerModel!
@@ -761,6 +777,32 @@ type Mutation {
 
   """Обновить услугу в заказе"""
   updateOrderItemService(input: UpdateOrderItemServiceInput!): OrderItemModel!
+}
+
+type NoteModel {
+  createdAt: DateTime
+  createdBy: ID
+  id: ID!
+  isPublic: Boolean
+  subject: ID!
+  tenantId: ID!
+  text: String!
+  type: NoteType!
+}
+
+"""Тип заметки"""
+enum NoteType {
+  """Опасность"""
+  DANGER
+
+  """Информация"""
+  INFO
+
+  """Успех"""
+  SUCCESS
+
+  """Предупреждение"""
+  WARNING
 }
 
 """Группа элементов заказа"""
@@ -1145,6 +1187,9 @@ type Query {
   manufacturer(id: String!): ManufacturerModel
   manufacturers(search: String, skip: Int = 0, take: Int = 25): PaginatedManufacturers!
 
+  """Заметки по subject (Order, Car или Person)"""
+  notes(subjectId: ID!): [NoteModel!]!
+
   """Заказ по ID"""
   order(id: ID!): OrderModel
 
@@ -1444,6 +1489,20 @@ input UpdateManufacturerInput {
 
   """Название производителя"""
   name: String
+}
+
+input UpdateNoteInput {
+  id: ID!
+  isPublic: Boolean = false
+
+  """ID сущности (Order, Car, Person)"""
+  subjectId: ID
+
+  """Текст заметки"""
+  text: String
+
+  """Тип заметки"""
+  type: NoteType
 }
 
 input UpdateOrderInput {

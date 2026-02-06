@@ -26,6 +26,7 @@ import { WalletModule } from './modules/wallet/wallet.module';
 import { CustomerTransactionModule } from './modules/customer-transaction/customer-transaction.module';
 import { SalaryModule } from './modules/salary/salary.module';
 import { SettingsModule } from './modules/settings/settings.module';
+import { NoteModule } from './modules/note/note.module';
 import { DevAuthGuard } from './modules/auth/guards/dev-auth.guard';
 import { Reflector } from '@nestjs/core';
 import authConfig from './config/auth.config';
@@ -62,6 +63,7 @@ import authConfig from './config/auth.config';
     CustomerTransactionModule,
     SalaryModule,
     SettingsModule,
+    NoteModule,
   ],
   providers: [
     {
