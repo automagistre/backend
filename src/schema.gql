@@ -244,7 +244,7 @@ input CloseOrderInput {
 
 input CloseOrderPaymentItem {
   """Сумма в минорных единицах (копейки), положительная"""
-  amountAmount: BigInt!
+  amount: MoneyInput!
 
   """ID счёта (кошелька)"""
   walletId: String!
@@ -300,8 +300,7 @@ input CreateCarInput {
 input CreateCarRecommendationInput {
   carId: ID!
   expiredAt: DateTime
-  priceAmount: BigInt
-  priceCurrencyCode: String
+  price: MoneyInput
   service: String!
 
   """ID сотрудника (employeeId) — диагност/исполнитель рекомендации"""
@@ -310,8 +309,7 @@ input CreateCarRecommendationInput {
 
 input CreateCarRecommendationPartInput {
   partId: ID!
-  priceAmount: BigInt
-  priceCurrencyCode: String
+  price: MoneyInput
   quantity: Int!
   recommendationId: ID!
 }
@@ -329,10 +327,9 @@ input CreateEmployeeInput {
 
 input CreateManualCustomerTransactionInput {
   """
-  Сумма в копейках. Положительная — начисление, отрицательная — списание.
+  Сумма в минорных единицах (копейки). Положительная — начисление, отрицательная — списание.
   """
-  amountAmount: BigInt!
-  amountCurrencyCode: String = "RUB"
+  amount: MoneyInput!
   description: String
 
   """ID операнда (Person или Organization)"""
@@ -368,11 +365,11 @@ input CreateOrderItemGroupInput {
 }
 
 input CreateOrderItemPartInput {
-  discountAmount: BigInt
+  discount: MoneyInput
   orderId: ID!
   parentId: ID
   partId: ID!
-  priceAmount: BigInt
+  price: MoneyInput
   quantity: Int!
   supplierId: ID
   tenantId: ID
@@ -380,10 +377,10 @@ input CreateOrderItemPartInput {
 }
 
 input CreateOrderItemServiceInput {
-  discountAmount: BigInt
+  discount: MoneyInput
   orderId: ID!
   parentId: ID
-  priceAmount: BigInt
+  price: MoneyInput
   service: String!
   tenantId: ID
   warranty: Boolean = false
@@ -392,10 +389,7 @@ input CreateOrderItemServiceInput {
 
 input CreateOrderPrepayInput {
   """Сумма в минорных единицах (копейки)"""
-  amountAmount: BigInt!
-
-  """Код валюты (например RUB)"""
-  amountCurrencyCode: String
+  amount: MoneyInput!
 
   """Описание"""
   description: String
@@ -435,7 +429,7 @@ input CreateOrganizationInput {
 
 input CreatePartInput {
   """Скидка на запчасть"""
-  discount: BigInt
+  discount: MoneyInput
 
   """ID производителя"""
   manufacturerId: ID!
@@ -447,7 +441,7 @@ input CreatePartInput {
   number: String!
 
   """Цена запчасти"""
-  price: BigInt
+  price: MoneyInput
 
   """Единица измерения"""
   unit: Unit!
@@ -525,11 +519,8 @@ input CreateWalletInput {
 }
 
 input CreateWalletTransactionInput {
-  """Сумма в минорных единицах (копейки)"""
-  amountAmount: BigInt
-
-  """Код валюты"""
-  amountCurrencyCode: String
+  """Сумма (минорные единицы + валюта)"""
+  amount: MoneyInput!
 
   """Описание"""
   description: String
@@ -624,6 +615,17 @@ type ManufacturerModel {
 
   """Дата обновления"""
   updatedAt: DateTime!
+}
+
+"""Денежная сумма: минорные единицы и код валюты"""
+input MoneyInput {
+  """Сумма в минорных единицах (копейки)"""
+  amountMinor: BigInt!
+
+  """
+  Код валюты (например RUB). Если не указан — используется валюта по умолчанию.
+  """
+  currencyCode: String
 }
 
 type Mutation {
@@ -1207,10 +1209,7 @@ input RefreshDto {
 
 input RefundOrderPrepayInput {
   """Сумма возврата в минорных единицах (копейки), положительное число"""
-  amountAmount: BigInt!
-
-  """Код валюты (например RUB)"""
-  amountCurrencyCode: String
+  amount: MoneyInput!
 
   """Описание"""
   description: String
@@ -1401,8 +1400,7 @@ input UpdateCarInput {
 input UpdateCarRecommendationInput {
   expiredAt: DateTime
   id: ID!
-  priceAmount: BigInt
-  priceCurrencyCode: String
+  price: MoneyInput
   service: String
 
   """ID сотрудника (employeeId)"""
@@ -1411,8 +1409,7 @@ input UpdateCarRecommendationInput {
 
 input UpdateCarRecommendationPartInput {
   id: ID!
-  priceAmount: BigInt
-  priceCurrencyCode: String
+  price: MoneyInput
   quantity: Int
 }
 
@@ -1451,12 +1448,12 @@ input UpdateOrderInput {
 }
 
 input UpdateOrderItemPartInput {
-  discountAmount: BigInt
+  discount: MoneyInput
   id: ID!
   orderId: ID
   parentId: ID
   partId: ID
-  priceAmount: BigInt
+  price: MoneyInput
   quantity: Int
   supplierId: ID
   tenantId: ID
@@ -1464,11 +1461,11 @@ input UpdateOrderItemPartInput {
 }
 
 input UpdateOrderItemServiceInput {
-  discountAmount: BigInt
+  discount: MoneyInput
   id: ID!
   orderId: ID
   parentId: ID
-  priceAmount: BigInt
+  price: MoneyInput
   service: String
   tenantId: ID
   warranty: Boolean = false
@@ -1506,7 +1503,7 @@ input UpdateOrganizationInput {
 
 input UpdatePartInput {
   """Скидка на запчасть"""
-  discount: BigInt
+  discount: MoneyInput
 
   """ID запчасти"""
   id: ID!
@@ -1527,7 +1524,7 @@ input UpdatePartInput {
   orderUpToQuantity: Int
 
   """Цена запчасти"""
-  price: BigInt
+  price: MoneyInput
 
   """Единица измерения"""
   unit: Unit

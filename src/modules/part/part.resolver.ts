@@ -22,8 +22,9 @@ import { PaginationArgs } from 'src/common/pagination.args';
 import { PaginatedParts } from './inputs/paginatedParts.type';
 import { PartMotionService } from './part-motion.service';
 import { PartRequiredAvailabilityService } from './part-required-availability.service';
-import { normalizeMoneyAmount } from 'src/common/utils/money.util';
+import { applyDefaultCurrency } from 'src/common/money';
 import { ReservationService } from '../reservation/reservation.service';
+import { SettingsService } from '../settings/settings.service';
 
 @Resolver(() => PartModel)
 export class PartResolver {
@@ -35,23 +36,35 @@ export class PartResolver {
     private readonly partMotionService: PartMotionService,
     private readonly partRequiredAvailabilityService: PartRequiredAvailabilityService,
     private readonly reservationService: ReservationService,
+    private readonly settingsService: SettingsService,
   ) {}
 
   @Mutation(() => PartModel)
   async createOnePart(
     @Args('input') input: CreatePartInput,
   ): Promise<PartModel> {
-    if (input.price !== undefined) {
-      const { price, ...data } = input;
-      const part = await this.partService.create(data);
+    const { price, discount, ...data } = input;
+    const part = await this.partService.create(data as CreatePartInput);
+    if (price != null) {
+      const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
+      const priceData = applyDefaultCurrency(price, defaultCurrency);
       await this.partPriceService.create({
         partId: part.id,
-        priceAmount: normalizeMoneyAmount(price),
+        priceAmount: priceData.amountMinor,
         since: new Date(),
       });
-      return part;
     }
-    return this.partService.create(input);
+    if (discount != null) {
+      const defaultCurrency =
+        await this.settingsService.getDefaultCurrencyCode();
+      const discountData = applyDefaultCurrency(discount, defaultCurrency);
+      await this.partDiscountService.create({
+        partId: part.id,
+        discountAmount: discountData.amountMinor,
+        since: new Date(),
+      });
+    }
+    return part;
   }
 
   @Mutation(() => PartModel)
@@ -66,27 +79,28 @@ export class PartResolver {
     const { price, discount, ...data } = input;
 
     const part = await this.partService.update(data);
+    const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
 
-    if (price !== undefined) {
-      const normalizedPrice = normalizeMoneyAmount(price);
-      if (currentPrice?.priceAmount !== normalizedPrice) {
-      await this.partPriceService.create({
-        partId: part.id,
-          priceAmount: normalizedPrice,
-        since: new Date(),
-      });
+    if (price != null) {
+      const priceData = applyDefaultCurrency(price, defaultCurrency);
+      if (currentPrice?.priceAmount !== priceData.amountMinor) {
+        await this.partPriceService.create({
+          partId: part.id,
+          priceAmount: priceData.amountMinor,
+          since: new Date(),
+        });
       }
     }
 
-    if (
-      discount !== undefined &&
-      currentDiscount?.discountAmount !== normalizeMoneyAmount(discount)
-    ) {
-      await this.partDiscountService.create({
-        partId: part.id,
-        discountAmount: normalizeMoneyAmount(discount),
-        since: new Date(),
-      });
+    if (discount != null) {
+      const discountData = applyDefaultCurrency(discount, defaultCurrency);
+      if (currentDiscount?.discountAmount !== discountData.amountMinor) {
+        await this.partDiscountService.create({
+          partId: part.id,
+          discountAmount: discountData.amountMinor,
+          since: new Date(),
+        });
+      }
     }
 
     return part;

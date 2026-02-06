@@ -1,5 +1,7 @@
-import { Field, ID, InputType, Int } from '@nestjs/graphql';
+import { Field, ID, InputType } from '@nestjs/graphql';
+import { IsOptional } from 'class-validator';
 import { Unit } from '../enums/unit.enum';
+import { MoneyInput } from 'src/common/inputs/money.input';
 
 @InputType()
 export class CreatePartInput {
@@ -21,9 +23,11 @@ export class CreatePartInput {
   @Field(() => ID, { nullable: true, description: 'ID склада' })
   warehouseId?: string;
 
-  @Field(() => BigInt, { nullable: true, description: 'Цена запчасти' })
-  price?: bigint | null;
+  @Field(() => MoneyInput, { nullable: true, description: 'Цена запчасти' })
+  @IsOptional()
+  price?: MoneyInput | null;
 
-  @Field(() => BigInt, { nullable: true, description: 'Скидка на запчасть' })
-  discount?: bigint | null;
+  @Field(() => MoneyInput, { nullable: true, description: 'Скидка на запчасть' })
+  @IsOptional()
+  discount?: MoneyInput | null;
 }
