@@ -21,7 +21,7 @@ import { EmployeeModel } from '../employee/models/employee.model';
 import { CarService } from '../vehicle/car.service';
 import { CarModel } from '../vehicle/models/car.model';
 import { CarRecommendationPartModel } from './models/car-recommendation-part.model';
-import { normalizeMoneyAmount } from 'src/common/utils/money.util';
+import { applyDefaultCurrency } from 'src/common/money';
 import { SettingsService } from '../settings/settings.service';
 
 @Resolver(() => CarRecommendationModel)
@@ -60,13 +60,17 @@ export class RecommendationResolver {
     const workerId =
       (await this.employeeService.resolvePersonIdByWorkerId(input.workerId)) ??
       input.workerId;
+    const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
+    const priceData = input.price
+      ? applyDefaultCurrency(input.price, defaultCurrency)
+      : { amountMinor: 0n, currencyCode: defaultCurrency };
     const result = await this.recommendationService.createRecommendation({
       carId: input.carId,
       service: input.service.trim(),
       workerId,
       expiredAt: input.expiredAt ?? null,
-      priceAmount: normalizeMoneyAmount(input.priceAmount),
-      priceCurrencyCode: input.priceCurrencyCode ?? (await this.settingsService.getDefaultCurrencyCode()),
+      priceAmount: priceData.amountMinor,
+      priceCurrencyCode: priceData.currencyCode,
     });
     await this.publishCarRecommendationsUpdated(input.carId);
     return result as any;
@@ -89,11 +93,11 @@ export class RecommendationResolver {
     if (input.expiredAt !== undefined) {
       data.expiredAt = input.expiredAt;
     }
-    if (input.priceAmount !== undefined) {
-      data.priceAmount = normalizeMoneyAmount(input.priceAmount);
-    }
-    if (input.priceCurrencyCode !== undefined) {
-      data.priceCurrencyCode = input.priceCurrencyCode ?? (await this.settingsService.getDefaultCurrencyCode());
+    if (input.price !== undefined) {
+      const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
+      const priceData = applyDefaultCurrency(input.price, defaultCurrency);
+      data.priceAmount = priceData.amountMinor;
+      data.priceCurrencyCode = priceData.currencyCode;
     }
 
     const result = await this.recommendationService.updateRecommendation({ id: input.id, ...data });
@@ -126,12 +130,16 @@ export class RecommendationResolver {
   async createCarRecommendationPart(
     @Args('input') input: CreateCarRecommendationPartInput,
   ) {
+    const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
+    const priceData = input.price
+      ? applyDefaultCurrency(input.price, defaultCurrency)
+      : { amountMinor: 0n, currencyCode: defaultCurrency };
     const result = await this.recommendationService.createRecommendationPart({
       recommendationId: input.recommendationId,
       partId: input.partId,
       quantity: input.quantity,
-      priceAmount: normalizeMoneyAmount(input.priceAmount),
-      priceCurrencyCode: input.priceCurrencyCode ?? (await this.settingsService.getDefaultCurrencyCode()),
+      priceAmount: priceData.amountMinor,
+      priceCurrencyCode: priceData.currencyCode,
     });
     // Получаем carId через рекомендацию
     const recommendation = await this.recommendationService.findById(input.recommendationId);
@@ -152,11 +160,11 @@ export class RecommendationResolver {
     if (input.quantity !== undefined && input.quantity !== null) {
       data.quantity = input.quantity;
     }
-    if (input.priceAmount !== undefined) {
-      data.priceAmount = normalizeMoneyAmount(input.priceAmount);
-    }
-    if (input.priceCurrencyCode !== undefined) {
-      data.priceCurrencyCode = input.priceCurrencyCode ?? (await this.settingsService.getDefaultCurrencyCode());
+    if (input.price !== undefined) {
+      const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
+      const priceData = applyDefaultCurrency(input.price, defaultCurrency);
+      data.priceAmount = priceData.amountMinor;
+      data.priceCurrencyCode = priceData.currencyCode;
     }
 
     const result = await this.recommendationService.updateRecommendationPart({ id: input.id, ...data });

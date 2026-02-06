@@ -1,5 +1,6 @@
 import { Field, ID, InputType, Int } from '@nestjs/graphql';
 import { IsOptional, IsUUID, Min } from 'class-validator';
+import { MoneyInput } from 'src/common/inputs/money.input';
 
 @InputType()
 export class CreateCarRecommendationPartInput {
@@ -15,12 +16,8 @@ export class CreateCarRecommendationPartInput {
   @Min(0)
   quantity: number;
 
-  @Field(() => BigInt, { nullable: true })
+  @Field(() => MoneyInput, { nullable: true })
   @IsOptional()
-  priceAmount?: bigint | null;
-
-  @Field(() => String, { nullable: true })
-  @IsOptional()
-  priceCurrencyCode?: string | null;
+  price?: MoneyInput;
 }
 
