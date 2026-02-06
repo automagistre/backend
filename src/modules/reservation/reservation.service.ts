@@ -3,6 +3,7 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { Reservation } from 'src/generated/prisma/client';
 import { TenantService } from 'src/common/services/tenant.service';
 import { OrderStatus } from '../order/enums/order-status.enum';
+import { OrderService } from '../order/order.service';
 
 export interface ReservePartInput {
   orderItemPartId: string;
@@ -27,6 +28,7 @@ export class ReservationService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly tenantService: TenantService,
+    private readonly orderService: OrderService,
   ) {}
 
   private async getStockQuantity(partId: string, tenantId: string): Promise<number> {
@@ -237,6 +239,13 @@ export class ReservationService {
     const { fromOrderItemPartId, toOrderItemPartId, quantity } = input;
     const tenantId = input.tenantId ?? (await this.tenantService.getTenantId());
 
+    const fromOrderId = await this.getOrderIdByOrderItemPartId(fromOrderItemPartId);
+    const toOrderId = await this.getOrderIdByOrderItemPartId(toOrderItemPartId);
+    if (fromOrderId) await this.orderService.validateOrderEditable(fromOrderId);
+    if (toOrderId && toOrderId !== fromOrderId) {
+      await this.orderService.validateOrderEditable(toOrderId);
+    }
+
     if (quantity <= 0) {
       throw new BadRequestException(
         'Количество для переноса резерва должно быть больше 0',
@@ -339,6 +348,11 @@ export class ReservationService {
     const { orderItemPartId, quantity } = input;
     const tenantId = input.tenantId ?? (await this.tenantService.getTenantId());
 
+    const orderId = await this.getOrderIdByOrderItemPartId(orderItemPartId);
+    if (orderId) {
+      await this.orderService.validateOrderEditable(orderId);
+    }
+
     if (quantity <= 0) {
       throw new BadRequestException(
         'Количество для резервирования должно быть больше 0',
@@ -388,6 +402,11 @@ export class ReservationService {
    */
   async release(input: ReleaseReservationInput): Promise<number> {
     const { orderItemPartId, quantity } = input;
+
+    const orderId = await this.getOrderIdByOrderItemPartId(orderItemPartId);
+    if (orderId) {
+      await this.orderService.validateOrderEditable(orderId);
+    }
 
     if (quantity !== undefined) {
       // Частичное снятие резерва - удаляем конкретное количество

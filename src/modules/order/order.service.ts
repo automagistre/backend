@@ -414,6 +414,19 @@ export class OrderService {
     }) as Promise<OrderModel>;
   }
 
+  async isOrderEditable(orderId: string): Promise<boolean> {
+    const tenantId = await this.tenantService.getTenantId();
+    const order = await this.prisma.order.findFirst({
+      where: { id: orderId, tenantId },
+      select: { status: true },
+    });
+    if (!order) return false;
+    return (
+      order.status !== OrderStatus.CLOSED &&
+      order.status !== OrderStatus.CANCELLED
+    );
+  }
+
   async validateOrderEditable(orderId: string): Promise<void> {
     const tenantId = await this.tenantService.getTenantId();
     const order = await this.prisma.order.findFirst({

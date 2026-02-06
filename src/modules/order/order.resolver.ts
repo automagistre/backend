@@ -202,6 +202,11 @@ export class OrderResolver {
     return this.orderService.canDeleteOrder(order.id);
   }
 
+  @ResolveField(() => Boolean)
+  async isEditable(@Parent() order: OrderModel): Promise<boolean> {
+    return this.orderService.isOrderEditable(order.id);
+  }
+
   @ResolveField(() => [OrderPaymentModel])
   async prepayments(@Parent() order: OrderModel): Promise<OrderPaymentModel[]> {
     return this.orderService.findPaymentsByOrderId(order.id);

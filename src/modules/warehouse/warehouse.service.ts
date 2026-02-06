@@ -29,7 +29,7 @@ export class WarehouseService {
     const orderItemPartIds = orderItemParts.map((p) => p.id);
 
     await tx.reservation.deleteMany({
-      where: { orderItemPartId: { in: orderItemPartIds } },
+      where: { tenantId, orderItemPartId: { in: orderItemPartIds } },
     });
 
     for (const oip of orderItemParts) {

@@ -848,6 +848,9 @@ type OrderModel {
   customerTransactions: [CustomerTransactionModel!]!
   description: String
   id: ID!
+
+  """Заказ редактируемый (не закрыт и не отменён)"""
+  isEditable: Boolean!
   items: [OrderItemModel!]!
   mileage: Int
   number: Int!

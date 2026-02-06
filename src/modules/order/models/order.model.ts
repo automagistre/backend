@@ -46,6 +46,11 @@ export class OrderModel {
   })
   canDelete?: boolean;
 
+  @Field(() => Boolean, {
+    description: 'Заказ редактируемый (не закрыт и не отменён)',
+  })
+  isEditable?: boolean;
+
   @Field(() => CarModel, { nullable: true })
   car?: CarModel | null;
 
