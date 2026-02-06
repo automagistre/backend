@@ -9,6 +9,7 @@ import { DisplayContextService } from 'src/modules/display-context/display-conte
 import { CreateCustomerTransactionInput } from './inputs/create-customer-transaction.input';
 import { CreateManualCustomerTransactionInput } from './inputs/create-manual-customer-transaction.input';
 import { CustomerTransactionSource } from './enums/customer-transaction-source.enum';
+import { SettingsService } from 'src/modules/settings/settings.service';
 
 const DEFAULT_TAKE = 25;
 const DEFAULT_SKIP = 0;
@@ -28,6 +29,7 @@ export class CustomerTransactionService {
     private readonly walletService: WalletService,
     private readonly walletTransactionService: WalletTransactionService,
     private readonly displayContextService: DisplayContextService,
+    private readonly settingsService: SettingsService,
   ) {}
 
   /**
@@ -40,6 +42,26 @@ export class CustomerTransactionService {
     tenantId: string,
   ) {
     return tx.customerTransaction.create({
+      data: {
+        operandId: data.operandId,
+        source: data.source,
+        sourceId: data.sourceId,
+        description: data.description ?? null,
+        amountAmount: data.amountAmount ?? null,
+        amountCurrencyCode: data.amountCurrencyCode ?? null,
+        tenantId,
+      },
+    });
+  }
+
+  /**
+   * Создание одной проводки без внешней транзакции (для фонового job, напр. начисление зарплаты по заказу).
+   */
+  async create(
+    data: CreateCustomerTransactionInput,
+    tenantId: string,
+  ) {
+    return this.prisma.customerTransaction.create({
       data: {
         operandId: data.operandId,
         source: data.source,
@@ -100,6 +122,9 @@ export class CustomerTransactionService {
    * Контекстная строка для отображения проводки по операнду.
    */
   async getSourceDisplay(source: number, sourceId: string): Promise<string> {
+    if (source === CustomerTransactionSource.OrderSalary) {
+      return this.displayContextService.getOrderContextByOrderIdForSalary(sourceId);
+    }
     if (ORDER_SOURCES.includes(source as CustomerTransactionSource)) {
       return this.displayContextService.getOrderContext(sourceId);
     }
@@ -117,7 +142,8 @@ export class CustomerTransactionService {
   async createManualTransaction(input: CreateManualCustomerTransactionInput) {
     const tenantId = await this.tenantService.getTenantId();
     const amountAmount = input.amountAmount;
-    const amountCurrencyCode = input.amountCurrencyCode ?? 'RUB';
+    const amountCurrencyCode =
+      input.amountCurrencyCode ?? (await this.settingsService.getDefaultCurrencyCode());
 
     if (input.walletId) {
       const wallet = await this.walletService.findOne(input.walletId);

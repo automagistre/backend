@@ -5,6 +5,8 @@ export enum CustomerTransactionSource {
   OrderPrepay = 1,
   OrderDebit = 2,
   OrderPayment = 3,
+  /** Зарплата по заказу (sourceId = orderItemId)*/
+  OrderSalary = 4,
   OrderPrepayRefund = 4,
   Manual = 10,
   ManualWithoutWallet = 11,
@@ -14,7 +16,7 @@ const LABELS: Record<CustomerTransactionSource, string> = {
   [CustomerTransactionSource.OrderPrepay]: 'Предоплата по заказу',
   [CustomerTransactionSource.OrderDebit]: 'Начисление по заказу',
   [CustomerTransactionSource.OrderPayment]: 'Списание по заказу',
-  [CustomerTransactionSource.OrderPrepayRefund]: 'Возврат предоплаты',
+  [CustomerTransactionSource.OrderSalary]: 'Зарплата по заказу',
   [CustomerTransactionSource.Manual]: 'Ручная проводка',
   [CustomerTransactionSource.ManualWithoutWallet]: 'Ручная проводка (без счёта)',
 };
