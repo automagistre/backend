@@ -20,7 +20,7 @@ import { PartCrossService } from './part-cross.service';
 import { AddPartCrossInput } from './inputs/add-part-cross.input';
 import { PaginationArgs } from 'src/common/pagination.args';
 import { PaginatedParts } from './inputs/paginatedParts.type';
-import { PartMotionService } from './part-motion.service';
+import { WarehouseService } from '../warehouse/warehouse.service';
 import { PartRequiredAvailabilityService } from './part-required-availability.service';
 import { applyDefaultCurrency } from 'src/common/money';
 import { ReservationService } from '../reservation/reservation.service';
@@ -33,7 +33,7 @@ export class PartResolver {
     private readonly partPriceService: PartPriceService,
     private readonly partDiscountService: PartDiscountService,
     private readonly partCrossService: PartCrossService,
-    private readonly partMotionService: PartMotionService,
+    private readonly warehouseService: WarehouseService,
     private readonly partRequiredAvailabilityService: PartRequiredAvailabilityService,
     private readonly reservationService: ReservationService,
     private readonly settingsService: SettingsService,
@@ -165,7 +165,7 @@ export class PartResolver {
 
   @ResolveField(() => Int, { nullable: true })
   async stockQuantity(@Parent() part: PartModel): Promise<number | null> {
-    return this.partMotionService.getStockQuantity(part.id);
+    return this.warehouseService.getStockQuantity(part.id);
   }
 
   

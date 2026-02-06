@@ -11,17 +11,9 @@ registerEnumType(MotionSourceType, {
   name: 'MotionSourceType',
   description: 'Типы источников движения запчастей',
   valuesMap: {
-    MANUAL: {
-      description: 'Ручное движение',
-    },
-    INCOME: {
-      description: 'Приход',
-    },
-    ORDER: {
-      description: 'Заказ',
-    },
-    INVENTORIZATION: {
-      description: 'Инвентаризация',
-    },
+    MANUAL: { description: 'Ручное движение' },
+    INCOME: { description: 'Приход' },
+    ORDER: { description: 'Заказ' },
+    INVENTORIZATION: { description: 'Инвентаризация' },
   },
 });

@@ -1,5 +1,5 @@
 import { Field, ID, InputType, Int } from '@nestjs/graphql';
-import { MotionSourceType } from '../enums/motion-source-type.enum';
+import { MotionSourceType } from '../../warehouse/enums/motion-source-type.enum';
 
 @InputType()
 export class ChangeStockInput {

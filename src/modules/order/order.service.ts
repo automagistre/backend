@@ -19,6 +19,7 @@ import { SalaryService } from 'src/modules/salary/salary.service';
 import { CustomerTransactionService } from 'src/modules/customer-transaction/customer-transaction.service';
 import { CustomerTransactionSource } from 'src/modules/customer-transaction/enums/customer-transaction-source.enum';
 import { SettingsService } from 'src/modules/settings/settings.service';
+import { WarehouseService } from 'src/modules/warehouse/warehouse.service';
 import { applyDefaultCurrency } from 'src/common/money';
 
 const DELETE_COOLING_HOURS = 3;
@@ -34,6 +35,7 @@ export class OrderService {
     private readonly salaryService: SalaryService,
     private readonly customerTransactionService: CustomerTransactionService,
     private readonly settingsService: SettingsService,
+    private readonly warehouseService: WarehouseService,
   ) {}
 
   async findOne(id: string): Promise<OrderModel | null> {
@@ -607,6 +609,8 @@ export class OrderService {
           tenantId,
         );
       }
+
+      await this.warehouseService.debitForOrder(tx, input.orderId, tenantId);
 
       await tx.order.update({
         where: { id: input.orderId },

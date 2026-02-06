@@ -3,6 +3,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { GraphQLModule } from '@nestjs/graphql';
 import { ManufacturerModule } from './modules/manufacturer/manufacturer.module';
 import { PartModule } from './modules/part/part.module';
+import { WarehouseModule } from './modules/warehouse/warehouse.module';
 import { ApolloDriver } from '@nestjs/apollo';
 import { PrismaModule } from './prisma/prisma.module';
 import { getGraphQLConfig } from './config/graphql.config';
@@ -44,6 +45,7 @@ import authConfig from './config/auth.config';
     PrismaModule,
     CommonModule,
     ManufacturerModule,
+    WarehouseModule,
     PartModule,
     PersonModule,
     CarModule,
