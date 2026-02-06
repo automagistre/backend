@@ -23,6 +23,8 @@ import { RecommendationModule } from './modules/recommendation/recommendation.mo
 import { RecommendationMigrationModule } from './modules/recommendation-migration/recommendation-migration.module';
 import { WalletModule } from './modules/wallet/wallet.module';
 import { CustomerTransactionModule } from './modules/customer-transaction/customer-transaction.module';
+import { SalaryModule } from './modules/salary/salary.module';
+import { SettingsModule } from './modules/settings/settings.module';
 import { DevAuthGuard } from './modules/auth/guards/dev-auth.guard';
 import { Reflector } from '@nestjs/core';
 import authConfig from './config/auth.config';
@@ -56,6 +58,8 @@ import authConfig from './config/auth.config';
     RecommendationMigrationModule,
     WalletModule,
     CustomerTransactionModule,
+    SalaryModule,
+    SettingsModule,
   ],
   providers: [
     {
