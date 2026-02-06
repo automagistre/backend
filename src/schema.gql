@@ -544,6 +544,9 @@ type CustomerTransactionModel {
   description: String
   id: ID!
 
+  """ФИО операнда (для отображения в сводке)"""
+  operandDisplayName: String
+
   """ID заказчика (Person или Organization)"""
   operandId: String!
 
@@ -842,6 +845,7 @@ type OrderModel {
   createdBy: ID
   customer: PersonModel
   customerId: ID
+  customerTransactions: [CustomerTransactionModel!]!
   description: String
   id: ID!
   items: [OrderItemModel!]!
@@ -851,6 +855,7 @@ type OrderModel {
   """Предоплаты по заказу"""
   prepayments: [OrderPaymentModel!]!
   status: OrderStatus!
+  walletTransactions: [WalletTransactionModel!]!
   worker: EmployeeModel
   workerId: ID
 }

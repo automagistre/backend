@@ -116,6 +116,26 @@ export class WalletTransactionService {
     });
   }
 
+  /** Все проводки по заказу (OrderPrepay, OrderDebit, OrderPrepayRefund). */
+  async findByOrderId(orderId: string) {
+    const tenantId = await this.tenantService.getTenantId();
+    return this.prisma.walletTransaction.findMany({
+      where: {
+        tenantId,
+        sourceId: orderId,
+        source: {
+          in: [
+            WalletTransactionSource.OrderPrepay,
+            WalletTransactionSource.OrderDebit,
+            WalletTransactionSource.OrderPrepayRefund,
+          ],
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      include: { wallet: true },
+    });
+  }
+
   async findOne(id: string) {
     const tenantId = await this.tenantService.getTenantId();
     return this.prisma.walletTransaction.findFirst({

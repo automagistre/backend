@@ -119,6 +119,19 @@ export class CustomerTransactionService {
     return { items, total };
   }
 
+  /** Проводки по заказу (OrderPrepay, OrderDebit, OrderPayment, OrderPrepayRefund; sourceId = orderId). */
+  async findByOrderId(orderId: string) {
+    const tenantId = await this.tenantService.getTenantId();
+    return this.prisma.customerTransaction.findMany({
+      where: {
+        tenantId,
+        sourceId: orderId,
+        source: { in: ORDER_SOURCES },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
   async getBalance(operandId: string): Promise<bigint> {
     const tenantId = await this.tenantService.getTenantId();
     const result = await this.prisma.customerTransaction.aggregate({
@@ -126,6 +139,10 @@ export class CustomerTransactionService {
       _sum: { amountAmount: true },
     });
     return result._sum.amountAmount ?? BigInt(0);
+  }
+
+  async getOperandDisplayName(operandId: string): Promise<string | null> {
+    return this.displayContextService.getOperandDisplayName(operandId);
   }
 
   /**

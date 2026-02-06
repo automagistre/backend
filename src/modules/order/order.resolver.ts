@@ -22,6 +22,9 @@ import { PersonModel } from '../person/models/person.model';
 import { EmployeeModel } from '../employee/models/employee.model';
 import { WalletTransactionModel } from '../wallet/models/wallet-transaction.model';
 import { OrderPaymentModel } from './models/order-payment.model';
+import { CustomerTransactionModel } from '../customer-transaction/models/customer-transaction.model';
+import { WalletTransactionService } from '../wallet/wallet-transaction.service';
+import { CustomerTransactionService } from '../customer-transaction/customer-transaction.service';
 import { UpdateOrderInput } from './inputs/update-order.input';
 import { CreateOrderInput } from './inputs/create-order.input';
 import { CreateOrderPrepayInput } from './inputs/create-order-prepay.input';
@@ -39,6 +42,8 @@ export class OrderResolver {
     private readonly carService: CarService,
     private readonly personService: PersonService,
     private readonly employeeService: EmployeeService,
+    private readonly walletTransactionService: WalletTransactionService,
+    private readonly customerTransactionService: CustomerTransactionService,
     @Inject('PUB_SUB') private readonly pubSub: PubSub,
   ) {}
 
@@ -200,6 +205,20 @@ export class OrderResolver {
   @ResolveField(() => [OrderPaymentModel])
   async prepayments(@Parent() order: OrderModel): Promise<OrderPaymentModel[]> {
     return this.orderService.findPaymentsByOrderId(order.id);
+  }
+
+  @ResolveField(() => [WalletTransactionModel])
+  async walletTransactions(
+    @Parent() order: OrderModel,
+  ): Promise<WalletTransactionModel[]> {
+    return this.walletTransactionService.findByOrderId(order.id);
+  }
+
+  @ResolveField(() => [CustomerTransactionModel])
+  async customerTransactions(
+    @Parent() order: OrderModel,
+  ): Promise<CustomerTransactionModel[]> {
+    return this.customerTransactionService.findByOrderId(order.id);
   }
 
   @Mutation(() => Boolean, {
