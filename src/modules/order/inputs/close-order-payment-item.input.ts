@@ -1,5 +1,6 @@
 import { Field, InputType } from '@nestjs/graphql';
 import { IsUUID } from 'class-validator';
+import { MoneyInput } from 'src/common/inputs/money.input';
 
 /** Один платёж при закрытии заказа: счёт и сумма (order_payment не создаём). */
 @InputType()
@@ -8,8 +9,8 @@ export class CloseOrderPaymentItem {
   @Field(() => String, { description: 'ID счёта (кошелька)' })
   walletId: string;
 
-  @Field(() => BigInt, {
+  @Field(() => MoneyInput, {
     description: 'Сумма в минорных единицах (копейки), положительная',
   })
-  amountAmount: bigint;
+  amount: MoneyInput;
 }

@@ -18,6 +18,7 @@ import { OrderItemType } from './enums/order-item-type.enum';
 import { v6 as uuidv6 } from 'uuid';
 import { ReservationService } from '../reservation/reservation.service';
 import { TenantService } from 'src/common/services/tenant.service';
+import { applyDefaultCurrency } from 'src/common/money';
 import { normalizeMoneyAmount } from 'src/common/utils/money.util';
 import { SettingsService } from 'src/modules/settings/settings.service';
 
@@ -186,6 +187,13 @@ export class OrderItemService {
   ): Promise<OrderItemModel> {
     await this.orderService.validateOrderEditable(input.orderId);
     const tenantId = input.tenantId ?? (await this.tenantService.getTenantId());
+    const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
+    const priceData = input.price
+      ? applyDefaultCurrency(input.price, defaultCurrency)
+      : { amountMinor: 0n, currencyCode: defaultCurrency };
+    const discountData = input.discount
+      ? applyDefaultCurrency(input.discount, defaultCurrency)
+      : { amountMinor: 0n, currencyCode: defaultCurrency };
 
     const orderItem = await this.prisma.orderItem.create({
       data: {
@@ -199,10 +207,10 @@ export class OrderItemService {
             service: input.service,
             workerId: input.workerId,
             warranty: input.warranty ?? false,
-            priceAmount: normalizeMoneyAmount(input.priceAmount),
-            priceCurrencyCode: (await this.settingsService.getDefaultCurrencyCode()),
-            discountAmount: normalizeMoneyAmount(input.discountAmount),
-            discountCurrencyCode: (await this.settingsService.getDefaultCurrencyCode()),
+            priceAmount: priceData.amountMinor,
+            priceCurrencyCode: priceData.currencyCode,
+            discountAmount: discountData.amountMinor,
+            discountCurrencyCode: discountData.currencyCode,
           },
         },
       },
@@ -234,6 +242,14 @@ export class OrderItemService {
       }
     }
 
+    const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
+    const priceData = input.price
+      ? applyDefaultCurrency(input.price, defaultCurrency)
+      : { amountMinor: 0n, currencyCode: defaultCurrency };
+    const discountData = input.discount
+      ? applyDefaultCurrency(input.discount, defaultCurrency)
+      : { amountMinor: 0n, currencyCode: defaultCurrency };
+
     const orderItem = await this.prisma.orderItem.create({
       data: {
         id: uuidv6(),
@@ -247,10 +263,10 @@ export class OrderItemService {
             supplierId: input.supplierId,
             quantity: input.quantity,
             warranty: input.warranty ?? false,
-            priceAmount: normalizeMoneyAmount(input.priceAmount),
-            priceCurrencyCode: (await this.settingsService.getDefaultCurrencyCode()),
-            discountAmount: normalizeMoneyAmount(input.discountAmount),
-            discountCurrencyCode: (await this.settingsService.getDefaultCurrencyCode()),
+            priceAmount: priceData.amountMinor,
+            priceCurrencyCode: priceData.currencyCode,
+            discountAmount: discountData.amountMinor,
+            discountCurrencyCode: discountData.currencyCode,
           },
         },
       },
@@ -422,13 +438,23 @@ export class OrderItemService {
     // Обновляем только переданные поля
     const updateData: any = {};
     if (input.quantity !== undefined) updateData.quantity = input.quantity;
-    if (input.priceAmount !== undefined) {
-      updateData.priceAmount = normalizeMoneyAmount(input.priceAmount);
-      updateData.priceCurrencyCode = (await this.settingsService.getDefaultCurrencyCode());
+    if (input.price !== undefined) {
+      const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
+      const priceData =
+        input.price != null
+          ? applyDefaultCurrency(input.price, defaultCurrency)
+          : { amountMinor: 0n, currencyCode: defaultCurrency };
+      updateData.priceAmount = priceData.amountMinor;
+      updateData.priceCurrencyCode = priceData.currencyCode;
     }
-    if (input.discountAmount !== undefined) {
-      updateData.discountAmount = normalizeMoneyAmount(input.discountAmount);
-      updateData.discountCurrencyCode = (await this.settingsService.getDefaultCurrencyCode());
+    if (input.discount !== undefined) {
+      const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
+      const discountData =
+        input.discount != null
+          ? applyDefaultCurrency(input.discount, defaultCurrency)
+          : { amountMinor: 0n, currencyCode: defaultCurrency };
+      updateData.discountAmount = discountData.amountMinor;
+      updateData.discountCurrencyCode = discountData.currencyCode;
     }
     if (input.warranty !== undefined) updateData.warranty = input.warranty;
     if (input.supplierId !== undefined)
@@ -491,13 +517,23 @@ export class OrderItemService {
     // Обновляем только переданные поля
     const updateData: any = {};
     if (input.service !== undefined) updateData.service = input.service;
-    if (input.priceAmount !== undefined) {
-      updateData.priceAmount = normalizeMoneyAmount(input.priceAmount);
-      updateData.priceCurrencyCode = (await this.settingsService.getDefaultCurrencyCode());
+    if (input.price !== undefined) {
+      const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
+      const priceData =
+        input.price != null
+          ? applyDefaultCurrency(input.price, defaultCurrency)
+          : { amountMinor: 0n, currencyCode: defaultCurrency };
+      updateData.priceAmount = priceData.amountMinor;
+      updateData.priceCurrencyCode = priceData.currencyCode;
     }
-    if (input.discountAmount !== undefined) {
-      updateData.discountAmount = normalizeMoneyAmount(input.discountAmount);
-      updateData.discountCurrencyCode = (await this.settingsService.getDefaultCurrencyCode());
+    if (input.discount !== undefined) {
+      const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
+      const discountData =
+        input.discount != null
+          ? applyDefaultCurrency(input.discount, defaultCurrency)
+          : { amountMinor: 0n, currencyCode: defaultCurrency };
+      updateData.discountAmount = discountData.amountMinor;
+      updateData.discountCurrencyCode = discountData.currencyCode;
     }
     if (input.warranty !== undefined) updateData.warranty = input.warranty;
     if (input.workerId !== undefined) updateData.workerId = input.workerId;

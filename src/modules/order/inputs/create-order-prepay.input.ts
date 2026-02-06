@@ -1,11 +1,6 @@
-import { Field, InputType, Int } from '@nestjs/graphql';
-import {
-  IsOptional,
-  IsString,
-  IsUUID,
-  Length,
-  MaxLength,
-} from 'class-validator';
+import { Field, InputType } from '@nestjs/graphql';
+import { IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
+import { MoneyInput } from 'src/common/inputs/money.input';
 
 @InputType()
 export class CreateOrderPrepayInput {
@@ -17,19 +12,10 @@ export class CreateOrderPrepayInput {
   @Field(() => String, { description: 'ID счёта' })
   walletId: string;
 
-  @Field(() => BigInt, {
+  @Field(() => MoneyInput, {
     description: 'Сумма в минорных единицах (копейки)',
   })
-  amountAmount: bigint;
-
-  @IsOptional()
-  @IsString()
-  @Length(3, 3)
-  @Field(() => String, {
-    nullable: true,
-    description: 'Код валюты (например RUB)',
-  })
-  amountCurrencyCode?: string | null;
+  amount: MoneyInput;
 
   @IsOptional()
   @IsString()

@@ -19,6 +19,7 @@ import { SalaryService } from 'src/modules/salary/salary.service';
 import { CustomerTransactionService } from 'src/modules/customer-transaction/customer-transaction.service';
 import { CustomerTransactionSource } from 'src/modules/customer-transaction/enums/customer-transaction-source.enum';
 import { SettingsService } from 'src/modules/settings/settings.service';
+import { applyDefaultCurrency } from 'src/common/money';
 
 const DELETE_COOLING_HOURS = 3;
 /** Совместимость со старой CRM: DiscriminatorMap OrderClose — 1 = OrderDeal, 2 = OrderCancel */
@@ -57,14 +58,17 @@ export class OrderService {
     });
     if (!wallet) throw new NotFoundException('Счёт не найден');
     const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
-    const amountCurrencyCode = input.amountCurrencyCode ?? defaultCurrency;
+    const { amountMinor, currencyCode } = applyDefaultCurrency(
+      input.amount,
+      defaultCurrency,
+    );
     return this.prisma.$transaction(async (tx) => {
       await tx.orderPayment.create({
         data: {
           orderId: input.orderId,
           tenantId,
-          amountAmount: input.amountAmount,
-          amountCurrencyCode,
+          amountAmount: amountMinor,
+          amountCurrencyCode: currencyCode,
           description: input.description ?? null,
         },
       });
@@ -74,8 +78,7 @@ export class OrderService {
           walletId: input.walletId,
           source: WalletTransactionSource.OrderPrepay,
           sourceId: input.orderId,
-          amountAmount: input.amountAmount,
-          amountCurrencyCode,
+          amount: { amountMinor, currencyCode },
           description: input.description ?? null,
         },
         tenantId,
@@ -102,21 +105,25 @@ export class OrderService {
       (acc, p) => acc + (p.amountAmount ?? 0n),
       0n,
     );
-    const refundAmount = input.amountAmount > 0n ? input.amountAmount : -input.amountAmount;
+    const { amountMinor } = applyDefaultCurrency(
+      input.amount,
+      await this.settingsService.getDefaultCurrencyCode(),
+    );
+    const refundAmount = amountMinor > 0n ? amountMinor : -amountMinor;
     if (refundAmount > prepaymentTotal) {
       throw new BadRequestException(
         `Сумма возврата не может превышать сумму предоплат по заказу`,
       );
     }
     const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
-    const amountCurrencyCode = input.amountCurrencyCode ?? defaultCurrency;
+    const { currencyCode } = applyDefaultCurrency(input.amount, defaultCurrency);
     return this.prisma.$transaction(async (tx) => {
       await tx.orderPayment.create({
         data: {
           orderId: input.orderId,
           tenantId,
           amountAmount: -refundAmount,
-          amountCurrencyCode,
+          amountCurrencyCode: currencyCode,
           description: input.description ?? null,
         },
       });
@@ -126,8 +133,7 @@ export class OrderService {
           walletId: input.walletId,
           source: WalletTransactionSource.OrderPrepayRefund,
           sourceId: input.orderId,
-          amountAmount: -refundAmount,
-          amountCurrencyCode,
+          amount: { amountMinor: -refundAmount, currencyCode },
           description: input.description ?? null,
         },
         tenantId,
@@ -488,8 +494,10 @@ export class OrderService {
     await this.validateOrderEditable(input.orderId);
 
     const payments = input.payments ?? [];
+    const currencyCode = await this.settingsService.getDefaultCurrencyCode();
     for (const p of payments) {
-      if (p.amountAmount <= 0n) {
+      const { amountMinor } = applyDefaultCurrency(p.amount, currencyCode);
+      if (amountMinor <= 0n) {
         throw new BadRequestException(
           'Сумма платежа при закрытии должна быть положительной',
         );
@@ -508,7 +516,6 @@ export class OrderService {
         ? await this.customerTransactionService.getBalance(order.customerId)
         : 0n;
     const orderTotal = await this.getOrderTotal(input.orderId);
-    const currencyCode = await this.settingsService.getDefaultCurrencyCode();
 
     await this.prisma.$transaction(async (tx) => {
       const orderClose = await tx.orderClose.create({
@@ -527,14 +534,17 @@ export class OrderService {
       });
 
       for (const p of payments) {
+        const { amountMinor, currencyCode: pCurrency } = applyDefaultCurrency(
+          p.amount,
+          currencyCode,
+        );
         await this.walletTransactionService.createWithinTransaction(
           tx,
           {
             walletId: p.walletId,
             source: WalletTransactionSource.OrderDebit,
             sourceId: input.orderId,
-            amountAmount: p.amountAmount,
-            amountCurrencyCode: currencyCode,
+            amount: { amountMinor, currencyCode: pCurrency },
           },
           tenantId,
         );
@@ -545,8 +555,7 @@ export class OrderService {
               operandId: order.customerId,
               source: CustomerTransactionSource.OrderDebit,
               sourceId: input.orderId,
-              amountAmount: p.amountAmount,
-              amountCurrencyCode: currencyCode,
+              amount: { amountMinor, currencyCode: pCurrency },
             },
             tenantId,
           );
@@ -570,8 +579,10 @@ export class OrderService {
               operandId: order.customerId,
               source,
               sourceId: input.orderId,
-              amountAmount: amount,
-              amountCurrencyCode: prepay.amountCurrencyCode ?? currencyCode,
+              amount: {
+                amountMinor: amount,
+                currencyCode: prepay.amountCurrencyCode ?? currencyCode,
+              },
             },
             tenantId,
           );
@@ -588,8 +599,10 @@ export class OrderService {
             operandId: order.customerId,
             source: CustomerTransactionSource.OrderPayment,
             sourceId: input.orderId,
-            amountAmount: -orderTotal,
-            amountCurrencyCode: currencyCode,
+            amount: {
+              amountMinor: -orderTotal,
+              currencyCode: currencyCode,
+            },
           },
           tenantId,
         );

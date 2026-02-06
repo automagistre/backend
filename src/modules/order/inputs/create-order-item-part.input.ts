@@ -1,4 +1,6 @@
 import { Field, ID, Int, InputType } from '@nestjs/graphql';
+import { IsOptional } from 'class-validator';
+import { MoneyInput } from 'src/common/inputs/money.input';
 
 @InputType()
 export class CreateOrderItemPartInput {
@@ -23,9 +25,11 @@ export class CreateOrderItemPartInput {
   @Field(() => Boolean, { defaultValue: false, nullable: true })
   warranty?: boolean;
 
-  @Field(() => BigInt, { nullable: true })
-  priceAmount?: bigint | null;
+  @Field(() => MoneyInput, { nullable: true })
+  @IsOptional()
+  price?: MoneyInput | null;
 
-  @Field(() => BigInt, { nullable: true })
-  discountAmount?: bigint | null;
+  @Field(() => MoneyInput, { nullable: true })
+  @IsOptional()
+  discount?: MoneyInput | null;
 }
