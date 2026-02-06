@@ -79,6 +79,23 @@ export class DisplayContextService {
     return parts.join(', ');
   }
 
+  /** Отображение операнда: «Фамилия Имя» или название организации. */
+  async getOperandDisplayName(operandId: string): Promise<string | null> {
+    const person = await this.prisma.person.findUnique({
+      where: { id: operandId },
+      select: { lastname: true, firstname: true },
+    });
+    if (person) {
+      const name = [person.lastname, person.firstname].filter(Boolean).join(' ');
+      return name || null;
+    }
+    const org = await this.prisma.organization.findUnique({
+      where: { id: operandId },
+      select: { name: true },
+    });
+    return org?.name ?? null;
+  }
+
   /** ФИО персоны по id. */
   async getPersonDisplay(personId: string): Promise<string> {
     const person = await this.prisma.person.findUnique({

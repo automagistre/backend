@@ -28,6 +28,16 @@ export class CustomerTransactionResolver {
     );
   }
 
+  @ResolveField(() => String, {
+    nullable: true,
+    description: 'ФИО операнда (для отображения в сводке)',
+  })
+  async operandDisplayName(
+    @Parent() tx: { operandId: string },
+  ): Promise<string | null> {
+    return this.customerTransactionService.getOperandDisplayName(tx.operandId);
+  }
+
   @Query(() => PaginatedCustomerTransactions)
   async customerTransactions(
     @Args('operandId') operandId: string,
