@@ -9,10 +9,8 @@ import { ReturnWorkToRecommendationInput } from 'src/modules/recommendation-migr
 import { ReturnWorkToRecommendationPayload } from 'src/modules/recommendation-migration/models/return-work-to-recommendation.payload';
 import { OrderItemService } from 'src/modules/order/order-item.service';
 import { RecommendationService } from 'src/modules/recommendation/recommendation.service';
-import {
-  normalizeMoneyAmount,
-  rubCurrencyCode,
-} from 'src/common/utils/money.util';
+import { normalizeMoneyAmount } from 'src/common/utils/money.util';
+import { SettingsService } from 'src/modules/settings/settings.service';
 import { v6 as uuidv6 } from 'uuid';
 
 @Injectable()
@@ -23,6 +21,7 @@ export class RecommendationWorkMigrationService {
     private readonly orderItemService: OrderItemService,
     private readonly employeeService: EmployeeService,
     private readonly recommendationService: RecommendationService,
+    private readonly settingsService: SettingsService,
     @Inject('PUB_SUB') private readonly pubSub: PubSub,
   ) {}
 
@@ -138,6 +137,7 @@ export class RecommendationWorkMigrationService {
 
     // Получаем параметры сессии для передачи в транзакции
     const sessionParams = await this.getSessionParams();
+    const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
 
     const results: RealizeCarRecommendationPayload[] = [];
 
@@ -197,9 +197,9 @@ export class RecommendationWorkMigrationService {
                   workerId: workerPersonId,
                   warranty: false,
                   priceAmount: normalizeMoneyAmount(recommendation.priceAmount),
-                  priceCurrencyCode: rubCurrencyCode(),
+                  priceCurrencyCode: defaultCurrency,
                   discountAmount: normalizeMoneyAmount(undefined),
-                  discountCurrencyCode: rubCurrencyCode(),
+                  discountCurrencyCode: defaultCurrency,
                 },
               },
             },
@@ -341,6 +341,7 @@ export class RecommendationWorkMigrationService {
 
     // Получаем параметры сессии для передачи в транзакцию
     const sessionParams = await this.getSessionParams();
+    const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
 
     // Все изменения данных — в транзакции
     const resolvedRecommendationId = await this.prisma.$transaction(async (tx) => {
@@ -360,7 +361,7 @@ export class RecommendationWorkMigrationService {
             id: recommendation.id,
             service: orderItem.service!.service,
             priceAmount: serviceNetPrice,
-            priceCurrencyCode: rubCurrencyCode(),
+            priceCurrencyCode: defaultCurrency,
             expiredAt: null,
             realization: null,
           },
@@ -377,7 +378,7 @@ export class RecommendationWorkMigrationService {
                 workPart.priceAmount ?? null,
                 workPart.discountAmount ?? null,
               ),
-              priceCurrencyCode: rubCurrencyCode(),
+              priceCurrencyCode: defaultCurrency,
             },
             tx,
           );
@@ -389,7 +390,7 @@ export class RecommendationWorkMigrationService {
             id: recommendation.id,
             service: orderItem.service!.service,
             priceAmount: serviceNetPrice,
-            priceCurrencyCode: rubCurrencyCode(),
+            priceCurrencyCode: defaultCurrency,
             expiredAt: null,
             realization: null,
           },
@@ -414,7 +415,7 @@ export class RecommendationWorkMigrationService {
             workerId,
             expiredAt: null,
             priceAmount: serviceNetPrice,
-            priceCurrencyCode: rubCurrencyCode(),
+            priceCurrencyCode: defaultCurrency,
           },
           tx,
         );
@@ -430,7 +431,7 @@ export class RecommendationWorkMigrationService {
                 part.priceAmount ?? null,
                 part.discountAmount ?? null,
               ),
-              priceCurrencyCode: rubCurrencyCode(),
+              priceCurrencyCode: defaultCurrency,
             },
             tx,
           );

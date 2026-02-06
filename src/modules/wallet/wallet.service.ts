@@ -9,6 +9,7 @@ import {
   UpdateWalletInput,
 } from './inputs/wallet.input';
 import { TenantService } from 'src/common/services/tenant.service';
+import { SettingsService } from 'src/modules/settings/settings.service';
 
 const DEFAULT_TAKE = 25;
 const DEFAULT_SKIP = 0;
@@ -18,10 +19,12 @@ export class WalletService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly tenantService: TenantService,
+    private readonly settingsService: SettingsService,
   ) {}
 
   async create(data: CreateWalletInput) {
     const tenantId = await this.tenantService.getTenantId();
+    const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
     return this.prisma.wallet.create({
       data: {
         name: data.name,
@@ -29,7 +32,7 @@ export class WalletService {
         useInOrder: data.useInOrder ?? false,
         showInLayout: data.showInLayout ?? false,
         defaultInManualTransaction: data.defaultInManualTransaction ?? false,
-        currencyCode: data.currencyCode ?? 'RUB',
+        currencyCode: data.currencyCode ?? defaultCurrency,
         tenantId,
       },
     });

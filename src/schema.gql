@@ -229,6 +229,27 @@ enum CarWheelDrive {
   UNKNOWN
 }
 
+input CloseOrderInput {
+  """ID заказа"""
+  orderId: String!
+
+  """
+  Платежи при закрытии: сколько на какой счёт внесено (без order_payment)
+  """
+  payments: [CloseOrderPaymentItem!]
+
+  """Удовлетворённость (0–3), по умолчанию 0"""
+  satisfaction: Int
+}
+
+input CloseOrderPaymentItem {
+  """Сумма в минорных единицах (копейки), положительная"""
+  amountAmount: BigInt!
+
+  """ID счёта (кошелька)"""
+  walletId: String!
+}
+
 input CreateCarInput {
   """Тип кузова автомобиля"""
   caseType: BodyType
@@ -607,6 +628,14 @@ type ManufacturerModel {
 
 type Mutation {
   addPartCross(input: AddPartCrossInput!): PartModel!
+
+  """
+  Начислить зарплату по закрытому заказу. Проверяет, что заказ закрыт; идемпотентно по начислению.
+  """
+  chargeOrderSalary(orderId: ID!): Boolean!
+
+  """Закрыть заказ"""
+  closeOrder(input: CloseOrderInput!): OrderModel!
 
   """Создать рекомендацию по автомобилю"""
   createCarRecommendation(input: CreateCarRecommendationInput!): CarRecommendationModel!

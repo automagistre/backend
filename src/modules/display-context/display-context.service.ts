@@ -14,6 +14,39 @@ export class DisplayContextService {
     private readonly tenantService: TenantService,
   ) {}
 
+  /**
+   * Контекст для проводки «Зарплата по заказу»: sourceId = orderId (как в старой CRM).
+   * Автомобиль заказа: «Марка Модель | Госномер», например VW VOLKSWAGEN CARAVELLE | У012ХТ71.
+   */
+  async getOrderContextByOrderIdForSalary(orderId: string): Promise<string> {
+    const tenantId = await this.tenantService.getTenantId();
+    const order = await this.prisma.order.findFirst({
+      where: { id: orderId, tenantId },
+      select: {
+        car: {
+          select: {
+            gosnomer: true,
+            vehicle: {
+              select: {
+                name: true,
+                manufacturer: { select: { name: true } },
+              },
+            },
+          },
+        },
+      },
+    });
+    if (!order?.car) return '';
+    const car = order.car;
+    const manufacturerName = car.vehicle?.manufacturer?.name ?? '';
+    const vehicleName = car.vehicle?.name ?? '';
+    const carLabel = [manufacturerName, vehicleName].filter(Boolean).join(' ');
+    const gosnomer = car.gosnomer?.trim() ?? '';
+    if (!carLabel && !gosnomer) return '';
+    if (!gosnomer) return carLabel;
+    return carLabel ? `${carLabel} | ${gosnomer}` : gosnomer;
+  }
+
   /** Контекст заказа: «№123 Фамилия Имя» или «№123 Название организации». */
   async getOrderContext(orderId: string): Promise<string> {
     const tenantId = await this.tenantService.getTenantId();

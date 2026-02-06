@@ -4,10 +4,8 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { v6 as uuidv6 } from 'uuid';
 import { TenantService } from 'src/common/services/tenant.service';
 import { ReservationService } from 'src/modules/reservation/reservation.service';
-import {
-  normalizeMoneyAmount,
-  rubCurrencyCode,
-} from 'src/common/utils/money.util';
+import { normalizeMoneyAmount } from 'src/common/utils/money.util';
+import { SettingsService } from 'src/modules/settings/settings.service';
 import type {
   CreateCarRecommendationPartServiceInput,
   CreateCarRecommendationServiceInput,
@@ -21,6 +19,7 @@ export class RecommendationService {
     private readonly prisma: PrismaService,
     private readonly tenantService: TenantService,
     private readonly reservationService: ReservationService,
+    private readonly settingsService: SettingsService,
   ) {}
 
   async findByCarId(carId: string) {
@@ -109,7 +108,7 @@ export class RecommendationService {
         workerId: input.workerId,
         expiredAt: input.expiredAt ?? null,
         priceAmount: normalizeMoneyAmount(input.priceAmount),
-        priceCurrencyCode: input.priceCurrencyCode ?? rubCurrencyCode(),
+        priceCurrencyCode: input.priceCurrencyCode ?? (await this.settingsService.getDefaultCurrencyCode()),
         // tenantGroupId / createdBy / createdAt — на уровне БД/дефолта
       },
       include: {
@@ -197,7 +196,7 @@ export class RecommendationService {
         partId: input.partId,
         quantity: input.quantity,
         priceAmount: normalizeMoneyAmount(input.priceAmount),
-        priceCurrencyCode: input.priceCurrencyCode ?? rubCurrencyCode(),
+        priceCurrencyCode: input.priceCurrencyCode ?? (await this.settingsService.getDefaultCurrencyCode()),
       },
       include: {
         part: { include: { manufacturer: true } },

@@ -21,10 +21,8 @@ import { EmployeeModel } from '../employee/models/employee.model';
 import { CarService } from '../vehicle/car.service';
 import { CarModel } from '../vehicle/models/car.model';
 import { CarRecommendationPartModel } from './models/car-recommendation-part.model';
-import {
-  normalizeMoneyAmount,
-  rubCurrencyCode,
-} from 'src/common/utils/money.util';
+import { normalizeMoneyAmount } from 'src/common/utils/money.util';
+import { SettingsService } from '../settings/settings.service';
 
 @Resolver(() => CarRecommendationModel)
 export class RecommendationResolver {
@@ -32,6 +30,7 @@ export class RecommendationResolver {
     private readonly recommendationService: RecommendationService,
     private readonly employeeService: EmployeeService,
     private readonly carService: CarService,
+    private readonly settingsService: SettingsService,
     @Inject('PUB_SUB') private readonly pubSub: PubSub,
   ) {}
 
@@ -67,7 +66,7 @@ export class RecommendationResolver {
       workerId,
       expiredAt: input.expiredAt ?? null,
       priceAmount: normalizeMoneyAmount(input.priceAmount),
-      priceCurrencyCode: input.priceCurrencyCode ?? rubCurrencyCode(),
+      priceCurrencyCode: input.priceCurrencyCode ?? (await this.settingsService.getDefaultCurrencyCode()),
     });
     await this.publishCarRecommendationsUpdated(input.carId);
     return result as any;
@@ -94,7 +93,7 @@ export class RecommendationResolver {
       data.priceAmount = normalizeMoneyAmount(input.priceAmount);
     }
     if (input.priceCurrencyCode !== undefined) {
-      data.priceCurrencyCode = input.priceCurrencyCode ?? rubCurrencyCode();
+      data.priceCurrencyCode = input.priceCurrencyCode ?? (await this.settingsService.getDefaultCurrencyCode());
     }
 
     const result = await this.recommendationService.updateRecommendation({ id: input.id, ...data });
@@ -132,7 +131,7 @@ export class RecommendationResolver {
       partId: input.partId,
       quantity: input.quantity,
       priceAmount: normalizeMoneyAmount(input.priceAmount),
-      priceCurrencyCode: input.priceCurrencyCode ?? rubCurrencyCode(),
+      priceCurrencyCode: input.priceCurrencyCode ?? (await this.settingsService.getDefaultCurrencyCode()),
     });
     // Получаем carId через рекомендацию
     const recommendation = await this.recommendationService.findById(input.recommendationId);
@@ -157,7 +156,7 @@ export class RecommendationResolver {
       data.priceAmount = normalizeMoneyAmount(input.priceAmount);
     }
     if (input.priceCurrencyCode !== undefined) {
-      data.priceCurrencyCode = input.priceCurrencyCode ?? rubCurrencyCode();
+      data.priceCurrencyCode = input.priceCurrencyCode ?? (await this.settingsService.getDefaultCurrencyCode());
     }
 
     const result = await this.recommendationService.updateRecommendationPart({ id: input.id, ...data });

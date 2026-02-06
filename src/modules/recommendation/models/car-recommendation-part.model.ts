@@ -34,4 +34,3 @@ export class CarRecommendationPartModel {
   @Field(() => ID, { nullable: true })
   createdBy: string | null;
 }
-
