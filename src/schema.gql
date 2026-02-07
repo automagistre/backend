@@ -805,6 +805,15 @@ enum NoteType {
   WARNING
 }
 
+"""Валидация закрытия заказа"""
+type OrderCloseValidationModel {
+  """Можно закрыть заказ (нет недостатков)"""
+  canClose: Boolean!
+
+  """Недостатки для закрытия (MILEAGE_MISSING, SERVICES_WITHOUT_WORKER)"""
+  closeDeficiencies: [String!]!
+}
+
 """Группа элементов заказа"""
 type OrderItemGroupModel {
   createdAt: DateTime
@@ -882,6 +891,9 @@ type OrderModel {
   canDelete: Boolean!
   car: CarModel
   carId: ID
+
+  """Валидация закрытия заказа"""
+  closeValidation: OrderCloseValidationModel!
   closedAt: DateTime
   createdAt: DateTime
   createdBy: ID

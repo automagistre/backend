@@ -11,6 +11,7 @@ import {
 } from '@nestjs/graphql';
 import { OrderService } from './order.service';
 import { OrderModel } from './models/order.model';
+import { OrderCloseValidationModel } from './models/order-close-validation.model';
 import { OrderItemModel } from './models/order-item.model';
 import { OrderItemService } from './order-item.service';
 import { PubSub } from 'graphql-subscriptions';
@@ -205,6 +206,13 @@ export class OrderResolver {
   @ResolveField(() => Boolean)
   async isEditable(@Parent() order: OrderModel): Promise<boolean> {
     return this.orderService.isOrderEditable(order.id);
+  }
+
+  @ResolveField(() => OrderCloseValidationModel)
+  async closeValidation(
+    @Parent() order: OrderModel,
+  ): Promise<{ canClose: boolean; closeDeficiencies: string[] }> {
+    return this.orderService.getCloseValidation(order.id);
   }
 
   @ResolveField(() => [OrderPaymentModel])

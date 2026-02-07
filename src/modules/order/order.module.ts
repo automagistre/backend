@@ -14,6 +14,7 @@ import { WalletModule } from '../wallet/wallet.module';
 import { SalaryModule } from '../salary/salary.module';
 import { CustomerTransactionModule } from '../customer-transaction/customer-transaction.module';
 import './enums/order-item-type.enum';
+import './enums/close-deficiency.enum';
 
 @Module({
   imports: [

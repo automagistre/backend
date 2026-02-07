@@ -414,6 +414,13 @@ export class OrderService {
     }) as Promise<OrderModel>;
   }
 
+  private isBlockedByStatus(orderStatus: OrderStatus): boolean {
+    return (
+      orderStatus == OrderStatus.CLOSED ||
+      orderStatus == OrderStatus.CANCELLED
+    );
+  }
+
   async isOrderEditable(orderId: string): Promise<boolean> {
     const tenantId = await this.tenantService.getTenantId();
     const order = await this.prisma.order.findFirst({
@@ -421,10 +428,72 @@ export class OrderService {
       select: { status: true },
     });
     if (!order) return false;
-    return (
-      order.status !== OrderStatus.CLOSED &&
-      order.status !== OrderStatus.CANCELLED
-    );
+    return !this.isBlockedByStatus(order.status)
+  }
+
+  async getCloseValidation(orderId: string): Promise<{
+    canClose: boolean;
+    closeDeficiencies: string[];
+  }> {
+    const tenantId = await this.tenantService.getTenantId();
+    const order = await this.prisma.order.findFirst({
+      where: { id: orderId, tenantId },
+      select: {
+        status: true,
+        carId: true,
+        mileage: true,
+        items: {
+          select: {
+            type: true,
+            service: { select: { workerId: true } },
+            children: {
+              select: {
+                type: true,
+                service: { select: { workerId: true } },
+                children: {
+                  select: {
+                    type: true,
+                    service: { select: { workerId: true } },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!order) {
+      return { canClose: false, closeDeficiencies: [] };
+    }
+
+
+    if (this.isBlockedByStatus(order.status)) {
+      return { canClose: false, closeDeficiencies: [] };
+    }
+
+    const deficiencies: string[] = [];
+
+    if (order.carId != null && order.mileage == null) {
+      deficiencies.push('MILEAGE_MISSING');
+    }
+
+    type ItemWithService = { type: string; service?: { workerId: string | null } | null; children?: ItemWithService[] };
+    const hasServiceWithoutWorker = (item: ItemWithService): boolean => {
+      if (item.type === '1' && item.service && item.service.workerId == null) {
+        return true;
+      }
+      return item.children?.some(hasServiceWithoutWorker) ?? false;
+    };
+    const hasServicesWithoutWorker = order.items.some(hasServiceWithoutWorker);
+    if (hasServicesWithoutWorker) {
+      deficiencies.push('SERVICES_WITHOUT_WORKER');
+    }
+
+    return {
+      canClose: deficiencies.length === 0,
+      closeDeficiencies: deficiencies,
+    };
   }
 
   async validateOrderEditable(orderId: string): Promise<void> {
@@ -507,6 +576,20 @@ export class OrderService {
     }
 
     await this.validateOrderEditable(input.orderId);
+
+    const closeValidation = await this.getCloseValidation(input.orderId);
+    if (!closeValidation.canClose) {
+      const messages: Record<string, string> = {
+        MILEAGE_MISSING: 'Укажите пробег',
+        SERVICES_WITHOUT_WORKER: 'Назначьте исполнителей на все работы',
+      };
+      const details = closeValidation.closeDeficiencies
+        .map((d) => messages[d] ?? d)
+        .join('; ');
+      throw new BadRequestException(
+        `Нельзя закрыть заказ: ${details}`,
+      );
+    }
 
     const payments = input.payments ?? [];
     const currencyCode = await this.settingsService.getDefaultCurrencyCode();

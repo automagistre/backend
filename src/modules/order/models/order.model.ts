@@ -3,6 +3,7 @@ import { CarModel } from '../../vehicle/models/car.model';
 import { PersonModel } from '../../person/models/person.model';
 import { EmployeeModel } from '../../employee/models/employee.model';
 import { OrderPaymentModel } from './order-payment.model';
+import { OrderCloseValidationModel } from './order-close-validation.model';
 import { OrderStatus } from '../enums/order-status.enum';
 
 @ObjectType({ description: 'Заказ' })
@@ -50,6 +51,11 @@ export class OrderModel {
     description: 'Заказ редактируемый (не закрыт и не отменён)',
   })
   isEditable?: boolean;
+
+  @Field(() => OrderCloseValidationModel, {
+    description: 'Валидация закрытия заказа',
+  })
+  closeValidation?: OrderCloseValidationModel;
 
   @Field(() => CarModel, { nullable: true })
   car?: CarModel | null;
