@@ -10,6 +10,37 @@ input AddPartCrossInput {
   partId: ID!
 }
 
+type AppealDetailModel {
+  category: Int
+  createdAt: DateTime!
+  date: DateTime
+  diameter: Int
+  email: String
+  equipmentId: String
+  id: String!
+  mileage: Int
+  modelId: String
+  name: String
+  note: String
+  phone: String
+  question: String
+  status: Int!
+  total: BigInt
+  type: Int!
+  works: JSON
+}
+
+type AppealModel {
+  createdAt: DateTime!
+  email: String
+  id: String!
+  name: String!
+  personFullName: String
+  phone: String
+  status: Int!
+  type: Int!
+}
+
 """BigInt custom scalar type"""
 scalar BigInt
 
@@ -629,8 +660,18 @@ type EmployeeSalaryModel {
   payday: Int!
 }
 
+input GetAppealDetailInput {
+  id: String!
+  type: Float!
+}
+
 """Российский государственный номер автомобиля"""
 scalar GosNomerRU
+
+"""
+The `JSON` scalar type represents JSON values as specified by [ECMA-404](http://www.ecma-international.org/publications/files/ECMA-ST/ECMA-404.pdf).
+"""
+scalar JSON
 
 input LoginDto {
   code: String!
@@ -776,6 +817,7 @@ type Mutation {
 
   """Перенести резерв между позициями заказов (сценарий "занять")"""
   transferReservation(input: TransferReservationInput!): Boolean!
+  updateAppealStatus(input: UpdateAppealStatusInput!): Boolean!
 
   """Обновить рекомендацию по автомобилю"""
   updateCarRecommendation(input: UpdateCarRecommendationInput!): CarRecommendationModel!
@@ -1035,6 +1077,11 @@ type OrganizationModel {
   transactions(dateFrom: DateTime, dateTo: DateTime, skip: Int = 0, take: Int = 25): PaginatedCustomerTransactions!
 }
 
+type PaginatedAppeals {
+  items: [AppealModel!]!
+  total: Int!
+}
+
 type PaginatedCars {
   items: [CarModel!]!
   total: Int!
@@ -1209,6 +1256,9 @@ scalar PhoneNumber
 type Query {
   """Список активных заказов"""
   activeOrders(search: String, status: [OrderStatus!]): [OrderModel!]!
+  appealDetail(input: GetAppealDetailInput!): AppealDetailModel!
+  appealOpenCount: Float!
+  appeals(skip: Int = 0, take: Int = 25): PaginatedAppeals!
   car(id: String!): CarModel
   carByIdentifier(identifier: String!): CarModel
 
@@ -1440,6 +1490,11 @@ enum Unit {
 
   """Штука (шт)"""
   THING
+}
+
+input UpdateAppealStatusInput {
+  appealId: String!
+  status: Float!
 }
 
 input UpdateCarInput {

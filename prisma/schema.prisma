@@ -299,93 +299,94 @@ model CalendarEntrySchedule {
   @@map("calendar_entry_schedule")
 }
 
-// model appeal_calculator {
-//   id           String    @id @default(uuid()) @db.Uuid
-//   name         String    @db.VarChar(255)
-//   note         String?   @db.VarChar(255)
-//   phone        String    @db.VarChar(35)
-//   date         DateTime? @db.Date
-//   equipment_id String    @db.Uuid
-//   mileage      Int
-//   total        BigInt
-//   works        Json      @db.Json
-//   tenant_id    String    @db.Uuid
-//   created_at   DateTime? @default(now()) @db.Timestamptz(0)
-//   created_by   String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
-// }
+model AppealCalculator {
+  id        String    @id @default(uuid()) @db.Uuid
+  name      String    @db.VarChar(255)
+  note      String?   @db.VarChar(255)
+  phone     String    @db.VarChar(35)
+  date      DateTime? @db.Date
+  equipmentId String  @map("equipment_id") @db.Uuid
+  mileage   Int
+  total     BigInt
+  works     Json      @db.Json
+  tenantId  String    @map("tenant_id") @db.Uuid
+  createdAt DateTime? @default(now()) @map("created_at") @db.Timestamptz(0)
+  createdBy String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
 
-// /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
-// model appeal_call {
-//   id         String    @id @default(uuid()) @db.Uuid
-//   phone      String    @db.VarChar(35)
-//   tenant_id  String    @db.Uuid
-//   created_at DateTime? @default(now()) @db.Timestamptz(0)
-//   created_by String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
-// }
+  @@map("appeal_calculator")
+}
 
-// /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
-// model appeal_cooperation {
-//   id         String    @id @default(uuid()) @db.Uuid
-//   name       String    @db.VarChar(255)
-//   phone      String    @db.VarChar(35)
-//   tenant_id  String    @db.Uuid
-//   created_at DateTime? @default(now()) @db.Timestamptz(0)
-//   created_by String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
-// }
+model AppealCall {
+  id        String    @id @default(uuid()) @db.Uuid
+  phone     String    @db.VarChar(35)
+  tenantId  String    @map("tenant_id") @db.Uuid
+  createdAt DateTime? @default(now()) @map("created_at") @db.Timestamptz(0)
+  createdBy String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
 
-// model appeal_postpone {
-//   id         String    @id @default(uuid()) @db.Uuid
-//   appeal_id  String    @db.Uuid
-//   tenant_id  String    @db.Uuid
-//   created_at DateTime? @default(now()) @db.Timestamptz(0)
-//   created_by String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
-// }
+  @@map("appeal_call")
+}
 
-// model appeal_question {
-//   id         String    @id @default(uuid()) @db.Uuid
-//   name       String    @db.VarChar(255)
-//   email      String    @db.VarChar(255)
-//   question   String
-//   tenant_id  String    @db.Uuid
-//   created_at DateTime? @default(now()) @db.Timestamptz(0)
-//   created_by String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
-// }
+model AppealCooperation {
+  id        String    @id @default(uuid()) @db.Uuid
+  name      String    @db.VarChar(255)
+  phone     String    @db.VarChar(35)
+  tenantId  String    @map("tenant_id") @db.Uuid
+  createdAt DateTime? @default(now()) @map("created_at") @db.Timestamptz(0)
+  createdBy String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
 
-// /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
-// model appeal_schedule {
-//   id         String    @id @default(uuid()) @db.Uuid
-//   name       String    @db.VarChar(255)
-//   phone      String    @db.VarChar(35)
-//   date       DateTime  @db.Date
-//   tenant_id  String    @db.Uuid
-//   created_at DateTime? @default(now()) @db.Timestamptz(0)
-//   created_by String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
-// }
+  @@map("appeal_cooperation")
+}
 
-// /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
-// model appeal_status {
-//   id         String    @id @default(uuid()) @db.Uuid
-//   appeal_id  String    @db.Uuid
-//   status     Int       @db.SmallInt
-//   tenant_id  String    @db.Uuid
-//   created_at DateTime? @default(now()) @db.Timestamptz(0)
-//   created_by String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
-// }
+model AppealQuestion {
+  id        String    @id @default(uuid()) @db.Uuid
+  name      String    @db.VarChar(255)
+  email     String    @db.VarChar(255)
+  question  String    @db.Text
+  tenantId  String    @map("tenant_id") @db.Uuid
+  createdAt DateTime? @default(now()) @map("created_at") @db.Timestamptz(0)
+  createdBy String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
 
-// /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
-// model appeal_tire_fitting {
-//   id         String    @id @default(uuid()) @db.Uuid
-//   name       String    @db.VarChar(255)
-//   phone      String    @db.VarChar(35)
-//   model_id   String?   @db.Uuid
-//   category   Int       @db.SmallInt
-//   diameter   Int?
-//   total      BigInt
-//   works      Json      @db.Json
-//   tenant_id  String    @db.Uuid
-//   created_at DateTime? @default(now()) @db.Timestamptz(0)
-//   created_by String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
-// }
+  @@map("appeal_question")
+}
+
+model AppealSchedule {
+  id        String    @id @default(uuid()) @db.Uuid
+  name      String    @db.VarChar(255)
+  phone     String    @db.VarChar(35)
+  date      DateTime  @db.Date
+  tenantId  String    @map("tenant_id") @db.Uuid
+  createdAt DateTime? @default(now()) @map("created_at") @db.Timestamptz(0)
+  createdBy String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
+
+  @@map("appeal_schedule")
+}
+
+model AppealStatusRecord {
+  id        String    @id @default(uuid()) @db.Uuid
+  appealId  String    @map("appeal_id") @db.Uuid
+  status    Int       @db.SmallInt
+  tenantId  String    @map("tenant_id") @db.Uuid
+  createdAt DateTime? @default(now()) @map("created_at") @db.Timestamptz(0)
+  createdBy String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
+
+  @@map("appeal_status")
+}
+
+model AppealTireFitting {
+  id        String    @id @default(uuid()) @db.Uuid
+  name      String    @db.VarChar(255)
+  phone     String    @db.VarChar(35)
+  modelId   String?   @map("model_id") @db.Uuid
+  category  Int       @db.SmallInt
+  diameter  Int?
+  total     BigInt
+  works     Json      @db.Json
+  tenantId  String    @map("tenant_id") @db.Uuid
+  createdAt DateTime? @default(now()) @map("created_at") @db.Timestamptz(0)
+  createdBy String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
+
+  @@map("appeal_tire_fitting")
+}
 
 // model cron_job {
 //   id          Int           @id
