@@ -427,41 +427,46 @@ model CustomerTransaction {
 }
 
 model Employee {
-  id        String    @id @default(uuid()) @db.Uuid
-  personId  String    @map("person_id") @db.Uuid
-  person    Person    @relation(fields: [personId], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  ratio     Int
-  hiredAt   DateTime  @map("hired_at") @db.Timestamp(0)
-  firedAt   DateTime? @map("fired_at") @db.Timestamp(0)
-  tenantId  String    @default("1ec13d33-3f41-6e3a-a0cb-02420a000f18") @map("tenant_id") @db.Uuid
-  createdAt DateTime? @default(now()) @map("created_at") @db.Timestamptz(0)
-  createdBy String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
-  Order     Order[]
+  id               String           @id @default(uuid()) @db.Uuid
+  personId         String           @map("person_id") @db.Uuid
+  person           Person           @relation(fields: [personId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  ratio            Int
+  hiredAt          DateTime         @map("hired_at") @db.Timestamp(0)
+  firedAt          DateTime?        @map("fired_at") @db.Timestamp(0)
+  tenantId         String           @default("1ec13d33-3f41-6e3a-a0cb-02420a000f18") @map("tenant_id") @db.Uuid
+  createdAt        DateTime?        @default(now()) @map("created_at") @db.Timestamptz(0)
+  createdBy        String?          @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
+  Order             Order[]
+  employeeSalaries  EmployeeSalary[]
 
   @@unique([personId, firedAt], map: "uniq_person_fired")
   @@map("employee")
 }
 
-// /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
-// model employee_salary {
-//   id                  String               @id @default(uuid()) @db.Uuid
-//   employee_id         String               @db.Uuid
-//   payday              Int
-//   amount              BigInt
-//   tenant_id           String               @db.Uuid
-//   created_at          DateTime?            @default(now()) @db.Timestamptz(0)
-//   created_by          String?              @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
-//   employee_salary_end employee_salary_end?
-// }
+model EmployeeSalary {
+  id                  String              @id @default(uuid()) @db.Uuid
+  employeeId          String              @map("employee_id") @db.Uuid
+  employee            Employee            @relation(fields: [employeeId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  payday              Int
+  amount              BigInt
+  tenantId            String              @map("tenant_id") @db.Uuid
+  createdAt           DateTime?           @default(now()) @map("created_at") @db.Timestamptz(0)
+  createdBy           String?             @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
+  employeeSalaryEnd   EmployeeSalaryEnd?
 
-// model employee_salary_end {
-//   id              String           @id @default(uuid()) @db.Uuid
-//   salary_id       String?          @unique(map: "uniq_59455a58b0fdf16e") @db.Uuid
-//   tenant_id       String           @db.Uuid
-//   created_at      DateTime?        @default(now()) @db.Timestamptz(0)
-//   created_by      String?          @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
-//   employee_salary employee_salary? @relation(fields: [salary_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_59455a58b0fdf16e")
-// }
+  @@map("employee_salary")
+}
+
+model EmployeeSalaryEnd {
+  id             String          @id @default(uuid()) @db.Uuid
+  salaryId       String?         @unique(map: "uniq_59455a58b0fdf16e") @map("salary_id") @db.Uuid
+  tenantId       String          @map("tenant_id") @db.Uuid
+  createdAt      DateTime?       @default(now()) @map("created_at") @db.Timestamptz(0)
+  createdBy      String?         @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
+  employeeSalary EmployeeSalary? @relation(fields: [salaryId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_59455a58b0fdf16e")
+
+  @@map("employee_salary_end")
+}
 
 // model expense {
 //   id         String    @id @default(uuid()) @db.Uuid
