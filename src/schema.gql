@@ -325,6 +325,17 @@ input CreateEmployeeInput {
   ratio: Int! = 100
 }
 
+input CreateEmployeeSalaryInput {
+  """Сумма в минорных единицах (копейки)"""
+  amount: MoneyInput!
+
+  """ID сотрудника"""
+  employeeId: ID!
+
+  """День месяца начисления (1-31)"""
+  payday: Int!
+}
+
 input CreateManualCustomerTransactionInput {
   """
   Сумма в минорных единицах (копейки). Положительная — начисление, отрицательная — списание.
@@ -604,6 +615,20 @@ type EmployeeModel {
   tenantId: String!
 }
 
+type EmployeeSalaryModel {
+  """Сумма в минорных единицах (копейки)"""
+  amount: BigInt!
+  createdAt: DateTime
+  employeeId: ID!
+  id: ID!
+
+  """Отменено (есть запись в EmployeeSalaryEnd)"""
+  isCancelled: Boolean!
+
+  """День месяца начисления (1-31)"""
+  payday: Int!
+}
+
 """Российский государственный номер автомобиля"""
 scalar GosNomerRU
 
@@ -646,6 +671,7 @@ input MoneyInput {
 
 type Mutation {
   addPartCross(input: AddPartCrossInput!): PartModel!
+  cancelEmployeeSalary(salaryId: ID!): Boolean!
 
   """
   Начислить зарплату по закрытому заказу. Проверяет, что заказ закрыт; идемпотентно по начислению.
@@ -660,6 +686,7 @@ type Mutation {
 
   """Добавить запчасть к рекомендации"""
   createCarRecommendationPart(input: CreateCarRecommendationPartInput!): CarRecommendationPartModel!
+  createEmployeeSalary(input: CreateEmployeeSalaryInput!): EmployeeSalaryModel!
   createManualCustomerTransaction(input: CreateManualCustomerTransactionInput!): CustomerTransactionModel!
   createNote(input: CreateNoteInput!): NoteModel!
   createOneCar(input: CreateCarInput!): CarModel!
@@ -1195,6 +1222,9 @@ type Query {
   customerBalance(operandId: String!): BigInt!
   customerTransactions(dateFrom: DateTime, dateTo: DateTime, operandId: String!, skip: Int = 0, take: Int = 25): PaginatedCustomerTransactions!
   employee(id: String!): EmployeeModel
+
+  """Ежемесячные начисления сотрудника"""
+  employeeSalaries(employeeId: ID!): [EmployeeSalaryModel!]!
   employees(includeFired: Boolean = false, search: String, skip: Int = 0, take: Int = 25): PaginatedEmployees!
   manufacturer(id: String!): ManufacturerModel
   manufacturers(search: String, skip: Int = 0, take: Int = 25): PaginatedManufacturers!

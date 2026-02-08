@@ -88,4 +88,66 @@ export class SalaryService {
       }
     });
   }
+
+  /**
+   * Начислить ежемесячные оклады по дню месяца (payday).
+   * source = 8 (MonthlySalary), sourceId = EmployeeSalary.id.
+   * Идемпотентно: если по salary.id уже есть проводка с source=8 — пропускаем.
+   * Учитывает короткие месяцы: при payday=31 в феврале начисляем 28-го, в апреле/июне и т.д. — в последний день.
+   */
+  async chargeMonthlySalaries(payday: number): Promise<void> {
+    const tenantId = await this.tenantService.getTenantId();
+    const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
+
+    const now = new Date();
+    const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    const isLastDayOfMonth = payday === lastDayOfMonth;
+
+    const paydayFilter = isLastDayOfMonth
+      ? { OR: [{ payday }, { payday: { gt: lastDayOfMonth } }] }
+      : { payday };
+
+    const salaries = await this.prisma.employeeSalary.findMany({
+      where: {
+        tenantId,
+        ...paydayFilter,
+        employeeSalaryEnd: null,
+        employee: { firedAt: null },
+      },
+      include: { employee: true },
+    });
+
+    const toCreate: CreateCustomerTransactionInput[] = [];
+
+    for (const s of salaries) {
+      const exists = await this.prisma.customerTransaction.findFirst({
+        where: {
+          source: CustomerTransactionSource.MonthlySalary,
+          sourceId: s.id,
+          tenantId,
+        },
+      });
+      if (exists) continue;
+      if (s.amount <= 0n) continue;
+
+      toCreate.push({
+        operandId: s.employee.personId,
+        source: CustomerTransactionSource.MonthlySalary,
+        sourceId: s.id,
+        amount: { amountMinor: s.amount, currencyCode: defaultCurrency },
+      });
+    }
+
+    if (toCreate.length === 0) return;
+
+    await this.prisma.$transaction(async (tx) => {
+      for (const data of toCreate) {
+        await this.customerTransactionService.createWithinTransaction(
+          tx,
+          data,
+          tenantId,
+        );
+      }
+    });
+  }
 }
