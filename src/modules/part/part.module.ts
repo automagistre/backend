@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 
+import './enums/supply-source.enum';
 import { PartService } from './part.service';
 import { PartResolver } from './part.resolver';
 import { PartPriceService } from './part-price.service';

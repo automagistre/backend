@@ -105,6 +105,8 @@ model Part {
   PartRequiredAvailability PartRequiredAvailability[]
   OrderItemPart            OrderItemPart[]
   CarRecommendationPart    CarRecommendationPart[]
+  IncomePart               IncomePart[]
+  PartSupply               PartSupply[]
 
   @@unique([number, manufacturerId], map: "uniq_490f70c696901f54a23b42d")
   @@map("part")
@@ -486,43 +488,49 @@ model EmployeeSalaryEnd {
 //   created_by String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
 // }
 
-// model income {
-//   id            String         @id @default(uuid()) @db.Uuid
-//   supplier_id   String         @db.Uuid
-//   document      String?        @db.VarChar(255)
-//   old_id        Int?
-//   tenant_id     String         @db.Uuid
-//   created_at    DateTime?      @default(now()) @db.Timestamptz(0)
-//   created_by    String?        @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
-//   income_accrue income_accrue?
-//   income_part   income_part[]
-// }
+model Income {
+  id           String        @id @default(uuid()) @db.Uuid
+  supplierId   String        @map("supplier_id") @db.Uuid
+  document     String?       @db.VarChar(255)
+  oldId        Int?          @map("old_id")
+  tenantId     String        @map("tenant_id") @db.Uuid
+  createdAt    DateTime?     @default(now()) @map("created_at") @db.Timestamptz(0)
+  createdBy    String?       @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
+  incomeAccrue IncomeAccrue?
+  incomeParts  IncomePart[]
 
-// model income_accrue {
-//   id                   String    @id @default(uuid()) @db.Uuid
-//   income_id            String?   @unique(map: "uniq_425dfa41640ed2c0") @db.Uuid
-//   tenant_id            String    @db.Uuid
-//   amount_amount        BigInt?
-//   amount_currency_code String?   @db.VarChar(3)
-//   created_at           DateTime? @default(now()) @db.Timestamptz(0)
-//   created_by           String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
-//   income               income?   @relation(fields: [income_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_425dfa41640ed2c0")
-// }
+  @@map("income")
+}
 
-// model income_part {
-//   id                  String    @id @default(uuid()) @db.Uuid
-//   income_id           String?   @db.Uuid
-//   part_id             String    @db.Uuid
-//   quantity            Int
-//   tenant_id           String    @db.Uuid
-//   price_amount        BigInt?
-//   price_currency_code String?   @db.VarChar(3)
-//   created_at          DateTime? @default(now()) @db.Timestamptz(0)
-//   created_by          String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
-//   income              income?   @relation(fields: [income_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_834566e8640ed2c0")
+model IncomeAccrue {
+  id                 String    @id @default(uuid()) @db.Uuid
+  incomeId           String?   @unique(map: "uniq_425dfa41640ed2c0") @map("income_id") @db.Uuid
+  tenantId           String    @map("tenant_id") @db.Uuid
+  amountAmount       BigInt?  @map("amount_amount")
+  amountCurrencyCode String?  @map("amount_currency_code") @db.VarChar(3)
+  createdAt          DateTime? @default(now()) @map("created_at") @db.Timestamptz(0)
+  createdBy          String?  @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
+  income             Income?  @relation(fields: [incomeId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_425dfa41640ed2c0")
 
-//   @@index([income_id], map: "idx_834566e8640ed2c0")
-// }
+  @@map("income_accrue")
+}
+
+model IncomePart {
+  id                 String    @id @default(uuid()) @db.Uuid
+  incomeId           String?   @map("income_id") @db.Uuid
+  partId             String    @map("part_id") @db.Uuid
+  part               Part      @relation(fields: [partId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  quantity           Int
+  tenantId           String    @map("tenant_id") @db.Uuid
+  priceAmount       BigInt?   @map("price_amount")
+  priceCurrencyCode  String?   @map("price_currency_code") @db.VarChar(3)
+  createdAt          DateTime? @default(now()) @map("created_at") @db.Timestamptz(0)
+  createdBy          String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
+  income             Income?   @relation(fields: [incomeId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_834566e8640ed2c0")
+
+  @@index([incomeId], map: "idx_834566e8640ed2c0")
+  @@map("income_part")
+}
 
 // model inventorization {
 //   id                    String                 @id @default(uuid()) @db.Uuid
@@ -895,21 +903,22 @@ model PartRequiredAvailability {
   @@map("part_required_availability")
 }
 
-// /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
-// model part_supply {
-//   id          String    @id @default(uuid()) @db.Uuid
-//   part_id     String    @db.Uuid
-//   supplier_id String    @db.Uuid
-//   quantity    Int
-//   source      Int       @db.SmallInt
-//   source_id   String    @db.Uuid
-//   tenant_id   String    @db.Uuid
-//   created_at  DateTime? @default(now()) @db.Timestamptz(0)
-//   created_by  String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
-// }
+model PartSupply {
+  id          String    @id @default(uuid()) @db.Uuid
+  partId      String    @map("part_id") @db.Uuid
+  part        Part      @relation(fields: [partId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  supplierId  String    @map("supplier_id") @db.Uuid
+  quantity    Int
+  source      Int       @db.SmallInt
+  sourceId    String    @map("source_id") @db.Uuid
+  tenantId    String    @map("tenant_id") @db.Uuid
+  createdAt   DateTime? @default(now()) @map("created_at") @db.Timestamptz(0)
+  createdBy   String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
 
-//   @@unique([telephone, tenant_group_id], map: "uniq_34dcd176450ff010dff2bbb0")
-// }
+  @@index([partId])
+  @@index([supplierId])
+  @@map("part_supply")
+}
 
 // model publish {
 //   id         String    @id @default(uuid()) @db.Uuid

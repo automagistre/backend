@@ -281,6 +281,9 @@ input CloseOrderPaymentItem {
   walletId: String!
 }
 
+"""Контрагент — персона или организация (поставщик/подрядчик)"""
+union Counterparty = OrganizationModel | PersonModel
+
 input CreateCarInput {
   """Тип кузова автомобиля"""
   caseType: BodyType
@@ -1268,6 +1271,9 @@ type Query {
   carRecommendations(carId: ID!): [CarRecommendationModel!]!
   cars(search: String, skip: Int = 0, take: Int = 25): PaginatedCars!
 
+  """Список подрядчиков (без сотрудников); опциональный поиск."""
+  contractors(search: String, take: Float): [Counterparty!]!
+
   """Баланс операнда (сумма проводок)"""
   customerBalance(operandId: String!): BigInt!
   customerTransactions(dateFrom: DateTime, dateTo: DateTime, operandId: String!, skip: Int = 0, take: Int = 25): PaginatedCustomerTransactions!
@@ -1317,6 +1323,9 @@ type Query {
 
   """Поиск работ по названию (временно из уже созданных работ в заказах)"""
   services(search: String): [String!]!
+
+  """Список поставщиков; опциональный поиск по имени/телефону/email."""
+  suppliers(search: String, take: Float): [Counterparty!]!
 
   """Общее количество зарезервированных единиц"""
   totalReserved(orderItemPartId: ID!): Float!
