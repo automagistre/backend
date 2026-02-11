@@ -30,6 +30,7 @@ import { SettingsModule } from './modules/settings/settings.module';
 import { NoteModule } from './modules/note/note.module';
 import { AppealModule } from './modules/appeal/appeal.module';
 import { SupplierModule } from './modules/supplier/supplier.module';
+import { IncomeModule } from './modules/income/income.module';
 import { DevAuthGuard } from './modules/auth/guards/dev-auth.guard';
 import { Reflector } from '@nestjs/core';
 import authConfig from './config/auth.config';
@@ -70,6 +71,7 @@ import authConfig from './config/auth.config';
     NoteModule,
     AppealModule,
     SupplierModule,
+    IncomeModule,
   ],
   providers: [
     {

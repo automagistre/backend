@@ -376,6 +376,19 @@ input CreateEmployeeSalaryInput {
   payday: Int!
 }
 
+input CreateIncomeInput {
+  """Номер документа"""
+  document: String
+  supplierId: ID!
+}
+
+input CreateIncomePartInput {
+  incomeId: ID!
+  partId: ID!
+  price: MoneyInput!
+  quantity: Int!
+}
+
 input CreateManualCustomerTransactionInput {
   """
   Сумма в минорных единицах (копейки). Положительная — начисление, отрицательная — списание.
@@ -683,6 +696,30 @@ input GetAppealDetailInput {
 """Российский государственный номер автомобиля"""
 scalar GosNomerRU
 
+type IncomeModel {
+  createdAt: DateTime
+  document: String
+  id: ID!
+  incomeParts: [IncomePartModel!]!
+
+  """True если приход уже оприходован (редактирование запрещено)"""
+  isAccrued: Boolean!
+
+  """Поставщик (персона или организация)"""
+  supplier: Counterparty
+  supplierId: ID!
+}
+
+"""Позиция прихода"""
+type IncomePartModel {
+  id: ID!
+  incomeId: ID!
+  part: PartModel!
+  partId: ID!
+  price: MoneyModel
+  quantity: Int!
+}
+
 """
 The `JSON` scalar type represents JSON values as specified by [ECMA-404](http://www.ecma-international.org/publications/files/ECMA-ST/ECMA-404.pdf).
 """
@@ -725,6 +762,15 @@ input MoneyInput {
   currencyCode: String
 }
 
+"""Денежная сумма: минорные единицы и код валюты"""
+type MoneyModel {
+  """Сумма в минорных единицах (копейки)"""
+  amountMinor: BigInt!
+
+  """Код валюты (например RUB)"""
+  currencyCode: String!
+}
+
 type Mutation {
   addPartCross(input: AddPartCrossInput!): PartModel!
   cancelEmployeeSalary(salaryId: ID!): Boolean!
@@ -746,6 +792,12 @@ type Mutation {
   """Добавить запчасть к рекомендации"""
   createCarRecommendationPart(input: CreateCarRecommendationPartInput!): CarRecommendationPartModel!
   createEmployeeSalary(input: CreateEmployeeSalaryInput!): EmployeeSalaryModel!
+
+  """Создать приход"""
+  createIncome(input: CreateIncomeInput!): IncomeModel!
+
+  """Добавить позицию в приход"""
+  createIncomePart(input: CreateIncomePartInput!): IncomePartModel!
   createManualCustomerTransaction(input: CreateManualCustomerTransactionInput!): CustomerTransactionModel!
   createNote(input: CreateNoteInput!): NoteModel!
   createOneCar(input: CreateCarInput!): CarModel!
@@ -787,6 +839,9 @@ type Mutation {
 
   """Удалить запчасть из рекомендации"""
   deleteCarRecommendationPart(id: ID!): Boolean!
+
+  """Удалить позицию прихода"""
+  deleteIncomePart(id: ID!): Boolean!
   deleteNote(description: String, id: ID!): NoteModel!
   deleteOneCar(id: String!): CarModel!
   deleteOneEmployee(id: String!): EmployeeModel!
@@ -845,6 +900,9 @@ type Mutation {
 
   """Обновить запчасть рекомендации"""
   updateCarRecommendationPart(input: UpdateCarRecommendationPartInput!): CarRecommendationPartModel!
+
+  """Обновить позицию прихода"""
+  updateIncomePart(input: UpdateIncomePartInput!): IncomePartModel!
   updateNote(input: UpdateNoteInput!): NoteModel!
   updateOneCar(input: UpdateCarInput!): CarModel!
   updateOneEmployee(input: UpdateEmployeeInput!): EmployeeModel!
@@ -1347,6 +1405,12 @@ type Query {
   """Ежемесячные начисления сотрудника"""
   employeeSalaries(employeeId: ID!): [EmployeeSalaryModel!]!
   employees(includeFired: Boolean = false, search: String, skip: Int = 0, take: Int = 25): PaginatedEmployees!
+
+  """Приход по ID"""
+  income(id: ID!): IncomeModel!
+
+  """Список приходов"""
+  incomes(skip: Int, supplierId: ID, take: Int): [IncomeModel!]!
   manufacturer(id: String!): ManufacturerModel
   manufacturers(search: String, skip: Int = 0, take: Int = 25): PaginatedManufacturers!
 
@@ -1663,6 +1727,14 @@ input UpdateEmployeeInput {
 
   """Коэффициент (процент от работ)"""
   ratio: Int
+}
+
+input UpdateIncomePartInput {
+  id: ID!
+  incomeId: ID
+  partId: ID
+  price: MoneyInput
+  quantity: Int
 }
 
 input UpdateManufacturerInput {
