@@ -1,7 +1,6 @@
 import { Field, InputType } from '@nestjs/graphql';
 import { IsOptional, IsString, Length } from 'class-validator';
 
-
 @InputType({ description: 'Денежная сумма: минорные единицы и код валюты' })
 export class MoneyInput {
   @Field(() => BigInt, {
