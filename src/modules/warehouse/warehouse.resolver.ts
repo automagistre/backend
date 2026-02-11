@@ -4,7 +4,9 @@ import { ProcurementService } from './procurement.service';
 import { ProcurementRowModel } from './models/procurement-row.model';
 import { ProcurementTableResult } from './models/procurement-table-result.type';
 import { SupplyBySupplierModel } from './models/supply-by-supplier.model';
+import { PartInOrderModel } from './models/part-in-order.model';
 import { CreatePartSupplyInput } from './inputs/create-part-supply.input';
+import { CancelPartSupplyInput } from './inputs/cancel-part-supply.input';
 
 @Resolver()
 export class WarehouseResolver {
@@ -23,6 +25,16 @@ export class WarehouseResolver {
     @Args('search', { type: () => String, nullable: true }) search?: string,
   ): Promise<{ items: ProcurementRowModel[]; total: number }> {
     return this.procurementService.getProcurementTable({ skip, take, search });
+  }
+
+  @Query(() => [PartInOrderModel], {
+    name: 'ordersWithPart',
+    description: 'Заказы, в которых содержится запчасть (активные), с кол-вом и резервом',
+  })
+  async ordersWithPart(
+    @Args('partId', { type: () => ID }) partId: string,
+  ): Promise<PartInOrderModel[]> {
+    return this.procurementService.getOrdersWithPart(partId);
   }
 
   @Query(() => [SupplyBySupplierModel], {
@@ -53,5 +65,20 @@ export class WarehouseResolver {
       quantity: supply.quantity,
       updatedAt: new Date(),
     };
+  }
+
+  @Mutation(() => Boolean, {
+    name: 'cancelPartSupply',
+    description: 'Отменить поставку (удалить из ожидаемых)',
+  })
+  async cancelPartSupply(
+    @Args('input') input: CancelPartSupplyInput,
+  ): Promise<boolean> {
+    await this.partSupplyService.cancelPartSupply(
+      input.partId,
+      input.supplierId,
+      input.quantity,
+    );
+    return true;
   }
 }

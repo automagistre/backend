@@ -232,4 +232,113 @@ export class ProcurementService {
     }
     return result;
   }
+
+  /**
+   * Заказы, в которых содержится запчасть (активные), с количеством и резервом.
+   */
+  async getOrdersWithPart(
+    partId: string,
+    tenantId?: string,
+  ): Promise<
+    Array<{
+      orderId: string;
+      orderNumber: number;
+      orderStatus: OrderStatus;
+      quantity: number;
+      reservedQuantity: number;
+      customerName: string | null;
+      carName: string | null;
+    }>
+  > {
+    const resolvedTenantId =
+      tenantId ?? (await this.tenantService.getTenantId());
+
+    const orderItemParts = await this.prisma.orderItemPart.findMany({
+      where: {
+        partId,
+        orderItem: {
+          tenantId: resolvedTenantId,
+          orderId: { not: null },
+          order: {
+            status: {
+              notIn: [OrderStatus.CLOSED, OrderStatus.CANCELLED],
+            },
+          },
+        },
+      },
+      include: {
+        orderItem: {
+          include: {
+            order: {
+              include: {
+                customer: true,
+                car: {
+                  include: {
+                    vehicle: {
+                      include: { manufacturer: true },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        reservations: true,
+      },
+    });
+
+    const byOrderId = new Map<
+      string,
+      {
+        orderNumber: number;
+        orderStatus: OrderStatus;
+        quantity: number;
+        reservedQuantity: number;
+        customerName: string | null;
+        carName: string | null;
+      }
+    >();
+
+    for (const oip of orderItemParts) {
+      const order = oip.orderItem?.order;
+      if (!order) continue;
+
+      const qty = oip.quantity;
+      const reservedQty =
+        oip.reservations?.reduce((s, r) => s + (r.quantity ?? 0), 0) ?? 0;
+
+      const customerName =
+        [order.customer?.lastname, order.customer?.firstname]
+          .filter(Boolean)
+          .join(' ')
+          .trim() || null;
+
+      const car = order.car as any;
+      const carName =
+        [car?.vehicle?.manufacturer?.name, car?.vehicle?.name, car?.vehicle?.caseName]
+          .filter(Boolean)
+          .join(' ')
+          .trim() || null;
+
+      const existing = byOrderId.get(order.id);
+      if (existing) {
+        existing.quantity += qty;
+        existing.reservedQuantity += reservedQty;
+      } else {
+        byOrderId.set(order.id, {
+          orderNumber: order.number,
+          orderStatus: order.status as OrderStatus,
+          quantity: qty,
+          reservedQuantity: reservedQty,
+          customerName,
+          carName,
+        });
+      }
+    }
+
+    return Array.from(byOrderId.entries()).map(([orderId, v]) => ({
+      orderId,
+      ...v,
+    }));
+  }
 }

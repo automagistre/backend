@@ -83,6 +83,12 @@ enum BodyType {
   WAGON
 }
 
+input CancelPartSupplyInput {
+  partId: ID!
+  quantity: Int!
+  supplierId: ID!
+}
+
 """Тип воздухозабора двигателя автомобиля"""
 enum CarEngineAirIntake {
   """Атмосферный (A)"""
@@ -723,6 +729,9 @@ type Mutation {
   addPartCross(input: AddPartCrossInput!): PartModel!
   cancelEmployeeSalary(salaryId: ID!): Boolean!
 
+  """Отменить поставку (удалить из ожидаемых)"""
+  cancelPartSupply(input: CancelPartSupplyInput!): Boolean!
+
   """
   Начислить зарплату по закрытому заказу. Проверяет, что заказ закрыт; идемпотентно по начислению.
   """
@@ -1174,6 +1183,17 @@ type PartDiscountModel {
   tenantId: ID!
 }
 
+"""Заказ, содержащий запчасть (для панели информации)"""
+type PartInOrderModel {
+  carName: String
+  customerName: String
+  orderId: ID!
+  orderNumber: Int!
+  orderStatus: OrderStatus!
+  quantity: Int!
+  reservedQuantity: Int!
+}
+
 """Запчасть"""
 type PartModel {
   createdAt: DateTime
@@ -1341,6 +1361,9 @@ type Query {
 
   """Список всех заказов с пагинацией"""
   orders(search: String, skip: Int = 0, status: [OrderStatus!], take: Int = 25): PaginatedOrders!
+
+  """Заказы, в которых содержится запчасть (активные), с кол-вом и резервом"""
+  ordersWithPart(partId: ID!): [PartInOrderModel!]!
   organization(id: String!): OrganizationModel
   organizations(search: String, skip: Int = 0, take: Int = 25): PaginatedOrganizations!
   part(id: ID!): PartModel!

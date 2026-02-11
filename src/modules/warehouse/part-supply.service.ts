@@ -93,6 +93,30 @@ export class PartSupplyService {
   }
 
   /**
+   * Отмена поставки (добавляет -quantity в ledger).
+   */
+  async cancelPartSupply(
+    partId: string,
+    supplierId: string,
+    quantity: number,
+  ): Promise<void> {
+    if (quantity <= 0) {
+      throw new BadRequestException('Количество должно быть больше 0');
+    }
+    const tenantId = await this.tenantService.getTenantId();
+    await this.prisma.partSupply.create({
+      data: {
+        partId,
+        supplierId,
+        quantity: -quantity,
+        source: SupplySource.MANUAL,
+        sourceId: crypto.randomUUID(),
+        tenantId,
+      },
+    });
+  }
+
+  /**
    * Создание ручной поставки.
    */
   async createPartSupply(
