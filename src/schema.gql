@@ -511,6 +511,12 @@ input CreatePartInput {
   warehouseId: ID
 }
 
+input CreatePartSupplyInput {
+  partId: String!
+  quantity: Int!
+  supplierId: String!
+}
+
 input CreatePersonInput {
   """Поставщик"""
   contractor: Boolean! = false
@@ -763,6 +769,9 @@ type Mutation {
   Создать предоплату по заказу (order_payment + проводка по кошельку в одной транзакции)
   """
   createOrderPrepay(input: CreateOrderPrepayInput!): WalletTransactionModel!
+
+  """Создать ручную поставку"""
+  createPartSupply(input: CreatePartSupplyInput!): SupplyBySupplierModel!
 
   """Удалить рекомендацию по автомобилю"""
   deleteCarRecommendation(id: ID!): Boolean!
@@ -1256,6 +1265,42 @@ type PersonModel {
 """Телефонный номер в формате +7XXX..."""
 scalar PhoneNumber
 
+type ProcurementRowModel {
+  """В заказах, но не в резерве"""
+  inOrdersNotReserved: Int!
+
+  """Ожидаемые поставки"""
+  inSupply: Int!
+  manufacturerName: String
+  needToOrder: Int!
+  partId: String!
+  partName: String!
+  partNumber: String
+  reservedQuantity: Int!
+  status: ProcurementStatus!
+  stockQuantity: Int!
+}
+
+"""Статус необходимости закупки"""
+enum ProcurementStatus {
+  """Нужна поставка для заказа"""
+  NEED_SUPPLY_FOR_ORDER
+
+  """Нужно восполнить запасы"""
+  NEED_SUPPLY_FOR_STOCK
+
+  """Заказано"""
+  ORDERED
+
+  """Отрицательное количество на складе"""
+  SUBZERO_QUANTITY
+}
+
+type ProcurementTableResult {
+  items: [ProcurementRowModel!]!
+  total: Int!
+}
+
 type Query {
   """Список активных заказов"""
   activeOrders(search: String, status: [OrderStatus!]): [OrderModel!]!
@@ -1318,6 +1363,11 @@ type Query {
   """Популярные работы (топ-20 по частоте использования)"""
   popularServices: [String!]!
 
+  """
+  Таблица Закупки: наличие, в заказах, в резерве, в поставке, нужно заказать
+  """
+  procurementTable(search: String, skip: Int! = 0, take: Int! = 25): ProcurementTableResult!
+
   """Резервации для элемента заказа"""
   reservations(orderItemPartId: ID!): [ReservationModel!]!
 
@@ -1326,6 +1376,9 @@ type Query {
 
   """Список поставщиков; опциональный поиск по имени/телефону/email."""
   suppliers(search: String, take: Float): [Counterparty!]!
+
+  """Список ожидаемых поставок по запчасти (по поставщикам)"""
+  suppliesByPart(partId: ID!): [SupplyBySupplierModel!]!
 
   """Общее количество зарезервированных единиц"""
   totalReserved(orderItemPartId: ID!): Float!
@@ -1458,6 +1511,12 @@ type ReturnWorkToRecommendationPayload {
 type Subscription {
   carRecommendationsUpdated(carId: ID!): [CarRecommendationModel!]!
   orderUpdated(orderId: ID!): OrderModel!
+}
+
+type SupplyBySupplierModel {
+  quantity: Int!
+  supplierId: String!
+  updatedAt: DateTime!
 }
 
 type Tokens {

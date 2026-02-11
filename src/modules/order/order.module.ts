@@ -22,7 +22,7 @@ import './enums/close-deficiency.enum';
     PersonModule,
     EmployeeModule,
     forwardRef(() => ReservationModule),
-    WarehouseModule,
+    forwardRef(() => WarehouseModule),
     WalletModule,
     SalaryModule,
     CustomerTransactionModule,

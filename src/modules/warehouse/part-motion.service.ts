@@ -50,6 +50,31 @@ export class PartMotionService {
     return result._sum.quantity ?? 0;
   }
 
+  async getStockQuantityByPartIds(
+    partIds: string[],
+    tenantId?: string,
+  ): Promise<Map<string, number>> {
+    const resolvedTenantId = tenantId ?? (await this.tenantService.getTenantId());
+    if (partIds.length === 0) return new Map();
+
+    const rows = await this.prisma.motion.groupBy({
+      by: ['partId'],
+      where: {
+        partId: { in: partIds },
+        tenantId: resolvedTenantId,
+      },
+      _sum: { quantity: true },
+    });
+
+    const result = new Map<string, number>();
+    for (const r of rows) {
+      if (r.partId) {
+        result.set(r.partId, r._sum.quantity ?? 0);
+      }
+    }
+    return result;
+  }
+
   async findByPartId(partId: string): Promise<Motion[]> {
     const tenantId = await this.tenantService.getTenantId();
     return this.prisma.motion.findMany({
