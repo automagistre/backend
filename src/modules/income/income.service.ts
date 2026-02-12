@@ -11,6 +11,7 @@ import { IncomeModel } from './models/income.model';
 import { IncomePartModel } from './models/income-part.model';
 import { CreateIncomeInput } from './inputs/create-income.input';
 import { CreateIncomePartInput } from './inputs/create-income-part.input';
+import { UpdateIncomeInput } from './inputs/update-income.input';
 import { UpdateIncomePartInput } from './inputs/update-income-part.input';
 
 const DEFAULT_TAKE = 50;
@@ -85,7 +86,9 @@ export class IncomeService {
       },
       include: {
         incomeAccrue: true,
-        incomeParts: { include: { part: true } },
+        incomeParts: {
+          include: { part: { include: { manufacturer: true } } },
+        },
       },
     });
     return this.toIncomeModel(income);
@@ -96,7 +99,9 @@ export class IncomeService {
       where: { id, tenantId: await this.tenantService.getTenantId() },
       include: {
         incomeAccrue: true,
-        incomeParts: { include: { part: true } },
+        incomeParts: {
+          include: { part: { include: { manufacturer: true } } },
+        },
       },
     });
     if (!income) {
@@ -109,22 +114,46 @@ export class IncomeService {
     skip = 0,
     take = DEFAULT_TAKE,
     supplierId?: string,
-  ): Promise<IncomeModel[]> {
+  ): Promise<{ items: IncomeModel[]; total: number }> {
     const tenantId = await this.tenantService.getTenantId();
-    const rows = await this.prisma.income.findMany({
-      where: {
-        tenantId,
-        ...(supplierId ? { supplierId } : {}),
+    const where = {
+      tenantId,
+      ...(supplierId ? { supplierId } : {}),
+    };
+    const [rows, total] = await Promise.all([
+      this.prisma.income.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take,
+        include: {
+          incomeAccrue: true,
+          incomeParts: {
+            include: { part: { include: { manufacturer: true } } },
+          },
+        },
+      }),
+      this.prisma.income.count({ where }),
+    ]);
+    return { items: rows.map((r) => this.toIncomeModel(r)), total };
+  }
+
+  async update(input: UpdateIncomeInput): Promise<IncomeModel> {
+    await this.ensureIncomeEditable(input.id);
+    const tenantId = await this.tenantService.getTenantId();
+    const income = await this.prisma.income.update({
+      where: { id: input.id },
+      data: {
+        ...(input.document !== undefined && { document: input.document ?? null }),
       },
-      orderBy: { createdAt: 'desc' },
-      skip,
-      take,
       include: {
         incomeAccrue: true,
-        incomeParts: { include: { part: true } },
+        incomeParts: {
+          include: { part: { include: { manufacturer: true } } },
+        },
       },
     });
-    return rows.map((r) => this.toIncomeModel(r));
+    return this.toIncomeModel(income);
   }
 
   private async ensureIncomeEditable(id: string): Promise<void> {
@@ -162,7 +191,7 @@ export class IncomeService {
         priceCurrencyCode: priceData.currencyCode,
         tenantId,
       },
-      include: { part: true },
+      include: { part: { include: { manufacturer: true } } },
     });
     return this.toIncomePartModel(part);
   }
@@ -204,7 +233,7 @@ export class IncomeService {
     const updated = await this.prisma.incomePart.update({
       where: { id: input.id },
       data: updateData,
-      include: { part: true },
+      include: { part: { include: { manufacturer: true } } },
     });
     return this.toIncomePartModel(updated);
   }
@@ -224,6 +253,24 @@ export class IncomeService {
     }
 
     await this.prisma.incomePart.delete({ where: { id } });
+    return true;
+  }
+
+  async deleteIncome(id: string): Promise<boolean> {
+    const income = await this.prisma.income.findFirst({
+      where: { id, tenantId: await this.tenantService.getTenantId() },
+      include: { incomeAccrue: true },
+    });
+    if (!income) {
+      throw new NotFoundException(`Приход не найден: ${id}`);
+    }
+    if (income.incomeAccrue != null) {
+      throw new BadRequestException(
+        'Удаление запрещено: приход уже оприходован',
+      );
+    }
+    await this.prisma.incomePart.deleteMany({ where: { incomeId: id } });
+    await this.prisma.income.delete({ where: { id } });
     return true;
   }
 }

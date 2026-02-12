@@ -840,6 +840,9 @@ type Mutation {
   """Удалить запчасть из рекомендации"""
   deleteCarRecommendationPart(id: ID!): Boolean!
 
+  """Удалить приход (только если не оприходован)"""
+  deleteIncome(id: ID!): Boolean!
+
   """Удалить позицию прихода"""
   deleteIncomePart(id: ID!): Boolean!
   deleteNote(description: String, id: ID!): NoteModel!
@@ -900,6 +903,9 @@ type Mutation {
 
   """Обновить запчасть рекомендации"""
   updateCarRecommendationPart(input: UpdateCarRecommendationPartInput!): CarRecommendationPartModel!
+
+  """Обновить приход (номер документа, только если не оприходован)"""
+  updateIncome(input: UpdateIncomeInput!): IncomeModel!
 
   """Обновить позицию прихода"""
   updateIncomePart(input: UpdateIncomePartInput!): IncomePartModel!
@@ -1176,6 +1182,11 @@ type PaginatedEmployees {
   total: Int!
 }
 
+type PaginatedIncomes {
+  items: [IncomeModel!]!
+  total: Int!
+}
+
 type PaginatedManufacturers {
   items: [ManufacturerModel!]!
   total: Int!
@@ -1409,8 +1420,8 @@ type Query {
   """Приход по ID"""
   income(id: ID!): IncomeModel!
 
-  """Список приходов"""
-  incomes(skip: Int, supplierId: ID, take: Int): [IncomeModel!]!
+  """Список приходов с пагинацией"""
+  incomes(skip: Int, supplierId: ID, take: Int): PaginatedIncomes!
   manufacturer(id: String!): ManufacturerModel
   manufacturers(search: String, skip: Int = 0, take: Int = 25): PaginatedManufacturers!
 
@@ -1727,6 +1738,12 @@ input UpdateEmployeeInput {
 
   """Коэффициент (процент от работ)"""
   ratio: Int
+}
+
+input UpdateIncomeInput {
+  """Номер документа"""
+  document: String
+  id: ID!
 }
 
 input UpdateIncomePartInput {
