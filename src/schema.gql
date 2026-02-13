@@ -696,10 +696,15 @@ input GetAppealDetailInput {
 """Российский государственный номер автомобиля"""
 scalar GosNomerRU
 
+type IncomeAccrueModel {
+  createdAt: DateTime
+}
+
 type IncomeModel {
   createdAt: DateTime
   document: String
   id: ID!
+  incomeAccrue: IncomeAccrueModel
   incomeParts: [IncomePartModel!]!
 
   """True если приход уже оприходован (редактирование запрещено)"""

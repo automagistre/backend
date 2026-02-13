@@ -29,7 +29,7 @@ export class IncomeService {
     supplierId: string;
     document: string | null;
     createdAt: Date | null;
-    incomeAccrue: { id: string } | null;
+    incomeAccrue: { id: string; createdAt?: Date | null } | null;
     incomeParts: Array<{
       id: string;
       incomeId: string | null;
@@ -46,6 +46,9 @@ export class IncomeService {
       document: row.document ?? undefined,
       createdAt: row.createdAt ?? undefined,
       isAccrued: row.incomeAccrue != null,
+      incomeAccrue: row.incomeAccrue
+        ? { createdAt: row.incomeAccrue.createdAt }
+        : null,
       incomeParts: row.incomeParts.map((p) => this.toIncomePartModel(p)),
     };
   }
