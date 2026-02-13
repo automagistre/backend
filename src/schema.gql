@@ -1477,6 +1477,9 @@ type Query {
   """Поиск работ по названию (временно из уже созданных работ в заказах)"""
   services(search: String): [String!]!
 
+  """Глобальные настройки приложения"""
+  settings: SettingsModel!
+
   """Список поставщиков; опциональный поиск по имени/телефону/email."""
   suppliers(search: String, take: Float): [Counterparty!]!
 
@@ -1609,6 +1612,15 @@ type ReturnWorkToRecommendationPayload {
   orderId: ID!
   orderItemServiceId: ID!
   recommendationId: ID!
+}
+
+"""Глобальные настройки приложения"""
+type SettingsModel {
+  """Валюта по умолчанию (например для проводок, цен)"""
+  defaultCurrencyCode: String!
+
+  """Минимальная наценка (коэффициент, например 1.25 = 25%)"""
+  minMarkupRatio: Float!
 }
 
 type Subscription {
