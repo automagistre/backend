@@ -376,6 +376,28 @@ input CreateEmployeeSalaryInput {
   payday: Int!
 }
 
+input CreateExpenseInput {
+  """Название статьи расходов"""
+  name: String!
+
+  """ID счёта списания по умолчанию"""
+  walletId: ID
+}
+
+input CreateExpenseTransactionInput {
+  """Сумма (положительная, будет сохранена как списание)"""
+  amount: MoneyInput!
+
+  """Комментарий"""
+  description: String
+
+  """ID статьи расходов"""
+  expenseId: ID!
+
+  """ID счёта списания"""
+  walletId: ID!
+}
+
 input CreateIncomeInput {
   """Номер документа"""
   document: String
@@ -688,6 +710,22 @@ type EmployeeSalaryModel {
   payday: Int!
 }
 
+"""Статья расходов"""
+type ExpenseModel {
+  createdAt: DateTime
+  id: ID!
+
+  """Название"""
+  name: String!
+  tenantId: String!
+
+  """Счёт по умолчанию"""
+  wallet: WalletModel
+
+  """ID счёта по умолчанию"""
+  walletId: String
+}
+
 input GetAppealDetailInput {
   id: String!
   type: Float!
@@ -800,6 +838,12 @@ type Mutation {
   createCarRecommendationPart(input: CreateCarRecommendationPartInput!): CarRecommendationPartModel!
   createEmployeeSalary(input: CreateEmployeeSalaryInput!): EmployeeSalaryModel!
 
+  """Создать статью расходов"""
+  createExpense(input: CreateExpenseInput!): ExpenseModel!
+
+  """Создать расход по статье (проводка списания)"""
+  createExpenseTransaction(input: CreateExpenseTransactionInput!): WalletTransactionModel!
+
   """Создать приход"""
   createIncome(input: CreateIncomeInput!): IncomeModel!
 
@@ -846,6 +890,9 @@ type Mutation {
 
   """Удалить запчасть из рекомендации"""
   deleteCarRecommendationPart(id: ID!): Boolean!
+
+  """Удалить статью расходов"""
+  deleteExpense(id: String!): ExpenseModel!
 
   """Удалить приход (только если не оприходован)"""
   deleteIncome(id: ID!): Boolean!
@@ -910,6 +957,9 @@ type Mutation {
 
   """Обновить запчасть рекомендации"""
   updateCarRecommendationPart(input: UpdateCarRecommendationPartInput!): CarRecommendationPartModel!
+
+  """Обновить статью расходов"""
+  updateExpense(input: UpdateExpenseInput!): ExpenseModel!
 
   """Обновить приход (номер документа, только если не оприходован)"""
   updateIncome(input: UpdateIncomeInput!): IncomeModel!
@@ -1189,6 +1239,11 @@ type PaginatedEmployees {
   total: Int!
 }
 
+type PaginatedExpenses {
+  items: [ExpenseModel!]!
+  total: Int!
+}
+
 type PaginatedIncomes {
   items: [IncomeModel!]!
   total: Int!
@@ -1427,6 +1482,12 @@ type Query {
   """Ежемесячные начисления сотрудника"""
   employeeSalaries(employeeId: ID!): [EmployeeSalaryModel!]!
   employees(includeFired: Boolean = false, search: String, skip: Int = 0, take: Int = 25): PaginatedEmployees!
+
+  """Статья расходов по ID"""
+  expense(id: String!): ExpenseModel
+
+  """Список статей расходов"""
+  expenses(search: String, skip: Int = 0, take: Int = 25): PaginatedExpenses!
 
   """Приход по ID"""
   income(id: ID!): IncomeModel!
@@ -1766,6 +1827,17 @@ input UpdateEmployeeInput {
 
   """Коэффициент (процент от работ)"""
   ratio: Int
+}
+
+input UpdateExpenseInput {
+  """ID статьи расходов"""
+  id: ID!
+
+  """Название статьи расходов"""
+  name: String
+
+  """ID счёта списания по умолчанию"""
+  walletId: ID
 }
 
 input UpdateIncomeInput {

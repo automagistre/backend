@@ -106,6 +106,16 @@ export class DisplayContextService {
     return [person.lastname, person.firstname].filter(Boolean).join(' ');
   }
 
+  /** Название статьи расходов по id (для sourceDisplay при source=Expense). */
+  async getExpenseName(expenseId: string): Promise<string> {
+    const tenantId = await this.tenantService.getTenantId();
+    const expense = await this.prisma.expense.findFirst({
+      where: { id: expenseId, tenantId },
+      select: { name: true },
+    });
+    return expense?.name ?? '';
+  }
+
   /** Название кошелька по id проводки по кошельку (wallet_transaction.id). */
   async getWalletNameByWalletTransactionId(
     walletTransactionId: string,

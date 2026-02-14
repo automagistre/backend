@@ -471,14 +471,16 @@ model EmployeeSalaryEnd {
   @@map("employee_salary_end")
 }
 
-// model expense {
-//   id         String    @id @default(uuid()) @db.Uuid
-//   name       String    @db.VarChar(255)
-//   wallet_id  String?   @db.Uuid
-//   tenant_id  String    @db.Uuid
-//   created_at DateTime? @default(now()) @db.Timestamptz(0)
-//   created_by String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
-// }
+model Expense {
+  id        String    @id @default(uuid()) @db.Uuid
+  name      String    @db.VarChar(255)
+  walletId  String?   @map("wallet_id") @db.Uuid
+  tenantId  String    @map("tenant_id") @db.Uuid
+  createdAt DateTime? @default(now()) @map("created_at") @db.Timestamptz(0)
+  createdBy String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
+  wallet    Wallet?   @relation(fields: [walletId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  @@map("expense")
+}
 
 // model google_review_token {
 //   id         String    @id @default(uuid()) @db.Uuid
@@ -1043,6 +1045,7 @@ model Wallet {
   createdBy                  String?             @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
   balance                    Decimal             @default(0) @db.Decimal
   transactions               WalletTransaction[]
+  expenses                   Expense[]
 
   @@map("wallet")
 }

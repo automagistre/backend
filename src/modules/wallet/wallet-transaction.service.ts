@@ -162,7 +162,7 @@ export class WalletTransactionService {
       case WalletTransactionSource.IncomePayment:
         return '';
       case WalletTransactionSource.Expense:
-        return '';
+        return this.displayContextService.getExpenseName(sourceId);
       case WalletTransactionSource.Legacy:
       case WalletTransactionSource.Initial:
       default:
