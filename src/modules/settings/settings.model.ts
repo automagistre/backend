@@ -1,4 +1,4 @@
-import { Field, Float, ObjectType } from '@nestjs/graphql';
+import { Field, Float, Int, ObjectType } from '@nestjs/graphql';
 
 @ObjectType({ description: 'Глобальные настройки приложения' })
 export class SettingsModel {
@@ -11,4 +11,9 @@ export class SettingsModel {
     description: 'Минимальная наценка (коэффициент, например 1.25 = 25%)',
   })
   minMarkupRatio: number;
+
+  @Field(() => Int, {
+    description: 'Порог задержки поставки в днях: если updatedAt поставки старше — считать «задержка»',
+  })
+  supplyExpiryDays: number;
 }

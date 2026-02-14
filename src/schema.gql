@@ -1264,6 +1264,7 @@ type PartInOrderModel {
   orderId: ID!
   orderNumber: Int!
   orderStatus: OrderStatus!
+  partPrice: MoneyModel
   quantity: Int!
   reservedQuantity: Int!
 }
@@ -1360,6 +1361,9 @@ type PersonModel {
 scalar PhoneNumber
 
 type ProcurementRowModel {
+  """Есть поставка с задержкой (updatedAt старше supplyExpiryDays дней)"""
+  hasDelayedSupply: Boolean!
+
   """В заказах, но не в резерве"""
   inOrdersNotReserved: Int!
 
@@ -1621,6 +1625,11 @@ type SettingsModel {
 
   """Минимальная наценка (коэффициент, например 1.25 = 25%)"""
   minMarkupRatio: Float!
+
+  """
+  Порог задержки поставки в днях: если updatedAt поставки старше — считать «задержка»
+  """
+  supplyExpiryDays: Int!
 }
 
 type Subscription {

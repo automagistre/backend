@@ -14,6 +14,7 @@ export class SettingsService {
     return {
       defaultCurrencyCode: await this.getDefaultCurrencyCode(),
       minMarkupRatio: await this.getMinMarkupRatio(),
+      supplyExpiryDays: await this.getSupplyExpiryDays(),
     };
   }
 
@@ -25,5 +26,10 @@ export class SettingsService {
   /** Минимальная наценка (коэффициент, например 1.25 = 25%). */
   async getMinMarkupRatio(): Promise<number> {
     return 1.25;
+  }
+
+  /** Порог задержки поставки в днях: updatedAt < now - N дней → задержка. */
+  async getSupplyExpiryDays(): Promise<number> {
+    return 7;
   }
 }

@@ -60,4 +60,9 @@ export class ProcurementRowModel {
   @IsEnum(ProcurementStatus)
   @Field(() => ProcurementStatus)
   status: ProcurementStatus;
+
+  @Field(() => Boolean, {
+    description: 'Есть поставка с задержкой (updatedAt старше supplyExpiryDays дней)',
+  })
+  hasDelayedSupply: boolean;
 }

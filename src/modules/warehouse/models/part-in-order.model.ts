@@ -7,6 +7,7 @@ import {
   IsUUID,
   Min,
 } from 'class-validator';
+import { MoneyModel } from 'src/common/models/money.model';
 import { OrderStatus } from '../../order/enums/order-status.enum';
 
 @ObjectType({ description: 'Заказ, содержащий запчасть (для панели информации)' })
@@ -43,4 +44,9 @@ export class PartInOrderModel {
   @IsString()
   @Field(() => String, { nullable: true })
   carName?: string | null;
+
+  /** Цена запчасти в заказе. */
+  @IsOptional()
+  @Field(() => MoneyModel, { nullable: true })
+  partPrice?: MoneyModel | null;
 }

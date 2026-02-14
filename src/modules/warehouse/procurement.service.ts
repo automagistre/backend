@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { TenantService } from 'src/common/services/tenant.service';
+import { SettingsService } from 'src/modules/settings/settings.service';
 import { PartSupplyService } from './part-supply.service';
 import { PartMotionService } from './part-motion.service';
 import { ReservationService } from 'src/modules/reservation/reservation.service';
@@ -18,6 +19,7 @@ export interface ProcurementRow {
   inSupply: number;
   needToOrder: number;
   status: ProcurementStatus;
+  hasDelayedSupply: boolean;
 }
 
 const STATUS_ORDER: Record<ProcurementStatus, number> = {
@@ -32,6 +34,7 @@ export class ProcurementService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly tenantService: TenantService,
+    private readonly settingsService: SettingsService,
     private readonly partSupplyService: PartSupplyService,
     private readonly partMotionService: PartMotionService,
     private readonly reservationService: ReservationService,
@@ -94,7 +97,8 @@ export class ProcurementService {
     }
 
     const partIds = parts.map((p) => p.id);
-    const [stockMap, orderedMap, reservedMap, supplyMap, availabilityMap] =
+    const supplyExpiryDays = await this.settingsService.getSupplyExpiryDays();
+    const [stockMap, orderedMap, reservedMap, supplyMap, availabilityMap, delayedPartIds] =
       await Promise.all([
         this.partMotionService.getStockQuantityByPartIds(partIds, tenantId),
         this.partSupplyService.getOrderedQuantityInActiveOrdersByPartIds(
@@ -107,6 +111,11 @@ export class ProcurementService {
         ),
         this.partSupplyService.getSupplyTotalByPartIds(partIds, tenantId),
         this.getAvailabilityByPartIds(partIds, tenantId),
+        this.partSupplyService.getPartIdsWithDelayedSupply(
+          partIds,
+          supplyExpiryDays,
+          tenantId,
+        ),
       ]);
 
     const allRows: ProcurementRow[] = [];
@@ -159,6 +168,7 @@ export class ProcurementService {
           inSupply: supplyQuantity,
           needToOrder,
           status,
+          hasDelayedSupply: delayedPartIds.has(part.id),
         });
       }
     }
@@ -296,6 +306,7 @@ export class ProcurementService {
         reservedQuantity: number;
         customerName: string | null;
         carName: string | null;
+        partPrice: { amountMinor: bigint; currencyCode: string } | null;
       }
     >();
 
@@ -332,6 +343,13 @@ export class ProcurementService {
           reservedQuantity: reservedQty,
           customerName,
           carName,
+          partPrice:
+            oip.priceAmount != null
+              ? {
+                  amountMinor: oip.priceAmount,
+                  currencyCode: oip.priceCurrencyCode ?? 'RUB',
+                }
+              : null,
         });
       }
     }

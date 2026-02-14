@@ -37,6 +37,41 @@ export class PartSupplyService {
   }
 
   /**
+   * partId, у которых есть хотя бы одна поставка с max(createdAt) < (now - expiryDays).
+   */
+  async getPartIdsWithDelayedSupply(
+    partIds: string[],
+    expiryDays: number,
+    tenantId?: string,
+  ): Promise<Set<string>> {
+    const resolvedTenantId = tenantId ?? (await this.tenantService.getTenantId());
+    if (partIds.length === 0 || expiryDays <= 0) return new Set();
+
+    const threshold = new Date();
+    threshold.setDate(threshold.getDate() - expiryDays);
+
+    const rows = await this.prisma.partSupply.groupBy({
+      by: ['partId', 'supplierId'],
+      where: {
+        partId: { in: partIds },
+        tenantId: resolvedTenantId,
+      },
+      _sum: { quantity: true },
+      _max: { createdAt: true },
+    });
+
+    const delayed = new Set<string>();
+    for (const r of rows) {
+      const sum = r._sum.quantity ?? 0;
+      const maxCreated = r._max.createdAt;
+      if (sum > 0 && maxCreated != null && maxCreated < threshold) {
+        delayed.add(r.partId);
+      }
+    }
+    return delayed;
+  }
+
+  /**
    * Батч: сумма ожидаемых поставок по списку запчастей (ledger: SUM всех записей).
    */
   async getSupplyTotalByPartIds(
