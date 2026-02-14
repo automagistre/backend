@@ -32,6 +32,7 @@ import { AppealModule } from './modules/appeal/appeal.module';
 import { SupplierModule } from './modules/supplier/supplier.module';
 import { IncomeModule } from './modules/income/income.module';
 import { ExpenseModule } from './modules/expense/expense.module';
+import { ReviewModule } from './modules/review/review.module';
 import { DevAuthGuard } from './modules/auth/guards/dev-auth.guard';
 import { Reflector } from '@nestjs/core';
 import authConfig from './config/auth.config';
@@ -74,6 +75,7 @@ import authConfig from './config/auth.config';
     SupplierModule,
     IncomeModule,
     ExpenseModule,
+    ReviewModule,
   ],
   providers: [
     {

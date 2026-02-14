@@ -582,6 +582,23 @@ input CreatePersonInput {
   tenantGroupId: ID
 }
 
+input CreateReviewInput {
+  """Автор"""
+  author: String!
+
+  """Дата публикации, по умолчанию — сейчас"""
+  publishAt: DateTime
+
+  """Оценка (1–5)"""
+  rating: Int!
+
+  """Источник (0–5), по умолчанию 2 — внутренний"""
+  source: Int
+
+  """Текст отзыва"""
+  text: String!
+}
+
 """Создать модель автомобиля"""
 input CreateVehicleInput {
   """Код кузова"""
@@ -885,6 +902,9 @@ type Mutation {
   """Создать ручную поставку"""
   createPartSupply(input: CreatePartSupplyInput!): SupplyBySupplierModel!
 
+  """Создать отзыв"""
+  createReview(input: CreateReviewInput!): ReviewModel!
+
   """Удалить рекомендацию по автомобилю"""
   deleteCarRecommendation(id: ID!): Boolean!
 
@@ -924,6 +944,9 @@ type Mutation {
     deleteChildren: Boolean = true
     id: ID!
   ): OrderItemModel!
+
+  """Удалить отзыв"""
+  deleteReview(id: String!): ReviewModel!
   fireEmployee(id: String!): EmployeeModel!
   login(input: LoginDto!): Tokens!
   logout(input: RefreshDto!): Boolean!
@@ -988,6 +1011,9 @@ type Mutation {
 
   """Обновить услугу в заказе"""
   updateOrderItemService(input: UpdateOrderItemServiceInput!): OrderItemModel!
+
+  """Обновить отзыв"""
+  updateReview(input: UpdateReviewInput!): ReviewModel!
 }
 
 type NoteModel {
@@ -1274,6 +1300,11 @@ type PaginatedPersons {
   total: Int!
 }
 
+type PaginatedReviews {
+  items: [ReviewModel!]!
+  total: Int!
+}
+
 type PaginatedVehicles {
   items: [VehicleModel!]!
   total: Int!
@@ -1541,6 +1572,12 @@ type Query {
   """Резервации для элемента заказа"""
   reservations(orderItemPartId: ID!): [ReservationModel!]!
 
+  """Отзыв по ID"""
+  review(id: String!): ReviewModel
+
+  """Список отзывов"""
+  reviews(search: String, skip: Int = 0, source: Float, take: Int = 25): PaginatedReviews!
+
   """Поиск работ по названию (временно из уже созданных работ в заказах)"""
   services(search: String): [String!]!
 
@@ -1679,6 +1716,33 @@ type ReturnWorkToRecommendationPayload {
   orderId: ID!
   orderItemServiceId: ID!
   recommendationId: ID!
+}
+
+"""Отзыв"""
+type ReviewModel {
+  """Автор"""
+  author: String!
+  createdAt: DateTime
+  id: ID!
+
+  """Дата публикации"""
+  publishAt: DateTime!
+
+  """Оценка (1–5)"""
+  rating: Int!
+
+  """Сырые данные источника (Yell: link, score, user и т.д.)"""
+  raw: JSON
+
+  """Код источника (1–5)"""
+  source: Int!
+
+  """ID в источнике"""
+  sourceId: String!
+  tenantId: String!
+
+  """Текст отзыва"""
+  text: String!
 }
 
 """Глобальные настройки приложения"""
@@ -2003,6 +2067,26 @@ input UpdatePersonInput {
   """Телефон"""
   telephone: PhoneNumber
   tenantGroupId: ID
+}
+
+input UpdateReviewInput {
+  """Автор"""
+  author: String
+
+  """ID отзыва"""
+  id: ID!
+
+  """Дата публикации, по умолчанию — сейчас"""
+  publishAt: DateTime
+
+  """Оценка (1–5)"""
+  rating: Int
+
+  """Источник (0–5), по умолчанию 2 — внутренний"""
+  source: Int
+
+  """Текст отзыва"""
+  text: String
 }
 
 """Обновить модель автомобиля"""

@@ -944,22 +944,22 @@ model Reservation {
   @@map("reservation")
 }
 
-// /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
-// model review {
-//   id         String    @id @default(uuid()) @db.Uuid
-//   source_id  String    @db.VarChar(255)
-//   source     Int       @db.SmallInt
-//   author     String    @db.VarChar(255)
-//   text       String
-//   rating     Int       @db.SmallInt
-//   publish_at DateTime  @db.Timestamp(0)
-//   raw        Json      @db.Json
-//   tenant_id  String    @db.Uuid
-//   created_at DateTime? @default(now()) @db.Timestamptz(0)
-//   created_by String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
+model Review {
+  id        String    @id @default(uuid()) @db.Uuid
+  sourceId  String    @map("source_id") @db.VarChar(255)
+  source    Int       @db.SmallInt
+  author    String    @db.VarChar(255)
+  text      String    @db.Text
+  rating    Int       @db.SmallInt
+  publishAt DateTime  @map("publish_at") @db.Timestamp(0)
+  raw       Json?     @db.Json
+  tenantId  String    @map("tenant_id") @db.Uuid
+  createdAt DateTime? @default(now()) @map("created_at") @db.Timestamptz(0)
+  createdBy String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
 
-//   @@unique([source, source_id, tenant_id], map: "uniq_794381c65f8a7f73953c1c619033212a")
-// }
+  @@unique([source, sourceId, tenantId], map: "uniq_794381c65f8a7f73953c1c619033212a")
+  @@map("review")
+}
 
 // /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 // model sms {
