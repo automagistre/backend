@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { Prisma } from 'src/generated/prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { TenantService } from 'src/common/services/tenant.service';
 import { SupplySource } from 'src/modules/part/enums/supply-source.enum';
@@ -125,6 +126,59 @@ export class PartSupplyService {
         quantity: r._sum.quantity ?? 0,
         updatedAt: r._max.createdAt ?? new Date(),
       }));
+  }
+
+  /**
+   * Баланс поставки по (partId, supplierId) в рамках транзакции.
+   */
+  async getSupplyBalanceWithinTransaction(
+    tx: Prisma.TransactionClient,
+    partId: string,
+    supplierId: string,
+    tenantId: string,
+  ): Promise<number> {
+    const result = await tx.partSupply.aggregate({
+      where: {
+        partId,
+        supplierId,
+        tenantId,
+      },
+      _sum: { quantity: true },
+    });
+    return result._sum.quantity ?? 0;
+  }
+
+  /**
+   * Уменьшение Supply при оприходовании: только в пределах положительного баланса
+   * (как в старой CRM — не создаём отрицательный баланс).
+   */
+  async decreaseSupplyForIncome(
+    tx: Prisma.TransactionClient,
+    partId: string,
+    supplierId: string,
+    quantity: number,
+    incomeId: string,
+    tenantId: string,
+  ): Promise<void> {
+    if (quantity <= 0) return;
+    const balance = await this.getSupplyBalanceWithinTransaction(
+      tx,
+      partId,
+      supplierId,
+      tenantId,
+    );
+    const decreaseAmount = Math.min(quantity, Math.max(0, balance));
+    if (decreaseAmount <= 0) return;
+    await tx.partSupply.create({
+      data: {
+        partId,
+        supplierId,
+        quantity: -decreaseAmount,
+        source: SupplySource.INCOME,
+        sourceId: incomeId,
+        tenantId,
+      },
+    });
   }
 
   /**

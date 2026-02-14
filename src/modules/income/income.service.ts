@@ -7,6 +7,11 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { TenantService } from 'src/common/services/tenant.service';
 import { SettingsService } from 'src/modules/settings/settings.service';
 import { applyDefaultCurrency } from 'src/common/money';
+import { PartMotionService } from 'src/modules/warehouse/part-motion.service';
+import { PartSupplyService } from 'src/modules/warehouse/part-supply.service';
+import { MotionSourceType } from 'src/modules/warehouse/enums/motion-source-type.enum';
+import { ReservationService } from 'src/modules/reservation/reservation.service';
+import { OrderService } from 'src/modules/order/order.service';
 import { IncomeModel } from './models/income.model';
 import { IncomePartModel } from './models/income-part.model';
 import { CreateIncomeInput } from './inputs/create-income.input';
@@ -22,6 +27,10 @@ export class IncomeService {
     private readonly prisma: PrismaService,
     private readonly tenantService: TenantService,
     private readonly settingsService: SettingsService,
+    private readonly partMotionService: PartMotionService,
+    private readonly partSupplyService: PartSupplyService,
+    private readonly reservationService: ReservationService,
+    private readonly orderService: OrderService,
   ) {}
 
   private toIncomeModel(row: {
@@ -275,5 +284,89 @@ export class IncomeService {
     await this.prisma.incomePart.deleteMany({ where: { incomeId: id } });
     await this.prisma.income.delete({ where: { id } });
     return true;
+  }
+
+  async accrue(incomeId: string): Promise<IncomeModel> {
+    const tenantId = await this.tenantService.getTenantId();
+    const income = await this.prisma.income.findFirst({
+      where: { id: incomeId, tenantId },
+      include: {
+        incomeAccrue: true,
+        incomeParts: {
+          include: { part: { include: { manufacturer: true } } },
+        },
+      },
+    });
+    if (!income) {
+      throw new NotFoundException(`Приход не найден: ${incomeId}`);
+    }
+    if (income.incomeAccrue != null) {
+      throw new BadRequestException('Приход уже оприходован');
+    }
+    if (income.incomeParts.length === 0) {
+      throw new BadRequestException(
+        'Нельзя оприходовать приход без позиций',
+      );
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      await tx.incomeAccrue.create({
+        data: { incomeId, tenantId },
+      });
+
+      const supplierId = income.supplierId;
+      for (const ip of income.incomeParts) {
+        await this.partMotionService.createWithinTransaction(
+          tx,
+          {
+            partId: ip.partId,
+            quantity: ip.quantity,
+            sourceType: MotionSourceType.INCOME,
+            sourceId: incomeId,
+          },
+          tenantId,
+        );
+        await this.partSupplyService.decreaseSupplyForIncome(
+          tx,
+          ip.partId,
+          supplierId,
+          ip.quantity,
+          incomeId,
+          tenantId,
+        );
+      }
+
+      const partIds = [...new Set(income.incomeParts.map((ip) => ip.partId))];
+      const allOrderIds = new Set<string>();
+      for (const partId of partIds) {
+        const qty = income.incomeParts
+          .filter((p) => p.partId === partId)
+          .reduce((s, p) => s + p.quantity, 0);
+        const orderIds = await this.reservationService.reserveAccruedForPart(
+          tx,
+          partId,
+          qty,
+          tenantId,
+        );
+        orderIds.forEach((oid) => allOrderIds.add(oid));
+      }
+      for (const orderId of allOrderIds) {
+        await this.orderService.trySetNotificationIfFullyReserved(
+          tx,
+          orderId,
+        );
+      }
+
+      const updated = await tx.income.findUniqueOrThrow({
+        where: { id: incomeId },
+        include: {
+          incomeAccrue: true,
+          incomeParts: {
+            include: { part: { include: { manufacturer: true } } },
+          },
+        },
+      });
+      return this.toIncomeModel(updated);
+    });
   }
 }

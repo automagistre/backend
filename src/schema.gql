@@ -777,6 +777,8 @@ type MoneyModel {
 }
 
 type Mutation {
+  """Оприходовать приход"""
+  accrueIncome(incomeId: ID!): IncomeModel!
   addPartCross(input: AddPartCrossInput!): PartModel!
   cancelEmployeeSalary(salaryId: ID!): Boolean!
 

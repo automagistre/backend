@@ -104,4 +104,14 @@ export class IncomeResolver {
   ): Promise<boolean> {
     return this.incomeService.deleteIncome(id);
   }
+
+  @Mutation(() => IncomeModel, {
+    name: 'accrueIncome',
+    description: 'Оприходовать приход',
+  })
+  async accrueIncome(
+    @Args('incomeId', { type: () => ID }) incomeId: string,
+  ): Promise<IncomeModel> {
+    return this.incomeService.accrue(incomeId);
+  }
 }

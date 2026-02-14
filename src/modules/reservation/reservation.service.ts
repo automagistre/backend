@@ -1,4 +1,5 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
+import { Prisma } from 'src/generated/prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { Reservation } from 'src/generated/prisma/client';
 import { TenantService } from 'src/common/services/tenant.service';
@@ -394,6 +395,80 @@ export class ReservationService {
         tenantId,
       },
     });
+  }
+
+  /**
+   * Резервирование поступившей запчасти по активным заказам (в рамках транзакции оприходования).
+   * Не проверяет validateOrderEditable и reservable — остаток уже увеличен Motion.
+   * Возвращает orderId заказов, для которых создан хотя бы один резерв.
+   */
+  async reserveAccruedForPart(
+    tx: Prisma.TransactionClient,
+    partId: string,
+    quantityAvailable: number,
+    tenantId: string,
+  ): Promise<string[]> {
+    if (quantityAvailable <= 0) return [];
+
+    const orderItemParts = await tx.orderItemPart.findMany({
+      where: {
+        partId,
+        orderItem: {
+          tenantId,
+          orderId: { not: null },
+          order: {
+            status: {
+              notIn: [OrderStatus.CLOSED, OrderStatus.CANCELLED],
+            },
+          },
+        },
+      },
+      include: {
+        orderItem: { include: { order: true } },
+      },
+      orderBy: { orderItem: { order: { createdAt: 'asc' } } },
+    });
+
+    const reservedByOip = await tx.reservation.groupBy({
+      by: ['orderItemPartId'],
+      where: {
+        tenantId,
+        orderItemPartId: {
+          in: orderItemParts.map((o) => o.id),
+        },
+      },
+      _sum: { quantity: true },
+    });
+    const reservedMap = new Map(
+      reservedByOip.map((r) => [r.orderItemPartId, r._sum.quantity ?? 0]),
+    );
+
+    let remaining = quantityAvailable;
+    const affectedOrderIds: string[] = [];
+
+    for (const oip of orderItemParts) {
+      if (remaining <= 0) break;
+      const orderId = oip.orderItem?.order?.id;
+      if (!orderId) continue;
+
+      const reserved = reservedMap.get(oip.id) ?? 0;
+      const need = Math.max(0, oip.quantity - reserved);
+      const toReserve = Math.min(need, remaining);
+      if (toReserve <= 0) continue;
+
+      await tx.reservation.create({
+        data: {
+          orderItemPartId: oip.id,
+          quantity: toReserve,
+          tenantId,
+        },
+      });
+      remaining -= toReserve;
+      if (!affectedOrderIds.includes(orderId)) {
+        affectedOrderIds.push(orderId);
+      }
+    }
+    return affectedOrderIds;
   }
 
   /**

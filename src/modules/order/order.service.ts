@@ -517,6 +517,65 @@ export class OrderService {
     }
   }
 
+  /**
+   * В рамках транзакции оприходования: если заказ в TRACKING и все OrderItemPart
+   * с quantity > 0 имеют reserved >= quantity, переводит статус в NOTIFICATION.
+   */
+  async trySetNotificationIfFullyReserved(
+    tx: Prisma.TransactionClient,
+    orderId: string,
+  ): Promise<void> {
+    const order = await tx.order.findUnique({
+      where: { id: orderId },
+      select: { status: true, tenantId: true },
+    });
+    if (!order || order.status !== OrderStatus.TRACKING) return;
+
+    const orderItemIds: string[] = [];
+    let ids = (
+      await tx.orderItem.findMany({
+        where: { orderId },
+        select: { id: true },
+      })
+    ).map((i) => i.id);
+    while (ids.length > 0) {
+      orderItemIds.push(...ids);
+      ids = (
+        await tx.orderItem.findMany({
+          where: { parentId: { in: ids } },
+          select: { id: true },
+        })
+      ).map((i) => i.id);
+    }
+    if (orderItemIds.length === 0) return;
+
+    const parts = await tx.orderItemPart.findMany({
+      where: { id: { in: orderItemIds }, quantity: { gt: 0 } },
+      select: { id: true, quantity: true },
+    });
+    if (parts.length === 0) return;
+
+    const reserved = await tx.reservation.groupBy({
+      by: ['orderItemPartId'],
+      where: {
+        orderItemPartId: { in: parts.map((p) => p.id) },
+      },
+      _sum: { quantity: true },
+    });
+    const reservedMap = new Map(
+      reserved.map((r) => [r.orderItemPartId, r._sum.quantity ?? 0]),
+    );
+    const allSatisfied = parts.every(
+      (p) => (reservedMap.get(p.id) ?? 0) >= p.quantity,
+    );
+    if (!allSatisfied) return;
+
+    await tx.order.update({
+      where: { id: orderId },
+      data: { status: OrderStatus.NOTIFICATION },
+    });
+  }
+
   async update(input: UpdateOrderInput): Promise<OrderModel> {
     await this.validateOrderEditable(input.id);
 

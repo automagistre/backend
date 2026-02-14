@@ -16,6 +16,11 @@ import { ReservationModule } from '../reservation/reservation.module';
     ProcurementService,
     WarehouseResolver,
   ],
-  exports: [WarehouseService, PartSupplyService, ProcurementService],
+  exports: [
+    WarehouseService,
+    PartMotionService,
+    PartSupplyService,
+    ProcurementService,
+  ],
 })
 export class WarehouseModule {}
