@@ -107,6 +107,7 @@ model Part {
   CarRecommendationPart    CarRecommendationPart[]
   IncomePart               IncomePart[]
   PartSupply               PartSupply[]
+  McPart                   McPart[]
 
   @@unique([number, manufacturerId], map: "uniq_490f70c696901f54a23b42d")
   @@map("part")
@@ -161,6 +162,7 @@ model Vehicle {
   createdAt      DateTime?    @default(now()) @map("created_at") @db.Timestamptz(0)
   createdBy      String?      @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
   Car            Car[]
+  McEquipment    McEquipment[]
 
   @@unique([manufacturerId, name, caseName], map: "uniq_b53af235a23b42d5e237e06df3ba4b5")
   @@map("vehicle_model")
@@ -560,68 +562,75 @@ model IncomePart {
 //   @@id([inventorization_id, part_id])
 // }
 
-// /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
-// model mc_equipment {
-//   id                          String    @id @default(uuid()) @db.Uuid
-//   vehicle_id                  String    @db.Uuid
-//   period                      Int
-//   tenant_id                   String    @db.Uuid
-//   equipment_transmission      Int       @db.SmallInt
-//   equipment_wheel_drive       Int       @db.SmallInt
-//   equipment_engine_name       String?   @db.VarChar(255)
-//   equipment_engine_type       Int       @db.SmallInt
-//   equipment_engine_air_intake Int       @db.SmallInt
-//   equipment_engine_injection  Int       @db.SmallInt
-//   equipment_engine_capacity   String    @db.VarChar(255)
-//   created_at                  DateTime? @default(now()) @db.Timestamptz(0)
-//   created_by                  String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
-//   mc_line                     mc_line[]
-// }
+model McEquipment {
+  id                          String    @id @default(uuid()) @db.Uuid
+  vehicleId                   String    @map("vehicle_id") @db.Uuid
+  vehicle                     Vehicle   @relation(fields: [vehicleId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  period                      Int
+  tenantId                    String    @map("tenant_id") @db.Uuid
+  equipmentTransmission       Int       @map("equipment_transmission") @db.SmallInt
+  equipmentWheelDrive         Int       @map("equipment_wheel_drive") @db.SmallInt
+  equipmentEngineName         String?   @map("equipment_engine_name") @db.VarChar(255)
+  equipmentEngineType         Int       @map("equipment_engine_type") @db.SmallInt
+  equipmentEngineAirIntake    Int       @map("equipment_engine_air_intake") @db.SmallInt
+  equipmentEngineInjection   Int       @map("equipment_engine_injection") @db.SmallInt
+  equipmentEngineCapacity    String    @map("equipment_engine_capacity") @db.VarChar(255)
+  createdAt                   DateTime? @default(now()) @map("created_at") @db.Timestamptz(0)
+  createdBy                   String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
+  lines                       McLine[]
 
-// model mc_line {
-//   id           String        @id @default(uuid()) @db.Uuid
-//   equipment_id String?       @db.Uuid
-//   work_id      String?       @db.Uuid
-//   period       Int
-//   recommended  Boolean
-//   position     Int
-//   tenant_id    String        @db.Uuid
-//   created_at   DateTime?     @default(now()) @db.Timestamptz(0)
-//   created_by   String?       @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
-//   mc_equipment mc_equipment? @relation(fields: [equipment_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_b37ebc5f517fe9fe")
-//   mc_work      mc_work?      @relation(fields: [work_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_b37ebc5fbb3453db")
-//   mc_part      mc_part[]
+  @@map("mc_equipment")
+}
 
-//   @@index([equipment_id], map: "idx_b37ebc5f517fe9fe")
-//   @@index([work_id], map: "idx_b37ebc5fbb3453db")
-// }
+model McLine {
+  id           String       @id @default(uuid()) @db.Uuid
+  equipmentId  String?      @map("equipment_id") @db.Uuid
+  workId       String?      @map("work_id") @db.Uuid
+  period       Int
+  recommended  Boolean
+  position     Int
+  tenantId     String       @map("tenant_id") @db.Uuid
+  createdAt    DateTime?    @default(now()) @map("created_at") @db.Timestamptz(0)
+  createdBy    String?      @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
+  equipment    McEquipment? @relation(fields: [equipmentId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_b37ebc5f517fe9fe")
+  work         McWork?      @relation(fields: [workId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_b37ebc5fbb3453db")
+  parts        McPart[]
 
-// model mc_part {
-//   id          String    @id @default(uuid()) @db.Uuid
-//   line_id     String?   @db.Uuid
-//   part_id     String    @db.Uuid
-//   quantity    Int
-//   recommended Boolean
-//   tenant_id   String    @db.Uuid
-//   created_at  DateTime? @default(now()) @db.Timestamptz(0)
-//   created_by  String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
-//   mc_line     mc_line?  @relation(fields: [line_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_2b65786f4d7b7542")
+  @@index([equipmentId], map: "idx_b37ebc5f517fe9fe")
+  @@index([workId], map: "idx_b37ebc5fbb3453db")
+  @@map("mc_line")
+}
 
-//   @@index([line_id], map: "idx_2b65786f4d7b7542")
-// }
+model McPart {
+  id          String   @id @default(uuid()) @db.Uuid
+  lineId      String?  @map("line_id") @db.Uuid
+  partId      String   @map("part_id") @db.Uuid
+  part        Part     @relation(fields: [partId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  quantity    Int
+  recommended Boolean
+  tenantId    String   @map("tenant_id") @db.Uuid
+  createdAt   DateTime? @default(now()) @map("created_at") @db.Timestamptz(0)
+  createdBy   String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
+  line        McLine?  @relation(fields: [lineId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_2b65786f4d7b7542")
 
-// model mc_work {
-//   id                  String    @id @default(uuid()) @db.Uuid
-//   name                String    @db.VarChar(255)
-//   description         String?   @db.VarChar(255)
-//   comment             String?   @db.VarChar(255)
-//   tenant_id           String    @db.Uuid
-//   price_amount        BigInt?
-//   price_currency_code String?   @db.VarChar(3)
-//   created_at          DateTime? @default(now()) @db.Timestamptz(0)
-//   created_by          String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
-//   mc_line             mc_line[]
-// }
+  @@index([lineId], map: "idx_2b65786f4d7b7542")
+  @@map("mc_part")
+}
+
+model McWork {
+  id                  String    @id @default(uuid()) @db.Uuid
+  name                String    @db.VarChar(255)
+  description         String?   @db.VarChar(255)
+  comment             String?   @db.VarChar(255)
+  tenantId            String    @map("tenant_id") @db.Uuid
+  priceAmount         BigInt?   @map("price_amount")
+  priceCurrencyCode   String?   @map("price_currency_code") @db.VarChar(3)
+  createdAt           DateTime? @default(now()) @map("created_at") @db.Timestamptz(0)
+  createdBy           String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
+  lines               McLine[]
+
+  @@map("mc_work")
+}
 
 // model migration_versions {
 //   version        String    @id @db.VarChar(1024)

@@ -436,6 +436,46 @@ input CreateManufacturerInput {
   name: String!
 }
 
+input CreateMcEquipmentInput {
+  """Тип воздухозабора двигателя"""
+  equipmentEngineAirIntake: CarEngineAirIntake
+
+  """Объём двигателя (например 2.0)"""
+  equipmentEngineCapacity: String!
+
+  """Тип впрыска"""
+  equipmentEngineInjection: CarEngineInjection
+
+  """Название двигателя"""
+  equipmentEngineName: String
+
+  """Тип двигателя"""
+  equipmentEngineType: CarEngineType
+
+  """Тип трансмиссии"""
+  equipmentTransmission: CarTransmission
+
+  """Тип привода"""
+  equipmentWheelDrive: CarWheelDrive
+
+  """Период ТО в тыс. км"""
+  period: Int!
+
+  """ID модели автомобиля"""
+  vehicleId: String!
+}
+
+input CreateMcWorkInput {
+  comment: String
+  description: String
+
+  """Название работы"""
+  name: String!
+
+  """Цена работы (минорные единицы и валюта)"""
+  price: MoneyInput
+}
+
 input CreateNoteInput {
   isPublic: Boolean = false
 
@@ -811,6 +851,111 @@ type ManufacturerModel {
   updatedAt: DateTime!
 }
 
+"""Комплектация (модель авто + оборудование + период ТО)"""
+type McEquipmentModel {
+  createdAt: DateTime
+
+  """Тип воздухозабора двигателя"""
+  equipmentEngineAirIntake: CarEngineAirIntake
+
+  """Объём двигателя (например 2.0)"""
+  equipmentEngineCapacity: String
+
+  """Тип впрыска"""
+  equipmentEngineInjection: CarEngineInjection
+
+  """Название двигателя"""
+  equipmentEngineName: String
+
+  """Тип двигателя"""
+  equipmentEngineType: CarEngineType
+
+  """Тип трансмиссии"""
+  equipmentTransmission: CarTransmission
+
+  """Тип привода"""
+  equipmentWheelDrive: CarWheelDrive
+  id: ID!
+
+  """Строки карты ТО (работы + запчасти)"""
+  lines: [McLineModel!]!
+
+  """Период ТО в тыс. км"""
+  period: Int!
+  tenantId: String!
+
+  """Модель автомобиля"""
+  vehicle: VehicleModel!
+}
+
+"""Строка карты ТО (работа + запчасти)"""
+input McLineInput {
+  """Запчасти"""
+  parts: [McPartLineInput!]! = []
+
+  """Период в тыс. км"""
+  period: Int!
+
+  """Порядок"""
+  position: Int!
+
+  """Рекомендуемая"""
+  recommended: Boolean!
+
+  """ID работы"""
+  workId: String!
+}
+
+"""Строка карты ТО (работа + запчасти)"""
+type McLineModel {
+  id: ID!
+  parts: [McPartModel!]!
+
+  """Период в тыс. км"""
+  period: Int!
+  position: Int!
+  recommended: Boolean!
+
+  """Работа"""
+  work: McWorkModel!
+}
+
+"""Запчасть в строке карты ТО"""
+input McPartLineInput {
+  """ID запчасти"""
+  partId: String!
+
+  """Количество"""
+  quantity: Int!
+
+  """Рекомендуемая"""
+  recommended: Boolean!
+}
+
+"""Запчасть в строке карты ТО"""
+type McPartModel {
+  id: ID!
+
+  """Запчасть"""
+  part: PartModel!
+  quantity: Int!
+  recommended: Boolean!
+}
+
+"""Работа ТО (справочник)"""
+type McWorkModel {
+  comment: String
+  createdAt: DateTime
+  description: String
+  id: ID!
+  name: String!
+
+  """Цена в минорных единицах (копейки)"""
+  priceAmount: BigInt
+  priceCurrencyCode: String
+  tenantId: String!
+}
+
 """Денежная сумма: минорные единицы и код валюты"""
 input MoneyInput {
   """Сумма в минорных единицах (копейки)"""
@@ -867,6 +1012,12 @@ type Mutation {
   """Добавить позицию в приход"""
   createIncomePart(input: CreateIncomePartInput!): IncomePartModel!
   createManualCustomerTransaction(input: CreateManualCustomerTransactionInput!): CustomerTransactionModel!
+
+  """Создать комплектацию"""
+  createMcEquipment(input: CreateMcEquipmentInput!): McEquipmentModel!
+
+  """Создать работу ТО"""
+  createMcWork(input: CreateMcWorkInput!): McWorkModel!
   createNote(input: CreateNoteInput!): NoteModel!
   createOneCar(input: CreateCarInput!): CarModel!
   createOneEmployee(input: CreateEmployeeInput!): EmployeeModel!
@@ -919,6 +1070,12 @@ type Mutation {
 
   """Удалить позицию прихода"""
   deleteIncomePart(id: ID!): Boolean!
+
+  """Удалить комплектацию"""
+  deleteMcEquipment(id: String!): McEquipmentModel!
+
+  """Удалить работу ТО"""
+  deleteMcWork(id: String!): McWorkModel!
   deleteNote(description: String, id: ID!): NoteModel!
   deleteOneCar(id: String!): CarModel!
   deleteOneEmployee(id: String!): EmployeeModel!
@@ -989,6 +1146,12 @@ type Mutation {
 
   """Обновить позицию прихода"""
   updateIncomePart(input: UpdateIncomePartInput!): IncomePartModel!
+
+  """Обновить комплектацию (включая дерево работ/запчастей)"""
+  updateMcEquipment(input: UpdateMcEquipmentInput!): McEquipmentModel!
+
+  """Обновить работу ТО"""
+  updateMcWork(input: UpdateMcWorkInput!): McWorkModel!
   updateNote(input: UpdateNoteInput!): NoteModel!
   updateOneCar(input: UpdateCarInput!): CarModel!
   updateOneEmployee(input: UpdateEmployeeInput!): EmployeeModel!
@@ -1280,6 +1443,16 @@ type PaginatedManufacturers {
   total: Int!
 }
 
+type PaginatedMcEquipments {
+  items: [McEquipmentModel!]!
+  total: Int!
+}
+
+type PaginatedMcWorks {
+  items: [McWorkModel!]!
+  total: Int!
+}
+
 type PaginatedOrders {
   items: [OrderModel!]!
   total: Int!
@@ -1527,6 +1700,18 @@ type Query {
   incomes(skip: Int, supplierId: ID, take: Int): PaginatedIncomes!
   manufacturer(id: String!): ManufacturerModel
   manufacturers(search: String, skip: Int = 0, take: Int = 25): PaginatedManufacturers!
+
+  """Комплектация по ID"""
+  mcEquipment(id: String!): McEquipmentModel
+
+  """Список комплектаций"""
+  mcEquipments(period: Float, search: String, skip: Int = 0, take: Int = 25, vehicleId: String): PaginatedMcEquipments!
+
+  """Работа ТО по ID"""
+  mcWork(id: String!): McWorkModel
+
+  """Список работ ТО"""
+  mcWorks(search: String, skip: Int = 0, take: Int = 25): PaginatedMcWorks!
 
   """Заметки по subject (Order, Car или Person)"""
   notes(subjectId: ID!): [NoteModel!]!
@@ -1930,6 +2115,51 @@ input UpdateManufacturerInput {
 
   """Название производителя"""
   name: String
+}
+
+input UpdateMcEquipmentInput {
+  """Тип воздухозабора двигателя"""
+  equipmentEngineAirIntake: CarEngineAirIntake
+
+  """Объём двигателя (например 2.0)"""
+  equipmentEngineCapacity: String
+
+  """Тип впрыска"""
+  equipmentEngineInjection: CarEngineInjection
+
+  """Название двигателя"""
+  equipmentEngineName: String
+
+  """Тип двигателя"""
+  equipmentEngineType: CarEngineType
+
+  """Тип трансмиссии"""
+  equipmentTransmission: CarTransmission
+
+  """Тип привода"""
+  equipmentWheelDrive: CarWheelDrive
+  id: ID!
+
+  """Дерево работ и запчастей. При указании заменяет текущее."""
+  lines: [McLineInput!]
+
+  """Период ТО в тыс. км"""
+  period: Int
+
+  """ID модели автомобиля"""
+  vehicleId: String
+}
+
+input UpdateMcWorkInput {
+  comment: String
+  description: String
+  id: ID!
+
+  """Название работы"""
+  name: String
+
+  """Цена работы (минорные единицы и валюта)"""
+  price: MoneyInput
 }
 
 input UpdateNoteInput {
