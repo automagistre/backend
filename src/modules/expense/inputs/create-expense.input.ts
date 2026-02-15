@@ -4,7 +4,7 @@ import { IsOptional, IsString, IsUUID, MaxLength, MinLength } from 'class-valida
 @InputType()
 export class CreateExpenseInput {
   @IsString()
-  @MinLength(1)
+  @MinLength(3)
   @MaxLength(255)
   @Field(() => String, { description: 'Название статьи расходов' })
   name: string;
