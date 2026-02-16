@@ -2,6 +2,7 @@ import { registerAs } from '@nestjs/config';
 
 export default registerAs('auth', () => ({
   devMode: process.env.NODE_ENV !== 'production',
+  skipCheck: process.env.AUTH_SKIP_CHECK === 'true',
   jwt: {
     secret: process.env.JWT_SECRET || 'default-secret',
     audience: process.env.JWT_AUDIENCE,

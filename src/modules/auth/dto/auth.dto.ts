@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsString } from 'class-validator';
+import { IsNotEmpty, IsNumber, IsString } from 'class-validator';
 import { InputType, Field } from '@nestjs/graphql';
 
 @InputType()
@@ -7,6 +7,11 @@ export class LoginDto {
   @IsString()
   @IsNotEmpty()
   code: string;
+
+  @Field()
+  @IsString()
+  @IsNotEmpty()
+  redirectUri: string;
 }
 
 @InputType()
@@ -37,9 +42,9 @@ export class TokensDto {
   @IsString()
   refreshToken: string;
 
-  @IsString()
+  @IsNumber()
   expiresIn: number;
 
-  @IsString()
+  @IsNumber()
   refreshExpiresIn: number;
 }

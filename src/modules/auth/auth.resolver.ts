@@ -16,7 +16,10 @@ export class AuthResolver {
   @Public()
   @Mutation(() => Tokens)
   async login(@Args('input') loginDto: LoginDto): Promise<Tokens> {
-    return this.authService.exchangeCodeForTokens(loginDto.code);
+    return this.authService.exchangeCodeForTokens(
+      loginDto.code,
+      loginDto.redirectUri,
+    );
   }
 
   @Public()

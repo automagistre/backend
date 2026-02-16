@@ -15,12 +15,12 @@ export class UserIdMiddleware implements NestMiddleware {
   ) {}
 
   async use(req: FastifyRequest, res: FastifyReply, next: () => void) {
-    const isDevMode =
-      this.configService.get<string>('NODE_ENV') !== 'production';
+    const skipAuthCheck =
+      this.configService.get<boolean>('auth.skipCheck') === true;
 
     let userId: string;
 
-    if (isDevMode) {
+    if (skipAuthCheck) {
       // В dev режиме используем дефолтный UUID и устанавливаем фиктивного пользователя
       userId = DEV_USER_ID;
       (req as any).user = {
@@ -28,11 +28,11 @@ export class UserIdMiddleware implements NestMiddleware {
         email: DEV_USER_EMAIL,
       };
     } else {
-      // В production получаем UUID из авторизованного пользователя (установленного guard'ом)
+      // Получаем UUID из авторизованного пользователя (установленного guard'ом)
       const user = (req as any).user;
       userId = user?.sub;
 
-      // В production режиме пользователь должен быть установлен guard'ом
+      // Пользователь должен быть установлен guard'ом
       if (!userId) {
         // Не бросаем ошибку здесь, пусть guard'ы решают вопросы авторизации
         // Просто не устанавливаем user_id в базу

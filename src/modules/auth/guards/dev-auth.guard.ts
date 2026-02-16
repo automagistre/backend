@@ -3,12 +3,10 @@ import { ConfigService } from '@nestjs/config';
 import { JwtAuthGuard } from './jwt-auth.guard';
 
 /**
- * DevAuthGuard - условный guard для разработки
+ * DevAuthGuard - условный guard с отключаемой проверкой
  *
- * В dev режиме (NODE_ENV !== 'production') полностью отключает авторизацию
- * и создает фиктивного пользователя для всех запросов.
- *
- * В production режиме работает как обычный JwtAuthGuard.
+ * При AUTH_SKIP_CHECK=true — пропускает все запросы без проверки токена.
+ * При AUTH_SKIP_CHECK=false или не задано — проверяет токен через Keycloak (token-introspection).
  */
 @Injectable()
 export class DevAuthGuard extends JwtAuthGuard {
@@ -20,16 +18,10 @@ export class DevAuthGuard extends JwtAuthGuard {
   }
 
   canActivate(context: ExecutionContext) {
-    // В dev режиме пропускаем все запросы без авторизации
-    // Пользователь уже установлен в UserIdMiddleware
-    const isDevMode =
-      this.configService.get<string>('NODE_ENV') !== 'production';
-
-    if (isDevMode) {
+    const skipCheck = this.configService.get<boolean>('auth.skipCheck');
+    if (skipCheck) {
       return true;
     }
-
-    // В production используем обычную авторизацию
     return super.canActivate(context);
   }
 }

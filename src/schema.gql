@@ -827,6 +827,7 @@ scalar JSON
 
 input LoginDto {
   code: String!
+  redirectUri: String!
 }
 
 """Модель производителя"""

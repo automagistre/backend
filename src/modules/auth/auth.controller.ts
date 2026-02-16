@@ -16,7 +16,10 @@ export class AuthController {
   @Post('login')
   @HttpCode(HttpStatus.OK)
   login(@Body() loginDto: LoginDto): Promise<TokensDto> {
-    return this.authService.exchangeCodeForTokens(loginDto.code);
+    return this.authService.exchangeCodeForTokens(
+      loginDto.code,
+      loginDto.redirectUri,
+    );
   }
 
   @Public()
