@@ -1,6 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { SalaryService } from './salary.service';
+import {
+  userIdStore,
+  SYSTEM_USER_ID,
+  DEFAULT_TENANT_ID,
+} from '../../common/user-id.store';
 
 @Injectable()
 export class SalaryScheduler {
@@ -10,6 +15,9 @@ export class SalaryScheduler {
   @Cron('5 0 * * *')
   async handleMonthlySalaries() {
     const payday = new Date().getDate();
-    await this.salaryService.chargeMonthlySalaries(payday);
+    await userIdStore.run(
+      { userId: SYSTEM_USER_ID, tenantId: DEFAULT_TENANT_ID },
+      () => this.salaryService.chargeMonthlySalaries(payday),
+    );
   }
 }

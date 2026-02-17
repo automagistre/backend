@@ -40,7 +40,6 @@ export class NoteService {
         text: input.text,
         isPublic: input.isPublic ?? false,
         tenantId,
-        createdBy: null,
       },
     });
   }
@@ -78,7 +77,6 @@ export class NoteService {
           noteId,
           description: description ?? '',
           tenantId,
-          createdBy: null,
         },
       });
       return note;

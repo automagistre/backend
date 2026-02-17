@@ -39,7 +39,15 @@ export class TokenIntrospectionStrategy extends PassportStrategy(
         body: params,
       });
 
-      const result = (await response.json()) as { active?: boolean; sub?: string; email?: string };
+      const result = (await response.json()) as {
+        active?: boolean;
+        sub?: string;
+        email?: string;
+        name?: string;
+        preferred_username?: string;
+        realm_access?: { roles?: string[] };
+        resource_access?: Record<string, { roles?: string[] }>;
+      };
 
       if (!result.active) {
         throw new AuthenticationError('Token is not active');
@@ -50,9 +58,16 @@ export class TokenIntrospectionStrategy extends PassportStrategy(
         );
       }
 
+      const apiRoles = result.resource_access?.['api-oauth']?.roles ?? [];
+      const realmRoles = result.realm_access?.roles ?? [];
+
       return {
         sub: result.sub,
         email: result.email,
+        name: result.name,
+        preferred_username: result.preferred_username,
+        roles: apiRoles.length > 0 ? apiRoles : undefined,
+        realm_roles: realmRoles.length > 0 ? realmRoles : undefined,
       };
     } catch (error) {
       if (error instanceof AuthenticationError) {

@@ -9,6 +9,7 @@ import { ApolloDriver } from '@nestjs/apollo';
 import { PrismaModule } from './prisma/prisma.module';
 import { getGraphQLConfig } from './config/graphql.config';
 import { UserIdMiddleware } from './middlewares/user-id.middleware';
+import { UserIdInterceptor } from './interceptors/user-id.interceptor';
 import { BigIntScalar } from './common/scalars/bigint.scalar';
 import { CommonModule } from './common/common.module';
 import { PersonModule } from './modules/person/person.module';
@@ -16,7 +17,7 @@ import { CarModule } from './modules/vehicle/car.module';
 import { CalendarModule } from './modules/calendar/calendar.module';
 import { OrganizationModule } from './modules/organization/organization.module';
 import { EmployeeModule } from './modules/employee/employee.module';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { AuthModule } from './modules/auth/auth.module';
 import { OrderModule } from './modules/order/order.module';
 import { ReservationModule } from './modules/reservation/reservation.module';
@@ -86,6 +87,10 @@ import authConfig from './config/auth.config';
         return new DevAuthGuard(reflector, configService);
       },
       inject: [Reflector, ConfigService],
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: UserIdInterceptor,
     },
     UserIdMiddleware,
     BigIntScalar,

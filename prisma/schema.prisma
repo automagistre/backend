@@ -663,7 +663,7 @@ model Note {
   isPublic   Boolean?    @default(false) @map("is_public")
   tenantId   String      @map("tenant_id") @db.Uuid
   createdAt  DateTime?   @default(now()) @map("created_at") @db.Timestamptz(0)
-  createdBy  String?     @map("created_by") @db.Uuid
+  createdBy  String?     @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
   noteDelete NoteDelete?
 
   @@map("note")
@@ -675,7 +675,7 @@ model NoteDelete {
   description String    @default("") @map("description") @db.VarChar(255)
   tenantId    String    @map("tenant_id") @db.Uuid
   createdAt   DateTime? @default(now()) @map("created_at") @db.Timestamptz(0)
-  createdBy   String?   @map("created_by") @db.Uuid
+  createdBy   String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
   note        Note?     @relation(fields: [noteId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_22c02b5326ed0855")
 
   @@map("note_delete")

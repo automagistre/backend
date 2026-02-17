@@ -1,51 +1,26 @@
 import { Injectable, NestMiddleware } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { FastifyRequest, FastifyReply } from 'fastify';
-import { PrismaService } from 'src/prisma/prisma.service';
 
 const DEV_USER_ID = '24602e10-629b-4f23-8d8b-1cca08fb8a84';
-const DEV_USER_EMAIL = 'dev@example.com';
-const DEFAULT_TENANT_ID = '1ec13d33-3f41-6e3a-a0cb-02420a000f18';
+const DEV_USER_EMAIL = 'dev@automagistre.ru';
 
+/**
+ * В dev (skipAuthCheck) устанавливает req.user. SET app.user_id делает UserIdInterceptor.
+ */
 @Injectable()
 export class UserIdMiddleware implements NestMiddleware {
-  constructor(
-    private prisma: PrismaService,
-    private configService: ConfigService,
-  ) {}
+  constructor(private configService: ConfigService) {}
 
-  async use(req: FastifyRequest, res: FastifyReply, next: () => void) {
-    const skipAuthCheck =
-      this.configService.get<boolean>('auth.skipCheck') === true;
-
-    let userId: string;
-
-    if (skipAuthCheck) {
-      // В dev режиме используем дефолтный UUID и устанавливаем фиктивного пользователя
-      userId = DEV_USER_ID;
-      (req as any).user = {
-        sub: userId,
-        email: DEV_USER_EMAIL,
-      };
-    } else {
-      // Получаем UUID из авторизованного пользователя (установленного guard'ом)
-      const user = (req as any).user;
-      userId = user?.sub;
-
-      // Пользователь должен быть установлен guard'ом
-      if (!userId) {
-        // Не бросаем ошибку здесь, пусть guard'ы решают вопросы авторизации
-        // Просто не устанавливаем user_id в базу
-        next();
-        return;
-      }
+  use(req: FastifyRequest, _res: FastifyReply, next: () => void): void {
+    if (this.configService.get<boolean>('auth.skipCheck') !== true) {
+      next();
+      return;
     }
-
-    await this.prisma.$executeRawUnsafe(`SET app.user_id = '${userId}'`);
-    await this.prisma.$executeRawUnsafe(
-      `SET app.tenant_id = '${DEFAULT_TENANT_ID}'`,
-    );
-
+    (req as { user?: { sub: string; email: string } }).user = {
+      sub: DEV_USER_ID,
+      email: DEV_USER_EMAIL,
+    };
     next();
   }
 }
