@@ -21,22 +21,4 @@ export function getRequestContext(): RequestContext {
   );
 }
 
-type DbClient = {
-  $executeRawUnsafe: (query: string, ...values: unknown[]) => Promise<unknown>;
-};
-
-/** Устанавливает app.user_id и app.tenant_id на соединении (интерцептор, транзакция). */
-export async function setSessionParamsOnClient(client: DbClient): Promise<void> {
-  const { userId, tenantId } = getRequestContext();
-  if (!userId) return;
-  await client.$executeRawUnsafe(
-    "SELECT set_config('app.user_id', $1, false)",
-    userId,
-  );
-  await client.$executeRawUnsafe(
-    "SELECT set_config('app.tenant_id', $1, false)",
-    tenantId,
-  );
-}
-
 export { DEFAULT_TENANT_ID };

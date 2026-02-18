@@ -30,7 +30,7 @@ export class NoteService {
     });
   }
 
-  async create(input: CreateNoteInput) {
+  async create(input: CreateNoteInput, createdBy: string) {
     const tenantId = await this.tenantService.getTenantId();
     await this.validateSubject(input.subjectId);
     return this.prisma.note.create({
@@ -40,6 +40,7 @@ export class NoteService {
         text: input.text,
         isPublic: input.isPublic ?? false,
         tenantId,
+        createdBy,
       },
     });
   }
@@ -63,7 +64,7 @@ export class NoteService {
     });
   }
 
-  async softDelete(noteId: string, description?: string) {
+  async softDelete(noteId: string, createdBy: string, description?: string) {
     const tenantId = await this.tenantService.getTenantId();
     const note = await this.prisma.note.findFirst({
       where: { id: noteId, tenantId, noteDelete: null },
@@ -77,6 +78,7 @@ export class NoteService {
           noteId,
           description: description ?? '',
           tenantId,
+          createdBy,
         },
       });
       return note;

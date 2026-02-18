@@ -1,4 +1,5 @@
 import { Args, ID, Mutation, Query, Resolver } from '@nestjs/graphql';
+import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 import { NoteService } from './note.service';
 import { NoteModel } from './models/note.model';
 import { CreateNoteInput } from './inputs/create-note.input';
@@ -17,8 +18,11 @@ export class NoteResolver {
   }
 
   @Mutation(() => NoteModel, { name: 'createNote' })
-  async createNote(@Args('input') input: CreateNoteInput) {
-    return this.noteService.create(input);
+  async createNote(
+    @Args('input') input: CreateNoteInput,
+    @CurrentUser({ required: true }) user: { sub: string },
+  ) {
+    return this.noteService.create(input, user.sub);
   }
 
   @Mutation(() => NoteModel, { name: 'updateNote' })
@@ -30,7 +34,8 @@ export class NoteResolver {
   async deleteNote(
     @Args('id', { type: () => ID }) id: string,
     @Args('description', { nullable: true }) description?: string,
+    @CurrentUser({ required: true }) user?: { sub: string },
   ) {
-    return this.noteService.softDelete(id, description);
+    return this.noteService.softDelete(id, user!.sub, description);
   }
 }

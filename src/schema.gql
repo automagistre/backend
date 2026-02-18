@@ -1182,7 +1182,7 @@ type Mutation {
 
 type NoteModel {
   createdAt: DateTime
-  createdBy: ID
+  createdBy: ID!
   id: ID!
   isPublic: Boolean
   subject: ID!

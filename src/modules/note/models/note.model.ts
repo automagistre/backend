@@ -25,6 +25,6 @@ export class NoteModel implements PrismaNote {
   @Field(() => Date, { nullable: true })
   createdAt: Date | null;
 
-  @Field(() => ID, { nullable: true })
-  createdBy: string | null;
+  @Field(() => ID)
+  createdBy: string;
 }
