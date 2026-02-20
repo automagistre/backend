@@ -479,7 +479,7 @@ model Expense {
   walletId  String?   @map("wallet_id") @db.Uuid
   tenantId  String    @map("tenant_id") @db.Uuid
   createdAt DateTime? @default(now()) @map("created_at") @db.Timestamptz(0)
-  createdBy String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
+  createdBy String?   @map("created_by") @db.Uuid
   wallet    Wallet?   @relation(fields: [walletId], references: [id], onDelete: SetNull, onUpdate: NoAction)
   @@map("expense")
 }

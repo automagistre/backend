@@ -16,8 +16,12 @@ import { PaginatedExpenses } from './types/paginated-expenses.type';
 import { WalletModel } from 'src/modules/wallet/models/wallet.model';
 import { WalletService } from 'src/modules/wallet/wallet.service';
 import { WalletTransactionModel } from 'src/modules/wallet/models/wallet-transaction.model';
+import { AuthContext } from 'src/common/decorators/auth-context.decorator';
+import { RequireTenant } from 'src/common/decorators/skip-tenant.decorator';
+import type { AuthContext as AuthContextType } from 'src/common/user-id.store';
 
 @Resolver(() => ExpenseModel)
+@RequireTenant()
 export class ExpenseResolver {
   constructor(
     private readonly expenseService: ExpenseService,
@@ -35,11 +39,12 @@ export class ExpenseResolver {
     description: 'Список статей расходов',
   })
   async expenses(
+    @AuthContext() ctx: AuthContextType,
     @Args() pagination?: PaginationArgs,
-    @Args('search', { nullable: true }) search?: string,
+    @Args('search', { type: () => String, nullable: true }) search?: string,
   ) {
     const { take = 25, skip = 0 } = pagination ?? {};
-    return this.expenseService.findMany({ take, skip, search });
+    return this.expenseService.findMany(ctx, { take, skip, search });
   }
 
   @Query(() => ExpenseModel, {
@@ -47,32 +52,41 @@ export class ExpenseResolver {
     nullable: true,
     description: 'Статья расходов по ID',
   })
-  async expense(@Args('id') id: string) {
-    return this.expenseService.findOne(id);
+  async expense(@AuthContext() ctx: AuthContextType, @Args('id') id: string) {
+    return this.expenseService.findOne(ctx, id);
   }
 
   @Mutation(() => ExpenseModel, {
     name: 'createExpense',
     description: 'Создать статью расходов',
   })
-  async createExpense(@Args('input') input: CreateExpenseInput) {
-    return this.expenseService.create(input);
+  async createExpense(
+    @AuthContext() ctx: AuthContextType,
+    @Args('input') input: CreateExpenseInput,
+  ) {
+    return this.expenseService.create(ctx, input);
   }
 
   @Mutation(() => ExpenseModel, {
     name: 'updateExpense',
     description: 'Обновить статью расходов',
   })
-  async updateExpense(@Args('input') input: UpdateExpenseInput) {
-    return this.expenseService.update(input);
+  async updateExpense(
+    @AuthContext() ctx: AuthContextType,
+    @Args('input') input: UpdateExpenseInput,
+  ) {
+    return this.expenseService.update(ctx, input);
   }
 
   @Mutation(() => ExpenseModel, {
     name: 'deleteExpense',
     description: 'Удалить статью расходов',
   })
-  async deleteExpense(@Args('id') id: string) {
-    return this.expenseService.remove(id);
+  async deleteExpense(
+    @AuthContext() ctx: AuthContextType,
+    @Args('id') id: string,
+  ) {
+    return this.expenseService.remove(ctx, id);
   }
 
   @Mutation(() => WalletTransactionModel, {
@@ -80,8 +94,9 @@ export class ExpenseResolver {
     description: 'Создать расход по статье (проводка списания)',
   })
   async createExpenseTransaction(
+    @AuthContext() ctx: AuthContextType,
     @Args('input') input: CreateExpenseTransactionInput,
   ) {
-    return this.expenseService.createExpenseTransaction(input);
+    return this.expenseService.createExpenseTransaction(ctx, input);
   }
 }

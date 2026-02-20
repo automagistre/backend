@@ -1,12 +1,12 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { TenantService } from 'src/common/services/tenant.service';
 import { CreateExpenseInput } from './inputs/create-expense.input';
 import { UpdateExpenseInput } from './inputs/update-expense.input';
 import { CreateExpenseTransactionInput } from './inputs/create-expense-transaction.input';
 import { WalletTransactionSource } from 'src/modules/wallet/enums/wallet-transaction-source.enum';
 import { WalletService } from 'src/modules/wallet/wallet.service';
 import { WalletTransactionService } from 'src/modules/wallet/wallet-transaction.service';
+import type { AuthContext } from 'src/common/user-id.store';
 
 const DEFAULT_TAKE = 25;
 const DEFAULT_SKIP = 0;
@@ -15,13 +15,12 @@ const DEFAULT_SKIP = 0;
 export class ExpenseService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly tenantService: TenantService,
     private readonly walletService: WalletService,
     private readonly walletTransactionService: WalletTransactionService,
   ) {}
 
-  async create(data: CreateExpenseInput) {
-    const tenantId = await this.tenantService.getTenantId();
+  async create(ctx: AuthContext, data: CreateExpenseInput) {
+    const { tenantId, userId } = ctx;
     if (data.walletId != null) {
       const wallet = await this.walletService.findOne(data.walletId);
       if (!wallet) throw new NotFoundException('Счёт не найден');
@@ -31,13 +30,14 @@ export class ExpenseService {
         name: data.name.trim(),
         walletId: data.walletId ?? null,
         tenantId,
+        createdBy: userId,
       },
       include: { wallet: true },
     });
   }
 
-  async update(input: UpdateExpenseInput) {
-    const existing = await this.findOne(input.id);
+  async update(ctx: AuthContext, input: UpdateExpenseInput) {
+    const existing = await this.findOne(ctx, input.id);
     if (!existing) throw new NotFoundException('Статья расходов не найдена');
     if (input.walletId != null) {
       const wallet = await this.walletService.findOne(input.walletId);
@@ -53,16 +53,19 @@ export class ExpenseService {
     });
   }
 
-  async findMany({
-    take = DEFAULT_TAKE,
-    skip = DEFAULT_SKIP,
-    search,
-  }: {
-    take?: number;
-    skip?: number;
-    search?: string;
-  }) {
-    const tenantId = await this.tenantService.getTenantId();
+  async findMany(
+    ctx: AuthContext,
+    {
+      take = DEFAULT_TAKE,
+      skip = DEFAULT_SKIP,
+      search,
+    }: {
+      take?: number;
+      skip?: number;
+      search?: string;
+    },
+  ) {
+    const { tenantId } = ctx;
     const where = {
       tenantId,
       ...(search
@@ -82,16 +85,16 @@ export class ExpenseService {
     return { items, total };
   }
 
-  async findOne(id: string) {
-    const tenantId = await this.tenantService.getTenantId();
+  async findOne(ctx: AuthContext, id: string) {
+    const { tenantId } = ctx;
     return this.prisma.expense.findFirst({
       where: { id, tenantId },
       include: { wallet: true },
     });
   }
 
-  async remove(id: string) {
-    const expense = await this.findOne(id);
+  async remove(ctx: AuthContext, id: string) {
+    const expense = await this.findOne(ctx, id);
     if (!expense) throw new NotFoundException('Статья расходов не найдена');
     const txCount = await this.prisma.walletTransaction.count({
       where: {
@@ -109,8 +112,8 @@ export class ExpenseService {
     });
   }
 
-  async createExpenseTransaction(input: CreateExpenseTransactionInput) {
-    const expense = await this.findOne(input.expenseId);
+  async createExpenseTransaction(ctx: AuthContext, input: CreateExpenseTransactionInput) {
+    const expense = await this.findOne(ctx, input.expenseId);
     if (!expense) throw new NotFoundException('Статья расходов не найдена');
     const wallet = await this.walletService.findOne(input.walletId);
     if (!wallet) throw new NotFoundException('Счёт не найден');
