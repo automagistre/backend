@@ -964,7 +964,7 @@ model Review {
   raw       Json?     @db.Json
   tenantId  String    @map("tenant_id") @db.Uuid
   createdAt DateTime? @default(now()) @map("created_at") @db.Timestamptz(0)
-  createdBy String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
+  createdBy String?   @map("created_by") @db.Uuid
 
   @@unique([source, sourceId, tenantId], map: "uniq_794381c65f8a7f73953c1c619033212a")
   @@map("review")

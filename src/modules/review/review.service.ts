@@ -1,34 +1,36 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from 'src/generated/prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { TenantService } from 'src/common/services/tenant.service';
 import { CreateReviewInput } from './inputs/create-review.input';
 import { UpdateReviewInput } from './inputs/update-review.input';
 import { randomUUID } from 'crypto';
+import type { AuthContext } from 'src/common/user-id.store';
 
 const DEFAULT_TAKE = 25;
 const DEFAULT_SKIP = 0;
 const DEFAULT_SOURCE_MANUAL = 1; // Manual, как в старой CRM
 
+// TODO: Почистить дубликаты отзывов — 217 записей продублированы во все 3 tenant'а
+
 @Injectable()
 export class ReviewService {
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly tenantService: TenantService,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
-  async findMany({
-    take = DEFAULT_TAKE,
-    skip = DEFAULT_SKIP,
-    search,
-    source,
-  }: {
-    take?: number;
-    skip?: number;
-    search?: string;
-    source?: number;
-  }) {
-    const tenantId = await this.tenantService.getTenantId();
+  async findMany(
+    ctx: AuthContext,
+    {
+      take = DEFAULT_TAKE,
+      skip = DEFAULT_SKIP,
+      search,
+      source,
+    }: {
+      take?: number;
+      skip?: number;
+      search?: string;
+      source?: number;
+    },
+  ) {
+    const { tenantId } = ctx;
     const where = {
       tenantId,
       ...(search
@@ -53,15 +55,15 @@ export class ReviewService {
     return { items, total };
   }
 
-  async findOne(id: string) {
-    const tenantId = await this.tenantService.getTenantId();
+  async findOne(ctx: AuthContext, id: string) {
+    const { tenantId } = ctx;
     return this.prisma.review.findFirst({
       where: { id, tenantId },
     });
   }
 
-  async create(data: CreateReviewInput) {
-    const tenantId = await this.tenantService.getTenantId();
+  async create(ctx: AuthContext, data: CreateReviewInput) {
+    const { tenantId, userId } = ctx;
     const source = data.source ?? DEFAULT_SOURCE_MANUAL;
     const sourceId = randomUUID();
     const publishAt = data.publishAt ?? new Date();
@@ -75,12 +77,13 @@ export class ReviewService {
         publishAt,
         raw: Prisma.JsonNull,
         tenantId,
+        createdBy: userId,
       },
     });
   }
 
-  async update(input: UpdateReviewInput) {
-    const existing = await this.findOne(input.id);
+  async update(ctx: AuthContext, input: UpdateReviewInput) {
+    const existing = await this.findOne(ctx, input.id);
     if (!existing) throw new NotFoundException('Отзыв не найден');
     const data: {
       author?: string;
@@ -100,8 +103,8 @@ export class ReviewService {
     });
   }
 
-  async remove(id: string) {
-    const review = await this.findOne(id);
+  async remove(ctx: AuthContext, id: string) {
+    const review = await this.findOne(ctx, id);
     if (!review) throw new NotFoundException('Отзыв не найден');
     return this.prisma.review.delete({
       where: { id },
