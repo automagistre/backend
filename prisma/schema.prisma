@@ -999,47 +999,47 @@ model Review {
 //   created_by String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
 // }
 
-// model tenant {
-//   id                String              @unique(map: "temporal_unique_idx") @db.Uuid
-//   group_id          String              @db.Uuid
-//   identifier        String              @unique(map: "uniq_4e59c462772e836a") @db.VarChar(255)
-//   name              String              @db.VarChar(255)
-//   created_at        DateTime            @default(now()) @db.Timestamptz(6)
-//   updated_at        DateTime            @default(now()) @db.Timestamptz(6)
-//   tenant_group      tenant_group        @relation(fields: [group_id], references: [id], onUpdate: Restrict)
-//   tenant_permission tenant_permission[]
+model tenant {
+  id                String              @unique(map: "temporal_unique_idx") @db.Uuid
+  group_id          String              @db.Uuid
+  identifier        String              @unique(map: "uniq_4e59c462772e836a") @db.VarChar(255)
+  name              String              @db.VarChar(255)
+  created_at        DateTime            @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime            @default(now()) @db.Timestamptz(6)
+  tenant_group      tenant_group        @relation(fields: [group_id], references: [id], onUpdate: Restrict)
+  tenant_permission tenant_permission[]
 
-//   @@id([id, group_id])
-// }
+  @@id([id, group_id])
+}
 
-// model tenant_group {
-//   id                      String                    @id @default(uuid()) @db.Uuid
-//   identifier              String                    @db.VarChar(255)
-//   name                    String
-//   created_at              DateTime                  @default(now()) @db.Timestamptz(6)
-//   updated_at              DateTime                  @default(now()) @db.Timestamptz(6)
-//   tenant                  tenant[]
-//   tenant_group_permission tenant_group_permission[]
-// }
+model tenant_group {
+  id                      String                    @id @default(uuid()) @db.Uuid
+  identifier              String                    @db.VarChar(255)
+  name                    String
+  created_at              DateTime                  @default(now()) @db.Timestamptz(6)
+  updated_at              DateTime                  @default(now()) @db.Timestamptz(6)
+  tenant                  tenant[]
+  tenant_group_permission tenant_group_permission[]
+}
 
-// model tenant_group_permission {
-//   user_id         String       @db.Uuid
-//   tenant_group_id String       @db.Uuid
-//   created_at      DateTime     @default(now()) @db.Timestamptz(6)
-//   updated_at      DateTime     @default(now()) @db.Timestamptz(6)
-//   tenant_group    tenant_group @relation(fields: [tenant_group_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+model tenant_group_permission {
+  user_id         String       @db.Uuid
+  tenant_group_id String       @db.Uuid
+  created_at      DateTime     @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime     @default(now()) @db.Timestamptz(6)
+  tenant_group    tenant_group @relation(fields: [tenant_group_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-//   @@id([user_id, tenant_group_id])
-// }
+  @@id([user_id, tenant_group_id])
+}
 
-// model tenant_permission {
-//   id         String   @id(map: "user_permission_pkey") @db.Uuid
-//   user_id    String   @db.Uuid
-//   tenant_id  String   @db.Uuid
-//   created_at DateTime @default(now()) @db.Timestamptz(6)
-//   updated_at DateTime @default(now()) @db.Timestamptz(6)
-//   tenant     tenant   @relation(fields: [tenant_id], references: [id], onUpdate: Restrict)
-// }
+model tenant_permission {
+  id         String   @id(map: "user_permission_pkey") @db.Uuid
+  user_id    String   @db.Uuid
+  tenant_id  String   @db.Uuid
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+  tenant     tenant   @relation(fields: [tenant_id], references: [id], onUpdate: Restrict)
+}
 
 model Wallet {
   id                         String              @id @default(uuid()) @db.Uuid

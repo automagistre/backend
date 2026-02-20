@@ -957,6 +957,16 @@ type McWorkModel {
   tenantId: String!
 }
 
+type MeModel {
+  """Доступные организации"""
+  tenants: [MeTenantModel!]!
+}
+
+type MeTenantModel {
+  id: ID!
+  name: String
+}
+
 """Денежная сумма: минорные единицы и код валюты"""
 input MoneyInput {
   """Сумма в минорных единицах (копейки)"""
@@ -1713,6 +1723,9 @@ type Query {
 
   """Список работ ТО"""
   mcWorks(search: String, skip: Int = 0, take: Int = 25): PaginatedMcWorks!
+
+  """Текущий пользователь и доступные tenant"""
+  me: MeModel!
 
   """Заметки по subject (Order, Car или Person)"""
   notes(subjectId: ID!): [NoteModel!]!

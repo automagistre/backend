@@ -6,26 +6,39 @@ import {
 } from '@nestjs/common';
 import { GqlExecutionContext } from '@nestjs/graphql';
 import { Observable, from, lastValueFrom } from 'rxjs';
-import { userIdStore, DEFAULT_TENANT_ID } from '../common/user-id.store';
+import {
+  userIdStore,
+  DEFAULT_TENANT_ID,
+  type UserContext,
+} from '../common/user-id.store';
+
+/** Расширение req с ctx и tenantId */
+interface ReqWithCtx {
+  user?: { sub?: string };
+  tenantId?: string;
+  ctx?: UserContext;
+}
 
 /**
- * Сохраняет userId и tenantId в AsyncLocalStorage для доступа через getRequestContext().
- * Выполняется после guard — req.user уже установлен.
+ * Агрегирует req.ctx = { userId, tenantId } и сохраняет в AsyncLocalStorage.
+ * tenantId из req.tenantId (TenantGuard) или null для роутов без tenant.
  */
 @Injectable()
 export class UserIdInterceptor implements NestInterceptor {
-  intercept(
-    context: ExecutionContext,
-    next: CallHandler,
-  ): Observable<unknown> {
-    const req = this.getRequest(context);
-    const userId = (req as { user?: { sub?: string } }).user?.sub;
+  intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
+    const req = this.getRequest(context) as ReqWithCtx;
+    const userId = req.user?.sub ?? '';
+    const tenantId = req.tenantId ?? null;
+
+    req.ctx = { userId, tenantId };
+
+    const forStore = {
+      userId,
+      tenantId: tenantId ?? DEFAULT_TENANT_ID,
+    };
 
     return from(
-      userIdStore.run(
-        { userId, tenantId: DEFAULT_TENANT_ID },
-        () => lastValueFrom(next.handle()),
-      ),
+      userIdStore.run(forStore, () => lastValueFrom(next.handle())),
     );
   }
 

@@ -7,6 +7,7 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { AuthController } from './auth.controller';
 import { AuthResolver } from './auth.resolver';
+import { MeResolver } from './me.resolver';
 import { TokenIntrospectionStrategy } from './strategies/token-introspection.strategy';
 
 @Module({
@@ -34,7 +35,8 @@ import { TokenIntrospectionStrategy } from './strategies/token-introspection.str
     AuthService,
     JwtAuthGuard,
     AuthResolver,
-    // JwtStrategy,
+    MeResolver,
+    JwtStrategy,
     TokenIntrospectionStrategy,
   ],
   exports: [AuthService, JwtAuthGuard],

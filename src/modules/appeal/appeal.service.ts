@@ -6,10 +6,10 @@ import {
 import { v6 as uuidv6 } from 'uuid';
 import { Prisma } from 'src/generated/prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { TenantService } from 'src/common/services/tenant.service';
 import { AppealType } from './enums/appeal-type.enum';
 import type { AppealModel } from './models/appeal.model';
 import type { AppealDetailModel } from './models/appeal-detail.model';
+import type { AuthContext } from 'src/common/user-id.store';
 
 interface AppealViewRow {
   id: string;
@@ -24,13 +24,10 @@ interface AppealViewRow {
 
 @Injectable()
 export class AppealService {
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly tenantService: TenantService,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
-  async listAppeals(take = 25, skip = 0): Promise<{ items: AppealModel[]; total: number }> {
-    const tenantId = await this.tenantService.getTenantId();
+  async listAppeals(ctx: AuthContext, take = 25, skip = 0): Promise<{ items: AppealModel[]; total: number }> {
+    const { tenantId } = ctx;
     
     const [rows, countResult] = await Promise.all([
       this.prisma.$queryRaw<AppealViewRow[]>(
@@ -85,8 +82,8 @@ export class AppealService {
     return { items: appeals, total };
   }
 
-  async getAppealDetail(id: string, type: number): Promise<AppealDetailModel> {
-    const tenantId = await this.tenantService.getTenantId();
+  async getAppealDetail(ctx: AuthContext, id: string, type: number): Promise<AppealDetailModel> {
+    const { tenantId } = ctx;
 
     const statusRecord = await this.prisma.appealStatusRecord.findFirst({
       where: { appealId: id, tenantId },
@@ -206,8 +203,8 @@ export class AppealService {
     };
   }
 
-  async updateAppealStatus(appealId: string, status: number): Promise<void> {
-    const tenantId = await this.tenantService.getTenantId();
+  async updateAppealStatus(ctx: AuthContext, appealId: string, status: number): Promise<void> {
+    const { tenantId } = ctx;
 
     const latest = await this.prisma.appealStatusRecord.findFirst({
       where: { appealId, tenantId },
@@ -223,8 +220,8 @@ export class AppealService {
     });
   }
 
-  async appealOpenCount(): Promise<number> {
-    const tenantId = await this.tenantService.getTenantId();
+  async appealOpenCount(ctx: AuthContext): Promise<number> {
+    const { tenantId } = ctx;
     const result = await this.prisma.$queryRaw<[{ count: bigint }]>(
       Prisma.sql`
         SELECT COUNT(*) as count

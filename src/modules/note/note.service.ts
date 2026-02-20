@@ -1,15 +1,12 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { TenantService } from 'src/common/services/tenant.service';
+import type { AuthContext } from 'src/common/user-id.store';
 import { CreateNoteInput } from './inputs/create-note.input';
 import { UpdateNoteInput } from './inputs/update-note.input';
 
 @Injectable()
 export class NoteService {
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly tenantService: TenantService,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   private async validateSubject(subjectId: string): Promise<void> {
     const [order, car, person] = await Promise.all([
@@ -22,16 +19,16 @@ export class NoteService {
     }
   }
 
-  async findBySubject(subjectId: string) {
-    const tenantId = await this.tenantService.getTenantId();
+  async findBySubject(ctx: AuthContext, subjectId: string) {
+    const { tenantId } = ctx;
     return this.prisma.note.findMany({
       where: { subject: subjectId, tenantId, noteDelete: null },
       orderBy: { createdAt: 'desc' },
     });
   }
 
-  async create(input: CreateNoteInput, createdBy: string) {
-    const tenantId = await this.tenantService.getTenantId();
+  async create(ctx: AuthContext, input: CreateNoteInput) {
+    const { tenantId, userId } = ctx;
     await this.validateSubject(input.subjectId);
     return this.prisma.note.create({
       data: {
@@ -40,13 +37,13 @@ export class NoteService {
         text: input.text,
         isPublic: input.isPublic ?? false,
         tenantId,
-        createdBy,
+        createdBy: userId,
       },
     });
   }
 
-  async update(input: UpdateNoteInput) {
-    const tenantId = await this.tenantService.getTenantId();
+  async update(ctx: AuthContext, input: UpdateNoteInput) {
+    const { tenantId } = ctx;
     const existing = await this.prisma.note.findFirst({
       where: { id: input.id, tenantId, noteDelete: null },
     });
@@ -64,8 +61,8 @@ export class NoteService {
     });
   }
 
-  async softDelete(noteId: string, createdBy: string, description?: string) {
-    const tenantId = await this.tenantService.getTenantId();
+  async softDelete(ctx: AuthContext, noteId: string, description?: string) {
+    const { tenantId, userId } = ctx;
     const note = await this.prisma.note.findFirst({
       where: { id: noteId, tenantId, noteDelete: null },
     });
@@ -78,7 +75,7 @@ export class NoteService {
           noteId,
           description: description ?? '',
           tenantId,
-          createdBy,
+          createdBy: userId,
         },
       });
       return note;

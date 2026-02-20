@@ -36,6 +36,7 @@ import { ExpenseModule } from './modules/expense/expense.module';
 import { ReviewModule } from './modules/review/review.module';
 import { McModule } from './modules/mc/mc.module';
 import { DevAuthGuard } from './modules/auth/guards/dev-auth.guard';
+import { TenantGuard } from './common/guards/tenant.guard';
 import { Reflector } from '@nestjs/core';
 import authConfig from './config/auth.config';
 
@@ -87,6 +88,10 @@ import authConfig from './config/auth.config';
         return new DevAuthGuard(reflector, configService);
       },
       inject: [Reflector, ConfigService],
+    },
+    {
+      provide: APP_GUARD,
+      useClass: TenantGuard,
     },
     {
       provide: APP_INTERCEPTOR,
