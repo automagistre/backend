@@ -18,17 +18,21 @@ export class PartDiscountService {
     const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
     return this.prisma.partDiscount.create({
       data: {
-        ...createPartDiscountDto,
+        partId: createPartDiscountDto.partId,
+        since: createPartDiscountDto.since,
         discountAmount: normalizeMoneyAmount(createPartDiscountDto.discountAmount),
         discountCurrencyCode: defaultCurrency,
+        tenantId: createPartDiscountDto.tenantId,
+        createdBy: createPartDiscountDto.createdBy,
       },
     });
   }
 
-  findAllByPartId(partId: string): Promise<PartDiscount[]> {
+  findAllByPartId(partId: string, tenantId: string): Promise<PartDiscount[]> {
     return this.prisma.partDiscount.findMany({
       where: {
         partId,
+        tenantId,
       },
       orderBy: {
         since: 'desc',
@@ -36,11 +40,11 @@ export class PartDiscountService {
     });
   }
 
-  findActualDiscountPart(partId: string): Promise<PartDiscount | null> {
+  findActualDiscountPart(partId: string, tenantId: string): Promise<PartDiscount | null> {
     return this.prisma.partDiscount.findFirst({
-      take: 1,
       where: {
         partId,
+        tenantId,
       },
       orderBy: {
         since: 'desc',

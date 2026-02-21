@@ -3,5 +3,6 @@ export class CreatePartDiscountDto {
   since: Date;
   discountAmount?: bigint | null;
   discountCurrencyCode?: string | null;
-  tenantId?: string;
+  tenantId: string;
+  createdBy: string;
 }

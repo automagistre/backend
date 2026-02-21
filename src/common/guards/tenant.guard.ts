@@ -23,26 +23,47 @@ export class TenantGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const skipTenant = this.reflector.getAllAndOverride<boolean>(SKIP_TENANT_KEY, [
-      context.getHandler(),
-      context.getClass(),
-    ]);
-    const requireTenant = this.reflector.getAllAndOverride<boolean>(
-      REQUIRE_TENANT_KEY,
-      [context.getHandler(), context.getClass()],
-    );
-    const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
-      context.getHandler(),
-      context.getClass(),
-    ]);
+    const handler = context.getHandler();
+    const cls = context.getClass();
 
-    if (skipTenant || isPublic || !requireTenant) {
+    const req = this.getRequest(context);
+    const tenantId = this.getTenantId(req);
+
+    // Всегда сохраняем tenantId в request, если он передан (для @CurrentUserContext)
+    if (tenantId) {
+      (req as { tenantId?: string }).tenantId = tenantId;
+    }
+
+    const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [handler, cls]);
+    if (isPublic) {
       return true;
     }
 
-    const req = this.getRequest(context);
+    // Приоритет: декоратор на методе > декоратор на классе
+    // @RequireTenant() требует tenant, @SkipTenant() пропускает проверку
+    const requireOnHandler = this.reflector.get<boolean>(REQUIRE_TENANT_KEY, handler);
+    const skipOnHandler = this.reflector.get<boolean>(SKIP_TENANT_KEY, handler);
+    const requireOnClass = this.reflector.get<boolean>(REQUIRE_TENANT_KEY, cls);
+    const skipOnClass = this.reflector.get<boolean>(SKIP_TENANT_KEY, cls);
+
+    // Определяем итоговое поведение: метод переопределяет класс
+    let requireTenant = false;
+    if (requireOnHandler !== undefined) {
+      requireTenant = requireOnHandler;
+    } else if (skipOnHandler !== undefined) {
+      requireTenant = false;
+    } else if (requireOnClass !== undefined) {
+      requireTenant = requireOnClass;
+    } else if (skipOnClass !== undefined) {
+      requireTenant = false;
+    }
+
+    if (!requireTenant) {
+      return true;
+    }
+
+    // Требуется tenant — проверяем
     const userId = (req as { user?: { sub?: string } }).user?.sub;
-    const tenantId = this.getTenantId(req);
 
     if (!tenantId) {
       throw new ForbiddenException('X-Tenant-Id header required');
@@ -57,7 +78,6 @@ export class TenantGuard implements CanActivate {
       throw new ForbiddenException('Access to tenant denied');
     }
 
-    (req as { tenantId?: string }).tenantId = tenantId;
     return true;
   }
 

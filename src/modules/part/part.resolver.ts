@@ -25,9 +25,15 @@ import { PartRequiredAvailabilityService } from './part-required-availability.se
 import { applyDefaultCurrency } from 'src/common/money';
 import { ReservationService } from '../reservation/reservation.service';
 import { SettingsService } from '../settings/settings.service';
-import { CurrentUserContext } from 'src/common/decorators/auth-context.decorator';
-import { SkipTenant } from 'src/common/decorators/skip-tenant.decorator';
-import type { UserContext } from 'src/common/user-id.store';
+import {
+  AuthContext,
+  CurrentUserContext,
+} from 'src/common/decorators/auth-context.decorator';
+import {
+  RequireTenant,
+  SkipTenant,
+} from 'src/common/decorators/skip-tenant.decorator';
+import type { AuthContext as AuthContextType, UserContext } from 'src/common/user-id.store';
 
 @Resolver(() => PartModel)
 @SkipTenant()
@@ -44,11 +50,13 @@ export class PartResolver {
   ) {}
 
   @Mutation(() => PartModel)
+  @RequireTenant()
   async createOnePart(
-    @CurrentUserContext() ctx: UserContext,
+    @AuthContext() ctx: AuthContextType,
     @Args('input') input: CreatePartInput,
   ): Promise<PartModel> {
     const { price, discount, ...data } = input;
+
     const part = await this.partService.create(ctx, data as CreatePartInput);
     if (price != null) {
       const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
@@ -57,6 +65,8 @@ export class PartResolver {
         partId: part.id,
         priceAmount: priceData.amountMinor,
         since: new Date(),
+        tenantId: ctx.tenantId,
+        createdBy: ctx.userId,
       });
     }
     if (discount != null) {
@@ -67,20 +77,25 @@ export class PartResolver {
         partId: part.id,
         discountAmount: discountData.amountMinor,
         since: new Date(),
+        tenantId: ctx.tenantId,
+        createdBy: ctx.userId,
       });
     }
     return part;
   }
 
   @Mutation(() => PartModel)
+  @RequireTenant()
   async updateOnePart(
+    @AuthContext() ctx: AuthContextType,
     @Args('input') input: UpdatePartInput,
   ): Promise<PartModel> {
     const currentPrice = await this.partPriceService.findActualPricePart(
       input.id,
+      ctx.tenantId,
     );
     const currentDiscount =
-      await this.partDiscountService.findActualDiscountPart(input.id);
+      await this.partDiscountService.findActualDiscountPart(input.id, ctx.tenantId);
     const { price, discount, ...data } = input;
 
     const part = await this.partService.update(data);
@@ -93,6 +108,8 @@ export class PartResolver {
           partId: part.id,
           priceAmount: priceData.amountMinor,
           since: new Date(),
+          tenantId: ctx.tenantId,
+          createdBy: ctx.userId,
         });
       }
     }
@@ -104,6 +121,8 @@ export class PartResolver {
           partId: part.id,
           discountAmount: discountData.amountMinor,
           since: new Date(),
+          tenantId: ctx.tenantId,
+          createdBy: ctx.userId,
         });
       }
     }
@@ -112,6 +131,7 @@ export class PartResolver {
   }
 
   @Mutation(() => PartModel)
+  @RequireTenant()
   async deleteOnePart(
     @Args('id', { type: () => ID }) id: string,
   ): Promise<PartModel> {
@@ -142,25 +162,39 @@ export class PartResolver {
   }
 
   @ResolveField(() => PartPriceModel)
-  async price(@Parent() part: PartModel): Promise<PartPriceModel | null> {
-    return this.partPriceService.findActualPricePart(part.id);
+  @RequireTenant()
+  async price(
+    @Parent() part: PartModel,
+    @AuthContext() ctx: AuthContextType,
+  ): Promise<PartPriceModel | null> {
+    return this.partPriceService.findActualPricePart(part.id, ctx.tenantId);
   }
 
   @ResolveField(() => [PartPriceModel])
-  async priceHistory(@Parent() part: PartModel): Promise<PartPriceModel[]> {
-    return this.partPriceService.findAllByPartId(part.id);
+  @RequireTenant()
+  async priceHistory(
+    @Parent() part: PartModel,
+    @AuthContext() ctx: AuthContextType,
+  ): Promise<PartPriceModel[]> {
+    return this.partPriceService.findAllByPartId(part.id, ctx.tenantId);
   }
 
   @ResolveField(() => PartDiscountModel)
-  async discount(@Parent() part: PartModel): Promise<PartDiscountModel | null> {
-    return this.partDiscountService.findActualDiscountPart(part.id);
+  @RequireTenant()
+  async discount(
+    @Parent() part: PartModel,
+    @AuthContext() ctx: AuthContextType,
+  ): Promise<PartDiscountModel | null> {
+    return this.partDiscountService.findActualDiscountPart(part.id, ctx.tenantId);
   }
 
   @ResolveField(() => [PartDiscountModel])
+  @RequireTenant()
   async discountHistory(
     @Parent() part: PartModel,
+    @AuthContext() ctx: AuthContextType,
   ): Promise<PartDiscountModel[]> {
-    return this.partDiscountService.findAllByPartId(part.id);
+    return this.partDiscountService.findAllByPartId(part.id, ctx.tenantId);
   }
 
   @ResolveField(() => [PartModel])

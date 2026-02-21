@@ -4,4 +4,8 @@ export class CreatePartPriceDto {
   since: Date;
 
   priceAmount: bigint | null;
+
+  tenantId: string;
+
+  createdBy: string;
 }
