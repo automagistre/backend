@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { CalendarEntry, Prisma } from '@prisma/client';
+import { CalendarEntry, Prisma } from 'src/generated/prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import {
   CreateCalendarEntryInput,

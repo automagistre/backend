@@ -34,8 +34,12 @@ import { CloseOrderInput } from './inputs/close-order.input';
 import { PaginationArgs } from 'src/common/pagination.args';
 import { PaginatedOrders } from './inputs/paginatedOrders.type';
 import { OrderStatus } from './enums/order-status.enum';
+import { AuthContext } from 'src/common/decorators/auth-context.decorator';
+import { RequireTenant } from 'src/common/decorators/skip-tenant.decorator';
+import type { AuthContext as AuthContextType } from 'src/common/user-id.store';
 
 @Resolver(() => OrderModel)
+@RequireTenant()
 export class OrderResolver {
   constructor(
     private readonly orderService: OrderService,
@@ -174,13 +178,14 @@ export class OrderResolver {
   }
 
   @ResolveField(() => PersonModel, { nullable: true })
-  async customer(@Parent() order: OrderModel): Promise<PersonModel | null> {
+  async customer(
+    @AuthContext() ctx: AuthContextType,
+    @Parent() order: OrderModel,
+  ): Promise<PersonModel | null> {
     if (!order.customerId) {
       return null;
     }
-    return (await this.personService.findOne(
-      order.customerId,
-    )) as PersonModel | null;
+    return (await this.personService.findOne(ctx, order.customerId)) as PersonModel | null;
   }
 
   @ResolveField(() => EmployeeModel, { nullable: true })

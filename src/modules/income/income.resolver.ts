@@ -9,8 +9,12 @@ import { CreateIncomeInput } from './inputs/create-income.input';
 import { CreateIncomePartInput } from './inputs/create-income-part.input';
 import { UpdateIncomeInput } from './inputs/update-income.input';
 import { UpdateIncomePartInput } from './inputs/update-income-part.input';
+import { AuthContext } from 'src/common/decorators/auth-context.decorator';
+import { RequireTenant } from 'src/common/decorators/skip-tenant.decorator';
+import type { AuthContext as AuthContextType } from 'src/common/user-id.store';
 
 @Resolver(() => IncomeModel)
+@RequireTenant()
 export class IncomeResolver {
   constructor(
     private readonly incomeService: IncomeService,
@@ -19,10 +23,13 @@ export class IncomeResolver {
   ) {}
 
   @ResolveField('supplier')
-  async supplier(@Parent() income: { supplierId: string }) {
-    const organization = await this.organizationService.findOne(income.supplierId);
+  async supplier(
+    @AuthContext() ctx: AuthContextType,
+    @Parent() income: { supplierId: string },
+  ) {
+    const organization = await this.organizationService.findOne(ctx, income.supplierId);
     if (organization) return organization;
-    return this.personService.findOne(income.supplierId);
+    return this.personService.findOne(ctx, income.supplierId);
   }
 
   @Query(() => IncomeModel, {
