@@ -25,8 +25,12 @@ import { PartRequiredAvailabilityService } from './part-required-availability.se
 import { applyDefaultCurrency } from 'src/common/money';
 import { ReservationService } from '../reservation/reservation.service';
 import { SettingsService } from '../settings/settings.service';
+import { CurrentUserContext } from 'src/common/decorators/auth-context.decorator';
+import { SkipTenant } from 'src/common/decorators/skip-tenant.decorator';
+import type { UserContext } from 'src/common/user-id.store';
 
 @Resolver(() => PartModel)
+@SkipTenant()
 export class PartResolver {
   constructor(
     private readonly partService: PartService,
@@ -41,10 +45,11 @@ export class PartResolver {
 
   @Mutation(() => PartModel)
   async createOnePart(
+    @CurrentUserContext() ctx: UserContext,
     @Args('input') input: CreatePartInput,
   ): Promise<PartModel> {
     const { price, discount, ...data } = input;
-    const part = await this.partService.create(data as CreatePartInput);
+    const part = await this.partService.create(ctx, data as CreatePartInput);
     if (price != null) {
       const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
       const priceData = applyDefaultCurrency(price, defaultCurrency);

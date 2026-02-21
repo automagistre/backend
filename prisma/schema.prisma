@@ -97,7 +97,7 @@ model Part {
   unit                     Int                        @default(1) @db.SmallInt
   warehouseId              String?                    @map("warehouse_id") @db.Uuid
   createdAt                DateTime?                  @default(now()) @map("created_at") @db.Timestamptz(0)
-  createdBy                String?                    @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
+  createdBy                String?                    @map("created_by") @db.Uuid
   PartPrice                PartPrice[]
   PartDiscount             PartDiscount[]
   PartCrossPart            PartCrossPart[]

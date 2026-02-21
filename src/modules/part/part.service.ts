@@ -1,10 +1,11 @@
-import { Injectable } from '@nestjs/common';
+import { ConflictException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreatePartInput } from './inputs/create.input';
 import { PartModel } from './models/part.model';
 import { UpdatePartInput } from './inputs/update.input';
 import { cleanUpcaseString } from 'src/common/utils/clean-upcase.util';
 import { TenantService } from '../../common/services/tenant.service';
+import type { UserContext } from 'src/common/user-id.store';
 
 const DEFAULT_TAKE = 25;
 const DEFAULT_SKIP = 0;
@@ -92,11 +93,27 @@ export class PartService {
     return part;
   }
 
-  async create(input: CreatePartInput): Promise<PartModel> {
+  async create(ctx: UserContext, input: CreatePartInput): Promise<PartModel> {
+    const cleanedNumber = cleanUpcaseString(input.number);
+
+    const existing = await this.prisma.part.findFirst({
+      where: {
+        number: cleanedNumber,
+        manufacturerId: input.manufacturerId,
+      },
+    });
+
+    if (existing) {
+      throw new ConflictException(
+        `Запчасть с артикулом "${cleanedNumber}" от этого производителя уже существует`,
+      );
+    }
+
     const part = await this.prisma.part.create({
       data: {
         ...input,
-        number: cleanUpcaseString(input.number),
+        number: cleanedNumber,
+        createdBy: ctx.userId,
       },
       include: {
         manufacturer: true,
@@ -161,7 +178,39 @@ export class PartService {
     return part;
   }
 
+  // TODO: Проверить миграцию — в схеме onDelete: Restrict, но в БД может быть NO ACTION.
+  // После применения миграции можно убрать ручные проверки и полагаться на constraint БД.
   async delete(id: string): Promise<PartModel> {
+    const [
+      orderItemPartCount,
+      incomePartCount,
+      motionCount,
+      mcPartCount,
+      partSupplyCount,
+      carRecommendationPartCount,
+    ] = await Promise.all([
+      this.prisma.orderItemPart.count({ where: { partId: id } }),
+      this.prisma.incomePart.count({ where: { partId: id } }),
+      this.prisma.motion.count({ where: { partId: id } }),
+      this.prisma.mcPart.count({ where: { partId: id } }),
+      this.prisma.partSupply.count({ where: { partId: id } }),
+      this.prisma.carRecommendationPart.count({ where: { partId: id } }),
+    ]);
+
+    const totalRefs =
+      orderItemPartCount +
+      incomePartCount +
+      motionCount +
+      mcPartCount +
+      partSupplyCount +
+      carRecommendationPartCount;
+
+    if (totalRefs > 0) {
+      throw new ConflictException(
+        'Нельзя удалить запчасть: есть связанные записи (заказы, приходы, движения, ТО, рекомендации)',
+      );
+    }
+
     return await this.prisma.part.delete({
       where: { id },
       include: {
