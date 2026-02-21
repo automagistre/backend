@@ -1,9 +1,10 @@
-import { Injectable } from '@nestjs/common';
+import { ConflictException, Injectable } from '@nestjs/common';
 
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateManufacturerInput } from './inputs/create.input';
 import { UpdateManufacturerInput } from './inputs/update.input';
 import { ManufacturerModel } from './models/manufacturer.model';
+import type { UserContext } from 'src/common/user-id.store';
 
 const DEFAULT_TAKE = 25;
 const DEFAULT_SKIP = 0;
@@ -65,9 +66,12 @@ export class ManufacturerService {
     return await this.prismaService.manufacturer.findUnique({ where: { id } });
   }
 
-  async create(input: CreateManufacturerInput): Promise<ManufacturerModel> {
+  async create(ctx: UserContext, input: CreateManufacturerInput): Promise<ManufacturerModel> {
     const manufacturer = await this.prismaService.manufacturer.create({
-      data: input,
+      data: {
+        ...input,
+        createdBy: ctx.userId,
+      },
     });
     return manufacturer;
   }
@@ -83,7 +87,26 @@ export class ManufacturerService {
     return manufacturer;
   }
 
+  // TODO: Проверить миграцию — в схеме onDelete: Restrict, но в БД может быть NO ACTION.
+  // После применения миграции можно убрать ручные проверки и полагаться на constraint БД.
   async remove(id: string): Promise<ManufacturerModel> {
+    const [partsCount, vehiclesCount] = await Promise.all([
+      this.prismaService.part.count({ where: { manufacturerId: id } }),
+      this.prismaService.vehicle.count({ where: { manufacturerId: id } }),
+    ]);
+
+    if (partsCount > 0) {
+      throw new ConflictException(
+        `Нельзя удалить производителя: есть ${partsCount} связанных запчастей`,
+      );
+    }
+
+    if (vehiclesCount > 0) {
+      throw new ConflictException(
+        `Нельзя удалить производителя: есть ${vehiclesCount} связанных моделей авто`,
+      );
+    }
+
     return await this.prismaService.manufacturer.delete({ where: { id } });
   }
 }

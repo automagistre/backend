@@ -5,8 +5,12 @@ import { ManufacturerModel } from './models/manufacturer.model';
 import { ManufacturerService } from './manufacturer.service';
 import { PaginationArgs } from 'src/common/pagination.args';
 import { PaginatedManufacturers } from './inputs/paginatedManufacturers.type';
+import { CurrentUserContext } from 'src/common/decorators/auth-context.decorator';
+import { SkipTenant } from 'src/common/decorators/skip-tenant.decorator';
+import type { UserContext } from 'src/common/user-id.store';
 
 @Resolver(() => ManufacturerModel)
+@SkipTenant()
 export class ManufacturerResolver {
   constructor(private ManufacturerService: ManufacturerService) {}
 
@@ -36,8 +40,11 @@ export class ManufacturerResolver {
 
   // Создать производителя
   @Mutation(() => ManufacturerModel)
-  async createOneManufacturer(@Args('input') input: CreateManufacturerInput) {
-    return await this.ManufacturerService.create(input);
+  async createOneManufacturer(
+    @CurrentUserContext() ctx: UserContext,
+    @Args('input') input: CreateManufacturerInput,
+  ) {
+    return await this.ManufacturerService.create(ctx, input);
   }
 
   // Обновить производителя

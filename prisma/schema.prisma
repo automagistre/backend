@@ -80,7 +80,7 @@ model Manufacturer {
   logo          String?   @db.VarChar(25)
   createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
-  createdBy     String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
+  createdBy     String?   @map("created_by") @db.Uuid
   parts         Part[]
   VehicleModel  Vehicle[]
 
