@@ -16,6 +16,7 @@ import {
 interface ReqWithCtx {
   user?: { sub?: string };
   tenantId?: string;
+  tenantGroupId?: string;
   ctx?: UserContext;
 }
 
@@ -29,8 +30,9 @@ export class UserIdInterceptor implements NestInterceptor {
     const req = this.getRequest(context) as ReqWithCtx;
     const userId = req.user?.sub ?? '';
     const tenantId = req.tenantId ?? null;
+    const tenantGroupId = req.tenantGroupId ?? null;
 
-    req.ctx = { userId, tenantId };
+    req.ctx = { userId, tenantId, tenantGroupId };
 
     const forStore = {
       userId,

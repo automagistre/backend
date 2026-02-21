@@ -137,9 +137,9 @@ model Person {
   email                          String?                  @db.VarChar(255)
   contractor                     Boolean
   seller                         Boolean
-  tenantGroupId                  String                   @default("1ec13d33-3f41-6cf0-b012-02420a000f18") @map("tenant_group_id") @db.Uuid
+  tenantGroupId                  String                   @map("tenant_group_id") @db.Uuid
   createdAt                      DateTime?                @default(now()) @map("created_at") @db.Timestamptz(0)
-  createdBy                      String?                  @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
+  createdBy                      String?                  @map("created_by") @db.Uuid
   balance                        Decimal                  @default(0) @db.Decimal
   customerCalendarEntryOrderInfo CalendarEntryOrderInfo[] @relation("Customer")
   workerCalendarEntryOrderInfo   CalendarEntryOrderInfo[] @relation("Worker")
@@ -844,7 +844,7 @@ model Organization {
   email                 String?         @db.VarChar(255)
   contractor            Boolean
   seller                Boolean
-  tenantGroupId         String          @default("1ec13d33-3f41-6cf0-b012-02420a000f18") @map("tenant_group_id") @db.Uuid
+  tenantGroupId         String          @map("tenant_group_id") @db.Uuid
   requisiteBank         String?         @map("requisite_bank") @db.VarChar(255)
   requisiteLegalAddress String?         @map("requisite_legal_address") @db.VarChar(255)
   requisiteOgrn         String?         @map("requisite_ogrn") @db.VarChar(255)
@@ -854,7 +854,7 @@ model Organization {
   requisiteKs           String?         @map("requisite_ks") @db.VarChar(255)
   requisiteBik          String?         @map("requisite_bik") @db.VarChar(255)
   createdAt             DateTime?       @default(now()) @map("created_at") @db.Timestamptz(0)
-  createdBy             String?         @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
+  createdBy             String?         @map("created_by") @db.Uuid
   balance               Decimal         @default(0) @db.Decimal
   OrderItemPart         OrderItemPart[]
 

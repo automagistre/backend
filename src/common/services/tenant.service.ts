@@ -8,6 +8,11 @@ export interface TenantInfo {
   name: string;
 }
 
+export interface TenantWithGroup {
+  tenantId: string;
+  groupId: string;
+}
+
 @Injectable()
 export class TenantService {
   constructor(private readonly prisma: PrismaService) {}
@@ -24,6 +29,33 @@ export class TenantService {
   }
 
   /**
+   * Проверяет доступ (user_id, tenant_id) и возвращает groupId если доступ есть.
+   */
+  async checkAccessAndGetGroup(
+    userId: string,
+    tenantId: string,
+  ): Promise<TenantWithGroup | null> {
+    const permission = await this.prisma.tenant_permission.findFirst({
+      where: { user_id: userId, tenant_id: tenantId },
+      select: {
+        tenant: {
+          select: { id: true, group_id: true },
+        },
+      },
+    });
+
+    if (!permission) {
+      return null;
+    }
+
+    return {
+      tenantId: permission.tenant.id,
+      groupId: permission.tenant.group_id,
+    };
+  }
+
+  /**
+   * @deprecated Используйте checkAccessAndGetGroup
    * Проверяет доступ (user_id, tenant_id) в tenant_permission.
    */
   async checkAccess(userId: string, tenantId: string): Promise<boolean> {

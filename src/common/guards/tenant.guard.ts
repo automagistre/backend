@@ -26,13 +26,12 @@ export class TenantGuard implements CanActivate {
     const handler = context.getHandler();
     const cls = context.getClass();
 
-    const req = this.getRequest(context);
+    const req = this.getRequest(context) as {
+      tenantId?: string;
+      tenantGroupId?: string;
+      user?: { sub?: string };
+    };
     const tenantId = this.getTenantId(req);
-
-    // Всегда сохраняем tenantId в request, если он передан (для @CurrentUserContext)
-    if (tenantId) {
-      (req as { tenantId?: string }).tenantId = tenantId;
-    }
 
     const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [handler, cls]);
     if (isPublic) {
@@ -58,13 +57,31 @@ export class TenantGuard implements CanActivate {
       requireTenant = false;
     }
 
+    const userId = req.user?.sub;
+
+    // Если есть tenantId и userId — проверяем доступ и получаем groupId
+    if (tenantId && userId) {
+      const tenantWithGroup = await this.tenantService.checkAccessAndGetGroup(
+        userId,
+        tenantId,
+      );
+
+      if (tenantWithGroup) {
+        req.tenantId = tenantWithGroup.tenantId;
+        req.tenantGroupId = tenantWithGroup.groupId;
+      } else if (requireTenant) {
+        throw new ForbiddenException('Access to tenant denied');
+      }
+    } else if (tenantId) {
+      // tenantId есть, но нет userId — сохраняем tenantId без проверки (для @SkipTenant)
+      req.tenantId = tenantId;
+    }
+
     if (!requireTenant) {
       return true;
     }
 
-    // Требуется tenant — проверяем
-    const userId = (req as { user?: { sub?: string } }).user?.sub;
-
+    // Требуется tenant — проверяем наличие
     if (!tenantId) {
       throw new ForbiddenException('X-Tenant-Id header required');
     }
@@ -73,11 +90,7 @@ export class TenantGuard implements CanActivate {
       throw new ForbiddenException('Authentication required');
     }
 
-    const hasAccess = await this.tenantService.checkAccess(userId, tenantId);
-    if (!hasAccess) {
-      throw new ForbiddenException('Access to tenant denied');
-    }
-
+    // Доступ уже проверен выше, если дошли сюда — всё ок
     return true;
   }
 

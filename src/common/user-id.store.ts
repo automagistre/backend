@@ -9,12 +9,14 @@ export const SYSTEM_USER_ID = '24602e10-629b-4f23-8d8b-1cca08fb8a84';
 export interface AuthContext {
   userId: string;
   tenantId: string;
+  tenantGroupId: string;
 }
 
 /** Контекст без tenant — для @SkipTenant резолверов (me, auth). */
 export interface UserContext {
   userId: string;
   tenantId: string | null;
+  tenantGroupId: string | null;
 }
 
 /** Для getRequestContext — userId может быть undefined вне HTTP-запроса (cron). */

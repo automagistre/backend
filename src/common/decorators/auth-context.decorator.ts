@@ -23,7 +23,7 @@ function getReqCtx(ctx: ExecutionContext): UserContext | undefined {
 }
 
 /**
- * Возвращает полный контекст { userId, tenantId } — оба обязательны.
+ * Возвращает полный контекст { userId, tenantId, tenantGroupId } — все обязательны.
  * Используй с @RequireTenant() на резолвере.
  */
 export const AuthContext = createParamDecorator(
@@ -35,7 +35,14 @@ export const AuthContext = createParamDecorator(
     if (!context.tenantId) {
       throw new ForbiddenException('Tenant context required');
     }
-    return { userId: context.userId, tenantId: context.tenantId };
+    if (!context.tenantGroupId) {
+      throw new ForbiddenException('Tenant group context required');
+    }
+    return {
+      userId: context.userId,
+      tenantId: context.tenantId,
+      tenantGroupId: context.tenantGroupId,
+    };
   },
 );
 
