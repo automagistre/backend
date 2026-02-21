@@ -1,7 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { ConflictException, Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateVehicleInput, UpdateVehicleInput } from './inputs/vehicle.input';
 import { cleanUpcaseString } from 'src/common/utils/clean-upcase.util';
+import type { UserContext } from 'src/common/user-id.store';
 
 const DEFAULT_TAKE = 25;
 const DEFAULT_SKIP = 0;
@@ -10,7 +11,7 @@ const DEFAULT_SKIP = 0;
 export class VehicleModelService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(data: CreateVehicleInput) {
+  async create(ctx: UserContext, data: CreateVehicleInput) {
     return this.prisma.vehicle.create({
       include: {
         manufacturer: true,
@@ -18,6 +19,7 @@ export class VehicleModelService {
       data: {
         ...data,
         caseName: data.caseName ? cleanUpcaseString(data.caseName) : null,
+        createdBy: ctx.userId,
       },
     });
   }
@@ -110,7 +112,26 @@ export class VehicleModelService {
     });
   }
 
+  // TODO: Проверить миграцию — в схеме onDelete: Restrict, но в БД может быть NO ACTION.
+  // После применения миграции можно убрать ручные проверки и полагаться на constraint БД.
   async remove(id: string) {
+    const [carCount, mcEquipmentCount] = await Promise.all([
+      this.prisma.car.count({ where: { vehicleId: id } }),
+      this.prisma.mcEquipment.count({ where: { vehicleId: id } }),
+    ]);
+
+    if (carCount > 0) {
+      throw new ConflictException(
+        `Нельзя удалить модель: есть ${carCount} связанных автомобилей`,
+      );
+    }
+
+    if (mcEquipmentCount > 0) {
+      throw new ConflictException(
+        `Нельзя удалить модель: есть ${mcEquipmentCount} связанных комплектаций ТО`,
+      );
+    }
+
     return this.prisma.vehicle.delete({
       where: { id },
       include: {

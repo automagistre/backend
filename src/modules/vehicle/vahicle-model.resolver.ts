@@ -4,8 +4,12 @@ import { VehicleModel } from './models/vahicle.model';
 import { CreateVehicleInput, UpdateVehicleInput } from './inputs/vehicle.input';
 import { PaginationArgs } from 'src/common/pagination.args';
 import { PaginatedVehicles } from './inputs/paginatedVehicles.type';
+import { CurrentUserContext } from 'src/common/decorators/auth-context.decorator';
+import { SkipTenant } from 'src/common/decorators/skip-tenant.decorator';
+import type { UserContext } from 'src/common/user-id.store';
 
 @Resolver(() => VehicleModel)
+@SkipTenant()
 export class VahicleModelResolver {
   constructor(private readonly vehicleModelService: VehicleModelService) {}
 
@@ -42,9 +46,10 @@ export class VahicleModelResolver {
     description: 'Создать модель автомобиля',
   })
   async CreateOneVehicle(
+    @CurrentUserContext() ctx: UserContext,
     @Args('data') data: CreateVehicleInput,
   ): Promise<VehicleModel> {
-    return this.vehicleModelService.create(data);
+    return this.vehicleModelService.create(ctx, data);
   }
 
   @Mutation(() => VehicleModel, {

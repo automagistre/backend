@@ -160,7 +160,7 @@ model Vehicle {
   yearFrom       Int?         @map("year_from") @db.SmallInt
   yearTill       Int?         @map("year_till") @db.SmallInt
   createdAt      DateTime?    @default(now()) @map("created_at") @db.Timestamptz(0)
-  createdBy      String?      @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
+  createdBy      String?      @map("created_by") @db.Uuid
   Car            Car[]
   McEquipment    McEquipment[]
 
