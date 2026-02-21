@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { TenantService } from 'src/common/services/tenant.service';
 import { Organization, Person } from '@prisma/client';
+import type { AuthContext } from 'src/common/user-id.store';
 
 export type CounterpartyItem = Person | Organization;
 
@@ -46,10 +46,7 @@ function buildOrganizationSearchWhere(search: string | undefined) {
 // TODO: нужно избавиться от сотрудников "подрядчиков", а также же разделить подрядчиков по сервисам.
 @Injectable()
 export class SupplierService {
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly tenantService: TenantService,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   /** Популярность поставщиков в рамках текущего тенанта. */
   private async getSupplierUsageCounts(
@@ -111,11 +108,12 @@ export class SupplierService {
   }
 
   private async getCounterparties(
+    ctx: AuthContext,
     role: 'seller' | 'contractor',
     search?: string,
     take = DEFAULT_TAKE,
   ): Promise<CounterpartyItem[]> {
-    const tenantId = await this.tenantService.getTenantId();
+    const { tenantId } = ctx;
 
     const personWhere = buildPersonSearchWhere(search);
     const orgWhere = buildOrganizationSearchWhere(search);
@@ -173,12 +171,12 @@ export class SupplierService {
   }
 
   /** Поставщики (seller=true), для автокомплита с опциональным поиском. */
-  async getSuppliers(search?: string, take = DEFAULT_TAKE): Promise<CounterpartyItem[]> {
-    return this.getCounterparties('seller', search, take);
+  async getSuppliers(ctx: AuthContext, search?: string, take = DEFAULT_TAKE): Promise<CounterpartyItem[]> {
+    return this.getCounterparties(ctx, 'seller', search, take);
   }
 
   /** Подрядчики (contractor=true), без сотрудников ни одного тенанта; для автокомплита. */
-  async getContractors(search?: string, take = DEFAULT_TAKE): Promise<CounterpartyItem[]> {
-    return this.getCounterparties('contractor', search, take);
+  async getContractors(ctx: AuthContext, search?: string, take = DEFAULT_TAKE): Promise<CounterpartyItem[]> {
+    return this.getCounterparties(ctx, 'contractor', search, take);
   }
 }

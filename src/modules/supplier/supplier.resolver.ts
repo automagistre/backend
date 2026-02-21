@@ -1,8 +1,12 @@
 import { Args, Query, Resolver } from '@nestjs/graphql';
 import { CounterpartyUnion } from './supplier.union';
 import { SupplierService } from './supplier.service';
+import { AuthContext } from 'src/common/decorators/auth-context.decorator';
+import { RequireTenant } from 'src/common/decorators/skip-tenant.decorator';
+import type { AuthContext as AuthContextType } from 'src/common/user-id.store';
 
 @Resolver()
+@RequireTenant()
 export class SupplierResolver {
   constructor(private readonly supplierService: SupplierService) {}
 
@@ -11,10 +15,11 @@ export class SupplierResolver {
       'Список поставщиков; опциональный поиск по имени/телефону/email.',
   })
   async suppliers(
-    @Args('search', { nullable: true }) search?: string,
-    @Args('take', { nullable: true }) take?: number,
+    @AuthContext() ctx: AuthContextType,
+    @Args('search', { type: () => String, nullable: true }) search?: string,
+    @Args('take', { type: () => Number, nullable: true }) take?: number,
   ) {
-    return this.supplierService.getSuppliers(search ?? undefined, take);
+    return this.supplierService.getSuppliers(ctx, search ?? undefined, take);
   }
 
   @Query(() => [CounterpartyUnion], {
@@ -22,9 +27,10 @@ export class SupplierResolver {
       'Список подрядчиков (без сотрудников); опциональный поиск.',
   })
   async contractors(
-    @Args('search', { nullable: true }) search?: string,
-    @Args('take', { nullable: true }) take?: number,
+    @AuthContext() ctx: AuthContextType,
+    @Args('search', { type: () => String, nullable: true }) search?: string,
+    @Args('take', { type: () => Number, nullable: true }) take?: number,
   ) {
-    return this.supplierService.getContractors(search ?? undefined, take);
+    return this.supplierService.getContractors(ctx, search ?? undefined, take);
   }
 }
