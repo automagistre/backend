@@ -17,8 +17,12 @@ import { PaginatedOrganizations } from './types/paginated-organizations.type';
 import { Organization } from '@prisma/client';
 import { CustomerTransactionService } from 'src/modules/customer-transaction/customer-transaction.service';
 import { PaginatedCustomerTransactions } from 'src/modules/customer-transaction/types/paginated-customer-transactions.type';
+import { AuthContext } from 'src/common/decorators/auth-context.decorator';
+import { RequireTenant } from 'src/common/decorators/skip-tenant.decorator';
+import type { AuthContext as AuthContextType } from 'src/common/user-id.store';
 
 @Resolver(() => OrganizationModel)
+@RequireTenant()
 export class OrganizationResolver {
   constructor(
     private readonly organizationService: OrganizationService,
@@ -27,6 +31,7 @@ export class OrganizationResolver {
 
   @Query(() => PaginatedOrganizations)
   async organizations(
+    @AuthContext() ctx: AuthContextType,
     @Args() pagination?: PaginationArgs,
     @Args('search', { nullable: true }) search?: string,
   ) {
@@ -35,32 +40,39 @@ export class OrganizationResolver {
     }
     const { take = 25, skip = 0 } = pagination;
 
-    const itemsPaginated = await this.organizationService.findMany({
-      take,
-      skip,
-      search,
-    });
-    return itemsPaginated;
+    return this.organizationService.findMany(ctx, { take, skip, search });
   }
 
   @Query(() => OrganizationModel, { nullable: true })
-  async organization(@Args('id') id: string) {
-    return this.organizationService.findOne(id);
+  async organization(
+    @AuthContext() ctx: AuthContextType,
+    @Args('id') id: string,
+  ) {
+    return this.organizationService.findOne(ctx, id);
   }
 
   @Mutation(() => OrganizationModel)
-  async createOneOrganization(@Args('input') input: CreateOrganizationInput) {
-    return await this.organizationService.create(input);
+  async createOneOrganization(
+    @AuthContext() ctx: AuthContextType,
+    @Args('input') input: CreateOrganizationInput,
+  ) {
+    return this.organizationService.create(ctx, input);
   }
 
   @Mutation(() => OrganizationModel)
-  async updateOneOrganization(@Args('input') input: UpdateOrganizationInput) {
-    return await this.organizationService.update(input);
+  async updateOneOrganization(
+    @AuthContext() ctx: AuthContextType,
+    @Args('input') input: UpdateOrganizationInput,
+  ) {
+    return this.organizationService.update(ctx, input);
   }
 
   @Mutation(() => OrganizationModel)
-  async deleteOneOrganization(@Args('id') id: string) {
-    return await this.organizationService.remove(id);
+  async deleteOneOrganization(
+    @AuthContext() ctx: AuthContextType,
+    @Args('id') id: string,
+  ) {
+    return this.organizationService.remove(ctx, id);
   }
 
   @ResolveField(() => BigInt, {
