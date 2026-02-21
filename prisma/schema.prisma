@@ -178,7 +178,7 @@ model Car {
   description              String?
   mileage                  Int
   gosnomer                 String?                  @db.VarChar(255)
-  tenantGroupId            String                   @default("1ec13d33-3f41-6cf0-b012-02420a000f18") @map("tenant_group_id") @db.Uuid
+  tenantGroupId            String                   @map("tenant_group_id") @db.Uuid
   equipmentTransmission    Int                      @default(0) @map("equipment_transmission") @db.SmallInt
   equipmentWheelDrive      Int                      @default(0) @map("equipment_wheel_drive") @db.SmallInt
   equipmentEngineName      String?                  @map("equipment_engine_name") @db.VarChar(255)
@@ -187,7 +187,7 @@ model Car {
   equipmentEngineInjection Int                      @default(0) @map("equipment_engine_injection") @db.SmallInt
   equipmentEngineCapacity  String                   @default("0.6") @map("equipment_engine_capacity") @db.VarChar(255)
   createdAt                DateTime?                @default(now()) @map("created_at") @db.Timestamptz(0)
-  createdBy                String?                  @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
+  createdBy                String?                  @map("created_by") @db.Uuid
   CalendarEntryOrderInfo   CalendarEntryOrderInfo[]
   Order                    Order[]
   CarRecommendation        CarRecommendation[]

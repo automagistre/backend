@@ -23,8 +23,12 @@ import { CarModel } from '../vehicle/models/car.model';
 import { CarRecommendationPartModel } from './models/car-recommendation-part.model';
 import { applyDefaultCurrency } from 'src/common/money';
 import { SettingsService } from '../settings/settings.service';
+import { AuthContext } from 'src/common/decorators/auth-context.decorator';
+import { RequireTenant } from 'src/common/decorators/skip-tenant.decorator';
+import type { AuthContext as AuthContextType } from 'src/common/user-id.store';
 
 @Resolver(() => CarRecommendationModel)
+@RequireTenant()
 export class RecommendationResolver {
   constructor(
     private readonly recommendationService: RecommendationService,
@@ -203,9 +207,12 @@ export class RecommendationResolver {
   }
 
   @ResolveField(() => CarModel, { nullable: true })
-  async car(@Parent() rec: CarRecommendationModel): Promise<CarModel | null> {
+  async car(
+    @AuthContext() ctx: AuthContextType,
+    @Parent() rec: CarRecommendationModel,
+  ): Promise<CarModel | null> {
     if (!rec.carId) return null;
-    return (await this.carService.findById(rec.carId)) as any;
+    return (await this.carService.findById(ctx, rec.carId)) as any;
   }
 
   @Subscription(() => [CarRecommendationModel], {
@@ -222,4 +229,3 @@ export class RecommendationResolver {
     return this.pubSub.asyncIterableIterator(`CAR_RECOMMENDATIONS_UPDATED_${carId}`);
   }
 }
-

@@ -170,11 +170,14 @@ export class OrderResolver {
   }
 
   @ResolveField(() => CarModel, { nullable: true })
-  async car(@Parent() order: OrderModel): Promise<CarModel | null> {
+  async car(
+    @AuthContext() ctx: AuthContextType,
+    @Parent() order: OrderModel,
+  ): Promise<CarModel | null> {
     if (!order.carId) {
       return null;
     }
-    return (await this.carService.findById(order.carId)) as CarModel | null;
+    return (await this.carService.findById(ctx, order.carId)) as CarModel | null;
   }
 
   @ResolveField(() => PersonModel, { nullable: true })

@@ -11,16 +11,15 @@ import { CarModel, CarNumber, VehicleIdentifier } from './models/car.model';
 import { VINScalar } from 'src/common/scalars/vin.scalar';
 import { Car } from '@prisma/client';
 import { GosNomerRUScalar } from 'src/common/scalars/gosnomer-ru.scalar';
-import {
-  CreateCarInput,
-  CreateCarInputPrisma,
-  UpdateCarInput,
-  UpdateCarInputPrisma,
-} from './inputs/car.input';
+import { CreateCarInput, UpdateCarInput} from './inputs/car.input';
 import { PaginationArgs } from 'src/common/pagination.args';
 import { PaginatedCars } from './inputs/paginatedCar.type';
+import { AuthContext } from 'src/common/decorators/auth-context.decorator';
+import { RequireTenant } from 'src/common/decorators/skip-tenant.decorator';
+import type { AuthContext as AuthContextType } from 'src/common/user-id.store';
 
 @Resolver(() => CarModel)
+@RequireTenant()
 export class CarResolver {
   constructor(
     private readonly carService: CarService,
@@ -84,6 +83,7 @@ export class CarResolver {
 
   @Query(() => PaginatedCars)
   async cars(
+    @AuthContext() ctx: AuthContextType,
     @Args() pagination?: PaginationArgs,
     @Args('search', { nullable: true }) search?: string,
   ) {
@@ -92,39 +92,47 @@ export class CarResolver {
     }
     const { take = 25, skip = 0 } = pagination;
 
-    const itemsPaginated = await this.carService.findMany({
-      take,
-      skip,
-      search,
-    });
-    return itemsPaginated;
+    return this.carService.findMany(ctx, { take, skip, search });
   }
 
   @Query(() => CarModel, { nullable: true })
-  async car(@Args('id') id: string): Promise<CarModel | null> {
-    return (await this.carService.findById(id)) as CarModel;
+  async car(
+    @AuthContext() ctx: AuthContextType,
+    @Args('id') id: string,
+  ): Promise<CarModel | null> {
+    return (await this.carService.findById(ctx, id)) as CarModel;
   }
 
   @Query(() => CarModel, { nullable: true })
   async carByIdentifier(
+    @AuthContext() ctx: AuthContextType,
     @Args('identifier') identifier: string,
   ): Promise<CarModel | null> {
-    return (await this.carService.findByIdentifier(identifier)) as CarModel;
+    return (await this.carService.findByIdentifier(ctx, identifier)) as CarModel;
   }
 
   @Mutation(() => CarModel, { name: 'createOneCar' })
-  async create(@Args('input') input: CreateCarInput): Promise<CarModel> {
-    return (await this.carService.create(this.parseInput(input))) as CarModel;
+  async create(
+    @AuthContext() ctx: AuthContextType,
+    @Args('input') input: CreateCarInput,
+  ): Promise<CarModel> {
+    return (await this.carService.create(ctx, this.parseInput(input))) as CarModel;
   }
 
   @Mutation(() => CarModel, { name: 'updateOneCar' })
-  async update(@Args('input') input: UpdateCarInput): Promise<CarModel> {
-    return (await this.carService.update(this.parseInput(input))) as CarModel;
+  async update(
+    @AuthContext() ctx: AuthContextType,
+    @Args('input') input: UpdateCarInput,
+  ): Promise<CarModel> {
+    return (await this.carService.update(ctx, this.parseInput(input))) as CarModel;
   }
 
   @Mutation(() => CarModel, { name: 'deleteOneCar' })
-  async delete(@Args('id') id: string): Promise<CarModel> {
-    return (await this.carService.delete(id)) as CarModel;
+  async delete(
+    @AuthContext() ctx: AuthContextType,
+    @Args('id') id: string,
+  ): Promise<CarModel> {
+    return (await this.carService.delete(ctx, id)) as CarModel;
   }
 
   @ResolveField(() => VehicleIdentifier)
