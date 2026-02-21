@@ -1,9 +1,9 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from 'src/generated/prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { TenantService } from 'src/common/services/tenant.service';
 import { CreateMcEquipmentInput } from './inputs/create-mc-equipment.input';
 import { UpdateMcEquipmentInput } from './inputs/update-mc-equipment.input';
+import type { AuthContext } from 'src/common/user-id.store';
 
 const DEFAULT_TAKE = 25;
 const DEFAULT_SKIP = 0;
@@ -21,25 +21,25 @@ const EQUIPMENT_INCLUDE = {
 
 @Injectable()
 export class McEquipmentService {
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly tenantService: TenantService,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
-  async findMany({
-    take = DEFAULT_TAKE,
-    skip = DEFAULT_SKIP,
-    search,
-    vehicleId,
-    period,
-  }: {
-    take?: number;
-    skip?: number;
-    search?: string;
-    vehicleId?: string;
-    period?: number;
-  }) {
-    const tenantId = await this.tenantService.getTenantId();
+  async findMany(
+    ctx: AuthContext,
+    {
+      take = DEFAULT_TAKE,
+      skip = DEFAULT_SKIP,
+      search,
+      vehicleId,
+      period,
+    }: {
+      take?: number;
+      skip?: number;
+      search?: string;
+      vehicleId?: string;
+      period?: number;
+    },
+  ) {
+    const { tenantId } = ctx;
     const where = {
       tenantId,
       ...(vehicleId ? { vehicleId } : {}),
@@ -73,16 +73,16 @@ export class McEquipmentService {
     return { items, total };
   }
 
-  async findOne(id: string) {
-    const tenantId = await this.tenantService.getTenantId();
+  async findOne(ctx: AuthContext, id: string) {
+    const { tenantId } = ctx;
     return this.prisma.mcEquipment.findFirst({
       where: { id, tenantId },
       include: EQUIPMENT_INCLUDE,
     });
   }
 
-  async create(data: CreateMcEquipmentInput) {
-    const tenantId = await this.tenantService.getTenantId();
+  async create(ctx: AuthContext, data: CreateMcEquipmentInput) {
+    const { tenantId, userId } = ctx;
     return this.prisma.mcEquipment.create({
       data: {
         vehicleId: data.vehicleId,
@@ -95,16 +95,17 @@ export class McEquipmentService {
         equipmentEngineInjection: data.equipmentEngineInjection ?? 0,
         equipmentEngineCapacity: data.equipmentEngineCapacity,
         tenantId,
+        createdBy: userId,
       },
       include: EQUIPMENT_INCLUDE,
     });
   }
 
-  async update(input: UpdateMcEquipmentInput) {
-    const existing = await this.findOne(input.id);
+  async update(ctx: AuthContext, input: UpdateMcEquipmentInput) {
+    const existing = await this.findOne(ctx, input.id);
     if (!existing) throw new NotFoundException('Комплектация не найдена');
 
-    const tenantId = await this.tenantService.getTenantId();
+    const { tenantId, userId } = ctx;
 
     await this.prisma.$transaction(async (tx) => {
       const baseData: Record<string, unknown> = {};
@@ -151,6 +152,7 @@ export class McEquipmentService {
               recommended: line.recommended,
               position: line.position,
               tenantId,
+              createdBy: userId,
             },
           });
           for (const p of line.parts) {
@@ -161,6 +163,7 @@ export class McEquipmentService {
                 quantity: p.quantity,
                 recommended: p.recommended,
                 tenantId,
+                createdBy: userId,
               },
             });
           }
@@ -168,13 +171,13 @@ export class McEquipmentService {
       }
     });
 
-    const updated = await this.findOne(input.id);
+    const updated = await this.findOne(ctx, input.id);
     if (!updated) throw new NotFoundException('Комплектация не найдена');
     return updated;
   }
 
-  async remove(id: string) {
-    const equipment = await this.findOne(id);
+  async remove(ctx: AuthContext, id: string) {
+    const equipment = await this.findOne(ctx, id);
     if (!equipment) throw new NotFoundException('Комплектация не найдена');
     const lines = await this.prisma.mcLine.findMany({
       where: { equipmentId: id },

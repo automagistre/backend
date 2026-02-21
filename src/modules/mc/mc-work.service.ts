@@ -1,29 +1,29 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { TenantService } from 'src/common/services/tenant.service';
 import { CreateMcWorkInput } from './inputs/create-mc-work.input';
 import { UpdateMcWorkInput } from './inputs/update-mc-work.input';
+import type { AuthContext } from 'src/common/user-id.store';
 
 const DEFAULT_TAKE = 25;
 const DEFAULT_SKIP = 0;
 
 @Injectable()
 export class McWorkService {
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly tenantService: TenantService,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
-  async findMany({
-    take = DEFAULT_TAKE,
-    skip = DEFAULT_SKIP,
-    search,
-  }: {
-    take?: number;
-    skip?: number;
-    search?: string;
-  }) {
-    const tenantId = await this.tenantService.getTenantId();
+  async findMany(
+    ctx: AuthContext,
+    {
+      take = DEFAULT_TAKE,
+      skip = DEFAULT_SKIP,
+      search,
+    }: {
+      take?: number;
+      skip?: number;
+      search?: string;
+    },
+  ) {
+    const { tenantId } = ctx;
     const where = {
       tenantId,
       ...(search
@@ -42,15 +42,15 @@ export class McWorkService {
     return { items, total };
   }
 
-  async findOne(id: string) {
-    const tenantId = await this.tenantService.getTenantId();
+  async findOne(ctx: AuthContext, id: string) {
+    const { tenantId } = ctx;
     return this.prisma.mcWork.findFirst({
       where: { id, tenantId },
     });
   }
 
-  async create(data: CreateMcWorkInput) {
-    const tenantId = await this.tenantService.getTenantId();
+  async create(ctx: AuthContext, data: CreateMcWorkInput) {
+    const { tenantId, userId } = ctx;
     return this.prisma.mcWork.create({
       data: {
         name: data.name.trim(),
@@ -59,12 +59,13 @@ export class McWorkService {
         priceAmount: data.price?.amountMinor != null ? BigInt(data.price.amountMinor) : null,
         priceCurrencyCode: data.price?.currencyCode ?? null,
         tenantId,
+        createdBy: userId,
       },
     });
   }
 
-  async update(input: UpdateMcWorkInput) {
-    const existing = await this.findOne(input.id);
+  async update(ctx: AuthContext, input: UpdateMcWorkInput) {
+    const existing = await this.findOne(ctx, input.id);
     if (!existing) throw new NotFoundException('Работа не найдена');
     const data: {
       name?: string;
@@ -89,8 +90,8 @@ export class McWorkService {
     });
   }
 
-  async remove(id: string) {
-    const work = await this.findOne(id);
+  async remove(ctx: AuthContext, id: string) {
+    const work = await this.findOne(ctx, id);
     if (!work) throw new NotFoundException('Работа не найдена');
     return this.prisma.mcWork.delete({
       where: { id },

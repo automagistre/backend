@@ -576,7 +576,7 @@ model McEquipment {
   equipmentEngineInjection   Int       @map("equipment_engine_injection") @db.SmallInt
   equipmentEngineCapacity    String    @map("equipment_engine_capacity") @db.VarChar(255)
   createdAt                   DateTime? @default(now()) @map("created_at") @db.Timestamptz(0)
-  createdBy                   String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
+  createdBy                   String?   @map("created_by") @db.Uuid
   lines                       McLine[]
 
   @@map("mc_equipment")
@@ -591,7 +591,7 @@ model McLine {
   position     Int
   tenantId     String       @map("tenant_id") @db.Uuid
   createdAt    DateTime?    @default(now()) @map("created_at") @db.Timestamptz(0)
-  createdBy    String?      @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
+  createdBy    String?      @map("created_by") @db.Uuid
   equipment    McEquipment? @relation(fields: [equipmentId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_b37ebc5f517fe9fe")
   work         McWork?      @relation(fields: [workId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_b37ebc5fbb3453db")
   parts        McPart[]
@@ -610,7 +610,7 @@ model McPart {
   recommended Boolean
   tenantId    String   @map("tenant_id") @db.Uuid
   createdAt   DateTime? @default(now()) @map("created_at") @db.Timestamptz(0)
-  createdBy   String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
+  createdBy   String?   @map("created_by") @db.Uuid
   line        McLine?  @relation(fields: [lineId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_2b65786f4d7b7542")
 
   @@index([lineId], map: "idx_2b65786f4d7b7542")
@@ -626,7 +626,7 @@ model McWork {
   priceAmount         BigInt?   @map("price_amount")
   priceCurrencyCode   String?   @map("price_currency_code") @db.VarChar(3)
   createdAt           DateTime? @default(now()) @map("created_at") @db.Timestamptz(0)
-  createdBy           String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
+  createdBy           String?   @map("created_by") @db.Uuid
   lines               McLine[]
 
   @@map("mc_work")

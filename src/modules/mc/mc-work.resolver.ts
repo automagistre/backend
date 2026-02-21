@@ -5,8 +5,12 @@ import { CreateMcWorkInput } from './inputs/create-mc-work.input';
 import { UpdateMcWorkInput } from './inputs/update-mc-work.input';
 import { PaginationArgs } from 'src/common/pagination.args';
 import { PaginatedMcWorks } from './types/paginated-mc-works.type';
+import { AuthContext } from 'src/common/decorators/auth-context.decorator';
+import { RequireTenant } from 'src/common/decorators/skip-tenant.decorator';
+import type { AuthContext as AuthContextType } from 'src/common/user-id.store';
 
 @Resolver(() => McWorkModel)
+@RequireTenant()
 export class McWorkResolver {
   constructor(private readonly mcWorkService: McWorkService) {}
 
@@ -15,11 +19,12 @@ export class McWorkResolver {
     description: 'Список работ ТО',
   })
   async mcWorks(
+    @AuthContext() ctx: AuthContextType,
     @Args() pagination?: PaginationArgs,
-    @Args('search', { nullable: true }) search?: string,
+    @Args('search', { type: () => String, nullable: true }) search?: string,
   ) {
     const { take = 25, skip = 0 } = pagination ?? {};
-    return this.mcWorkService.findMany({ take, skip, search });
+    return this.mcWorkService.findMany(ctx, { take, skip, search });
   }
 
   @Query(() => McWorkModel, {
@@ -27,31 +32,40 @@ export class McWorkResolver {
     nullable: true,
     description: 'Работа ТО по ID',
   })
-  async mcWork(@Args('id') id: string) {
-    return this.mcWorkService.findOne(id);
+  async mcWork(@AuthContext() ctx: AuthContextType, @Args('id') id: string) {
+    return this.mcWorkService.findOne(ctx, id);
   }
 
   @Mutation(() => McWorkModel, {
     name: 'createMcWork',
     description: 'Создать работу ТО',
   })
-  async createMcWork(@Args('input') input: CreateMcWorkInput) {
-    return this.mcWorkService.create(input);
+  async createMcWork(
+    @AuthContext() ctx: AuthContextType,
+    @Args('input') input: CreateMcWorkInput,
+  ) {
+    return this.mcWorkService.create(ctx, input);
   }
 
   @Mutation(() => McWorkModel, {
     name: 'updateMcWork',
     description: 'Обновить работу ТО',
   })
-  async updateMcWork(@Args('input') input: UpdateMcWorkInput) {
-    return this.mcWorkService.update(input);
+  async updateMcWork(
+    @AuthContext() ctx: AuthContextType,
+    @Args('input') input: UpdateMcWorkInput,
+  ) {
+    return this.mcWorkService.update(ctx, input);
   }
 
   @Mutation(() => McWorkModel, {
     name: 'deleteMcWork',
     description: 'Удалить работу ТО',
   })
-  async deleteMcWork(@Args('id') id: string) {
-    return this.mcWorkService.remove(id);
+  async deleteMcWork(
+    @AuthContext() ctx: AuthContextType,
+    @Args('id') id: string,
+  ) {
+    return this.mcWorkService.remove(ctx, id);
   }
 }
