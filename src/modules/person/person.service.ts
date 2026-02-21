@@ -1,8 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreatePersonInput } from './inputs/create.input';
 import { UpdatePersonInput } from './inputs/update.input';
 import { Person } from '@prisma/client';
+import type { AuthContext } from 'src/common/user-id.store';
 
 const DEFAULT_TAKE = 25;
 const DEFAULT_SKIP = 0;
@@ -11,28 +12,31 @@ const DEFAULT_SKIP = 0;
 export class PersonService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(createPersonInput: CreatePersonInput): Promise<Person> {
+  async create(ctx: AuthContext, createPersonInput: CreatePersonInput): Promise<Person> {
     return this.prisma.person.create({
-      data: createPersonInput,
+      data: {
+        ...createPersonInput,
+        tenantGroupId: ctx.tenantGroupId,
+        createdBy: ctx.userId,
+      },
     });
   }
 
-  findAll(): Promise<Person[]> {
-    return this.prisma.person.findMany({
-      orderBy: [{ id: 'desc' }],
-    });
-  }
+  async findMany(
+    ctx: AuthContext,
+    {
+      take = DEFAULT_TAKE,
+      skip = DEFAULT_SKIP,
+      search,
+    }: {
+      take: number;
+      skip: number;
+      search?: string;
+    },
+  ) {
+    const baseWhere = { tenantGroupId: ctx.tenantGroupId };
 
-  async findMany({
-    take = DEFAULT_TAKE,
-    skip = DEFAULT_SKIP,
-    search,
-  }: {
-    take: number;
-    skip: number;
-    search?: string;
-  }) {
-    let where = {};
+    let where: Record<string, unknown> = baseWhere;
 
     if (search) {
       const searchTerms = search
@@ -50,7 +54,7 @@ export class PersonService {
         ],
       }));
 
-      where = { AND: andConditions };
+      where = { ...baseWhere, AND: andConditions };
     }
 
     const [items, total] = await Promise.all([
@@ -69,21 +73,73 @@ export class PersonService {
     };
   }
 
-  async findOne(id: string): Promise<Person | null> {
-    return this.prisma.person.findUnique({
-      where: { id },
+  async findOne(ctx: AuthContext, id: string): Promise<Person | null> {
+    return this.prisma.person.findFirst({
+      where: { id, tenantGroupId: ctx.tenantGroupId },
     });
   }
 
-  async update(updatePersonInput: UpdatePersonInput): Promise<Person> {
+  async update(ctx: AuthContext, updatePersonInput: UpdatePersonInput): Promise<Person> {
     const { id, ...data } = updatePersonInput;
+
+    const existing = await this.prisma.person.findFirst({
+      where: { id, tenantGroupId: ctx.tenantGroupId },
+    });
+    if (!existing) {
+      throw new NotFoundException(`Клиент не найден или недоступен`);
+    }
+
     return this.prisma.person.update({
       where: { id },
       data,
     });
   }
 
-  async delete(id: string): Promise<Person> {
+  // TODO: После применения миграции с onDelete: Restrict можно убрать ручные проверки
+  // и полагаться на constraint БД (Employee, CalendarEntryOrderInfo).
+  // Order.customerId и Income.supplierId — полиморфные связи, бизнес-логика требует блокировки.
+  async delete(ctx: AuthContext, id: string): Promise<Person> {
+    const existing = await this.prisma.person.findFirst({
+      where: { id, tenantGroupId: ctx.tenantGroupId },
+    });
+    if (!existing) {
+      throw new NotFoundException(`Клиент не найден или недоступен`);
+    }
+
+    const [employeeCount, calendarCustomerCount, calendarWorkerCount, orderCount, incomeCount] =
+      await Promise.all([
+        this.prisma.employee.count({ where: { personId: id } }),
+        this.prisma.calendarEntryOrderInfo.count({ where: { customerId: id } }),
+        this.prisma.calendarEntryOrderInfo.count({ where: { workerId: id } }),
+        this.prisma.order.count({ where: { customerId: id } }),
+        this.prisma.income.count({ where: { supplierId: id } }),
+      ]);
+
+    if (employeeCount > 0) {
+      throw new ConflictException(
+        `Нельзя удалить: клиент является сотрудником (${employeeCount} записей)`,
+      );
+    }
+
+    if (calendarCustomerCount > 0 || calendarWorkerCount > 0) {
+      const total = calendarCustomerCount + calendarWorkerCount;
+      throw new ConflictException(
+        `Нельзя удалить: есть ${total} записей в календаре`,
+      );
+    }
+
+    if (orderCount > 0) {
+      throw new ConflictException(
+        `Нельзя удалить: есть ${orderCount} связанных заказов`,
+      );
+    }
+
+    if (incomeCount > 0) {
+      throw new ConflictException(
+        `Нельзя удалить: клиент является поставщиком в ${incomeCount} приходах`,
+      );
+    }
+
     return this.prisma.person.delete({
       where: { id },
     });

@@ -14,8 +14,12 @@ import { PaginationArgs } from 'src/common/pagination.args';
 import { PaginatedPersons } from './inputs/paginatedPersons.type';
 import { CustomerTransactionService } from 'src/modules/customer-transaction/customer-transaction.service';
 import { PaginatedCustomerTransactions } from 'src/modules/customer-transaction/types/paginated-customer-transactions.type';
+import { AuthContext } from 'src/common/decorators/auth-context.decorator';
+import { RequireTenant } from 'src/common/decorators/skip-tenant.decorator';
+import type { AuthContext as AuthContextType } from 'src/common/user-id.store';
 
 @Resolver(() => PersonModel)
+@RequireTenant()
 export class PersonResolver {
   constructor(
     private readonly personService: PersonService,
@@ -27,6 +31,7 @@ export class PersonResolver {
     description: 'Клиенты с пагинацией',
   })
   async getAllPersons(
+    @AuthContext() ctx: AuthContextType,
     @Args() pagination?: PaginationArgs,
     @Args('search', { nullable: true }) search?: string,
   ) {
@@ -35,39 +40,51 @@ export class PersonResolver {
     }
     const { take = 25, skip = 0 } = pagination;
 
-    return await this.personService.findMany({ take, skip, search });
+    return await this.personService.findMany(ctx, { take, skip, search });
   }
 
   @Query(() => PersonModel || null, {
     name: 'person',
     description: 'Клиент по id',
   })
-  async getPerson(@Args('id') id: string): Promise<PersonModel | null> {
-    return this.personService.findOne(id);
+  async getPerson(
+    @AuthContext() ctx: AuthContextType,
+    @Args('id') id: string,
+  ): Promise<PersonModel | null> {
+    return this.personService.findOne(ctx, id);
   }
 
   @Mutation(() => PersonModel, {
     name: 'createOnePerson',
     description: 'Создать клиента',
   })
-  async create(@Args('input') input: CreatePersonInput): Promise<PersonModel> {
-    return this.personService.create(input);
+  async create(
+    @AuthContext() ctx: AuthContextType,
+    @Args('input') input: CreatePersonInput,
+  ): Promise<PersonModel> {
+    return this.personService.create(ctx, input);
   }
 
   @Mutation(() => PersonModel, {
     name: 'updateOnePerson',
     description: 'Обновить клиента',
   })
-  async update(@Args('input') input: UpdatePersonInput): Promise<PersonModel> {
-    return this.personService.update(input);
+  async update(
+    @AuthContext() ctx: AuthContextType,
+    @Args('input') input: UpdatePersonInput,
+  ): Promise<PersonModel> {
+    return this.personService.update(ctx, input);
   }
 
   @Mutation(() => PersonModel, {
     name: 'deleteOnePerson',
     description: 'Удалить клиента',
   })
-  async delete(@Args('id') id: string): Promise<PersonModel> {
-    return this.personService.delete(id);
+  async delete(
+    @AuthContext() ctx: AuthContextType,
+    @Args('id') id: string,
+  ): Promise<PersonModel> {
+    return this.personService.delete(ctx, id);
   }
 
   @ResolveField(() => BigInt, {
