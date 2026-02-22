@@ -15,13 +15,18 @@ import {
 import { PaginationArgs } from 'src/common/pagination.args';
 import { PaginatedEmployees } from './types/paginated-employees.type';
 import { Employee } from '@prisma/client';
+import { AuthContext } from 'src/common/decorators/auth-context.decorator';
+import { RequireTenant } from 'src/common/decorators/skip-tenant.decorator';
+import type { AuthContext as AuthContextType } from 'src/common/user-id.store';
 
 @Resolver(() => EmployeeModel)
+@RequireTenant()
 export class EmployeeResolver {
   constructor(private readonly employeeService: EmployeeService) {}
 
   @Query(() => PaginatedEmployees)
   async employees(
+    @AuthContext() ctx: AuthContextType,
     @Args() pagination?: PaginationArgs,
     @Args('search', { nullable: true }) search?: string,
     @Args('includeFired', { nullable: true, defaultValue: false })
@@ -31,38 +36,47 @@ export class EmployeeResolver {
       pagination = { take: undefined, skip: undefined };
     }
     const { take = 25, skip = 0 } = pagination;
-    const itemsPaginated = await this.employeeService.findMany({
-      take,
-      skip,
-      search,
-      includeFired,
-    });
-    return itemsPaginated;
+    return this.employeeService.findMany(ctx, { take, skip, search, includeFired });
   }
 
   @Query(() => EmployeeModel, { nullable: true })
-  async employee(@Args('id') id: string) {
-    return this.employeeService.findOne(id);
+  async employee(
+    @AuthContext() ctx: AuthContextType,
+    @Args('id') id: string,
+  ) {
+    return this.employeeService.findOne(ctx, id);
   }
 
   @Mutation(() => EmployeeModel)
-  async createOneEmployee(@Args('input') input: CreateEmployeeInput) {
-    return await this.employeeService.create(input);
+  async createOneEmployee(
+    @AuthContext() ctx: AuthContextType,
+    @Args('input') input: CreateEmployeeInput,
+  ) {
+    return this.employeeService.create(ctx, input);
   }
 
   @Mutation(() => EmployeeModel)
-  async updateOneEmployee(@Args('input') input: UpdateEmployeeInput) {
-    return await this.employeeService.update(input);
+  async updateOneEmployee(
+    @AuthContext() ctx: AuthContextType,
+    @Args('input') input: UpdateEmployeeInput,
+  ) {
+    return this.employeeService.update(ctx, input);
   }
 
   @Mutation(() => EmployeeModel)
-  async fireEmployee(@Args('id') id: string) {
-    return await this.employeeService.fire(id);
+  async fireEmployee(
+    @AuthContext() ctx: AuthContextType,
+    @Args('id') id: string,
+  ) {
+    return this.employeeService.fire(ctx, id);
   }
 
   @Mutation(() => EmployeeModel)
-  async deleteOneEmployee(@Args('id') id: string) {
-    return await this.employeeService.remove(id);
+  async deleteOneEmployee(
+    @AuthContext() ctx: AuthContextType,
+    @Args('id') id: string,
+  ) {
+    return this.employeeService.remove(ctx, id);
   }
 
   @ResolveField(() => Boolean)

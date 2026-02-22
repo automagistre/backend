@@ -204,11 +204,11 @@ model CarRecommendation {
   workerId          String                  @map("worker_id") @db.Uuid
   expiredAt         DateTime?               @map("expired_at") @db.Timestamp(0)
   realization       String?                 @db.Uuid
-  tenantGroupId     String                  @default("1ec13d33-3f41-6cf0-b012-02420a000f18") @map("tenant_group_id") @db.Uuid
+  tenantGroupId     String                  @map("tenant_group_id") @db.Uuid
   priceAmount       BigInt?                 @map("price_amount")
   priceCurrencyCode String?                 @map("price_currency_code") @db.VarChar(3)
   createdAt         DateTime?               @default(now()) @map("created_at") @db.Timestamptz(0)
-  createdBy         String?                 @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
+  createdBy         String?                 @map("created_by") @db.Uuid
   parts             CarRecommendationPart[]
 
   @@index([carId], map: "idx_8e4baaf2c3c6f69f")
@@ -222,11 +222,11 @@ model CarRecommendationPart {
   partId            String            @map("part_id") @db.Uuid
   part              Part              @relation(fields: [partId], references: [id], onDelete: Restrict, onUpdate: NoAction)
   quantity          Int
-  tenantGroupId     String            @default("1ec13d33-3f41-6cf0-b012-02420a000f18") @map("tenant_group_id") @db.Uuid
+  tenantGroupId     String            @map("tenant_group_id") @db.Uuid
   priceAmount       BigInt?           @map("price_amount")
   priceCurrencyCode String?           @map("price_currency_code") @db.VarChar(3)
   createdAt         DateTime?         @default(now()) @map("created_at") @db.Timestamptz(0)
-  createdBy         String?           @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
+  createdBy         String?           @map("created_by") @db.Uuid
 
   @@index([recommendationId], map: "idx_ddc72d65d173940b")
   @@map("car_recommendation_part")
@@ -438,9 +438,9 @@ model Employee {
   ratio            Int
   hiredAt          DateTime         @map("hired_at") @db.Timestamp(0)
   firedAt          DateTime?        @map("fired_at") @db.Timestamp(0)
-  tenantId         String           @default("1ec13d33-3f41-6e3a-a0cb-02420a000f18") @map("tenant_id") @db.Uuid
+  tenantId         String           @map("tenant_id") @db.Uuid
   createdAt        DateTime?        @default(now()) @map("created_at") @db.Timestamptz(0)
-  createdBy        String?          @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
+  createdBy        String?          @map("created_by") @db.Uuid
   Order             Order[]
   employeeSalaries  EmployeeSalary[]
 
@@ -456,7 +456,7 @@ model EmployeeSalary {
   amount              BigInt
   tenantId            String              @map("tenant_id") @db.Uuid
   createdAt           DateTime?           @default(now()) @map("created_at") @db.Timestamptz(0)
-  createdBy           String?             @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
+  createdBy           String?             @map("created_by") @db.Uuid
   employeeSalaryEnd   EmployeeSalaryEnd?
 
   @@map("employee_salary")
