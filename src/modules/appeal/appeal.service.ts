@@ -204,7 +204,7 @@ export class AppealService {
   }
 
   async updateAppealStatus(ctx: AuthContext, appealId: string, status: number): Promise<void> {
-    const { tenantId } = ctx;
+    const { tenantId, userId } = ctx;
 
     const latest = await this.prisma.appealStatusRecord.findFirst({
       where: { appealId, tenantId },
@@ -216,7 +216,7 @@ export class AppealService {
     }
 
     await this.prisma.appealStatusRecord.create({
-      data: { id: uuidv6(), appealId, status, tenantId },
+      data: { id: uuidv6(), appealId, status, tenantId, createdBy: userId },
     });
   }
 

@@ -315,7 +315,7 @@ model AppealCalculator {
   works     Json      @db.Json
   tenantId  String    @map("tenant_id") @db.Uuid
   createdAt DateTime? @default(now()) @map("created_at") @db.Timestamptz(0)
-  createdBy String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
+  createdBy String?   @map("created_by") @db.Uuid
 
   @@map("appeal_calculator")
 }
@@ -325,7 +325,7 @@ model AppealCall {
   phone     String    @db.VarChar(35)
   tenantId  String    @map("tenant_id") @db.Uuid
   createdAt DateTime? @default(now()) @map("created_at") @db.Timestamptz(0)
-  createdBy String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
+  createdBy String?   @map("created_by") @db.Uuid
 
   @@map("appeal_call")
 }
@@ -336,7 +336,7 @@ model AppealCooperation {
   phone     String    @db.VarChar(35)
   tenantId  String    @map("tenant_id") @db.Uuid
   createdAt DateTime? @default(now()) @map("created_at") @db.Timestamptz(0)
-  createdBy String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
+  createdBy String?   @map("created_by") @db.Uuid
 
   @@map("appeal_cooperation")
 }
@@ -348,7 +348,7 @@ model AppealQuestion {
   question  String    @db.Text
   tenantId  String    @map("tenant_id") @db.Uuid
   createdAt DateTime? @default(now()) @map("created_at") @db.Timestamptz(0)
-  createdBy String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
+  createdBy String?   @map("created_by") @db.Uuid
 
   @@map("appeal_question")
 }
@@ -360,7 +360,7 @@ model AppealSchedule {
   date      DateTime  @db.Date
   tenantId  String    @map("tenant_id") @db.Uuid
   createdAt DateTime? @default(now()) @map("created_at") @db.Timestamptz(0)
-  createdBy String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
+  createdBy String?   @map("created_by") @db.Uuid
 
   @@map("appeal_schedule")
 }
@@ -371,7 +371,7 @@ model AppealStatusRecord {
   status    Int       @db.SmallInt
   tenantId  String    @map("tenant_id") @db.Uuid
   createdAt DateTime? @default(now()) @map("created_at") @db.Timestamptz(0)
-  createdBy String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
+  createdBy String?   @map("created_by") @db.Uuid
 
   @@map("appeal_status")
 }
@@ -387,7 +387,7 @@ model AppealTireFitting {
   works     Json      @db.Json
   tenantId  String    @map("tenant_id") @db.Uuid
   createdAt DateTime? @default(now()) @map("created_at") @db.Timestamptz(0)
-  createdBy String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
+  createdBy String?   @map("created_by") @db.Uuid
 
   @@map("appeal_tire_fitting")
 }
