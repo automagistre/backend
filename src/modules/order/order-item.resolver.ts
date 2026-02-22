@@ -19,8 +19,12 @@ import { EmployeeService } from '../employee/employee.service';
 import { EmployeeModel } from '../employee/models/employee.model';
 import { OrderService } from './order.service';
 import { PubSub } from 'graphql-subscriptions';
+import { AuthContext } from 'src/common/decorators/auth-context.decorator';
+import { RequireTenant } from 'src/common/decorators/skip-tenant.decorator';
+import type { AuthContext as AuthContextType } from 'src/common/user-id.store';
 
 @Resolver(() => OrderItemModel)
+@RequireTenant()
 export class OrderItemResolver {
   constructor(
     private readonly orderItemService: OrderItemService,
@@ -53,25 +57,13 @@ export class OrderItemResolver {
 
   @ResolveField(() => EmployeeModel, { nullable: true })
   async serviceWorker(
+    @AuthContext() ctx: AuthContextType,
     @Parent() item: OrderItemModel,
   ): Promise<EmployeeModel | null> {
-    // Резолвим worker для service внутри OrderItem
-    // Проверяем наличие service (type может быть '1' или 'service' в зависимости от версии данных)
-    if (!item.service) {
+    if (!item.service?.workerId) {
       return null;
     }
-
-    // Если workerId не указан, возвращаем null
-    // В workerId хранится personId, а не employeeId
-    if (!item.service.workerId) {
-      return null;
-    }
-
-    // Ищем сотрудника по personId (в workerId хранится UUID персоны)
-    //TODO: переделать на поиск по employeeId
-    const employee = await this.employeeService.findByPersonId(
-      item.service.workerId,
-    );
+    const employee = await this.employeeService.findByPersonId(ctx, item.service.workerId);
     return employee as EmployeeModel | null;
   }
 

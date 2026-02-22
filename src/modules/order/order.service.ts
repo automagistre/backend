@@ -21,6 +21,7 @@ import { CustomerTransactionSource } from 'src/modules/customer-transaction/enum
 import { SettingsService } from 'src/modules/settings/settings.service';
 import { WarehouseService } from 'src/modules/warehouse/warehouse.service';
 import { applyDefaultCurrency } from 'src/common/money';
+import type { AuthContext } from 'src/common/user-id.store';
 
 const DELETE_COOLING_HOURS = 3;
 /** Совместимость со старой CRM: DiscriminatorMap OrderClose — 1 = OrderDeal, 2 = OrderCancel */
@@ -624,8 +625,8 @@ export class OrderService {
    * Закрыть заказ: OrderClose + OrderDeal, платежи при закрытии, перенос предоплат, списание заказа, статус CLOSED, затем зарплата по работам.
    * В OrderDeal.balance сохраняется баланс заказчика на момент закрытия до списания/начисления по заказу.
    */
-  async closeOrder(input: CloseOrderInput): Promise<OrderModel> {
-    const tenantId = await this.tenantService.getTenantId();
+  async closeOrder(ctx: AuthContext, input: CloseOrderInput): Promise<OrderModel> {
+    const tenantId = ctx.tenantId;
     const order = await this.prisma.order.findFirst({
       where: { id: input.orderId, tenantId },
       select: { id: true, customerId: true, close: { select: { id: true } } },
@@ -773,18 +774,14 @@ export class OrderService {
       });
     });
 
-    await this.salaryService.chargeByOrder(input.orderId);
+    await this.salaryService.chargeByOrder(ctx, input.orderId);
 
     return this.findOne(input.orderId) as Promise<OrderModel>;
   }
 
-  /**
-   * Проверить, что заказ существует и закрыт по сделке (OrderDeal). Иначе — исключение.
-   */
-  async ensureOrderClosed(orderId: string): Promise<void> {
-    const tenantId = await this.tenantService.getTenantId();
+  async ensureOrderClosed(ctx: AuthContext, orderId: string): Promise<void> {
     const order = await this.prisma.order.findFirst({
-      where: { id: orderId, tenantId },
+      where: { id: orderId, tenantId: ctx.tenantId },
       select: { id: true, close: { select: { orderDeal: { select: { id: true } } } } },
     });
     if (!order) {
@@ -795,11 +792,7 @@ export class OrderService {
     }
   }
 
-  /**
-   * Начислить зарплату по закрытому заказу (проводки source=4). Идемпотентно.
-   * Проверку закрытости выполняет вызывающая сторона (например, мутация).
-   */
-  async chargeOrderSalary(orderId: string): Promise<void> {
-    await this.salaryService.chargeByOrder(orderId);
+  async chargeOrderSalary(ctx: AuthContext, orderId: string): Promise<void> {
+    await this.salaryService.chargeByOrder(ctx, orderId);
   }
 }

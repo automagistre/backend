@@ -127,9 +127,10 @@ export class OrderResolver {
     description: 'Закрыть заказ',
   })
   async closeOrder(
+    @AuthContext() ctx: AuthContextType,
     @Args('input') input: CloseOrderInput,
   ): Promise<OrderModel> {
-    return this.orderService.closeOrder(input);
+    return this.orderService.closeOrder(ctx, input);
   }
 
   @Mutation(() => Boolean, {
@@ -138,10 +139,11 @@ export class OrderResolver {
       'Начислить зарплату по закрытому заказу. Проверяет, что заказ закрыт; идемпотентно по начислению.',
   })
   async chargeOrderSalary(
+    @AuthContext() ctx: AuthContextType,
     @Args('orderId', { type: () => ID }) orderId: string,
   ): Promise<boolean> {
-    await this.orderService.ensureOrderClosed(orderId);
-    await this.orderService.chargeOrderSalary(orderId);
+    await this.orderService.ensureOrderClosed(ctx, orderId);
+    await this.orderService.chargeOrderSalary(ctx, orderId);
     return true;
   }
 
@@ -192,13 +194,14 @@ export class OrderResolver {
   }
 
   @ResolveField(() => EmployeeModel, { nullable: true })
-  async worker(@Parent() order: OrderModel): Promise<EmployeeModel | null> {
+  async worker(
+    @AuthContext() ctx: AuthContextType,
+    @Parent() order: OrderModel,
+  ): Promise<EmployeeModel | null> {
     if (!order.workerId) {
       return null;
     }
-    return (await this.employeeService.findOne(
-      order.workerId,
-    )) as EmployeeModel | null;
+    return (await this.employeeService.findOne(ctx, order.workerId)) as EmployeeModel | null;
   }
 
   @ResolveField(() => Date, { nullable: true })
