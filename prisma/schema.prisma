@@ -467,7 +467,7 @@ model EmployeeSalaryEnd {
   salaryId       String?         @unique(map: "uniq_59455a58b0fdf16e") @map("salary_id") @db.Uuid
   tenantId       String          @map("tenant_id") @db.Uuid
   createdAt      DateTime?       @default(now()) @map("created_at") @db.Timestamptz(0)
-  createdBy      String?         @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
+  createdBy      String?         @map("created_by") @db.Uuid
   employeeSalary EmployeeSalary? @relation(fields: [salaryId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_59455a58b0fdf16e")
 
   @@map("employee_salary_end")

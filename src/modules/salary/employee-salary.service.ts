@@ -1,23 +1,20 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { TenantService } from 'src/common/services/tenant.service';
 import { CreateEmployeeSalaryInput } from './inputs/create-employee-salary.input';
 import { applyDefaultCurrency } from 'src/common/money';
 import { SettingsService } from 'src/modules/settings/settings.service';
+import type { AuthContext } from 'src/common/user-id.store';
 
 @Injectable()
 export class EmployeeSalaryService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly tenantService: TenantService,
     private readonly settingsService: SettingsService,
   ) {}
 
-  async listByEmployee(employeeId: string) {
-    const tenantId = await this.tenantService.getTenantId();
-
+  async listByEmployee(ctx: AuthContext, employeeId: string) {
     const items = await this.prisma.employeeSalary.findMany({
-      where: { employeeId, tenantId },
+      where: { employeeId, tenantId: ctx.tenantId },
       include: { employeeSalaryEnd: true },
       orderBy: { createdAt: 'desc' },
     });
@@ -32,11 +29,9 @@ export class EmployeeSalaryService {
     }));
   }
 
-  async create(input: CreateEmployeeSalaryInput) {
-    const tenantId = await this.tenantService.getTenantId();
-
+  async create(ctx: AuthContext, input: CreateEmployeeSalaryInput) {
     const employee = await this.prisma.employee.findFirst({
-      where: { id: input.employeeId, tenantId },
+      where: { id: input.employeeId, tenantId: ctx.tenantId },
     });
     if (!employee) {
       throw new NotFoundException('Employee not found');
@@ -50,17 +45,15 @@ export class EmployeeSalaryService {
         employeeId: input.employeeId,
         payday: input.payday,
         amount: money.amountMinor,
-        tenantId,
+        tenantId: ctx.tenantId,
+        createdBy: ctx.userId,
       },
     });
   }
 
-  /** Создать запись EmployeeSalaryEnd — отмена начисления (не начислять в будущем). */
-  async cancel(salaryId: string) {
-    const tenantId = await this.tenantService.getTenantId();
-
+  async cancel(ctx: AuthContext, salaryId: string) {
     const salary = await this.prisma.employeeSalary.findFirst({
-      where: { id: salaryId, tenantId },
+      where: { id: salaryId, tenantId: ctx.tenantId },
       include: { employeeSalaryEnd: true },
     });
     if (!salary) {
@@ -73,7 +66,8 @@ export class EmployeeSalaryService {
     return this.prisma.employeeSalaryEnd.create({
       data: {
         salaryId,
-        tenantId,
+        tenantId: ctx.tenantId,
+        createdBy: ctx.userId,
       },
     });
   }
