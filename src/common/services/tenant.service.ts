@@ -87,4 +87,16 @@ export class TenantService {
   getDefaultTenantId(): string {
     return DEFAULT_TENANT_ID;
   }
+
+  /**
+   * Получает tenantGroupId по tenantId
+   */
+  async getTenantWithGroup(tenantId: string): Promise<{ tenantGroupId: string } | null> {
+    const tenant = await this.prisma.tenant.findFirst({
+      where: { id: tenantId },
+      select: { group_id: true },
+    });
+    if (!tenant) return null;
+    return { tenantGroupId: tenant.group_id };
+  }
 }
