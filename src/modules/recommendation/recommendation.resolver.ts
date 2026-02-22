@@ -38,8 +38,8 @@ export class RecommendationResolver {
     @Inject('PUB_SUB') private readonly pubSub: PubSub,
   ) {}
 
-  private async publishCarRecommendationsUpdated(carId: string): Promise<void> {
-    const recommendations = await this.recommendationService.findByCarId(carId);
+  private async publishCarRecommendationsUpdated(ctx: AuthContextType, carId: string): Promise<void> {
+    const recommendations = await this.recommendationService.findByCarId(ctx, carId);
     await this.pubSub.publish(`CAR_RECOMMENDATIONS_UPDATED_${carId}`, {
       carRecommendationsUpdated: recommendations,
       carId,
@@ -51,24 +51,28 @@ export class RecommendationResolver {
     description: 'Список рекомендаций по автомобилю (для отображения в заказах и карточке авто)',
   })
   async carRecommendations(
+    @AuthContext() ctx: AuthContextType,
     @Args('carId', { type: () => ID }) carId: string,
   ): Promise<CarRecommendationModel[]> {
-    return this.recommendationService.findByCarId(carId) as any;
+    return this.recommendationService.findByCarId(ctx, carId) as any;
   }
 
   @Mutation(() => CarRecommendationModel, {
     name: 'createCarRecommendation',
     description: 'Создать рекомендацию по автомобилю',
   })
-  async createCarRecommendation(@Args('input') input: CreateCarRecommendationInput) {
+  async createCarRecommendation(
+    @AuthContext() ctx: AuthContextType,
+    @Args('input') input: CreateCarRecommendationInput,
+  ) {
     const workerId =
-      (await this.employeeService.resolvePersonIdByWorkerId(input.workerId)) ??
+      (await this.employeeService.resolvePersonIdByWorkerId(ctx, input.workerId)) ??
       input.workerId;
     const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
     const priceData = input.price
       ? applyDefaultCurrency(input.price, defaultCurrency)
       : { amountMinor: 0n, currencyCode: defaultCurrency };
-    const result = await this.recommendationService.createRecommendation({
+    const result = await this.recommendationService.createRecommendation(ctx, {
       carId: input.carId,
       service: input.service.trim(),
       workerId,
@@ -76,7 +80,7 @@ export class RecommendationResolver {
       priceAmount: priceData.amountMinor,
       priceCurrencyCode: priceData.currencyCode,
     });
-    await this.publishCarRecommendationsUpdated(input.carId);
+    await this.publishCarRecommendationsUpdated(ctx, input.carId);
     return result as any;
   }
 
@@ -84,14 +88,17 @@ export class RecommendationResolver {
     name: 'updateCarRecommendation',
     description: 'Обновить рекомендацию по автомобилю',
   })
-  async updateCarRecommendation(@Args('input') input: UpdateCarRecommendationInput) {
+  async updateCarRecommendation(
+    @AuthContext() ctx: AuthContextType,
+    @Args('input') input: UpdateCarRecommendationInput,
+  ) {
     const data: any = {};
     if (input.service !== undefined && input.service !== null) {
       data.service = input.service.trim();
     }
     if (input.workerId !== undefined) {
       data.workerId =
-        (await this.employeeService.resolvePersonIdByWorkerId(input.workerId)) ??
+        (await this.employeeService.resolvePersonIdByWorkerId(ctx, input.workerId)) ??
         input.workerId;
     }
     if (input.expiredAt !== undefined) {
@@ -104,9 +111,9 @@ export class RecommendationResolver {
       data.priceCurrencyCode = priceData.currencyCode;
     }
 
-    const result = await this.recommendationService.updateRecommendation({ id: input.id, ...data });
+    const result = await this.recommendationService.updateRecommendation(ctx, { id: input.id, ...data });
     if (result.carId) {
-      await this.publishCarRecommendationsUpdated(result.carId);
+      await this.publishCarRecommendationsUpdated(ctx, result.carId);
     }
     return result as any;
   }
@@ -115,14 +122,16 @@ export class RecommendationResolver {
     name: 'deleteCarRecommendation',
     description: 'Удалить рекомендацию по автомобилю',
   })
-  async deleteCarRecommendation(@Args('id', { type: () => ID }) id: string) {
-    // Получаем carId до удаления для публикации события
-    const recommendation = await this.recommendationService.findById(id);
+  async deleteCarRecommendation(
+    @AuthContext() ctx: AuthContextType,
+    @Args('id', { type: () => ID }) id: string,
+  ) {
+    const recommendation = await this.recommendationService.findById(ctx, id);
     const carId = recommendation?.carId;
     
-    const result = await this.recommendationService.deleteRecommendation(id);
+    const result = await this.recommendationService.deleteRecommendation(ctx, id);
     if (carId) {
-      await this.publishCarRecommendationsUpdated(carId);
+      await this.publishCarRecommendationsUpdated(ctx, carId);
     }
     return result;
   }
@@ -132,23 +141,23 @@ export class RecommendationResolver {
     description: 'Добавить запчасть к рекомендации',
   })
   async createCarRecommendationPart(
+    @AuthContext() ctx: AuthContextType,
     @Args('input') input: CreateCarRecommendationPartInput,
   ) {
     const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
     const priceData = input.price
       ? applyDefaultCurrency(input.price, defaultCurrency)
       : { amountMinor: 0n, currencyCode: defaultCurrency };
-    const result = await this.recommendationService.createRecommendationPart({
+    const result = await this.recommendationService.createRecommendationPart(ctx, {
       recommendationId: input.recommendationId,
       partId: input.partId,
       quantity: input.quantity,
       priceAmount: priceData.amountMinor,
       priceCurrencyCode: priceData.currencyCode,
     });
-    // Получаем carId через рекомендацию
-    const recommendation = await this.recommendationService.findById(input.recommendationId);
+    const recommendation = await this.recommendationService.findById(ctx, input.recommendationId);
     if (recommendation?.carId) {
-      await this.publishCarRecommendationsUpdated(recommendation.carId);
+      await this.publishCarRecommendationsUpdated(ctx, recommendation.carId);
     }
     return result as any;
   }
@@ -158,6 +167,7 @@ export class RecommendationResolver {
     description: 'Обновить запчасть рекомендации',
   })
   async updateCarRecommendationPart(
+    @AuthContext() ctx: AuthContextType,
     @Args('input') input: UpdateCarRecommendationPartInput,
   ) {
     const data: any = {};
@@ -171,12 +181,11 @@ export class RecommendationResolver {
       data.priceCurrencyCode = priceData.currencyCode;
     }
 
-    const result = await this.recommendationService.updateRecommendationPart({ id: input.id, ...data });
-    // Публикуем через recommendationId
+    const result = await this.recommendationService.updateRecommendationPart(ctx, { id: input.id, ...data });
     if (result.recommendationId) {
-      const recommendation = await this.recommendationService.findById(result.recommendationId);
+      const recommendation = await this.recommendationService.findById(ctx, result.recommendationId);
       if (recommendation?.carId) {
-        await this.publishCarRecommendationsUpdated(recommendation.carId);
+        await this.publishCarRecommendationsUpdated(ctx, recommendation.carId);
       }
     }
     return result as any;
@@ -186,24 +195,27 @@ export class RecommendationResolver {
     name: 'deleteCarRecommendationPart',
     description: 'Удалить запчасть из рекомендации',
   })
-  async deleteCarRecommendationPart(@Args('id', { type: () => ID }) id: string) {
-    // Получаем carId до удаления
-    const part = await this.recommendationService.findRecommendationPartById(id);
+  async deleteCarRecommendationPart(
+    @AuthContext() ctx: AuthContextType,
+    @Args('id', { type: () => ID }) id: string,
+  ) {
+    const part = await this.recommendationService.findRecommendationPartById(ctx, id);
     const carId = part?.recommendation?.carId;
     
-    const result = await this.recommendationService.deleteRecommendationPart(id);
+    const result = await this.recommendationService.deleteRecommendationPart(ctx, id);
     if (carId) {
-      await this.publishCarRecommendationsUpdated(carId);
+      await this.publishCarRecommendationsUpdated(ctx, carId);
     }
     return result;
   }
 
   @ResolveField(() => EmployeeModel, { nullable: true })
-  async worker(@Parent() rec: CarRecommendationModel): Promise<EmployeeModel | null> {
+  async worker(
+    @AuthContext() ctx: AuthContextType,
+    @Parent() rec: CarRecommendationModel,
+  ): Promise<EmployeeModel | null> {
     if (!rec.workerId) return null;
-    // В старых данных workerId может быть либо employee.id, либо personId (как в работах заказа).
-    // Причина: таблица рекомендаций не имеет FK на employee/person, и в миграциях это могло отличаться.
-    return (await this.employeeService.resolveEmployeeByWorkerId(rec.workerId)) as any;
+    return (await this.employeeService.resolveEmployeeByWorkerId(ctx, rec.workerId)) as any;
   }
 
   @ResolveField(() => CarModel, { nullable: true })
