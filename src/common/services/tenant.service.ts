@@ -1,8 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 
-const DEFAULT_TENANT_ID = '1ec13d33-3f41-6e3a-a0cb-02420a000f18';
-
 export interface TenantInfo {
   id: string;
   name: string;
@@ -55,48 +53,13 @@ export class TenantService {
   }
 
   /**
-   * @deprecated Используйте checkAccessAndGetGroup
-   * Проверяет доступ (user_id, tenant_id) в tenant_permission.
-   */
-  async checkAccess(userId: string, tenantId: string): Promise<boolean> {
-    const found = await this.prisma.tenant_permission.findFirst({
-      where: { user_id: userId, tenant_id: tenantId },
-    });
-    return !!found;
-  }
-
-  /**
-   * @deprecated Используйте ctx.tenantId из @AuthContext
-   * Получает tenantId из PostgreSQL переменной app.tenant_id
-   */
-  async getTenantId(): Promise<string> {
-    try {
-      const result = await this.prisma.$queryRawUnsafe<
-        Array<{ current_setting: string }>
-      >(`SELECT current_setting('app.tenant_id', true) as current_setting`);
-      const tenantId = result[0]?.current_setting?.trim();
-      return tenantId && tenantId !== '' ? tenantId : DEFAULT_TENANT_ID;
-    } catch {
-      return DEFAULT_TENANT_ID;
-    }
-  }
-
-  /**
-   * @deprecated Только для миграции и обратной совместимости
-   */
-  getDefaultTenantId(): string {
-    return DEFAULT_TENANT_ID;
-  }
-
-  /**
    * Получает tenantGroupId по tenantId
    */
-  async getTenantWithGroup(tenantId: string): Promise<{ tenantGroupId: string } | null> {
+  async getTenantGroupId(tenantId: string): Promise<string | null> {
     const tenant = await this.prisma.tenant.findFirst({
       where: { id: tenantId },
       select: { group_id: true },
     });
-    if (!tenant) return null;
-    return { tenantGroupId: tenant.group_id };
+    return tenant?.group_id ?? null;
   }
 }

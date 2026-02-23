@@ -21,14 +21,13 @@ export class CustomerTransactionResolver {
     private readonly customerTransactionService: CustomerTransactionService,
   ) {}
 
+  @RequireTenant()
   @ResolveField(() => String)
   async sourceDisplay(
+    @AuthContextDecorator() ctx: AuthContextType,
     @Parent() tx: { source: number; sourceId: string },
   ): Promise<string> {
-    return this.customerTransactionService.getSourceDisplay(
-      tx.source,
-      tx.sourceId,
-    );
+    return this.customerTransactionService.getSourceDisplay(ctx, tx.source, tx.sourceId);
   }
 
   @ResolveField(() => String, {

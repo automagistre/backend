@@ -153,21 +153,24 @@ export class WalletTransactionService {
    * Контекстная строка для отображения (номер заказа, ФИО и т.д.).
    * Фронт склеивает с меткой типа источника.
    */
-  async getSourceDisplay(source: number, sourceId: string): Promise<string> {
+  async getSourceDisplay(
+    ctx: AuthContext,
+    source: number,
+    sourceId: string,
+  ): Promise<string> {
     switch (source as WalletTransactionSource) {
       case WalletTransactionSource.OrderPrepay:
       case WalletTransactionSource.OrderDebit:
       case WalletTransactionSource.OrderPrepayRefund:
-        return this.displayContextService.getOrderContext(sourceId);
+        return this.displayContextService.getOrderContext(ctx, sourceId);
       case WalletTransactionSource.Payroll:
-        // source_id — id записи customer_transaction
         return '';
       case WalletTransactionSource.OperandManual:
         return this.displayContextService.getPersonDisplay(sourceId);
       case WalletTransactionSource.IncomePayment:
         return '';
       case WalletTransactionSource.Expense:
-        return this.displayContextService.getExpenseName(sourceId);
+        return this.displayContextService.getExpenseName(ctx, sourceId);
       case WalletTransactionSource.Legacy:
       case WalletTransactionSource.Initial:
       default:

@@ -21,11 +21,13 @@ export class WalletTransactionResolver {
     private readonly walletTransactionService: WalletTransactionService,
   ) {}
 
+  @RequireTenant()
   @ResolveField(() => String)
   async sourceDisplay(
+    @AuthContextDecorator() ctx: AuthContextType,
     @Parent() tx: { source: number; sourceId: string },
   ): Promise<string> {
-    return this.walletTransactionService.getSourceDisplay(tx.source, tx.sourceId);
+    return this.walletTransactionService.getSourceDisplay(ctx, tx.source, tx.sourceId);
   }
 
   @RequireTenant()

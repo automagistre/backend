@@ -3,7 +3,7 @@ import { BaseModel } from './base.model';
 
 /**
  * Базовая модель с полем createdBy для аудита.
- * При создании записей передавайте createdBy из getRequestContext().userId или @CurrentUser().sub.
+ * При создании записей передавайте createdBy: ctx.userId из @AuthContext.
  */
 @ObjectType({ description: 'Базовая модель с полем createdBy' })
 export class LoggedCreatedByModel extends BaseModel {

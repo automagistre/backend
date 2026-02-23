@@ -155,17 +155,19 @@ export class CustomerTransactionService {
   /**
    * Контекстная строка для отображения проводки по операнду.
    */
-  async getSourceDisplay(source: number, sourceId: string): Promise<string> {
+  async getSourceDisplay(
+    ctx: AuthContext,
+    source: number,
+    sourceId: string,
+  ): Promise<string> {
     if (source === CustomerTransactionSource.OrderSalary) {
-      return this.displayContextService.getOrderContextByOrderIdForSalary(sourceId);
+      return this.displayContextService.getOrderContextByOrderIdForSalary(ctx, sourceId);
     }
     if (ORDER_SOURCES.includes(source as CustomerTransactionSource)) {
-      return this.displayContextService.getOrderContext(sourceId);
+      return this.displayContextService.getOrderContext(ctx, sourceId);
     }
     if (source === CustomerTransactionSource.Manual) {
-      return this.displayContextService.getWalletNameByWalletTransactionId(
-        sourceId,
-      );
+      return this.displayContextService.getWalletNameByWalletTransactionId(ctx, sourceId);
     }
     if (source === CustomerTransactionSource.ManualWithoutWallet) {
       return 'Ручная проводка (без счёта)';

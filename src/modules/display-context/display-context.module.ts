@@ -1,10 +1,9 @@
 import { Module } from '@nestjs/common';
 import { DisplayContextService } from './display-context.service';
 import { PrismaModule } from 'src/prisma/prisma.module';
-import { CommonModule } from 'src/common/common.module';
 
 @Module({
-  imports: [PrismaModule, CommonModule],
+  imports: [PrismaModule],
   providers: [DisplayContextService],
   exports: [DisplayContextService],
 })

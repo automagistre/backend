@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { TenantService } from 'src/common/services/tenant.service';
+import type { AuthContext } from 'src/common/user-id.store';
 
 /**
  * Сервис контекста для отображения (номер заказа, ФИО, название счёта и т.д.).
@@ -9,17 +9,17 @@ import { TenantService } from 'src/common/services/tenant.service';
  */
 @Injectable()
 export class DisplayContextService {
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly tenantService: TenantService,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   /**
    * Контекст для проводки «Зарплата по заказу»: sourceId = orderId (как в старой CRM).
    * Автомобиль заказа: «Марка Модель | Госномер», например VW VOLKSWAGEN CARAVELLE | У012ХТ71.
    */
-  async getOrderContextByOrderIdForSalary(orderId: string): Promise<string> {
-    const tenantId = await this.tenantService.getTenantId();
+  async getOrderContextByOrderIdForSalary(
+    ctx: AuthContext,
+    orderId: string,
+  ): Promise<string> {
+    const { tenantId } = ctx;
     const order = await this.prisma.order.findFirst({
       where: { id: orderId, tenantId },
       select: {
@@ -48,8 +48,8 @@ export class DisplayContextService {
   }
 
   /** Контекст заказа: «№123 Фамилия Имя» или «№123 Название организации». */
-  async getOrderContext(orderId: string): Promise<string> {
-    const tenantId = await this.tenantService.getTenantId();
+  async getOrderContext(ctx: AuthContext, orderId: string): Promise<string> {
+    const { tenantId } = ctx;
     const order = await this.prisma.order.findFirst({
       where: { id: orderId, tenantId },
       select: {
@@ -107,8 +107,8 @@ export class DisplayContextService {
   }
 
   /** Название статьи расходов по id (для sourceDisplay при source=Expense). */
-  async getExpenseName(expenseId: string): Promise<string> {
-    const tenantId = await this.tenantService.getTenantId();
+  async getExpenseName(ctx: AuthContext, expenseId: string): Promise<string> {
+    const { tenantId } = ctx;
     const expense = await this.prisma.expense.findFirst({
       where: { id: expenseId, tenantId },
       select: { name: true },
@@ -118,9 +118,10 @@ export class DisplayContextService {
 
   /** Название кошелька по id проводки по кошельку (wallet_transaction.id). */
   async getWalletNameByWalletTransactionId(
+    ctx: AuthContext,
     walletTransactionId: string,
   ): Promise<string> {
-    const tenantId = await this.tenantService.getTenantId();
+    const { tenantId } = ctx;
     const wt = await this.prisma.walletTransaction.findFirst({
       where: { id: walletTransactionId, tenantId },
       select: { wallet: { select: { name: true } } },

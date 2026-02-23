@@ -2,7 +2,6 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from 'src/generated/prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { v6 as uuidv6 } from 'uuid';
-import { TenantService } from 'src/common/services/tenant.service';
 import { ReservationService } from 'src/modules/reservation/reservation.service';
 import { normalizeMoneyAmount } from 'src/common/utils/money.util';
 import { SettingsService } from 'src/modules/settings/settings.service';
@@ -18,7 +17,6 @@ import type { AuthContext } from 'src/common/user-id.store';
 export class RecommendationService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly tenantService: TenantService,
     private readonly reservationService: ReservationService,
     private readonly settingsService: SettingsService,
   ) {}

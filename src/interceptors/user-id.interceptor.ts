@@ -5,12 +5,8 @@ import {
   CallHandler,
 } from '@nestjs/common';
 import { GqlExecutionContext } from '@nestjs/graphql';
-import { Observable, from, lastValueFrom } from 'rxjs';
-import {
-  userIdStore,
-  DEFAULT_TENANT_ID,
-  type UserContext,
-} from '../common/user-id.store';
+import { Observable } from 'rxjs';
+import type { UserContext } from '../common/user-id.store';
 
 /** Расширение req с ctx и tenantId */
 interface ReqWithCtx {
@@ -21,8 +17,8 @@ interface ReqWithCtx {
 }
 
 /**
- * Агрегирует req.ctx = { userId, tenantId } и сохраняет в AsyncLocalStorage.
- * tenantId из req.tenantId (TenantGuard) или null для роутов без tenant.
+ * Агрегирует req.ctx = { userId, tenantId, tenantGroupId } для декораторов @AuthContext/@CurrentUserContext.
+ * tenantId и tenantGroupId заполняются TenantGuard, userId из JWT.
  */
 @Injectable()
 export class UserIdInterceptor implements NestInterceptor {
@@ -34,14 +30,7 @@ export class UserIdInterceptor implements NestInterceptor {
 
     req.ctx = { userId, tenantId, tenantGroupId };
 
-    const forStore = {
-      userId,
-      tenantId: tenantId ?? DEFAULT_TENANT_ID,
-    };
-
-    return from(
-      userIdStore.run(forStore, () => lastValueFrom(next.handle())),
-    );
+    return next.handle();
   }
 
   private getRequest(context: ExecutionContext): unknown {
