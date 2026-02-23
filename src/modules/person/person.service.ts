@@ -79,6 +79,22 @@ export class PersonService {
     });
   }
 
+  async getNamesByIds(ids: string[]): Promise<Map<string, string>> {
+    if (ids.length === 0) return new Map();
+
+    const persons = await this.prisma.person.findMany({
+      where: { id: { in: ids } },
+      select: { id: true, firstname: true, lastname: true },
+    });
+
+    return new Map(
+      persons.map((p) => [
+        p.id,
+        [p.lastname, p.firstname].filter(Boolean).join(' ') || 'Без имени',
+      ]),
+    );
+  }
+
   async update(ctx: AuthContext, updatePersonInput: UpdatePersonInput): Promise<Person> {
     const { id, ...data } = updatePersonInput;
 

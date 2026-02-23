@@ -127,11 +127,17 @@ export class IncomeService {
     skip = 0,
     take = DEFAULT_TAKE,
     supplierId?: string,
+    partId?: string,
   ): Promise<{ items: IncomeModel[]; total: number }> {
     const { tenantId } = ctx;
-    const where = {
+    const where: {
+      tenantId: string;
+      supplierId?: string;
+      incomeParts?: { some: { partId: string } };
+    } = {
       tenantId,
       ...(supplierId ? { supplierId } : {}),
+      ...(partId ? { incomeParts: { some: { partId } } } : {}),
     };
     const [rows, total] = await Promise.all([
       this.prisma.income.findMany({

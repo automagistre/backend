@@ -1,12 +1,15 @@
 import { Args, ID, Int, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { PartSupplyService } from './part-supply.service';
 import { ProcurementService } from './procurement.service';
+import { PartMotionService } from './part-motion.service';
 import { ProcurementRowModel } from './models/procurement-row.model';
 import { ProcurementTableResult } from './models/procurement-table-result.type';
 import { SupplyBySupplierModel } from './models/supply-by-supplier.model';
 import { PartInOrderModel } from './models/part-in-order.model';
+import { PaginatedMotions } from './types/paginated-motions.type';
 import { CreatePartSupplyInput } from './inputs/create-part-supply.input';
 import { CancelPartSupplyInput } from './inputs/cancel-part-supply.input';
+import { MotionFilterInput } from './inputs/motion-filter.input';
 import { AuthContext } from 'src/common/decorators/auth-context.decorator';
 import { RequireTenant } from 'src/common/decorators/skip-tenant.decorator';
 import type { AuthContext as AuthContextType } from 'src/common/user-id.store';
@@ -17,6 +20,7 @@ export class WarehouseResolver {
   constructor(
     private readonly procurementService: ProcurementService,
     private readonly partSupplyService: PartSupplyService,
+    private readonly partMotionService: PartMotionService,
   ) {}
 
   @Query(() => ProcurementTableResult, {
@@ -90,5 +94,18 @@ export class WarehouseResolver {
       input.quantity,
     );
     return true;
+  }
+
+  @Query(() => PaginatedMotions, {
+    name: 'motions',
+    description: 'Движения запчастей с фильтрацией и пагинацией',
+  })
+  async motions(
+    @AuthContext() ctx: AuthContextType,
+    @Args('filter', { type: () => MotionFilterInput, nullable: true }) filter?: MotionFilterInput,
+    @Args('skip', { type: () => Int, nullable: true }) skip?: number,
+    @Args('take', { type: () => Int, nullable: true }) take?: number,
+  ): Promise<PaginatedMotions> {
+    return this.partMotionService.findMany(ctx, filter, skip ?? 0, take ?? 50);
   }
 }

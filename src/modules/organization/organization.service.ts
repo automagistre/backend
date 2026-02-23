@@ -115,6 +115,17 @@ export class OrganizationService {
     });
   }
 
+  async getNamesByIds(ids: string[]): Promise<Map<string, string>> {
+    if (ids.length === 0) return new Map();
+
+    const organizations = await this.prisma.organization.findMany({
+      where: { id: { in: ids } },
+      select: { id: true, name: true },
+    });
+
+    return new Map(organizations.map((o) => [o.id, o.name ?? 'Без названия']));
+  }
+
   // TODO: OrderItemPart.supplierId имеет onDelete: SetNull, Order.customerId и Income.supplierId — полиморфные связи.
   // Ручные проверки необходимы для бизнес-логики, constraint БД не блокирует удаление.
   async remove(ctx: AuthContext, id: string) {

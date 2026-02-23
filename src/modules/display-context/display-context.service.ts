@@ -6,6 +6,10 @@ import type { AuthContext } from 'src/common/user-id.store';
  * Сервис контекста для отображения (номер заказа, ФИО, название счёта и т.д.).
  * Использует только Prisma, не зависит от Order/Wallet/Person/CustomerTransaction модулей —
  * позволяет избежать циклических зависимостей при формировании sourceDisplay в проводках.
+ *
+ * TODO: Постепенно заменять использование этого сервиса на GraphQL Union Types + DataLoader + ResolveField,
+ * как реализовано для Motion.source в MotionSourceLoader/MotionResolver.
+ * Это даёт батчинг запросов и гибкость на фронтенде.
  */
 @Injectable()
 export class DisplayContextService {

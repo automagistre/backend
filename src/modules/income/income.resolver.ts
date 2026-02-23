@@ -52,8 +52,9 @@ export class IncomeResolver {
     @Args('skip', { type: () => Int, nullable: true }) skip?: number,
     @Args('take', { type: () => Int, nullable: true }) take?: number,
     @Args('supplierId', { type: () => ID, nullable: true }) supplierId?: string,
+    @Args('partId', { type: () => ID, nullable: true, description: 'Фильтр по запчасти (возвращает приходы содержащие запчасть)' }) partId?: string,
   ): Promise<PaginatedIncomes> {
-    return this.incomeService.findMany(ctx, skip ?? 0, take ?? 50, supplierId);
+    return this.incomeService.findMany(ctx, skip ?? 0, take ?? 50, supplierId, partId);
   }
 
   @Mutation(() => IncomeModel, {
