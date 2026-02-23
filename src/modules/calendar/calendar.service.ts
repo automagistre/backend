@@ -6,14 +6,16 @@ import {
   DeleteCalendarEntryInput,
   UpdateCalendarEntryInput,
 } from './inputs/calendarEntry.input';
+import type { AuthContext } from 'src/common/user-id.store';
 
 @Injectable()
 export class CalendarService {
   constructor(private prisma: PrismaService) {}
 
-  async getEntry(id: string): Promise<CalendarEntry | null> {
-    const entry = await this.prisma.calendarEntry.findUnique({
-      where: { id, calendarEntryDeletion: null },
+  async getEntry(ctx: AuthContext, id: string): Promise<CalendarEntry | null> {
+    const { tenantId } = ctx;
+    const entry = await this.prisma.calendarEntry.findFirst({
+      where: { id, tenantId, calendarEntryDeletion: null },
       include: {
         calendarEntrySchedule: {
           orderBy: { createdAt: 'desc' },
@@ -28,42 +30,56 @@ export class CalendarService {
     return entry;
   }
 
-  async createEntry(data: CreateCalendarEntryInput): Promise<CalendarEntry> {
-    const entry: Prisma.CalendarEntryCreateInput = {
-      calendarEntrySchedule: {
-        create: {
-          date: data.date,
-          duration: data.duration,
-        },
-      },
-    };
-
-    if (data.customerId || data.carId || data.workerId || data.description) {
-      entry.calendarEntryOrderInfo = {
-        create: {
-          customerId: data.customerId,
-          carId: data.carId,
-          workerId: data.workerId,
-          description: data.description,
-        },
-      };
-    }
+  async createEntry(
+    ctx: AuthContext,
+    data: CreateCalendarEntryInput,
+  ): Promise<CalendarEntry> {
+    const { tenantId, userId } = ctx;
 
     const { id } = await this.prisma.calendarEntry.create({
-      data: entry,
+      data: {
+        tenantId,
+        createdBy: userId,
+        calendarEntrySchedule: {
+          create: {
+            tenantId,
+            createdBy: userId,
+            date: data.date,
+            duration: data.duration,
+          },
+        },
+        ...(data.customerId || data.carId || data.workerId || data.description
+          ? {
+              calendarEntryOrderInfo: {
+                create: {
+                  tenantId,
+                  createdBy: userId,
+                  customerId: data.customerId,
+                  carId: data.carId,
+                  workerId: data.workerId,
+                  description: data.description,
+                },
+              },
+            }
+          : {}),
+      },
     });
 
-    return this.getEntry(id) as Promise<CalendarEntry>;
+    return this.getEntry(ctx, id) as Promise<CalendarEntry>;
   }
 
-  async updateEntry({
-    id: entryId,
-    ...data
-  }: UpdateCalendarEntryInput): Promise<CalendarEntry | null> {
+  async updateEntry(
+    ctx: AuthContext,
+    { id: entryId, ...data }: UpdateCalendarEntryInput,
+  ): Promise<CalendarEntry | null> {
+    const { tenantId, userId } = ctx;
+
     if (data.workerId || data.description) {
       await this.prisma.calendarEntryOrderInfo.create({
         data: {
           entryId,
+          tenantId,
+          createdBy: userId,
           workerId: data.workerId,
           description: data.description,
         },
@@ -73,25 +89,36 @@ export class CalendarService {
       await this.prisma.calendarEntrySchedule.create({
         data: {
           entryId,
+          tenantId,
+          createdBy: userId,
           date: data.date,
           duration: data.duration,
         },
       });
     }
-    return this.getEntry(entryId);
+    return this.getEntry(ctx, entryId);
   }
 
-  async deleteEntry(data: DeleteCalendarEntryInput): Promise<void> {
+  async deleteEntry(
+    ctx: AuthContext,
+    data: DeleteCalendarEntryInput,
+  ): Promise<void> {
+    const { tenantId, userId } = ctx;
+
     await this.prisma.calendarEntryDeletion.create({
       data: {
         entryId: data.id,
+        tenantId,
+        createdBy: userId,
         reason: data.reason,
         description: data.description,
       },
     });
   }
 
-  async getEntriesByDate(date: Date) {
+  async getEntriesByDate(ctx: AuthContext, date: Date) {
+    const { tenantId } = ctx;
+
     const startOfDay = new Date(date);
     startOfDay.setHours(0, 0, 0, 0);
 
@@ -100,6 +127,7 @@ export class CalendarService {
 
     return this.prisma.calendarEntry.findMany({
       where: {
+        tenantId,
         calendarEntrySchedule: {
           some: {
             date: {

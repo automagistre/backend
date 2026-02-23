@@ -234,9 +234,9 @@ model CarRecommendationPart {
 
 model CalendarEntry {
   id                     String                   @id @default(uuid()) @db.Uuid
-  tenantId               String                   @default("1ec13d33-3f41-6e3a-a0cb-02420a000f18") @map("tenant_id") @db.Uuid
+  tenantId               String                   @map("tenant_id") @db.Uuid
   createdAt              DateTime?                @default(now()) @map("created_at") @db.Timestamptz(0)
-  createdBy              String?                  @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
+  createdBy              String?                  @map("created_by") @db.Uuid
   calendarEntryDeletion  CalendarEntryDeletion?
   calendarEntryOrderInfo CalendarEntryOrderInfo[]
   calendarEntrySchedule  CalendarEntrySchedule[]
@@ -251,9 +251,9 @@ model CalendarEntryDeletion {
   calendarEntry CalendarEntry? @relation(fields: [entryId], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "fk_f118663dba364942")
   reason        Int            @db.SmallInt
   description   String?        @db.VarChar(255)
-  tenantId      String         @default("1ec13d33-3f41-6e3a-a0cb-02420a000f18") @map("tenant_id") @db.Uuid
+  tenantId      String         @map("tenant_id") @db.Uuid
   createdAt     DateTime?      @default(now()) @map("created_at") @db.Timestamptz(0)
-  createdBy     String?        @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
+  createdBy     String?        @map("created_by") @db.Uuid
 
   @@map("calendar_entry_deletion")
 }
@@ -263,9 +263,9 @@ model CalendarEntryOrder {
   entryId       String         @map("entry_id") @db.Uuid
   calendarEntry CalendarEntry? @relation(fields: [entryId], references: [id], onDelete: Restrict, onUpdate: NoAction)
   orderId       String         @map("order_id") @db.Uuid
-  tenantId      String         @default("1ec13d33-3f41-6e3a-a0cb-02420a000f18") @map("tenant_id") @db.Uuid
+  tenantId      String         @map("tenant_id") @db.Uuid
   createdAt     DateTime?      @default(now()) @map("created_at") @db.Timestamptz(0)
-  createdBy     String?        @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
+  createdBy     String?        @map("created_by") @db.Uuid
 
   @@map("calendar_entry_order")
 }
@@ -274,7 +274,7 @@ model CalendarEntryOrderInfo {
   id            String         @id @default(uuid()) @db.Uuid
   entryId       String?        @map("entry_id") @db.Uuid
   calendarEntry CalendarEntry? @relation(fields: [entryId], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  tenantId      String         @default("1ec13d33-3f41-6e3a-a0cb-02420a000f18") @map("tenant_id") @db.Uuid
+  tenantId      String         @map("tenant_id") @db.Uuid
   customerId    String?        @map("customer_id") @db.Uuid
   customer      Person?        @relation("Customer", fields: [customerId], references: [id], onDelete: Restrict, onUpdate: NoAction)
   carId         String?        @map("car_id") @db.Uuid
@@ -283,7 +283,7 @@ model CalendarEntryOrderInfo {
   workerId      String?        @map("worker_id") @db.Uuid
   worker        Person?        @relation("Worker", fields: [workerId], references: [id], onDelete: Restrict, onUpdate: NoAction)
   createdAt     DateTime?      @default(now()) @map("created_at") @db.Timestamptz(0)
-  createdBy     String?        @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
+  createdBy     String?        @map("created_by") @db.Uuid
 
   @@index([entryId], map: "idx_5fbde1c1ba364942")
   @@map("calendar_entry_order_info")
@@ -293,11 +293,11 @@ model CalendarEntrySchedule {
   id            String         @id @default(uuid()) @db.Uuid
   entryId       String?        @map("entry_id") @db.Uuid
   calendarEntry CalendarEntry? @relation(fields: [entryId], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  tenantId      String         @default("1ec13d33-3f41-6e3a-a0cb-02420a000f18") @map("tenant_id") @db.Uuid
+  tenantId      String         @map("tenant_id") @db.Uuid
   date          DateTime       @db.Timestamp(0)
   duration      String         @db.VarChar(255)
   createdAt     DateTime?      @default(now()) @map("created_at") @db.Timestamptz(0)
-  createdBy     String?        @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
+  createdBy     String?        @map("created_by") @db.Uuid
 
   @@index([entryId], map: "idx_86fdaee3ba364942")
   @@map("calendar_entry_schedule")
