@@ -29,9 +29,12 @@ export class ExpenseResolver {
   ) {}
 
   @ResolveField('wallet', () => WalletModel, { nullable: true })
-  async wallet(@Parent() expense: { walletId: string | null }) {
+  async wallet(
+    @AuthContext() ctx: AuthContextType,
+    @Parent() expense: { walletId: string | null },
+  ) {
     if (!expense.walletId) return null;
-    return this.walletService.findOne(expense.walletId);
+    return this.walletService.findOne(ctx, expense.walletId);
   }
 
   @Query(() => PaginatedExpenses, {

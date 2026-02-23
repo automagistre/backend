@@ -1,7 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from 'src/generated/prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { TenantService } from 'src/common/services/tenant.service';
 import { WalletService } from 'src/modules/wallet/wallet.service';
 import { WalletTransactionService } from 'src/modules/wallet/wallet-transaction.service';
 import { WalletTransactionSource } from 'src/modules/wallet/enums/wallet-transaction-source.enum';
@@ -11,6 +10,7 @@ import { CreateManualCustomerTransactionInput } from './inputs/create-manual-cus
 import { CustomerTransactionSource } from './enums/customer-transaction-source.enum';
 import { SettingsService } from 'src/modules/settings/settings.service';
 import { applyDefaultCurrency } from 'src/common/money';
+import type { AuthContext } from 'src/common/user-id.store';
 
 const DEFAULT_TAKE = 25;
 const DEFAULT_SKIP = 0;
@@ -26,7 +26,6 @@ const ORDER_SOURCES = [
 export class CustomerTransactionService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly tenantService: TenantService,
     private readonly walletService: WalletService,
     private readonly walletTransactionService: WalletTransactionService,
     private readonly displayContextService: DisplayContextService,
@@ -36,11 +35,16 @@ export class CustomerTransactionService {
   /**
    * Создание проводки внутри переданной транзакции (для CloseOrder).
    * Не вызывать при createPrepay/refundPrepay — проводки по клиенту переносятся только при закрытии заказа.
+   * @param tx - Prisma transaction client
+   * @param data - данные проводки
+   * @param tenantId - ID тенанта (из ctx.tenantId)
+   * @param createdBy - ID пользователя (из ctx.userId)
    */
   async createWithinTransaction(
     tx: Prisma.TransactionClient,
     data: CreateCustomerTransactionInput,
     tenantId: string,
+    createdBy: string,
   ) {
     const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
     const moneyData =
@@ -57,6 +61,7 @@ export class CustomerTransactionService {
         amountAmount: moneyData.amountMinor,
         amountCurrencyCode: moneyData.currencyCode,
         tenantId,
+        createdBy,
       },
     });
   }
@@ -64,7 +69,8 @@ export class CustomerTransactionService {
   /**
    * Создание одной проводки без внешней транзакции (для фонового job, напр. начисление зарплаты по заказу).
    */
-  async create(data: CreateCustomerTransactionInput, tenantId: string) {
+  async create(ctx: AuthContext, data: CreateCustomerTransactionInput) {
+    const { tenantId, userId } = ctx;
     const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
     const moneyData =
       data.amount != null
@@ -80,26 +86,29 @@ export class CustomerTransactionService {
         amountAmount: moneyData.amountMinor,
         amountCurrencyCode: moneyData.currencyCode,
         tenantId,
+        createdBy: userId,
       },
     });
   }
 
-  async findMany({
-    take = DEFAULT_TAKE,
-    skip = DEFAULT_SKIP,
-    operandId,
-    dateFrom,
-    dateTo,
-  }: {
-    take?: number;
-    skip?: number;
-    operandId: string;
-    dateFrom?: Date;
-    dateTo?: Date;
-  }) {
-    const tenantId = await this.tenantService.getTenantId();
+  async findMany(
+    ctx: AuthContext,
+    {
+      take = DEFAULT_TAKE,
+      skip = DEFAULT_SKIP,
+      operandId,
+      dateFrom,
+      dateTo,
+    }: {
+      take?: number;
+      skip?: number;
+      operandId: string;
+      dateFrom?: Date;
+      dateTo?: Date;
+    },
+  ) {
     const where: Prisma.CustomerTransactionWhereInput = {
-      tenantId,
+      tenantId: ctx.tenantId,
       operandId,
     };
     if (dateFrom ?? dateTo) {
@@ -120,11 +129,10 @@ export class CustomerTransactionService {
   }
 
   /** Проводки по заказу (OrderPrepay, OrderDebit, OrderPayment, OrderPrepayRefund; sourceId = orderId). */
-  async findByOrderId(orderId: string) {
-    const tenantId = await this.tenantService.getTenantId();
+  async findByOrderId(ctx: AuthContext, orderId: string) {
     return this.prisma.customerTransaction.findMany({
       where: {
-        tenantId,
+        tenantId: ctx.tenantId,
         sourceId: orderId,
         source: { in: ORDER_SOURCES },
       },
@@ -132,10 +140,9 @@ export class CustomerTransactionService {
     });
   }
 
-  async getBalance(operandId: string): Promise<bigint> {
-    const tenantId = await this.tenantService.getTenantId();
+  async getBalance(ctx: AuthContext, operandId: string): Promise<bigint> {
     const result = await this.prisma.customerTransaction.aggregate({
-      where: { operandId, tenantId },
+      where: { operandId, tenantId: ctx.tenantId },
       _sum: { amountAmount: true },
     });
     return result._sum.amountAmount ?? BigInt(0);
@@ -166,25 +173,26 @@ export class CustomerTransactionService {
     return '';
   }
 
-  async createManualTransaction(input: CreateManualCustomerTransactionInput) {
-    const tenantId = await this.tenantService.getTenantId();
+  async createManualTransaction(ctx: AuthContext, input: CreateManualCustomerTransactionInput) {
+    const { tenantId, userId } = ctx;
     const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
     const { amountMinor: amountAmount, currencyCode: amountCurrencyCode } =
       applyDefaultCurrency(input.amount, defaultCurrency);
 
     if (input.walletId) {
-      const wallet = await this.walletService.findOne(input.walletId);
+      const wallet = await this.walletService.findOne(ctx, input.walletId);
       if (!wallet) throw new NotFoundException('Счёт не найден');
       return this.prisma.$transaction(async (tx) => {
         const ct = await tx.customerTransaction.create({
           data: {
             operandId: input.operandId,
             source: CustomerTransactionSource.Manual,
-            sourceId: '00000000-0000-0000-0000-000000000000', // обновим после создания wallet_transaction
+            sourceId: '00000000-0000-0000-0000-000000000000',
             description: input.description ?? null,
             amountAmount,
             amountCurrencyCode,
             tenantId,
+            createdBy: userId,
           },
         });
         const wt = await this.walletTransactionService.createWithinTransaction(
@@ -197,6 +205,7 @@ export class CustomerTransactionService {
             description: input.description ?? null,
           },
           tenantId,
+          userId,
         );
         await tx.customerTransaction.update({
           where: { id: ct.id },
@@ -208,18 +217,16 @@ export class CustomerTransactionService {
       });
     }
 
-    // sourceId для ManualWithoutWallet — в CRM пишется userId; пока placeholder
-    const manualWithoutWalletSourceId =
-      '24602e10-629b-4f23-8d8b-1cca08fb8a84';
     return this.prisma.customerTransaction.create({
       data: {
         operandId: input.operandId,
         source: CustomerTransactionSource.ManualWithoutWallet,
-        sourceId: manualWithoutWalletSourceId,
+        sourceId: userId!,
         description: input.description ?? null,
         amountAmount,
         amountCurrencyCode,
         tenantId,
+        createdBy: userId,
       },
     });
   }

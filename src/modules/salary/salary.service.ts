@@ -66,6 +66,7 @@ export class SalaryService {
           tx,
           data,
           ctx.tenantId,
+          ctx.userId,
         );
       }
     });
@@ -121,6 +122,7 @@ export class SalaryService {
           tx,
           data,
           ctx.tenantId,
+          ctx.userId,
         );
       }
     });

@@ -8,8 +8,8 @@ import {
   CreateWalletInput,
   UpdateWalletInput,
 } from './inputs/wallet.input';
-import { TenantService } from 'src/common/services/tenant.service';
 import { SettingsService } from 'src/modules/settings/settings.service';
+import type { AuthContext } from 'src/common/user-id.store';
 
 const DEFAULT_TAKE = 25;
 const DEFAULT_SKIP = 0;
@@ -18,12 +18,10 @@ const DEFAULT_SKIP = 0;
 export class WalletService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly tenantService: TenantService,
     private readonly settingsService: SettingsService,
   ) {}
 
-  async create(data: CreateWalletInput) {
-    const tenantId = await this.tenantService.getTenantId();
+  async create(ctx: AuthContext, data: CreateWalletInput) {
     const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
     return this.prisma.wallet.create({
       data: {
@@ -33,13 +31,14 @@ export class WalletService {
         showInLayout: data.showInLayout ?? false,
         defaultInManualTransaction: data.defaultInManualTransaction ?? false,
         currencyCode: data.currencyCode ?? defaultCurrency,
-        tenantId,
+        tenantId: ctx.tenantId,
+        createdBy: ctx.userId,
       },
     });
   }
 
-  async update({ id, ...data }: UpdateWalletInput) {
-    const wallet = await this.findOne(id);
+  async update(ctx: AuthContext, { id, ...data }: UpdateWalletInput) {
+    const wallet = await this.findOne(ctx, id);
     if (!wallet) throw new NotFoundException('Счёт не найден');
     const updateData = Object.fromEntries(
       Object.entries(data).filter(([_, value]) => value !== undefined),
@@ -50,18 +49,20 @@ export class WalletService {
     });
   }
 
-  async findMany({
-    take = DEFAULT_TAKE,
-    skip = DEFAULT_SKIP,
-    search,
-  }: {
-    take?: number;
-    skip?: number;
-    search?: string;
-  }) {
-    const tenantId = await this.tenantService.getTenantId();
+  async findMany(
+    ctx: AuthContext,
+    {
+      take = DEFAULT_TAKE,
+      skip = DEFAULT_SKIP,
+      search,
+    }: {
+      take?: number;
+      skip?: number;
+      search?: string;
+    },
+  ) {
     const where = {
-      tenantId,
+      tenantId: ctx.tenantId,
       ...(search
         ? { name: { contains: search, mode: 'insensitive' as const } }
         : {}),
@@ -78,15 +79,14 @@ export class WalletService {
     return { items, total };
   }
 
-  async findOne(id: string) {
-    const tenantId = await this.tenantService.getTenantId();
+  async findOne(ctx: AuthContext, id: string) {
     return this.prisma.wallet.findFirst({
-      where: { id, tenantId },
+      where: { id, tenantId: ctx.tenantId },
     });
   }
 
-  async remove(id: string) {
-    const wallet = await this.findOne(id);
+  async remove(ctx: AuthContext, id: string) {
+    const wallet = await this.findOne(ctx, id);
     if (!wallet) throw new NotFoundException('Кошелёк не найден');
     const transactionsCount = await this.prisma.walletTransaction.count({
       where: { walletId: id },

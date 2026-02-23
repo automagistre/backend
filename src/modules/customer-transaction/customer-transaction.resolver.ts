@@ -11,6 +11,9 @@ import { CustomerTransactionService } from './customer-transaction.service';
 import { CreateManualCustomerTransactionInput } from './inputs/create-manual-customer-transaction.input';
 import { PaginationArgs } from 'src/common/pagination.args';
 import { PaginatedCustomerTransactions } from './types/paginated-customer-transactions.type';
+import { RequireTenant } from 'src/common/decorators/skip-tenant.decorator';
+import { AuthContext as AuthContextDecorator } from 'src/common/decorators/auth-context.decorator';
+import type { AuthContext as AuthContextType } from 'src/common/user-id.store';
 
 @Resolver(() => CustomerTransactionModel)
 export class CustomerTransactionResolver {
@@ -38,15 +41,17 @@ export class CustomerTransactionResolver {
     return this.customerTransactionService.getOperandDisplayName(tx.operandId);
   }
 
+  @RequireTenant()
   @Query(() => PaginatedCustomerTransactions)
   async customerTransactions(
+    @AuthContextDecorator() ctx: AuthContextType,
     @Args('operandId') operandId: string,
     @Args() pagination?: PaginationArgs,
     @Args('dateFrom', { nullable: true }) dateFrom?: Date,
     @Args('dateTo', { nullable: true }) dateTo?: Date,
   ) {
     const { take = 25, skip = 0 } = pagination ?? {};
-    return this.customerTransactionService.findMany({
+    return this.customerTransactionService.findMany(ctx, {
       operandId,
       take,
       skip,
@@ -55,17 +60,23 @@ export class CustomerTransactionResolver {
     });
   }
 
+  @RequireTenant()
   @Query(() => BigInt, {
     description: 'Баланс операнда (сумма проводок)',
   })
-  async customerBalance(@Args('operandId') operandId: string) {
-    return this.customerTransactionService.getBalance(operandId);
+  async customerBalance(
+    @AuthContextDecorator() ctx: AuthContextType,
+    @Args('operandId') operandId: string,
+  ) {
+    return this.customerTransactionService.getBalance(ctx, operandId);
   }
 
+  @RequireTenant()
   @Mutation(() => CustomerTransactionModel)
   async createManualCustomerTransaction(
+    @AuthContextDecorator() ctx: AuthContextType,
     @Args('input') input: CreateManualCustomerTransactionInput,
   ) {
-    return this.customerTransactionService.createManualTransaction(input);
+    return this.customerTransactionService.createManualTransaction(ctx, input);
   }
 }

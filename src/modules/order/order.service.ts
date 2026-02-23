@@ -80,6 +80,7 @@ export class OrderService {
           description: input.description ?? null,
         },
         tenantId,
+        userId,
       );
     });
   }
@@ -136,6 +137,7 @@ export class OrderService {
           description: input.description ?? null,
         },
         tenantId,
+        userId,
       );
     });
   }
@@ -666,7 +668,7 @@ export class OrderService {
     const satisfaction = input.satisfaction ?? 0;
     const balance =
       order.customerId != null
-        ? await this.customerTransactionService.getBalance(order.customerId)
+        ? await this.customerTransactionService.getBalance(ctx, order.customerId)
         : 0n;
     const orderTotal = await this.getOrderTotal(ctx, input.orderId);
 
@@ -701,6 +703,7 @@ export class OrderService {
             amount: { amountMinor, currencyCode: pCurrency },
           },
           tenantId,
+          userId,
         );
         if (order.customerId != null) {
           await this.customerTransactionService.createWithinTransaction(
@@ -712,6 +715,7 @@ export class OrderService {
               amount: { amountMinor, currencyCode: pCurrency },
             },
             tenantId,
+            userId,
           );
         }
       }
@@ -739,6 +743,7 @@ export class OrderService {
               },
             },
             tenantId,
+            userId,
           );
         }
       }
@@ -759,6 +764,7 @@ export class OrderService {
             },
           },
           tenantId,
+          userId,
         );
       }
 

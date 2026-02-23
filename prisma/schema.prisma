@@ -425,7 +425,7 @@ model CustomerTransaction {
   amountAmount       BigInt?   @map("amount_amount")
   amountCurrencyCode String?   @map("amount_currency_code") @db.VarChar(3)
   createdAt          DateTime? @default(now()) @map("created_at") @db.Timestamptz(0)
-  createdBy          String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
+  createdBy          String?   @map("created_by") @db.Uuid
 
   @@index([operandId, tenantId])
   @@map("customer_transaction")
@@ -1051,7 +1051,7 @@ model Wallet {
   tenantId                   String              @map("tenant_id") @db.Uuid
   currencyCode               String?             @map("currency_code") @db.VarChar(3)
   createdAt                  DateTime?           @default(now()) @map("created_at") @db.Timestamptz(0)
-  createdBy                  String?             @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
+  createdBy                  String?             @map("created_by") @db.Uuid
   balance                    Decimal             @default(0) @db.Decimal
   transactions               WalletTransaction[]
   expenses                   Expense[]
@@ -1070,7 +1070,7 @@ model WalletTransaction {
   amountAmount       BigInt?   @map("amount_amount")
   amountCurrencyCode String?   @map("amount_currency_code") @db.VarChar(3)
   createdAt          DateTime? @default(now()) @map("created_at") @db.Timestamptz(0)
-  createdBy          String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
+  createdBy          String?   @map("created_by") @db.Uuid
 
   @@map("wallet_transaction")
 }

@@ -253,16 +253,18 @@ export class OrderResolver {
 
   @ResolveField(() => [WalletTransactionModel])
   async walletTransactions(
+    @AuthContext() ctx: AuthContextType,
     @Parent() order: OrderModel,
   ): Promise<WalletTransactionModel[]> {
-    return this.walletTransactionService.findByOrderId(order.id);
+    return this.walletTransactionService.findByOrderId(ctx, order.id);
   }
 
   @ResolveField(() => [CustomerTransactionModel])
   async customerTransactions(
+    @AuthContext() ctx: AuthContextType,
     @Parent() order: OrderModel,
   ): Promise<CustomerTransactionModel[]> {
-    return this.customerTransactionService.findByOrderId(order.id);
+    return this.customerTransactionService.findByOrderId(ctx, order.id);
   }
 
   @Mutation(() => Boolean, {

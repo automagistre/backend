@@ -22,7 +22,7 @@ export class ExpenseService {
   async create(ctx: AuthContext, data: CreateExpenseInput) {
     const { tenantId, userId } = ctx;
     if (data.walletId != null) {
-      const wallet = await this.walletService.findOne(data.walletId);
+      const wallet = await this.walletService.findOne(ctx, data.walletId);
       if (!wallet) throw new NotFoundException('Счёт не найден');
     }
     return this.prisma.expense.create({
@@ -40,7 +40,7 @@ export class ExpenseService {
     const existing = await this.findOne(ctx, input.id);
     if (!existing) throw new NotFoundException('Статья расходов не найдена');
     if (input.walletId != null) {
-      const wallet = await this.walletService.findOne(input.walletId);
+      const wallet = await this.walletService.findOne(ctx, input.walletId);
       if (!wallet) throw new NotFoundException('Счёт не найден');
     }
     const data: { name?: string; walletId?: string | null } = {};
@@ -115,13 +115,13 @@ export class ExpenseService {
   async createExpenseTransaction(ctx: AuthContext, input: CreateExpenseTransactionInput) {
     const expense = await this.findOne(ctx, input.expenseId);
     if (!expense) throw new NotFoundException('Статья расходов не найдена');
-    const wallet = await this.walletService.findOne(input.walletId);
+    const wallet = await this.walletService.findOne(ctx, input.walletId);
     if (!wallet) throw new NotFoundException('Счёт не найден');
     const amountMinor =
       input.amount.amountMinor > 0n
         ? -input.amount.amountMinor
         : input.amount.amountMinor;
-    return this.walletTransactionService.create({
+    return this.walletTransactionService.create(ctx, {
       walletId: input.walletId,
       source: WalletTransactionSource.Expense,
       sourceId: input.expenseId,

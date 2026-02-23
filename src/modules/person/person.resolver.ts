@@ -90,19 +90,23 @@ export class PersonResolver {
   @ResolveField(() => BigInt, {
     description: 'Баланс по проводкам (сумма customer_transaction по операнду)',
   })
-  async operandBalance(@Parent() person: PersonModel): Promise<bigint> {
-    return this.customerTransactionService.getBalance(person.id);
+  async operandBalance(
+    @AuthContext() ctx: AuthContextType,
+    @Parent() person: PersonModel,
+  ): Promise<bigint> {
+    return this.customerTransactionService.getBalance(ctx, person.id);
   }
 
   @ResolveField(() => PaginatedCustomerTransactions)
   async transactions(
+    @AuthContext() ctx: AuthContextType,
     @Parent() person: PersonModel,
     @Args() pagination: PaginationArgs,
     @Args('dateFrom', { nullable: true }) dateFrom?: Date,
     @Args('dateTo', { nullable: true }) dateTo?: Date,
   ) {
     const { take = 25, skip = 0 } = pagination;
-    return this.customerTransactionService.findMany({
+    return this.customerTransactionService.findMany(ctx, {
       operandId: person.id,
       take,
       skip,

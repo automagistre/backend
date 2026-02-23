@@ -78,19 +78,23 @@ export class OrganizationResolver {
   @ResolveField(() => BigInt, {
     description: 'Баланс по проводкам',
   })
-  async operandBalance(@Parent() organization: OrganizationModel): Promise<bigint> {
-    return this.customerTransactionService.getBalance(organization.id);
+  async operandBalance(
+    @AuthContext() ctx: AuthContextType,
+    @Parent() organization: OrganizationModel,
+  ): Promise<bigint> {
+    return this.customerTransactionService.getBalance(ctx, organization.id);
   }
 
   @ResolveField(() => PaginatedCustomerTransactions)
   async transactions(
+    @AuthContext() ctx: AuthContextType,
     @Parent() organization: OrganizationModel,
     @Args() pagination: PaginationArgs,
     @Args('dateFrom', { nullable: true }) dateFrom?: Date,
     @Args('dateTo', { nullable: true }) dateTo?: Date,
   ) {
     const { take = 25, skip = 0 } = pagination;
-    return this.customerTransactionService.findMany({
+    return this.customerTransactionService.findMany(ctx, {
       operandId: organization.id,
       take,
       skip,
