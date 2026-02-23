@@ -14,6 +14,7 @@ import {
 } from '../decorators/skip-tenant.decorator';
 
 const X_TENANT_ID = 'x-tenant-id';
+const X_TENANT_ID_COOKIE = 'X-Tenant-Id';
 
 @Injectable()
 export class TenantGuard implements CanActivate {
@@ -106,11 +107,37 @@ export class TenantGuard implements CanActivate {
   }
 
   private getTenantId(req: unknown): string | undefined {
-    const headers = (req as { headers?: Record<string, string | string[] | undefined> })
-      .headers;
-    const value = headers?.[X_TENANT_ID];
-    if (typeof value === 'string') return value.trim() || undefined;
-    if (Array.isArray(value) && value[0]) return String(value[0]).trim() || undefined;
+    const reqObj = req as {
+      headers?: Record<string, string | string[] | undefined>;
+      cookies?: Record<string, string | undefined>;
+    };
+
+    // Сначала проверяем заголовок
+    const headers = reqObj.headers;
+    const headerValue = headers?.[X_TENANT_ID];
+    if (typeof headerValue === 'string' && headerValue.trim()) {
+      return headerValue.trim();
+    }
+    if (Array.isArray(headerValue) && headerValue[0]) {
+      const v = String(headerValue[0]).trim();
+      if (v) return v;
+    }
+
+    // Затем проверяем cookie
+    const cookieValue = reqObj.cookies?.[X_TENANT_ID_COOKIE];
+    if (typeof cookieValue === 'string' && cookieValue.trim()) {
+      return cookieValue.trim();
+    }
+
+    // Парсим cookie из заголовка (для WebSocket)
+    const cookieHeader = headers?.cookie;
+    if (typeof cookieHeader === 'string') {
+      const match = cookieHeader.match(new RegExp(`${X_TENANT_ID_COOKIE}=([^;]+)`));
+      if (match?.[1]) {
+        return match[1].trim();
+      }
+    }
+
     return undefined;
   }
 }
