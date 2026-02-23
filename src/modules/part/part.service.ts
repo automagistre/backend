@@ -4,18 +4,14 @@ import { CreatePartInput } from './inputs/create.input';
 import { PartModel } from './models/part.model';
 import { UpdatePartInput } from './inputs/update.input';
 import { cleanUpcaseString } from 'src/common/utils/clean-upcase.util';
-import { TenantService } from '../../common/services/tenant.service';
-import type { UserContext } from 'src/common/user-id.store';
+import type { AuthContext } from 'src/common/user-id.store';
 
 const DEFAULT_TAKE = 25;
 const DEFAULT_SKIP = 0;
 
 @Injectable()
 export class PartService {
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly tenantService: TenantService,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   async findAll(): Promise<PartModel[]> {
     const parts = await this.prisma.part.findMany({
@@ -93,7 +89,7 @@ export class PartService {
     return part;
   }
 
-  async create(ctx: UserContext, input: CreatePartInput): Promise<PartModel> {
+  async create(ctx: AuthContext, input: CreatePartInput): Promise<PartModel> {
     const cleanedNumber = cleanUpcaseString(input.number);
 
     const existing = await this.prisma.part.findFirst({
@@ -123,7 +119,8 @@ export class PartService {
     return part;
   }
 
-  async update(input: UpdatePartInput): Promise<PartModel> {
+  async update(ctx: AuthContext, input: UpdatePartInput): Promise<PartModel> {
+    const { tenantId, userId } = ctx;
     const { id, orderFromQuantity, orderUpToQuantity, ...data } = input;
     if (data?.number) {
       data.number = cleanUpcaseString(data.number);
@@ -137,8 +134,6 @@ export class PartService {
           manufacturer: true,
         },
       });
-
-      const tenantId = await this.tenantService.getTenantId();
 
       // Обработка PartRequiredAvailability
       // Обрабатываем только если заданы оба поля
@@ -168,6 +163,7 @@ export class PartService {
             tenantId,
             orderFromQuantity,
             orderUpToQuantity,
+            createdBy: userId,
           },
         });
       }

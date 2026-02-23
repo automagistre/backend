@@ -905,9 +905,9 @@ model PartRequiredAvailability {
   partId            String    @map("part_id") @db.Uuid
   orderFromQuantity Int       @map("order_from_quantity")
   orderUpToQuantity Int       @map("order_up_to_quantity")
-  tenantId          String    @default("1ec13d33-3f41-6e3a-a0cb-02420a000f18") @map("tenant_id") @db.Uuid
+  tenantId          String    @map("tenant_id") @db.Uuid
   createdAt         DateTime? @default(now()) @map("created_at") @db.Timestamptz(0)
-  createdBy         String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @map("created_by") @db.Uuid
+  createdBy         String?   @map("created_by") @db.Uuid
 
   @@index([partId], map: "idx_part_required_availability_part_id")
   @@index([partId, tenantId])

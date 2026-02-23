@@ -1,17 +1,17 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { PartRequiredAvailability } from 'src/generated/prisma/client';
-import { TenantService } from 'src/common/services/tenant.service';
+import type { AuthContext } from 'src/common/user-id.store';
 
 @Injectable()
 export class PartRequiredAvailabilityService {
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly tenantService: TenantService,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
-  async findForPart(partId: string): Promise<PartRequiredAvailability | null> {
-    const tenantId = await this.tenantService.getTenantId();
+  async findForPart(
+    ctx: AuthContext,
+    partId: string,
+  ): Promise<PartRequiredAvailability | null> {
+    const { tenantId } = ctx;
     const availability = await this.prisma.partRequiredAvailability.findFirst({
       where: {
         partId,

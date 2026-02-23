@@ -33,7 +33,7 @@ import {
   RequireTenant,
   SkipTenant,
 } from 'src/common/decorators/skip-tenant.decorator';
-import type { AuthContext as AuthContextType, UserContext } from 'src/common/user-id.store';
+import type { AuthContext as AuthContextType } from 'src/common/user-id.store';
 
 @Resolver(() => PartModel)
 @SkipTenant()
@@ -98,7 +98,7 @@ export class PartResolver {
       await this.partDiscountService.findActualDiscountPart(input.id, ctx.tenantId);
     const { price, discount, ...data } = input;
 
-    const part = await this.partService.update(data);
+    const part = await this.partService.update(ctx, data);
     const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
 
     if (price != null) {
@@ -224,17 +224,27 @@ export class PartResolver {
     return map.get(part.id) ?? 0;
   }
 
+  @RequireTenant()
   @ResolveField(() => Int, { nullable: true })
-  async orderFromQuantity(@Parent() part: PartModel): Promise<number | null> {
+  async orderFromQuantity(
+    @Parent() part: PartModel,
+    @AuthContext() ctx: AuthContextType,
+  ): Promise<number | null> {
     const availability = await this.partRequiredAvailabilityService.findForPart(
+      ctx,
       part.id,
     );
     return availability?.orderFromQuantity ?? null;
   }
 
+  @RequireTenant()
   @ResolveField(() => Int, { nullable: true })
-  async orderUpToQuantity(@Parent() part: PartModel): Promise<number | null> {
+  async orderUpToQuantity(
+    @Parent() part: PartModel,
+    @AuthContext() ctx: AuthContextType,
+  ): Promise<number | null> {
     const availability = await this.partRequiredAvailabilityService.findForPart(
+      ctx,
       part.id,
     );
     return availability?.orderUpToQuantity ?? null;
