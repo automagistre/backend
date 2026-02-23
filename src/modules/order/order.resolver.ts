@@ -35,7 +35,7 @@ import { PaginationArgs } from 'src/common/pagination.args';
 import { PaginatedOrders } from './inputs/paginatedOrders.type';
 import { OrderStatus } from './enums/order-status.enum';
 import { AuthContext } from 'src/common/decorators/auth-context.decorator';
-import { RequireTenant } from 'src/common/decorators/skip-tenant.decorator';
+import { RequireTenant, SkipTenant } from 'src/common/decorators/skip-tenant.decorator';
 import type { AuthContext as AuthContextType } from 'src/common/user-id.store';
 
 @Resolver(() => OrderModel)
@@ -58,9 +58,10 @@ export class OrderResolver {
     description: 'Заказ по ID',
   })
   async getOrder(
+    @AuthContext() ctx: AuthContextType,
     @Args('id', { type: () => ID }) id: string,
   ): Promise<OrderModel | null> {
-    return this.orderService.findOne(id);
+    return this.orderService.findOne(ctx, id);
   }
 
   @Query(() => PaginatedOrders, {
@@ -68,6 +69,7 @@ export class OrderResolver {
     description: 'Список всех заказов с пагинацией',
   })
   async getOrders(
+    @AuthContext() ctx: AuthContextType,
     @Args() pagination?: PaginationArgs,
     @Args('search', { nullable: true }) search?: string,
     @Args('status', { type: () => [OrderStatus], nullable: true })
@@ -77,7 +79,7 @@ export class OrderResolver {
       pagination = { take: undefined, skip: undefined };
     }
     const { take = 25, skip = 0 } = pagination;
-    return this.orderService.findMany({ take, skip, search, status });
+    return this.orderService.findMany(ctx, { take, skip, search, status });
   }
 
   @Query(() => [OrderModel], {
@@ -85,11 +87,12 @@ export class OrderResolver {
     description: 'Список активных заказов',
   })
   async getActiveOrders(
+    @AuthContext() ctx: AuthContextType,
     @Args('search', { nullable: true }) search?: string,
     @Args('status', { type: () => [OrderStatus], nullable: true })
     status?: OrderStatus[],
   ): Promise<OrderModel[]> {
-    return this.orderService.findActiveOrders({ search, status });
+    return this.orderService.findActiveOrders(ctx, { search, status });
   }
 
   @Mutation(() => OrderModel, {
@@ -97,9 +100,10 @@ export class OrderResolver {
     description: 'Создать заказ',
   })
   async createOrder(
+    @AuthContext() ctx: AuthContextType,
     @Args('input') input: CreateOrderInput,
   ): Promise<OrderModel> {
-    return this.orderService.create(input);
+    return this.orderService.create(ctx, input);
   }
 
   @Mutation(() => WalletTransactionModel, {
@@ -107,9 +111,10 @@ export class OrderResolver {
     description: 'Создать предоплату по заказу (order_payment + проводка по кошельку в одной транзакции)',
   })
   async createOrderPrepay(
+    @AuthContext() ctx: AuthContextType,
     @Args('input') input: CreateOrderPrepayInput,
   ): Promise<WalletTransactionModel> {
-    return this.orderService.createPrepay(input);
+    return this.orderService.createPrepay(ctx, input);
   }
 
   @Mutation(() => WalletTransactionModel, {
@@ -117,9 +122,10 @@ export class OrderResolver {
     description: 'Возврат предоплаты: order_payment с отрицательной суммой + проводка списания по выбранному счёту',
   })
   async refundOrderPrepay(
+    @AuthContext() ctx: AuthContextType,
     @Args('input') input: RefundOrderPrepayInput,
   ): Promise<WalletTransactionModel> {
-    return this.orderService.refundPrepay(input);
+    return this.orderService.refundPrepay(ctx, input);
   }
 
   @Mutation(() => OrderModel, {
@@ -152,9 +158,10 @@ export class OrderResolver {
     description: 'Обновить заказ',
   })
   async updateOrder(
+    @AuthContext() ctx: AuthContextType,
     @Args('input') input: UpdateOrderInput,
   ): Promise<OrderModel> {
-    const updated = await this.orderService.update(input);
+    const updated = await this.orderService.update(ctx, input);
 
     await this.pubSub.publish(`ORDER_UPDATED_${input.id}`, {
       orderUpdated: {
@@ -205,30 +212,43 @@ export class OrderResolver {
   }
 
   @ResolveField(() => Date, { nullable: true })
-  async closedAt(@Parent() order: OrderModel): Promise<Date | null> {
-    return this.orderService.getClosedAt(order.id);
+  async closedAt(
+    @AuthContext() ctx: AuthContextType,
+    @Parent() order: OrderModel,
+  ): Promise<Date | null> {
+    return this.orderService.getClosedAt(ctx, order.id);
   }
 
   @ResolveField(() => Boolean)
-  async canDelete(@Parent() order: OrderModel): Promise<boolean> {
-    return this.orderService.canDeleteOrder(order.id);
+  async canDelete(
+    @AuthContext() ctx: AuthContextType,
+    @Parent() order: OrderModel,
+  ): Promise<boolean> {
+    return this.orderService.canDeleteOrder(ctx, order.id);
   }
 
   @ResolveField(() => Boolean)
-  async isEditable(@Parent() order: OrderModel): Promise<boolean> {
-    return this.orderService.isOrderEditable(order.id);
+  async isEditable(
+    @AuthContext() ctx: AuthContextType,
+    @Parent() order: OrderModel,
+  ): Promise<boolean> {
+    return this.orderService.isOrderEditable(ctx, order.id);
   }
 
   @ResolveField(() => OrderCloseValidationModel)
   async closeValidation(
+    @AuthContext() ctx: AuthContextType,
     @Parent() order: OrderModel,
   ): Promise<{ canClose: boolean; closeDeficiencies: string[] }> {
-    return this.orderService.getCloseValidation(order.id);
+    return this.orderService.getCloseValidation(ctx, order.id);
   }
 
   @ResolveField(() => [OrderPaymentModel])
-  async prepayments(@Parent() order: OrderModel): Promise<OrderPaymentModel[]> {
-    return this.orderService.findPaymentsByOrderId(order.id);
+  async prepayments(
+    @AuthContext() ctx: AuthContextType,
+    @Parent() order: OrderModel,
+  ): Promise<OrderPaymentModel[]> {
+    return this.orderService.findPaymentsByOrderId(ctx, order.id);
   }
 
   @ResolveField(() => [WalletTransactionModel])
@@ -250,9 +270,10 @@ export class OrderResolver {
     description: 'Удалить пустой заказ (в течение 3 ч с создания)',
   })
   async deleteOrder(
+    @AuthContext() ctx: AuthContextType,
     @Args('id', { type: () => ID }) id: string,
   ): Promise<boolean> {
-    return this.orderService.deleteOrder(id);
+    return this.orderService.deleteOrder(ctx, id);
   }
 
   @Subscription(() => OrderModel, {

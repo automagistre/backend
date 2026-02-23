@@ -33,8 +33,8 @@ export class OrderItemResolver {
     @Inject('PUB_SUB') private readonly pubSub: PubSub,
   ) {}
 
-  private async publishOrderUpdated(orderId: string): Promise<void> {
-    const order = await this.orderService.findOne(orderId);
+  private async publishOrderUpdated(ctx: AuthContextType, orderId: string): Promise<void> {
+    const order = await this.orderService.findOne(ctx, orderId);
     if (!order) {
       return;
     }
@@ -71,10 +71,13 @@ export class OrderItemResolver {
     name: 'createOrderItemGroup',
     description: 'Создать группу элементов заказа',
   })
-  async createOrderItemGroup(@Args('input') input: CreateOrderItemGroupInput) {
-    const created = await this.orderItemService.createGroup(input);
+  async createOrderItemGroup(
+    @AuthContext() ctx: AuthContextType,
+    @Args('input') input: CreateOrderItemGroupInput,
+  ) {
+    const created = await this.orderItemService.createGroup(ctx, input);
     if (created.orderId) {
-      await this.publishOrderUpdated(created.orderId);
+      await this.publishOrderUpdated(ctx, created.orderId);
     }
     return created;
   }
@@ -84,11 +87,12 @@ export class OrderItemResolver {
     description: 'Создать услугу в заказе',
   })
   async createOrderItemService(
+    @AuthContext() ctx: AuthContextType,
     @Args('input') input: CreateOrderItemServiceInput,
   ) {
-    const created = await this.orderItemService.createService(input);
+    const created = await this.orderItemService.createService(ctx, input);
     if (created.orderId) {
-      await this.publishOrderUpdated(created.orderId);
+      await this.publishOrderUpdated(ctx, created.orderId);
     }
     return created;
   }
@@ -97,10 +101,13 @@ export class OrderItemResolver {
     name: 'createOrderItemPart',
     description: 'Создать запчасть в заказе',
   })
-  async createOrderItemPart(@Args('input') input: CreateOrderItemPartInput) {
-    const created = await this.orderItemService.createPart(input);
+  async createOrderItemPart(
+    @AuthContext() ctx: AuthContextType,
+    @Args('input') input: CreateOrderItemPartInput,
+  ) {
+    const created = await this.orderItemService.createPart(ctx, input);
     if (created.orderId) {
-      await this.publishOrderUpdated(created.orderId);
+      await this.publishOrderUpdated(ctx, created.orderId);
     }
     return created;
   }
@@ -109,10 +116,13 @@ export class OrderItemResolver {
     name: 'updateOrderItemPart',
     description: 'Обновить запчасть в заказе',
   })
-  async updateOrderItemPart(@Args('input') input: UpdateOrderItemPartInput) {
-    const updated = await this.orderItemService.updatePart(input);
+  async updateOrderItemPart(
+    @AuthContext() ctx: AuthContextType,
+    @Args('input') input: UpdateOrderItemPartInput,
+  ) {
+    const updated = await this.orderItemService.updatePart(ctx, input);
     if (updated.orderId) {
-      await this.publishOrderUpdated(updated.orderId);
+      await this.publishOrderUpdated(ctx, updated.orderId);
     }
     return updated;
   }
@@ -122,11 +132,12 @@ export class OrderItemResolver {
     description: 'Обновить услугу в заказе',
   })
   async updateOrderItemService(
+    @AuthContext() ctx: AuthContextType,
     @Args('input') input: UpdateOrderItemServiceInput,
   ) {
-    const updated = await this.orderItemService.updateService(input);
+    const updated = await this.orderItemService.updateService(ctx, input);
     if (updated.orderId) {
-      await this.publishOrderUpdated(updated.orderId);
+      await this.publishOrderUpdated(ctx, updated.orderId);
     }
     return updated;
   }
@@ -136,6 +147,7 @@ export class OrderItemResolver {
     description: 'Удалить элемент заказа',
   })
   async deleteOrderItem(
+    @AuthContext() ctx: AuthContextType,
     @Args('id', { type: () => ID }) id: string,
     @Args('deleteChildren', {
       type: () => Boolean,
@@ -146,9 +158,9 @@ export class OrderItemResolver {
     })
     deleteChildren?: boolean,
   ) {
-    const deleted = await this.orderItemService.delete(id, deleteChildren);
+    const deleted = await this.orderItemService.delete(ctx, id, deleteChildren);
     if (deleted.orderId) {
-      await this.publishOrderUpdated(deleted.orderId);
+      await this.publishOrderUpdated(ctx, deleted.orderId);
     }
     return deleted;
   }

@@ -7,8 +7,12 @@ import { PartReservationSourceModel } from './models/part-reservation-source.mod
 import { TransferReservationInput } from './inputs/transfer-reservation.input';
 import { PubSub } from 'graphql-subscriptions';
 import { OrderService } from '../order/order.service';
+import { AuthContext } from 'src/common/decorators/auth-context.decorator';
+import { RequireTenant } from 'src/common/decorators/skip-tenant.decorator';
+import type { AuthContext as AuthContextType } from 'src/common/user-id.store';
 
 @Resolver(() => ReservationModel)
+@RequireTenant()
 export class ReservationResolver {
   constructor(
     private readonly reservationService: ReservationService,
@@ -16,9 +20,9 @@ export class ReservationResolver {
     @Inject('PUB_SUB') private readonly pubSub: PubSub,
   ) {}
 
-  private async publishOrderUpdated(orderId: string | null): Promise<void> {
+  private async publishOrderUpdated(ctx: AuthContextType, orderId: string | null): Promise<void> {
     if (!orderId) return;
-    const order = await this.orderService.findOne(orderId);
+    const order = await this.orderService.findOne(ctx, orderId);
     if (!order) return;
 
     await this.pubSub.publish(`ORDER_UPDATED_${orderId}`, {
@@ -101,14 +105,16 @@ export class ReservationResolver {
     description: 'Зарезервировать запчасть',
   })
   async reservePart(
+    @AuthContext() ctx: AuthContextType,
     @Args('input') input: ReservePartInput,
   ): Promise<ReservationModel> {
-    const reservation = await this.reservationService.reserve({
+    const reservation = await this.reservationService.reserve(ctx, {
       orderItemPartId: input.orderItemPartId,
       quantity: input.quantity,
       tenantId: input.tenantId,
     });
     await this.publishOrderUpdated(
+      ctx,
       await this.reservationService.getOrderIdByOrderItemPartId(
         input.orderItemPartId,
       ),
@@ -128,14 +134,16 @@ export class ReservationResolver {
     description: 'Снять резерв с запчасти',
   })
   async releaseReservation(
+    @AuthContext() ctx: AuthContextType,
     @Args('orderItemPartId', { type: () => ID }) orderItemPartId: string,
     @Args('quantity', { type: () => Number, nullable: true }) quantity?: number,
   ): Promise<number> {
-    const result = await this.reservationService.release({
+    const result = await this.reservationService.release(ctx, {
       orderItemPartId,
       quantity,
     });
     await this.publishOrderUpdated(
+      ctx,
       await this.reservationService.getOrderIdByOrderItemPartId(orderItemPartId),
     );
     return result;
@@ -146,19 +154,19 @@ export class ReservationResolver {
     description: 'Перенести резерв между позициями заказов (сценарий "занять")',
   })
   async transferReservation(
+    @AuthContext() ctx: AuthContextType,
     @Args('input') input: TransferReservationInput,
   ): Promise<boolean> {
     const { fromOrderId, toOrderId } =
-      await this.reservationService.transferReservation({
+      await this.reservationService.transferReservation(ctx, {
       fromOrderItemPartId: input.fromOrderItemPartId,
       toOrderItemPartId: input.toOrderItemPartId,
       quantity: input.quantity,
       tenantId: input.tenantId,
     });
-    // Причина: изменяются оба заказа — источник и получатель.
-    await this.publishOrderUpdated(fromOrderId);
+    await this.publishOrderUpdated(ctx, fromOrderId);
     if (toOrderId !== fromOrderId) {
-      await this.publishOrderUpdated(toOrderId);
+      await this.publishOrderUpdated(ctx, toOrderId);
     }
     return true;
   }

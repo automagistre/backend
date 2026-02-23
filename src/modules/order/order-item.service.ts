@@ -17,10 +17,10 @@ import {
 import { OrderItemType } from './enums/order-item-type.enum';
 import { v6 as uuidv6 } from 'uuid';
 import { ReservationService } from '../reservation/reservation.service';
-import { TenantService } from 'src/common/services/tenant.service';
 import { applyDefaultCurrency } from 'src/common/money';
 import { normalizeMoneyAmount } from 'src/common/utils/money.util';
 import { SettingsService } from 'src/modules/settings/settings.service';
+import type { AuthContext } from 'src/common/user-id.store';
 
 @Injectable()
 export class OrderItemService {
@@ -28,7 +28,6 @@ export class OrderItemService {
     private readonly prisma: PrismaService,
     private readonly orderService: OrderService,
     private readonly reservationService: ReservationService,
-    private readonly tenantService: TenantService,
     private readonly settingsService: SettingsService,
   ) {}
 
@@ -158,9 +157,9 @@ export class OrderItemService {
     return typeMap[typeStr] || OrderItemType.SERVICE; // По умолчанию service
   }
 
-  async createGroup(input: CreateOrderItemGroupInput): Promise<OrderItemModel> {
-    await this.orderService.validateOrderEditable(input.orderId);
-    const tenantId = input.tenantId ?? (await this.tenantService.getTenantId());
+  async createGroup(ctx: AuthContext, input: CreateOrderItemGroupInput): Promise<OrderItemModel> {
+    const { tenantId, userId } = ctx;
+    await this.orderService.validateOrderEditable(ctx, input.orderId);
 
     const orderItem = await this.prisma.orderItem.create({
       data: {
@@ -173,6 +172,7 @@ export class OrderItemService {
           create: {
             name: input.name,
             hideParts: input.hideParts ?? false,
+            createdBy: userId,
           },
         },
       },
@@ -183,10 +183,11 @@ export class OrderItemService {
   }
 
   async createService(
+    ctx: AuthContext,
     input: CreateOrderItemServiceInput,
   ): Promise<OrderItemModel> {
-    await this.orderService.validateOrderEditable(input.orderId);
-    const tenantId = input.tenantId ?? (await this.tenantService.getTenantId());
+    const { tenantId, userId } = ctx;
+    await this.orderService.validateOrderEditable(ctx, input.orderId);
     const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
     const priceData = input.price
       ? applyDefaultCurrency(input.price, defaultCurrency)
@@ -211,6 +212,7 @@ export class OrderItemService {
             priceCurrencyCode: priceData.currencyCode,
             discountAmount: discountData.amountMinor,
             discountCurrencyCode: discountData.currencyCode,
+            createdBy: userId,
           },
         },
       },
@@ -220,9 +222,9 @@ export class OrderItemService {
     return this.toModel(orderItem as any);
   }
 
-  async createPart(input: CreateOrderItemPartInput): Promise<OrderItemModel> {
-    await this.orderService.validateOrderEditable(input.orderId);
-    const tenantId = input.tenantId ?? (await this.tenantService.getTenantId());
+  async createPart(ctx: AuthContext, input: CreateOrderItemPartInput): Promise<OrderItemModel> {
+    const { tenantId, userId } = ctx;
+    await this.orderService.validateOrderEditable(ctx, input.orderId);
 
     const part = await this.prisma.part.findUnique({
       where: { id: input.partId },
@@ -267,6 +269,7 @@ export class OrderItemService {
             priceCurrencyCode: priceData.currencyCode,
             discountAmount: discountData.amountMinor,
             discountCurrencyCode: discountData.currencyCode,
+            createdBy: userId,
           },
         },
       },
@@ -284,11 +287,9 @@ export class OrderItemService {
       },
     });
 
-    // Пытаемся создать резерв на добавленное количество.
-    // Причина: позицию важно создать даже при дефиците, чтобы сотрудник видел проблему и мог действовать дальше.
     if (orderItem.part && input.quantity > 0) {
       try {
-        await this.reservationService.reserve({
+        await this.reservationService.reserve(ctx, {
           orderItemPartId: orderItem.part.id,
           quantity: input.quantity,
           tenantId,
@@ -302,10 +303,10 @@ export class OrderItemService {
   }
 
   async createPartsForService(
+    ctx: AuthContext,
     input: {
       orderId: string;
       parentId: string;
-      tenantId?: string;
       parts: {
         partId: string;
         quantity: number;
@@ -315,17 +316,15 @@ export class OrderItemService {
     },
     prismaClient?: Prisma.TransactionClient,
   ): Promise<{ orderItemPartId: string; quantity: number }[]> {
+    const { tenantId, userId } = ctx;
     if (input.validateOrderEditable !== false) {
-      await this.orderService.validateOrderEditable(input.orderId);
+      await this.orderService.validateOrderEditable(ctx, input.orderId);
     }
 
     if (input.parts.length === 0) {
       return [];
     }
 
-    // TODO: унифицировать резервирование в одном методе создания/удаления запчастей
-    // и перевести массовое создание на единый метод.
-    const tenantId = input.tenantId ?? (await this.tenantService.getTenantId());
     const client = prismaClient ?? this.prisma;
     const partIds = Array.from(new Set(input.parts.map((part) => part.partId)));
 
@@ -367,6 +366,7 @@ export class OrderItemService {
         priceCurrencyCode: defaultCurrency,
         discountAmount: normalizeMoneyAmount(undefined),
         discountCurrencyCode: defaultCurrency,
+        createdBy: userId,
       });
 
       result.push({ orderItemPartId, quantity: part.quantity });
@@ -379,16 +379,16 @@ export class OrderItemService {
   }
 
   async reservePartsBestEffort(
+    ctx: AuthContext,
     parts: { orderItemPartId: string; quantity: number }[],
-    tenantId: string,
   ): Promise<void> {
     for (const part of parts) {
       if (part.quantity <= 0) continue;
       try {
-        await this.reservationService.reserve({
+        await this.reservationService.reserve(ctx, {
           orderItemPartId: part.orderItemPartId,
           quantity: part.quantity,
-          tenantId,
+          tenantId: ctx.tenantId,
         });
       } catch {
         // no-op
@@ -396,7 +396,7 @@ export class OrderItemService {
     }
   }
 
-  async updatePart(input: UpdateOrderItemPartInput): Promise<OrderItemModel> {
+  async updatePart(ctx: AuthContext, input: UpdateOrderItemPartInput): Promise<OrderItemModel> {
     const orderItem = await this.prisma.orderItem.findUnique({
       where: { id: input.id },
       include: { part: true },
@@ -412,7 +412,7 @@ export class OrderItemService {
       );
     }
 
-    await this.orderService.validateOrderEditable(orderItem.orderId!);
+    await this.orderService.validateOrderEditable(ctx, orderItem.orderId!);
 
     // Обновляем резерв при изменении количества по правилу "полный резерв или ничего".
     // Причина: сотруднику проще понимать состояние — либо зарезервировано всё, либо резерв отсутствует (дефицит).
@@ -424,7 +424,7 @@ export class OrderItemService {
       await this.reservationService.releaseAll(orderItem.part.id);
       if (newQuantity > 0) {
         try {
-          await this.reservationService.reserve({
+          await this.reservationService.reserve(ctx, {
             orderItemPartId: orderItem.part.id,
             quantity: newQuantity,
             tenantId: orderItem.tenantId,
@@ -495,6 +495,7 @@ export class OrderItemService {
   }
 
   async updateService(
+    ctx: AuthContext,
     input: UpdateOrderItemServiceInput,
   ): Promise<OrderItemModel> {
     const orderItem = await this.prisma.orderItem.findUnique({
@@ -512,7 +513,7 @@ export class OrderItemService {
       );
     }
 
-    await this.orderService.validateOrderEditable(orderItem.orderId!);
+    await this.orderService.validateOrderEditable(ctx, orderItem.orderId!);
 
     // Обновляем только переданные поля
     const updateData: any = {};
@@ -573,6 +574,7 @@ export class OrderItemService {
   }
 
   async delete(
+    ctx: AuthContext,
     id: string,
     deleteChildren: boolean = true,
     options?: {
@@ -596,7 +598,7 @@ export class OrderItemService {
     }
 
     if (!options?.skipValidation) {
-      await this.orderService.validateOrderEditable(orderItem.orderId!);
+      await this.orderService.validateOrderEditable(ctx, orderItem.orderId!);
     }
 
     // Снимаем резерв если это запчасть (best-effort, вне транзакции)

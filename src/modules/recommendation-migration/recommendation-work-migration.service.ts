@@ -26,8 +26,8 @@ export class RecommendationWorkMigrationService {
     @Inject('PUB_SUB') private readonly pubSub: PubSub,
   ) {}
 
-  private async publishOrderUpdated(orderId: string): Promise<void> {
-    const order = await this.orderService.findOne(orderId);
+  private async publishOrderUpdated(ctx: AuthContext, orderId: string): Promise<void> {
+    const order = await this.orderService.findOne(ctx, orderId);
     if (!order) return;
 
     await this.pubSub.publish(`ORDER_UPDATED_${orderId}`, {
@@ -44,40 +44,6 @@ export class RecommendationWorkMigrationService {
       carRecommendationsUpdated: recommendations,
       carId,
     });
-  }
-
-  /**
-   * Получает текущие параметры сессии PostgreSQL для передачи в транзакцию
-   */
-  private async getSessionParams(): Promise<{ userId: string | null; tenantId: string | null }> {
-    try {
-      const result = await this.prisma.$queryRawUnsafe<
-        Array<{ user_id: string; tenant_id: string }>
-      >(`SELECT 
-          current_setting('app.user_id', true) as user_id,
-          current_setting('app.tenant_id', true) as tenant_id`);
-      return {
-        userId: result[0]?.user_id?.trim() || null,
-        tenantId: result[0]?.tenant_id?.trim() || null,
-      };
-    } catch {
-      return { userId: null, tenantId: null };
-    }
-  }
-
-  /**
-   * Устанавливает параметры сессии внутри транзакции
-   */
-  private async setSessionParamsInTx(
-    tx: Parameters<Parameters<typeof this.prisma.$transaction>[0]>[0],
-    params: { userId: string | null; tenantId: string | null },
-  ): Promise<void> {
-    if (params.userId) {
-      await tx.$executeRawUnsafe(`SET app.user_id = '${params.userId}'`);
-    }
-    if (params.tenantId) {
-      await tx.$executeRawUnsafe(`SET app.tenant_id = '${params.tenantId}'`);
-    }
   }
 
   private toNetAmount(
@@ -126,8 +92,8 @@ export class RecommendationWorkMigrationService {
     ctx: AuthContext,
     input: RealizeCarRecommendationInput,
   ): Promise<RealizeCarRecommendationPayload[]> {
-    await this.orderService.validateOrderEditable(input.orderId);
-    const order = await this.orderService.findOne(input.orderId);
+    await this.orderService.validateOrderEditable(ctx, input.orderId);
+    const order = await this.orderService.findOne(ctx, input.orderId);
     if (!order) {
       throw new NotFoundException(`Заказ с ID ${input.orderId} не найден`);
     }
@@ -137,7 +103,6 @@ export class RecommendationWorkMigrationService {
       order.workerId ?? null,
     );
 
-    const sessionParams = await this.getSessionParams();
     const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
 
     const results: RealizeCarRecommendationPayload[] = [];
@@ -182,15 +147,13 @@ export class RecommendationWorkMigrationService {
             ? []
             : recommendation.parts.filter((part) => selectedPartIds.has(part.id));
         const createdParts = await this.prisma.$transaction(async (tx) => {
-          await this.setSessionParamsInTx(tx, sessionParams);
-
           await tx.orderItem.create({
             data: {
               id: serviceItemId,
               orderId: input.orderId,
               parentId: null,
               type: '1',
-              tenantId: order.tenantId,
+              tenantId: ctx.tenantId,
               service: {
                 create: {
                   service: recommendation.service,
@@ -200,16 +163,17 @@ export class RecommendationWorkMigrationService {
                   priceCurrencyCode: defaultCurrency,
                   discountAmount: normalizeMoneyAmount(undefined),
                   discountCurrencyCode: defaultCurrency,
+                  createdBy: ctx.userId,
                 },
               },
             },
           });
 
           const parts = await this.orderItemService.createPartsForService(
+            ctx,
             {
               orderId: input.orderId,
               parentId: serviceItemId,
-              tenantId: order.tenantId,
               parts: selectedParts.map((part) => ({
                 partId: part.partId,
                 quantity: part.quantity,
@@ -232,10 +196,7 @@ export class RecommendationWorkMigrationService {
           return parts;
         });
 
-        await this.orderItemService.reservePartsBestEffort(
-          createdParts,
-          order.tenantId,
-        );
+        await this.orderItemService.reservePartsBestEffort(ctx, createdParts);
 
         results.push({
           orderId: input.orderId,
@@ -247,14 +208,15 @@ export class RecommendationWorkMigrationService {
         if (carIdToPublish) {
           await this.publishCarRecommendationsUpdated(ctx, carIdToPublish);
         }
-      } catch {
+      } catch (error) {
         // best-effort: продолжаем обработку остальных рекомендаций
         // TODO: собирать ошибки и возвращать в payload, чтобы клиент знал, какие рекомендации не обработались
+        console.error('realizeCarRecommendation error for', selection.recommendationId, error);
       }
     }
 
     if (results.length > 0) {
-      await this.publishOrderUpdated(input.orderId);
+      await this.publishOrderUpdated(ctx, input.orderId);
       if (order.carId) {
         await this.publishCarRecommendationsUpdated(ctx, order.carId);
       }
@@ -287,8 +249,8 @@ export class RecommendationWorkMigrationService {
       throw new BadRequestException('Не указан заказ для работы');
     }
 
-    await this.orderService.validateOrderEditable(orderItem.orderId);
-    const order = await this.orderService.findOne(orderItem.orderId);
+    await this.orderService.validateOrderEditable(ctx, orderItem.orderId);
+    const order = await this.orderService.findOne(ctx, orderItem.orderId);
     if (!order) {
       throw new NotFoundException(`Заказ с ID ${orderItem.orderId} не найден`);
     }
@@ -338,12 +300,9 @@ export class RecommendationWorkMigrationService {
       orderItem.service.workerId ?? null,
     );
 
-    const sessionParams = await this.getSessionParams();
     const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
 
     const resolvedRecommendationId = await this.prisma.$transaction(async (tx) => {
-      await this.setSessionParamsInTx(tx, sessionParams);
-
       let resultRecommendationId: string;
 
       if (recommendation && sameComposition) {
@@ -439,7 +398,7 @@ export class RecommendationWorkMigrationService {
         }
       }
 
-      await this.orderItemService.delete(input.orderItemServiceId, true, {
+      await this.orderItemService.delete(ctx, input.orderItemServiceId, true, {
         tx,
         skipValidation: true,
       });
@@ -447,7 +406,7 @@ export class RecommendationWorkMigrationService {
       return resultRecommendationId;
     });
 
-    await this.publishOrderUpdated(order.id);
+    await this.publishOrderUpdated(ctx, order.id);
     if (order.carId) {
       await this.publishCarRecommendationsUpdated(ctx, order.carId);
     }

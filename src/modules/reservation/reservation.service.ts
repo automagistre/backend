@@ -5,6 +5,7 @@ import { Reservation } from 'src/generated/prisma/client';
 import { TenantService } from 'src/common/services/tenant.service';
 import { OrderStatus } from '../order/enums/order-status.enum';
 import { OrderService } from '../order/order.service';
+import type { AuthContext } from 'src/common/user-id.store';
 
 export interface ReservePartInput {
   orderItemPartId: string;
@@ -233,18 +234,18 @@ export class ReservationService {
     return oip?.orderItem?.orderId ?? null;
   }
 
-  async transferReservation(input: TransferReservationInput): Promise<{
+  async transferReservation(ctx: AuthContext, input: TransferReservationInput): Promise<{
     fromOrderId: string | null;
     toOrderId: string | null;
   }> {
     const { fromOrderItemPartId, toOrderItemPartId, quantity } = input;
-    const tenantId = input.tenantId ?? (await this.tenantService.getTenantId());
+    const tenantId = input.tenantId ?? ctx.tenantId;
 
     const fromOrderId = await this.getOrderIdByOrderItemPartId(fromOrderItemPartId);
     const toOrderId = await this.getOrderIdByOrderItemPartId(toOrderItemPartId);
-    if (fromOrderId) await this.orderService.validateOrderEditable(fromOrderId);
+    if (fromOrderId) await this.orderService.validateOrderEditable(ctx, fromOrderId);
     if (toOrderId && toOrderId !== fromOrderId) {
-      await this.orderService.validateOrderEditable(toOrderId);
+      await this.orderService.validateOrderEditable(ctx, toOrderId);
     }
 
     if (quantity <= 0) {
@@ -345,13 +346,13 @@ export class ReservationService {
   /**
    * Резервирование запчасти для элемента заказа
    */
-  async reserve(input: ReservePartInput): Promise<Reservation> {
+  async reserve(ctx: AuthContext, input: ReservePartInput): Promise<Reservation> {
     const { orderItemPartId, quantity } = input;
-    const tenantId = input.tenantId ?? (await this.tenantService.getTenantId());
+    const tenantId = input.tenantId ?? ctx.tenantId;
 
     const orderId = await this.getOrderIdByOrderItemPartId(orderItemPartId);
     if (orderId) {
-      await this.orderService.validateOrderEditable(orderId);
+      await this.orderService.validateOrderEditable(ctx, orderId);
     }
 
     if (quantity <= 0) {
@@ -475,12 +476,12 @@ export class ReservationService {
    * Снятие резерва с запчасти
    * Если quantity не указан - удаляются все резервации
    */
-  async release(input: ReleaseReservationInput): Promise<number> {
+  async release(ctx: AuthContext, input: ReleaseReservationInput): Promise<number> {
     const { orderItemPartId, quantity } = input;
 
     const orderId = await this.getOrderIdByOrderItemPartId(orderItemPartId);
     if (orderId) {
-      await this.orderService.validateOrderEditable(orderId);
+      await this.orderService.validateOrderEditable(ctx, orderId);
     }
 
     if (quantity !== undefined) {

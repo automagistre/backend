@@ -12,7 +12,6 @@ import { CreateOrderPrepayInput } from './inputs/create-order-prepay.input';
 import { RefundOrderPrepayInput } from './inputs/refund-order-prepay.input';
 import { CloseOrderInput } from './inputs/close-order.input';
 import { Prisma } from 'src/generated/prisma/client';
-import { TenantService } from 'src/common/services/tenant.service';
 import { WalletTransactionService } from 'src/modules/wallet/wallet-transaction.service';
 import { WalletTransactionSource } from 'src/modules/wallet/enums/wallet-transaction-source.enum';
 import { SalaryService } from 'src/modules/salary/salary.service';
@@ -31,7 +30,6 @@ const ORDER_CLOSE_TYPE_DEAL = '1';
 export class OrderService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly tenantService: TenantService,
     private readonly walletTransactionService: WalletTransactionService,
     private readonly salaryService: SalaryService,
     private readonly customerTransactionService: CustomerTransactionService,
@@ -39,23 +37,19 @@ export class OrderService {
     private readonly warehouseService: WarehouseService,
   ) {}
 
-  async findOne(id: string): Promise<OrderModel | null> {
-    const tenantId = await this.tenantService.getTenantId();
+  async findOne(ctx: AuthContext, id: string): Promise<OrderModel | null> {
     return this.prisma.order.findFirst({
-      where: { id, tenantId },
+      where: { id, tenantId: ctx.tenantId },
     }) as Promise<OrderModel | null>;
   }
 
   /**
-   * Строка для отображения в проводках: номер заказа и имя клиента (ФИО персоны или название организации).
-   */
-  /**
    * Создание предоплаты по заказу: order_payment + wallet_transaction в одной транзакции.
    * Возвращает созданную проводку по кошельку (для списка предоплат).
    */
-  async createPrepay(input: CreateOrderPrepayInput) {
-    await this.validateOrderEditable(input.orderId);
-    const tenantId = await this.tenantService.getTenantId();
+  async createPrepay(ctx: AuthContext, input: CreateOrderPrepayInput) {
+    const { tenantId, userId } = ctx;
+    await this.validateOrderEditable(ctx, input.orderId);
     const wallet = await this.prisma.wallet.findFirst({
       where: { id: input.walletId, tenantId },
     });
@@ -73,6 +67,7 @@ export class OrderService {
           amountAmount: amountMinor,
           amountCurrencyCode: currencyCode,
           description: input.description ?? null,
+          createdBy: userId,
         },
       });
       return this.walletTransactionService.createWithinTransaction(
@@ -93,9 +88,9 @@ export class OrderService {
    * Возврат предоплаты: создаём order_payment с отрицательной суммой + проводку списания по кошельку.
    * Сумма возврата не больше текущей суммы предоплат по заказу.
    */
-  async refundPrepay(input: RefundOrderPrepayInput) {
-    await this.validateOrderEditable(input.orderId);
-    const tenantId = await this.tenantService.getTenantId();
+  async refundPrepay(ctx: AuthContext, input: RefundOrderPrepayInput) {
+    const { tenantId, userId } = ctx;
+    await this.validateOrderEditable(ctx, input.orderId);
     const wallet = await this.prisma.wallet.findFirst({
       where: { id: input.walletId, tenantId },
     });
@@ -128,6 +123,7 @@ export class OrderService {
           amountAmount: -refundAmount,
           amountCurrencyCode: currencyCode,
           description: input.description ?? null,
+          createdBy: userId,
         },
       });
       return this.walletTransactionService.createWithinTransaction(
@@ -145,10 +141,9 @@ export class OrderService {
   }
 
   /** Предоплаты по заказу из таблицы order_payment. */
-  async findPaymentsByOrderId(orderId: string) {
-    const tenantId = await this.tenantService.getTenantId();
+  async findPaymentsByOrderId(ctx: AuthContext, orderId: string) {
     return this.prisma.orderPayment.findMany({
-      where: { orderId, tenantId },
+      where: { orderId, tenantId: ctx.tenantId },
       orderBy: [{ createdAt: 'asc' }],
     });
   }
@@ -157,10 +152,9 @@ export class OrderService {
    * Сумма заказа: услуги (priceAmount - discountAmount) + запчасти (priceAmount - discountAmount) * (quantity / 100).
    * Количество запчастей приходит в сотых долях (100 = 1 ед., 250 = 2.5 ед.), нормализуем до единиц делением на 100.
    */
-  async getOrderTotal(orderId: string): Promise<bigint> {
-    const tenantId = await this.tenantService.getTenantId();
+  async getOrderTotal(ctx: AuthContext, orderId: string): Promise<bigint> {
     const items = await this.prisma.orderItem.findMany({
-      where: { orderId, tenantId },
+      where: { orderId, tenantId: ctx.tenantId },
       include: { service: true, part: true },
     });
     let total = 0n;
@@ -173,17 +167,15 @@ export class OrderService {
       if (item.part) {
         const p = item.part.priceAmount ?? 0n;
         const d = item.part.discountAmount ?? 0n;
-        // quantity в сотых долях (100 = 1 ед.) → (p-d)*quantity/100
         total += (p - d) * BigInt(item.part.quantity) / 100n;
       }
     }
     return total;
   }
 
-  async getDisplayContext(orderId: string): Promise<string> {
-    const tenantId = await this.tenantService.getTenantId();
+  async getDisplayContext(ctx: AuthContext, orderId: string): Promise<string> {
     const order = await this.prisma.order.findFirst({
-      where: { id: orderId, tenantId },
+      where: { id: orderId, tenantId: ctx.tenantId },
       select: { number: true, customerId: true, customer: { select: { lastname: true, firstname: true } } },
     });
     if (!order) return '';
@@ -205,19 +197,21 @@ export class OrderService {
     return parts.join(', ');
   }
 
-  async findMany({
-    take,
-    skip,
-    search,
-    status,
-  }: {
-    take?: number;
-    skip?: number;
-    search?: string;
-    status?: OrderStatus[];
-  }): Promise<{ items: OrderModel[]; total: number }> {
-    const tenantId = await this.tenantService.getTenantId();
-    const where = this.buildOrdersWhere(tenantId, search, status);
+  async findMany(
+    ctx: AuthContext,
+    {
+      take,
+      skip,
+      search,
+      status,
+    }: {
+      take?: number;
+      skip?: number;
+      search?: string;
+      status?: OrderStatus[];
+    },
+  ): Promise<{ items: OrderModel[]; total: number }> {
+    const where = this.buildOrdersWhere(ctx.tenantId, search, status);
     const [items, total] = await this.prisma.$transaction([
       this.prisma.order.findMany({
         where,
@@ -231,15 +225,18 @@ export class OrderService {
     return { items: items as OrderModel[], total };
   }
 
-  async findActiveOrders({
-    search,
-    status,
-  }: {
-    search?: string;
-    status?: OrderStatus[];
-  } = {}): Promise<OrderModel[]> {
+  async findActiveOrders(
+    ctx: AuthContext,
+    {
+      search,
+      status,
+    }: {
+      search?: string;
+      status?: OrderStatus[];
+    } = {},
+  ): Promise<OrderModel[]> {
     const { start, end } = this.getBusinessDayRange();
-    const tenantId = await this.tenantService.getTenantId();
+    const { tenantId } = ctx;
 
     const closedTodayCondition: Prisma.OrderCloseWhereInput = {
       tenantId,
@@ -307,13 +304,15 @@ export class OrderService {
     return and.length === 1 ? (and[0] as Record<string, unknown>) : { AND: and };
   }
 
-  private async checkCanDelete(orderId: string): Promise<
+  private async checkCanDelete(
+    ctx: AuthContext,
+    orderId: string,
+  ): Promise<
     | { deletable: true }
     | { deletable: false; notFound?: boolean; message: string }
   > {
-    const tenantId = await this.tenantService.getTenantId();
     const order = await this.prisma.order.findFirst({
-      where: { id: orderId, tenantId },
+      where: { id: orderId, tenantId: ctx.tenantId },
       select: {
         createdAt: true,
         close: { select: { id: true } },
@@ -349,13 +348,13 @@ export class OrderService {
     return { deletable: true };
   }
 
-  async canDeleteOrder(orderId: string): Promise<boolean> {
-    const result = await this.checkCanDelete(orderId);
+  async canDeleteOrder(ctx: AuthContext, orderId: string): Promise<boolean> {
+    const result = await this.checkCanDelete(ctx, orderId);
     return result.deletable;
   }
 
-  async deleteOrder(orderId: string): Promise<boolean> {
-    const result = await this.checkCanDelete(orderId);
+  async deleteOrder(ctx: AuthContext, orderId: string): Promise<boolean> {
+    const result = await this.checkCanDelete(ctx, orderId);
     if (!result.deletable) {
       if (result.notFound) {
         throw new NotFoundException(result.message);
@@ -366,10 +365,9 @@ export class OrderService {
     return true;
   }
 
-  async getClosedAt(orderId: string): Promise<Date | null> {
-    const tenantId = await this.tenantService.getTenantId();
+  async getClosedAt(ctx: AuthContext, orderId: string): Promise<Date | null> {
     const close = await this.prisma.orderClose.findFirst({
-      where: { orderId, tenantId },
+      where: { orderId, tenantId: ctx.tenantId },
       include: {
         orderDeal: true,
         orderCancel: true,
@@ -396,8 +394,8 @@ export class OrderService {
     return { start, end };
   }
 
-  async create(input: CreateOrderInput): Promise<OrderModel> {
-    const tenantId = await this.tenantService.getTenantId();
+  async create(ctx: AuthContext, input: CreateOrderInput): Promise<OrderModel> {
+    const { tenantId, userId } = ctx;
     const agg = await this.prisma.order.aggregate({
       where: { tenantId },
       _max: { number: true },
@@ -411,6 +409,7 @@ export class OrderService {
         customerId: input.customerId ?? null,
         carId: input.carId ?? null,
         workerId: input.workerId ?? null,
+        createdBy: userId,
       },
     }) as Promise<OrderModel>;
   }
@@ -422,23 +421,21 @@ export class OrderService {
     );
   }
 
-  async isOrderEditable(orderId: string): Promise<boolean> {
-    const tenantId = await this.tenantService.getTenantId();
+  async isOrderEditable(ctx: AuthContext, orderId: string): Promise<boolean> {
     const order = await this.prisma.order.findFirst({
-      where: { id: orderId, tenantId },
+      where: { id: orderId, tenantId: ctx.tenantId },
       select: { status: true },
     });
     if (!order) return false;
     return !this.isBlockedByStatus(order.status)
   }
 
-  async getCloseValidation(orderId: string): Promise<{
+  async getCloseValidation(ctx: AuthContext, orderId: string): Promise<{
     canClose: boolean;
     closeDeficiencies: string[];
   }> {
-    const tenantId = await this.tenantService.getTenantId();
     const order = await this.prisma.order.findFirst({
-      where: { id: orderId, tenantId },
+      where: { id: orderId, tenantId: ctx.tenantId },
       select: {
         status: true,
         carId: true,
@@ -468,7 +465,6 @@ export class OrderService {
       return { canClose: false, closeDeficiencies: [] };
     }
 
-
     if (this.isBlockedByStatus(order.status)) {
       return { canClose: false, closeDeficiencies: [] };
     }
@@ -497,10 +493,9 @@ export class OrderService {
     };
   }
 
-  async validateOrderEditable(orderId: string): Promise<void> {
-    const tenantId = await this.tenantService.getTenantId();
+  async validateOrderEditable(ctx: AuthContext, orderId: string): Promise<void> {
     const order = await this.prisma.order.findFirst({
-      where: { id: orderId, tenantId },
+      where: { id: orderId, tenantId: ctx.tenantId },
       select: { status: true },
     });
 
@@ -577,8 +572,8 @@ export class OrderService {
     });
   }
 
-  async update(input: UpdateOrderInput): Promise<OrderModel> {
-    await this.validateOrderEditable(input.id);
+  async update(ctx: AuthContext, input: UpdateOrderInput): Promise<OrderModel> {
+    await this.validateOrderEditable(ctx, input.id);
 
     if (
       input.status === OrderStatus.CLOSED ||
@@ -626,7 +621,7 @@ export class OrderService {
    * В OrderDeal.balance сохраняется баланс заказчика на момент закрытия до списания/начисления по заказу.
    */
   async closeOrder(ctx: AuthContext, input: CloseOrderInput): Promise<OrderModel> {
-    const tenantId = ctx.tenantId;
+    const { tenantId, userId } = ctx;
     const order = await this.prisma.order.findFirst({
       where: { id: input.orderId, tenantId },
       select: { id: true, customerId: true, close: { select: { id: true } } },
@@ -635,9 +630,9 @@ export class OrderService {
       throw new NotFoundException(`Заказ с ID ${input.orderId} не найден`);
     }
 
-    await this.validateOrderEditable(input.orderId);
+    await this.validateOrderEditable(ctx, input.orderId);
 
-    const closeValidation = await this.getCloseValidation(input.orderId);
+    const closeValidation = await this.getCloseValidation(ctx, input.orderId);
     if (!closeValidation.canClose) {
       const messages: Record<string, string> = {
         MILEAGE_MISSING: 'Укажите пробег',
@@ -673,7 +668,7 @@ export class OrderService {
       order.customerId != null
         ? await this.customerTransactionService.getBalance(order.customerId)
         : 0n;
-    const orderTotal = await this.getOrderTotal(input.orderId);
+    const orderTotal = await this.getOrderTotal(ctx, input.orderId);
 
     await this.prisma.$transaction(async (tx) => {
       const orderClose = await tx.orderClose.create({
@@ -688,6 +683,7 @@ export class OrderService {
           id: orderClose.id,
           balance,
           satisfaction,
+          createdBy: userId,
         },
       });
 
@@ -776,7 +772,7 @@ export class OrderService {
 
     await this.salaryService.chargeByOrder(ctx, input.orderId);
 
-    return this.findOne(input.orderId) as Promise<OrderModel>;
+    return this.findOne(ctx, input.orderId) as Promise<OrderModel>;
   }
 
   async ensureOrderClosed(ctx: AuthContext, orderId: string): Promise<void> {
