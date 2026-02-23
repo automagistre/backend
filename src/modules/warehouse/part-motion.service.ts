@@ -4,22 +4,21 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateMotionInput } from './inputs/create-motion.input';
 import { Motion } from 'src/generated/prisma/client';
 import { MotionSourceType } from './enums/motion-source-type.enum';
-import { TenantService } from 'src/common/services/tenant.service';
+import type { AuthContext } from 'src/common/user-id.store';
 
 @Injectable()
 export class PartMotionService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly tenantService: TenantService,
   ) {}
 
-  async create(dto: CreateMotionInput): Promise<Motion> {
+  async create(ctx: AuthContext, dto: CreateMotionInput): Promise<Motion> {
     if (dto.quantity === 0) throw new Error('Количество не может быть равно нулю');
-    const tenantId = await this.tenantService.getTenantId();
     return this.createWithinTransaction(
       this.prisma as unknown as Prisma.TransactionClient,
       dto,
-      tenantId,
+      ctx.tenantId,
+      ctx.userId,
     );
   }
 
@@ -27,6 +26,7 @@ export class PartMotionService {
     tx: Prisma.TransactionClient,
     dto: CreateMotionInput,
     tenantId: string,
+    createdBy: string | null = null,
   ): Promise<Motion> {
     if (dto.quantity === 0) throw new Error('Количество не может быть равно нулю');
     return tx.motion.create({
@@ -37,14 +37,14 @@ export class PartMotionService {
         tenantId,
         sourceType: dto.sourceType,
         sourceId: dto.sourceId,
+        createdBy,
       },
     });
   }
 
-  async getStockQuantity(partId: string): Promise<number> {
-    const tenantId = await this.tenantService.getTenantId();
+  async getStockQuantity(ctx: AuthContext, partId: string): Promise<number> {
     const result = await this.prisma.motion.aggregate({
-      where: { partId, tenantId },
+      where: { partId, tenantId: ctx.tenantId },
       _sum: { quantity: true },
     });
     return result._sum.quantity ?? 0;
@@ -52,16 +52,15 @@ export class PartMotionService {
 
   async getStockQuantityByPartIds(
     partIds: string[],
-    tenantId?: string,
+    tenantId: string,
   ): Promise<Map<string, number>> {
-    const resolvedTenantId = tenantId ?? (await this.tenantService.getTenantId());
     if (partIds.length === 0) return new Map();
 
     const rows = await this.prisma.motion.groupBy({
       by: ['partId'],
       where: {
         partId: { in: partIds },
-        tenantId: resolvedTenantId,
+        tenantId,
       },
       _sum: { quantity: true },
     });
@@ -75,15 +74,15 @@ export class PartMotionService {
     return result;
   }
 
-  async findByPartId(partId: string): Promise<Motion[]> {
-    const tenantId = await this.tenantService.getTenantId();
+  async findByPartId(ctx: AuthContext, partId: string): Promise<Motion[]> {
     return this.prisma.motion.findMany({
-      where: { partId, tenantId },
+      where: { partId, tenantId: ctx.tenantId },
       orderBy: { createdAt: 'desc' },
     });
   }
 
   async increase(
+    ctx: AuthContext,
     partId: string,
     quantity: number,
     sourceType: MotionSourceType,
@@ -91,10 +90,11 @@ export class PartMotionService {
     description?: string,
   ): Promise<Motion> {
     if (quantity <= 0) throw new Error('Количество должно быть положительным');
-    return this.create({ partId, quantity, sourceType, sourceId, description });
+    return this.create(ctx, { partId, quantity, sourceType, sourceId, description });
   }
 
   async decrease(
+    ctx: AuthContext,
     partId: string,
     quantity: number,
     sourceType: MotionSourceType,
@@ -102,6 +102,6 @@ export class PartMotionService {
     description?: string,
   ): Promise<Motion> {
     if (quantity <= 0) throw new Error('Количество должно быть положительным');
-    return this.create({ partId, quantity: -quantity, sourceType, sourceId, description });
+    return this.create(ctx, { partId, quantity: -quantity, sourceType, sourceId, description });
   }
 }

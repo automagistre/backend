@@ -1,12 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { TenantService } from 'src/common/services/tenant.service';
 import { SettingsService } from 'src/modules/settings/settings.service';
 import { PartSupplyService } from './part-supply.service';
 import { PartMotionService } from './part-motion.service';
 import { ReservationService } from 'src/modules/reservation/reservation.service';
 import { ProcurementStatus } from './enums/procurement-status.enum';
 import { OrderStatus } from 'src/modules/order/enums/order-status.enum';
+import type { AuthContext } from 'src/common/user-id.store';
 
 export interface ProcurementRow {
   partId: string;
@@ -33,19 +33,21 @@ const STATUS_ORDER: Record<ProcurementStatus, number> = {
 export class ProcurementService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly tenantService: TenantService,
     private readonly settingsService: SettingsService,
     private readonly partSupplyService: PartSupplyService,
     private readonly partMotionService: PartMotionService,
     private readonly reservationService: ReservationService,
   ) {}
 
-  async getProcurementTable(params: {
-    skip: number;
-    take: number;
-    search?: string;
-  }): Promise<{ items: ProcurementRow[]; total: number }> {
-    const tenantId = await this.tenantService.getTenantId();
+  async getProcurementTable(
+    ctx: AuthContext,
+    params: {
+      skip: number;
+      take: number;
+      search?: string;
+    },
+  ): Promise<{ items: ProcurementRow[]; total: number }> {
+    const { tenantId } = ctx;
 
     const candidatePartIds = await this.getCandidatePartIds(tenantId);
     if (candidatePartIds.length === 0) {
@@ -247,8 +249,8 @@ export class ProcurementService {
    * Заказы, в которых содержится запчасть (активные), с количеством и резервом.
    */
   async getOrdersWithPart(
+    ctx: AuthContext,
     partId: string,
-    tenantId?: string,
   ): Promise<
     Array<{
       orderId: string;
@@ -260,14 +262,13 @@ export class ProcurementService {
       carName: string | null;
     }>
   > {
-    const resolvedTenantId =
-      tenantId ?? (await this.tenantService.getTenantId());
+    const { tenantId } = ctx;
 
     const orderItemParts = await this.prisma.orderItemPart.findMany({
       where: {
         partId,
         orderItem: {
-          tenantId: resolvedTenantId,
+          tenantId,
           orderId: { not: null },
           order: {
             status: {

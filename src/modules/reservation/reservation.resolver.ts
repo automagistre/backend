@@ -68,10 +68,10 @@ export class ReservationResolver {
       'Доступно к резерву по запчасти (склад - резервы в активных заказах)',
   })
   async partReservable(
+    @AuthContext() ctx: AuthContextType,
     @Args('partId', { type: () => ID }) partId: string,
-    @Args('tenantId', { type: () => ID, nullable: true }) tenantId?: string,
   ): Promise<number> {
-    return this.reservationService.getReservable(partId, tenantId);
+    return this.reservationService.getReservable(partId, ctx.tenantId);
   }
 
   @Query(() => [PartReservationSourceModel], {
@@ -79,15 +79,15 @@ export class ReservationResolver {
     description: 'Источники резерва по запчасти (для сценария "занять")',
   })
   async partReservationSources(
+    @AuthContext() ctx: AuthContextType,
     @Args('partId', { type: () => ID }) partId: string,
     @Args('excludeOrderId', { type: () => ID, nullable: true })
     excludeOrderId?: string,
-    @Args('tenantId', { type: () => ID, nullable: true }) tenantId?: string,
   ): Promise<PartReservationSourceModel[]> {
     const sources = await this.reservationService.getReservationSources(
       partId,
       excludeOrderId,
-      tenantId,
+      ctx.tenantId,
     );
     return sources.map((s) => ({
       orderId: s.orderId,

@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { Prisma } from 'src/generated/prisma/client';
 import { PartMotionService } from './part-motion.service';
 import { MotionSourceType } from './enums/motion-source-type.enum';
+import type { AuthContext } from 'src/common/user-id.store';
 
 /** Складской модуль: списание, приёмка, резервы. */
 @Injectable()
@@ -10,8 +11,8 @@ export class WarehouseService {
     private readonly partMotionService: PartMotionService,
   ) {}
 
-  async getStockQuantity(partId: string): Promise<number> {
-    return this.partMotionService.getStockQuantity(partId);
+  async getStockQuantity(ctx: AuthContext, partId: string): Promise<number> {
+    return this.partMotionService.getStockQuantity(ctx, partId);
   }
 
   /**

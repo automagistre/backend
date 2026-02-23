@@ -1746,10 +1746,10 @@ type Query {
   part(id: ID!): PartModel!
 
   """Доступно к резерву по запчасти (склад - резервы в активных заказах)"""
-  partReservable(partId: ID!, tenantId: ID): Int!
+  partReservable(partId: ID!): Int!
 
   """Источники резерва по запчасти (для сценария "занять")"""
-  partReservationSources(excludeOrderId: ID, partId: ID!, tenantId: ID): [PartReservationSourceModel!]!
+  partReservationSources(excludeOrderId: ID, partId: ID!): [PartReservationSourceModel!]!
 
   """Запчасти с пагинацией"""
   parts(search: String, skip: Int = 0, take: Int = 25): PaginatedParts!

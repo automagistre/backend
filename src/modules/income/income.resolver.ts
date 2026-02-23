@@ -36,8 +36,11 @@ export class IncomeResolver {
     name: 'income',
     description: 'Приход по ID',
   })
-  async income(@Args('id', { type: () => ID }) id: string): Promise<IncomeModel> {
-    return this.incomeService.findById(id);
+  async income(
+    @AuthContext() ctx: AuthContextType,
+    @Args('id', { type: () => ID }) id: string,
+  ): Promise<IncomeModel> {
+    return this.incomeService.findById(ctx, id);
   }
 
   @Query(() => PaginatedIncomes, {
@@ -45,11 +48,12 @@ export class IncomeResolver {
     description: 'Список приходов с пагинацией',
   })
   async incomes(
+    @AuthContext() ctx: AuthContextType,
     @Args('skip', { type: () => Int, nullable: true }) skip?: number,
     @Args('take', { type: () => Int, nullable: true }) take?: number,
     @Args('supplierId', { type: () => ID, nullable: true }) supplierId?: string,
   ): Promise<PaginatedIncomes> {
-    return this.incomeService.findMany(skip ?? 0, take ?? 50, supplierId);
+    return this.incomeService.findMany(ctx, skip ?? 0, take ?? 50, supplierId);
   }
 
   @Mutation(() => IncomeModel, {
@@ -57,9 +61,10 @@ export class IncomeResolver {
     description: 'Создать приход',
   })
   async createIncome(
+    @AuthContext() ctx: AuthContextType,
     @Args('input') input: CreateIncomeInput,
   ): Promise<IncomeModel> {
-    return this.incomeService.create(input);
+    return this.incomeService.create(ctx, input);
   }
 
   @Mutation(() => IncomeModel, {
@@ -67,9 +72,10 @@ export class IncomeResolver {
     description: 'Обновить приход (номер документа, только если не оприходован)',
   })
   async updateIncome(
+    @AuthContext() ctx: AuthContextType,
     @Args('input') input: UpdateIncomeInput,
   ): Promise<IncomeModel> {
-    return this.incomeService.update(input);
+    return this.incomeService.update(ctx, input);
   }
 
   @Mutation(() => IncomePartModel, {
@@ -77,9 +83,10 @@ export class IncomeResolver {
     description: 'Добавить позицию в приход',
   })
   async createIncomePart(
+    @AuthContext() ctx: AuthContextType,
     @Args('input') input: CreateIncomePartInput,
   ): Promise<IncomePartModel> {
-    return this.incomeService.createIncomePart(input);
+    return this.incomeService.createIncomePart(ctx, input);
   }
 
   @Mutation(() => IncomePartModel, {
@@ -87,9 +94,10 @@ export class IncomeResolver {
     description: 'Обновить позицию прихода',
   })
   async updateIncomePart(
+    @AuthContext() ctx: AuthContextType,
     @Args('input') input: UpdateIncomePartInput,
   ): Promise<IncomePartModel> {
-    return this.incomeService.updateIncomePart(input);
+    return this.incomeService.updateIncomePart(ctx, input);
   }
 
   @Mutation(() => Boolean, {
@@ -97,9 +105,10 @@ export class IncomeResolver {
     description: 'Удалить позицию прихода',
   })
   async deleteIncomePart(
+    @AuthContext() ctx: AuthContextType,
     @Args('id', { type: () => ID }) id: string,
   ): Promise<boolean> {
-    return this.incomeService.deleteIncomePart(id);
+    return this.incomeService.deleteIncomePart(ctx, id);
   }
 
   @Mutation(() => Boolean, {
@@ -107,9 +116,10 @@ export class IncomeResolver {
     description: 'Удалить приход (только если не оприходован)',
   })
   async deleteIncome(
+    @AuthContext() ctx: AuthContextType,
     @Args('id', { type: () => ID }) id: string,
   ): Promise<boolean> {
-    return this.incomeService.deleteIncome(id);
+    return this.incomeService.deleteIncome(ctx, id);
   }
 
   @Mutation(() => IncomeModel, {
@@ -117,8 +127,9 @@ export class IncomeResolver {
     description: 'Оприходовать приход',
   })
   async accrueIncome(
+    @AuthContext() ctx: AuthContextType,
     @Args('incomeId', { type: () => ID }) incomeId: string,
   ): Promise<IncomeModel> {
-    return this.incomeService.accrue(incomeId);
+    return this.incomeService.accrue(ctx, incomeId);
   }
 }

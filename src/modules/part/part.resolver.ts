@@ -202,17 +202,24 @@ export class PartResolver {
     return this.partCrossService.getCrossParts(part.id);
   }
 
+  @RequireTenant()
   @ResolveField(() => Int, { nullable: true })
-  async stockQuantity(@Parent() part: PartModel): Promise<number | null> {
-    return this.warehouseService.getStockQuantity(part.id);
+  async stockQuantity(
+    @Parent() part: PartModel,
+    @AuthContext() ctx: AuthContextType,
+  ): Promise<number | null> {
+    return this.warehouseService.getStockQuantity(ctx, part.id);
   }
 
-  
+  @RequireTenant()
   @ResolveField(() => Int, { nullable: true })
-  async reservedInActiveOrders(@Parent() part: PartModel): Promise<number | null> {
-    // TODO: резолвить массив заказов, где запчасть в резерве.
+  async reservedInActiveOrders(
+    @Parent() part: PartModel,
+    @AuthContext() ctx: AuthContextType,
+  ): Promise<number | null> {
     const map = await this.reservationService.getTotalReservedInActiveOrdersByPartIds(
       [part.id],
+      ctx.tenantId,
     );
     return map.get(part.id) ?? 0;
   }

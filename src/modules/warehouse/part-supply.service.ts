@@ -1,9 +1,9 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { Prisma } from 'src/generated/prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { TenantService } from 'src/common/services/tenant.service';
 import { SupplySource } from 'src/modules/part/enums/supply-source.enum';
 import { OrderStatus } from 'src/modules/order/enums/order-status.enum';
+import type { AuthContext } from 'src/common/user-id.store';
 
 export interface SupplyBySupplier {
   supplierId: string;
@@ -15,7 +15,6 @@ export interface SupplyBySupplier {
 export class PartSupplyService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly tenantService: TenantService,
   ) {}
 
   /**
@@ -23,13 +22,12 @@ export class PartSupplyService {
    */
   async getSupplyTotalByPart(
     partId: string,
-    tenantId?: string,
+    tenantId: string,
   ): Promise<number> {
-    const resolvedTenantId = tenantId ?? (await this.tenantService.getTenantId());
     const result = await this.prisma.partSupply.aggregate({
       where: {
         partId,
-        tenantId: resolvedTenantId,
+        tenantId,
       },
       _sum: { quantity: true },
     });
@@ -43,9 +41,8 @@ export class PartSupplyService {
   async getPartIdsWithDelayedSupply(
     partIds: string[],
     expiryDays: number,
-    tenantId?: string,
+    tenantId: string,
   ): Promise<Set<string>> {
-    const resolvedTenantId = tenantId ?? (await this.tenantService.getTenantId());
     if (partIds.length === 0 || expiryDays <= 0) return new Set();
 
     const threshold = new Date();
@@ -55,7 +52,7 @@ export class PartSupplyService {
       by: ['partId', 'supplierId'],
       where: {
         partId: { in: partIds },
-        tenantId: resolvedTenantId,
+        tenantId,
       },
       _sum: { quantity: true },
       _max: { createdAt: true },
@@ -77,16 +74,15 @@ export class PartSupplyService {
    */
   async getSupplyTotalByPartIds(
     partIds: string[],
-    tenantId?: string,
+    tenantId: string,
   ): Promise<Map<string, number>> {
-    const resolvedTenantId = tenantId ?? (await this.tenantService.getTenantId());
     if (partIds.length === 0) return new Map();
 
     const rows = await this.prisma.partSupply.groupBy({
       by: ['partId'],
       where: {
         partId: { in: partIds },
-        tenantId: resolvedTenantId,
+        tenantId,
       },
       _sum: { quantity: true },
     });
@@ -105,15 +101,14 @@ export class PartSupplyService {
    * Список поставок по запчасти (ledger: SUM по part+supplier, только где баланс > 0).
    */
   async getSuppliesByPart(
+    ctx: AuthContext,
     partId: string,
-    tenantId?: string,
   ): Promise<SupplyBySupplier[]> {
-    const resolvedTenantId = tenantId ?? (await this.tenantService.getTenantId());
     const rows = await this.prisma.partSupply.groupBy({
       by: ['partId', 'supplierId'],
       where: {
         partId,
-        tenantId: resolvedTenantId,
+        tenantId: ctx.tenantId,
       },
       _sum: { quantity: true },
       _max: { createdAt: true },
@@ -159,6 +154,7 @@ export class PartSupplyService {
     quantity: number,
     incomeId: string,
     tenantId: string,
+    createdBy: string | null = null,
   ): Promise<void> {
     if (quantity <= 0) return;
     const balance = await this.getSupplyBalanceWithinTransaction(
@@ -177,6 +173,7 @@ export class PartSupplyService {
         source: SupplySource.INCOME,
         sourceId: incomeId,
         tenantId,
+        createdBy,
       },
     });
   }
@@ -185,6 +182,7 @@ export class PartSupplyService {
    * Отмена поставки (добавляет -quantity в ledger).
    */
   async cancelPartSupply(
+    ctx: AuthContext,
     partId: string,
     supplierId: string,
     quantity: number,
@@ -192,7 +190,6 @@ export class PartSupplyService {
     if (quantity <= 0) {
       throw new BadRequestException('Количество должно быть больше 0');
     }
-    const tenantId = await this.tenantService.getTenantId();
     await this.prisma.partSupply.create({
       data: {
         partId,
@@ -200,7 +197,8 @@ export class PartSupplyService {
         quantity: -quantity,
         source: SupplySource.MANUAL,
         sourceId: crypto.randomUUID(),
-        tenantId,
+        tenantId: ctx.tenantId,
+        createdBy: ctx.userId,
       },
     });
   }
@@ -209,6 +207,7 @@ export class PartSupplyService {
    * Создание ручной поставки.
    */
   async createPartSupply(
+    ctx: AuthContext,
     partId: string,
     supplierId: string,
     quantity: number,
@@ -216,7 +215,6 @@ export class PartSupplyService {
     if (quantity <= 0) {
       throw new BadRequestException('Количество должно быть больше 0');
     }
-    const tenantId = await this.tenantService.getTenantId();
     const supply = await this.prisma.partSupply.create({
       data: {
         partId,
@@ -224,7 +222,8 @@ export class PartSupplyService {
         quantity,
         source: SupplySource.MANUAL,
         sourceId: crypto.randomUUID(),
-        tenantId,
+        tenantId: ctx.tenantId,
+        createdBy: ctx.userId,
       },
     });
     return {
@@ -240,14 +239,13 @@ export class PartSupplyService {
    */
   async getOrderedQuantityInActiveOrders(
     partId: string,
-    tenantId?: string,
+    tenantId: string,
   ): Promise<number> {
-    const resolvedTenantId = tenantId ?? (await this.tenantService.getTenantId());
     const result = await this.prisma.orderItemPart.aggregate({
       where: {
         partId,
         orderItem: {
-          tenantId: resolvedTenantId,
+          tenantId,
           order: {
             status: {
               notIn: [OrderStatus.CLOSED, OrderStatus.CANCELLED],
@@ -265,9 +263,8 @@ export class PartSupplyService {
    */
   async getOrderedQuantityInActiveOrdersByPartIds(
     partIds: string[],
-    tenantId?: string,
+    tenantId: string,
   ): Promise<Map<string, number>> {
-    const resolvedTenantId = tenantId ?? (await this.tenantService.getTenantId());
     if (partIds.length === 0) return new Map();
 
     const rows = await this.prisma.orderItemPart.groupBy({
@@ -275,7 +272,7 @@ export class PartSupplyService {
       where: {
         partId: { in: partIds },
         orderItem: {
-          tenantId: resolvedTenantId,
+          tenantId,
           order: {
             status: {
               notIn: [OrderStatus.CLOSED, OrderStatus.CANCELLED],

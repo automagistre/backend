@@ -7,8 +7,12 @@ import { SupplyBySupplierModel } from './models/supply-by-supplier.model';
 import { PartInOrderModel } from './models/part-in-order.model';
 import { CreatePartSupplyInput } from './inputs/create-part-supply.input';
 import { CancelPartSupplyInput } from './inputs/cancel-part-supply.input';
+import { AuthContext } from 'src/common/decorators/auth-context.decorator';
+import { RequireTenant } from 'src/common/decorators/skip-tenant.decorator';
+import type { AuthContext as AuthContextType } from 'src/common/user-id.store';
 
 @Resolver()
+@RequireTenant()
 export class WarehouseResolver {
   constructor(
     private readonly procurementService: ProcurementService,
@@ -20,11 +24,12 @@ export class WarehouseResolver {
     description: 'Таблица Закупки: наличие, в заказах, в резерве, в поставке, нужно заказать',
   })
   async procurementTable(
+    @AuthContext() ctx: AuthContextType,
     @Args('skip', { type: () => Int, defaultValue: 0 }) skip: number,
     @Args('take', { type: () => Int, defaultValue: 25 }) take: number,
     @Args('search', { type: () => String, nullable: true }) search?: string,
   ): Promise<{ items: ProcurementRowModel[]; total: number }> {
-    return this.procurementService.getProcurementTable({ skip, take, search });
+    return this.procurementService.getProcurementTable(ctx, { skip, take, search });
   }
 
   @Query(() => [PartInOrderModel], {
@@ -32,9 +37,10 @@ export class WarehouseResolver {
     description: 'Заказы, в которых содержится запчасть (активные), с кол-вом и резервом',
   })
   async ordersWithPart(
+    @AuthContext() ctx: AuthContextType,
     @Args('partId', { type: () => ID }) partId: string,
   ): Promise<PartInOrderModel[]> {
-    return this.procurementService.getOrdersWithPart(partId);
+    return this.procurementService.getOrdersWithPart(ctx, partId);
   }
 
   @Query(() => [SupplyBySupplierModel], {
@@ -42,10 +48,10 @@ export class WarehouseResolver {
     description: 'Список ожидаемых поставок по запчасти (по поставщикам)',
   })
   async suppliesByPart(
+    @AuthContext() ctx: AuthContextType,
     @Args('partId', { type: () => ID }) partId: string,
   ): Promise<SupplyBySupplierModel[]> {
-    const rows = await this.partSupplyService.getSuppliesByPart(partId);
-    return rows;
+    return this.partSupplyService.getSuppliesByPart(ctx, partId);
   }
 
   @Mutation(() => SupplyBySupplierModel, {
@@ -53,9 +59,11 @@ export class WarehouseResolver {
     description: 'Создать ручную поставку',
   })
   async createPartSupply(
+    @AuthContext() ctx: AuthContextType,
     @Args('input') input: CreatePartSupplyInput,
   ): Promise<{ supplierId: string; quantity: number; updatedAt: Date }> {
     const supply = await this.partSupplyService.createPartSupply(
+      ctx,
       input.partId,
       input.supplierId,
       input.quantity,
@@ -72,9 +80,11 @@ export class WarehouseResolver {
     description: 'Отменить поставку (удалить из ожидаемых)',
   })
   async cancelPartSupply(
+    @AuthContext() ctx: AuthContextType,
     @Args('input') input: CancelPartSupplyInput,
   ): Promise<boolean> {
     await this.partSupplyService.cancelPartSupply(
+      ctx,
       input.partId,
       input.supplierId,
       input.quantity,

@@ -4,7 +4,6 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { TenantService } from 'src/common/services/tenant.service';
 import { SettingsService } from 'src/modules/settings/settings.service';
 import { applyDefaultCurrency } from 'src/common/money';
 import { PartMotionService } from 'src/modules/warehouse/part-motion.service';
@@ -18,6 +17,7 @@ import { CreateIncomeInput } from './inputs/create-income.input';
 import { CreateIncomePartInput } from './inputs/create-income-part.input';
 import { UpdateIncomeInput } from './inputs/update-income.input';
 import { UpdateIncomePartInput } from './inputs/update-income-part.input';
+import type { AuthContext } from 'src/common/user-id.store';
 
 const DEFAULT_TAKE = 50;
 
@@ -25,7 +25,6 @@ const DEFAULT_TAKE = 50;
 export class IncomeService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly tenantService: TenantService,
     private readonly settingsService: SettingsService,
     private readonly partMotionService: PartMotionService,
     private readonly partSupplyService: PartSupplyService,
@@ -88,13 +87,14 @@ export class IncomeService {
     };
   }
 
-  async create(input: CreateIncomeInput): Promise<IncomeModel> {
-    const tenantId = await this.tenantService.getTenantId();
+  async create(ctx: AuthContext, input: CreateIncomeInput): Promise<IncomeModel> {
+    const { tenantId, userId } = ctx;
     const income = await this.prisma.income.create({
       data: {
         supplierId: input.supplierId,
         document: input.document ?? null,
         tenantId,
+        createdBy: userId,
       },
       include: {
         incomeAccrue: true,
@@ -106,9 +106,9 @@ export class IncomeService {
     return this.toIncomeModel(income);
   }
 
-  async findById(id: string): Promise<IncomeModel> {
+  async findById(ctx: AuthContext, id: string): Promise<IncomeModel> {
     const income = await this.prisma.income.findFirst({
-      where: { id, tenantId: await this.tenantService.getTenantId() },
+      where: { id, tenantId: ctx.tenantId },
       include: {
         incomeAccrue: true,
         incomeParts: {
@@ -123,11 +123,12 @@ export class IncomeService {
   }
 
   async findMany(
+    ctx: AuthContext,
     skip = 0,
     take = DEFAULT_TAKE,
     supplierId?: string,
   ): Promise<{ items: IncomeModel[]; total: number }> {
-    const tenantId = await this.tenantService.getTenantId();
+    const { tenantId } = ctx;
     const where = {
       tenantId,
       ...(supplierId ? { supplierId } : {}),
@@ -150,9 +151,8 @@ export class IncomeService {
     return { items: rows.map((r) => this.toIncomeModel(r)), total };
   }
 
-  async update(input: UpdateIncomeInput): Promise<IncomeModel> {
-    await this.ensureIncomeEditable(input.id);
-    const tenantId = await this.tenantService.getTenantId();
+  async update(ctx: AuthContext, input: UpdateIncomeInput): Promise<IncomeModel> {
+    await this.ensureIncomeEditable(ctx, input.id);
     const income = await this.prisma.income.update({
       where: { id: input.id },
       data: {
@@ -168,9 +168,9 @@ export class IncomeService {
     return this.toIncomeModel(income);
   }
 
-  private async ensureIncomeEditable(id: string): Promise<void> {
+  private async ensureIncomeEditable(ctx: AuthContext, id: string): Promise<void> {
     const income = await this.prisma.income.findFirst({
-      where: { id, tenantId: await this.tenantService.getTenantId() },
+      where: { id, tenantId: ctx.tenantId },
       include: { incomeAccrue: true },
     });
     if (!income) {
@@ -183,9 +183,9 @@ export class IncomeService {
     }
   }
 
-  async createIncomePart(input: CreateIncomePartInput): Promise<IncomePartModel> {
-    await this.ensureIncomeEditable(input.incomeId);
-    const tenantId = await this.tenantService.getTenantId();
+  async createIncomePart(ctx: AuthContext, input: CreateIncomePartInput): Promise<IncomePartModel> {
+    await this.ensureIncomeEditable(ctx, input.incomeId);
+    const { tenantId, userId } = ctx;
     const defaultCurrency =
       await this.settingsService.getDefaultCurrencyCode();
     const priceData = applyDefaultCurrency(input.price, defaultCurrency);
@@ -202,15 +202,16 @@ export class IncomeService {
         priceAmount: priceData.amountMinor,
         priceCurrencyCode: priceData.currencyCode,
         tenantId,
+        createdBy: userId,
       },
       include: { part: { include: { manufacturer: true } } },
     });
     return this.toIncomePartModel(part);
   }
 
-  async updateIncomePart(input: UpdateIncomePartInput): Promise<IncomePartModel> {
+  async updateIncomePart(ctx: AuthContext, input: UpdateIncomePartInput): Promise<IncomePartModel> {
     const existing = await this.prisma.incomePart.findFirst({
-      where: { id: input.id, tenantId: await this.tenantService.getTenantId() },
+      where: { id: input.id, tenantId: ctx.tenantId },
       include: { income: { include: { incomeAccrue: true } } },
     });
     if (!existing) {
@@ -250,9 +251,9 @@ export class IncomeService {
     return this.toIncomePartModel(updated);
   }
 
-  async deleteIncomePart(id: string): Promise<boolean> {
+  async deleteIncomePart(ctx: AuthContext, id: string): Promise<boolean> {
     const existing = await this.prisma.incomePart.findFirst({
-      where: { id, tenantId: await this.tenantService.getTenantId() },
+      where: { id, tenantId: ctx.tenantId },
       include: { income: { include: { incomeAccrue: true } } },
     });
     if (!existing) {
@@ -268,9 +269,9 @@ export class IncomeService {
     return true;
   }
 
-  async deleteIncome(id: string): Promise<boolean> {
+  async deleteIncome(ctx: AuthContext, id: string): Promise<boolean> {
     const income = await this.prisma.income.findFirst({
-      where: { id, tenantId: await this.tenantService.getTenantId() },
+      where: { id, tenantId: ctx.tenantId },
       include: { incomeAccrue: true },
     });
     if (!income) {
@@ -286,8 +287,8 @@ export class IncomeService {
     return true;
   }
 
-  async accrue(incomeId: string): Promise<IncomeModel> {
-    const tenantId = await this.tenantService.getTenantId();
+  async accrue(ctx: AuthContext, incomeId: string): Promise<IncomeModel> {
+    const { tenantId } = ctx;
     const income = await this.prisma.income.findFirst({
       where: { id: incomeId, tenantId },
       include: {
@@ -311,7 +312,7 @@ export class IncomeService {
 
     return this.prisma.$transaction(async (tx) => {
       await tx.incomeAccrue.create({
-        data: { incomeId, tenantId },
+        data: { incomeId, tenantId, createdBy: ctx.userId },
       });
 
       const supplierId = income.supplierId;
@@ -325,6 +326,7 @@ export class IncomeService {
             sourceId: incomeId,
           },
           tenantId,
+          ctx.userId,
         );
         await this.partSupplyService.decreaseSupplyForIncome(
           tx,
@@ -333,6 +335,7 @@ export class IncomeService {
           ip.quantity,
           incomeId,
           tenantId,
+          ctx.userId,
         );
       }
 
@@ -347,6 +350,7 @@ export class IncomeService {
           partId,
           qty,
           tenantId,
+          ctx.userId,
         );
         orderIds.forEach((oid) => allOrderIds.add(oid));
       }

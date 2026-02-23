@@ -2,7 +2,6 @@ import { Injectable, BadRequestException } from '@nestjs/common';
 import { Prisma } from 'src/generated/prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { Reservation } from 'src/generated/prisma/client';
-import { TenantService } from 'src/common/services/tenant.service';
 import { OrderStatus } from '../order/enums/order-status.enum';
 import { OrderService } from '../order/order.service';
 import type { AuthContext } from 'src/common/user-id.store';
@@ -29,7 +28,6 @@ export interface TransferReservationInput {
 export class ReservationService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly tenantService: TenantService,
     private readonly orderService: OrderService,
   ) {}
 
@@ -70,14 +68,13 @@ export class ReservationService {
    */
   async getTotalReservedInActiveOrdersByPartIds(
     partIds: string[],
-    tenantId?: string,
+    tenantId: string,
   ): Promise<Map<string, number>> {
-    const resolvedTenantId = tenantId ?? (await this.tenantService.getTenantId());
     if (partIds.length === 0) return new Map();
 
     const rows = await this.prisma.reservation.findMany({
       where: {
-        tenantId: resolvedTenantId,
+        tenantId,
         orderItemPart: {
           partId: { in: partIds },
           orderItem: {
@@ -101,20 +98,19 @@ export class ReservationService {
     return result;
   }
 
-  async getReservable(partId: string, tenantId?: string): Promise<number> {
-    const resolvedTenantId = tenantId ?? (await this.tenantService.getTenantId());
-    const stockQuantity = await this.getStockQuantity(partId, resolvedTenantId);
+  async getReservable(partId: string, tenantId: string): Promise<number> {
+    const stockQuantity = await this.getStockQuantity(partId, tenantId);
     const totalReservedActive = await this.getTotalReservedInActiveOrders(
       partId,
-      resolvedTenantId,
+      tenantId,
     );
     return stockQuantity - totalReservedActive;
   }
 
   async getReservationSources(
     partId: string,
-    excludeOrderId?: string,
-    tenantId?: string,
+    excludeOrderId: string | undefined,
+    tenantId: string,
   ): Promise<
     Array<{
       orderId: string;
@@ -126,12 +122,10 @@ export class ReservationService {
       carName: string | null;
     }>
   > {
-    const resolvedTenantId = tenantId ?? (await this.tenantService.getTenantId());
-
     const groups = await this.prisma.reservation.groupBy({
       by: ['orderItemPartId'],
       where: {
-        tenantId: resolvedTenantId,
+        tenantId,
         orderItemPart: {
           partId,
           orderItem: {
@@ -331,6 +325,7 @@ export class ReservationService {
           orderItemPartId: toOrderItemPartId,
           quantity,
           tenantId,
+          createdBy: ctx.userId,
         },
       });
 
@@ -394,6 +389,7 @@ export class ReservationService {
         orderItemPartId,
         quantity,
         tenantId,
+        createdBy: ctx.userId,
       },
     });
   }
@@ -408,6 +404,7 @@ export class ReservationService {
     partId: string,
     quantityAvailable: number,
     tenantId: string,
+    createdBy: string | null,
   ): Promise<string[]> {
     if (quantityAvailable <= 0) return [];
 
@@ -462,6 +459,7 @@ export class ReservationService {
           orderItemPartId: oip.id,
           quantity: toReserve,
           tenantId,
+          createdBy,
         },
       });
       remaining -= toReserve;
