@@ -6,13 +6,25 @@ import {
   PartialType,
   registerEnumType,
 } from '@nestjs/graphql';
+import {
+  IsDate,
+  IsEnum,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Matches,
+  MaxLength,
+} from 'class-validator';
+
+const ISO_DURATION_PATTERN =
+  /^(?:PT(?:(?:\d+H)?(?:\d+M)?(?:\d+S)?)|[+-]?P(?:\d+Y)?(?:\d+M)?(?:\d+D)?T(?:(?:\d+H)?(?:\d+M)?(?:\d+S)?))$/i;
 
 export enum DeletionReason {
-  NO_REASON = 1,
-  PLAN_ANOTHER_TIME = 2,
-  NOT_HAVE_TIME_TO_ARRIVE = 3,
-  SOLVE_PROBLEM_WITHOUT_SERVICE = 4,
-  WE_ARE_CONDOMS = 5,
+  NO_REASON = 'NO_REASON',
+  PLAN_ANOTHER_TIME = 'PLAN_ANOTHER_TIME',
+  NOT_HAVE_TIME_TO_ARRIVE = 'NOT_HAVE_TIME_TO_ARRIVE',
+  SOLVE_PROBLEM_WITHOUT_SERVICE = 'SOLVE_PROBLEM_WITHOUT_SERVICE',
+  WE_ARE_CONDOMS = 'WE_ARE_CONDOMS',
 }
 
 export const DeletionReasonLabels: Record<DeletionReason, string> = {
@@ -33,22 +45,34 @@ registerEnumType(DeletionReason, {
 
 @InputType()
 export class CreateCalendarEntryInput {
-  @Field(() => ID, { nullable: true, name: 'car' })
+  @Field(() => ID, { nullable: true })
+  @IsOptional()
+  @IsUUID()
   carId?: string;
 
-  @Field(() => ID, { nullable: true, name: 'customer' })
+  @Field(() => ID, { nullable: true })
+  @IsOptional()
+  @IsUUID()
   customerId?: string;
 
-  @Field(() => ID, { nullable: true, name: 'worker' })
+  @Field(() => ID, { nullable: true })
+  @IsOptional()
+  @IsUUID()
   workerId?: string;
 
-  @Field(() => Date, { name: 'startDate' })
+  @Field(() => Date)
+  @IsDate()
   date: Date;
 
   @Field(() => String)
+  @IsString()
+  @Matches(ISO_DURATION_PATTERN, { message: 'duration must be valid ISO 8601 duration' })
   duration: string;
 
-  @Field(() => String, { nullable: true, name: 'description' })
+  @Field(() => String, { nullable: true })
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
   description?: string;
 }
 
@@ -56,24 +80,24 @@ export class CreateCalendarEntryInput {
 export class UpdateCalendarEntryInput extends PartialType(
   OmitType(CreateCalendarEntryInput, ['carId', 'customerId']),
 ) {
-  @Field(() => ID, { name: 'CalendarEntryId' })
+  @Field(() => ID)
+  @IsUUID()
   id: string;
-
-  @Field(() => Date, { name: 'startDate' })
-  date: Date;
-
-  @Field(() => String)
-  duration: string;
 }
 
 @InputType()
 export class DeleteCalendarEntryInput {
-  @Field(() => ID, { name: 'CalendarEntryId' })
+  @Field(() => ID)
+  @IsUUID()
   id: string;
 
-  @Field(() => DeletionReason, { name: 'reason' })
-  reason: number;
+  @Field(() => DeletionReason)
+  @IsEnum(DeletionReason)
+  reason: DeletionReason;
 
-  @Field(() => String, { nullable: true, name: 'description' })
+  @Field(() => String, { nullable: true })
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
   description?: string;
 }

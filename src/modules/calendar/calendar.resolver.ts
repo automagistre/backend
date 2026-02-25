@@ -1,0 +1,172 @@
+import {
+  Args,
+  ID,
+  Mutation,
+  Parent,
+  Query,
+  ResolveField,
+  Resolver,
+} from '@nestjs/graphql';
+import { AuthContext } from 'src/common/decorators/auth-context.decorator';
+import { RequireTenant } from 'src/common/decorators/skip-tenant.decorator';
+import type { AuthContext as AuthContextType } from 'src/common/user-id.store';
+import { EmployeeService } from '../employee/employee.service';
+import { PersonService } from '../person/person.service';
+import { CarService } from '../vehicle/car.service';
+import { CalendarService } from './calendar.service';
+import {
+  CreateCalendarEntryInput,
+  DeleteCalendarEntryInput,
+  UpdateCalendarEntryInput,
+} from './inputs/calendarEntry.input';
+import { CalendarEntryModel } from './models/calendar-entry.model';
+import { CalendarEntryOrderInfoModel } from './models/calendar-entry-order-info.model';
+import { CalendarEntryScheduleModel } from './models/calendar-entry-schedule.model';
+import { EmployeeModel } from '../employee/models/employee.model';
+import { PersonModel } from '../person/models/person.model';
+import { CarModel } from '../vehicle/models/car.model';
+
+@Resolver(() => CalendarEntryModel)
+@RequireTenant()
+export class CalendarResolver {
+  constructor(private readonly calendarService: CalendarService) {}
+
+  @Query(() => CalendarEntryModel, {
+    nullable: true,
+    name: 'calendarEntry',
+    description: 'Запись календаря по ID',
+  })
+  async getCalendarEntry(
+    @AuthContext() ctx: AuthContextType,
+    @Args('id', { type: () => ID }) id: string,
+  ): Promise<CalendarEntryModel | null> {
+    return (await this.calendarService.getEntry(
+      ctx,
+      id,
+    )) as CalendarEntryModel | null;
+  }
+
+  @Query(() => [CalendarEntryModel], {
+    name: 'calendarEntriesByDate',
+    description: 'Список записей календаря за день',
+  })
+  async getCalendarEntriesByDate(
+    @AuthContext() ctx: AuthContextType,
+    @Args('date', { type: () => Date }) date: Date,
+  ): Promise<CalendarEntryModel[]> {
+    return (await this.calendarService.getEntriesByDate(
+      ctx,
+      date,
+    )) as CalendarEntryModel[];
+  }
+
+  @Mutation(() => CalendarEntryModel, {
+    name: 'createCalendarEntry',
+    description: 'Создать запись календаря',
+  })
+  async createCalendarEntry(
+    @AuthContext() ctx: AuthContextType,
+    @Args('input') input: CreateCalendarEntryInput,
+  ): Promise<CalendarEntryModel> {
+    return (await this.calendarService.createEntry(
+      ctx,
+      input,
+    )) as CalendarEntryModel;
+  }
+
+  @Mutation(() => CalendarEntryModel, {
+    nullable: true,
+    name: 'updateCalendarEntry',
+    description: 'Обновить запись календаря',
+  })
+  async updateCalendarEntry(
+    @AuthContext() ctx: AuthContextType,
+    @Args('input') input: UpdateCalendarEntryInput,
+  ): Promise<CalendarEntryModel | null> {
+    return (await this.calendarService.updateEntry(
+      ctx,
+      input,
+    )) as CalendarEntryModel | null;
+  }
+
+  @Mutation(() => Boolean, {
+    name: 'deleteCalendarEntry',
+    description: 'Удалить запись календаря',
+  })
+  async deleteCalendarEntry(
+    @AuthContext() ctx: AuthContextType,
+    @Args('input') input: DeleteCalendarEntryInput,
+  ): Promise<boolean> {
+    await this.calendarService.deleteEntry(ctx, input);
+    return true;
+  }
+
+  @ResolveField(() => CalendarEntryScheduleModel, { nullable: true })
+  schedule(
+    @Parent() entry: CalendarEntryModel,
+  ): CalendarEntryScheduleModel | null {
+    return entry.calendarEntrySchedule?.[0] ?? null;
+  }
+
+  @ResolveField(() => CalendarEntryOrderInfoModel, { nullable: true })
+  orderInfo(
+    @Parent() entry: CalendarEntryModel,
+  ): CalendarEntryOrderInfoModel | null {
+    return entry.calendarEntryOrderInfo?.[0] ?? null;
+  }
+}
+
+@Resolver(() => CalendarEntryOrderInfoModel)
+@RequireTenant()
+export class CalendarEntryOrderInfoResolver {
+  constructor(
+    private readonly employeeService: EmployeeService,
+    private readonly personService: PersonService,
+    private readonly carService: CarService,
+  ) {}
+
+  @ResolveField(() => PersonModel, { nullable: true })
+  async customer(
+    @AuthContext() ctx: AuthContextType,
+    @Parent() orderInfo: CalendarEntryOrderInfoModel,
+  ): Promise<PersonModel | null> {
+    if (orderInfo.customer !== undefined) {
+      return orderInfo.customer ?? null;
+    }
+    if (!orderInfo.customerId) {
+      return null;
+    }
+    return (await this.personService.findOne(
+      ctx,
+      orderInfo.customerId,
+    )) as PersonModel | null;
+  }
+
+  @ResolveField(() => CarModel, { nullable: true })
+  async car(
+    @AuthContext() ctx: AuthContextType,
+    @Parent() orderInfo: CalendarEntryOrderInfoModel,
+  ): Promise<CarModel | null> {
+    if (!orderInfo.carId) {
+      return null;
+    }
+    return (await this.carService.findById(
+      ctx,
+      orderInfo.carId,
+    )) as CarModel | null;
+  }
+
+  @ResolveField(() => EmployeeModel, { nullable: true })
+  async worker(
+    @AuthContext() ctx: AuthContextType,
+    @Parent() orderInfo: CalendarEntryOrderInfoModel,
+  ): Promise<EmployeeModel | null> {
+    if (!orderInfo.workerId) {
+      return null;
+    }
+    return (await this.employeeService.resolveEmployeeByWorkerId(
+      ctx,
+      orderInfo.workerId,
+    )) as EmployeeModel | null;
+  }
+}
