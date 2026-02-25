@@ -1,8 +1,7 @@
 import { PassportStrategy } from '@nestjs/passport';
 import { Strategy } from 'passport-http-bearer';
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { AuthenticationError } from '@nestjs/apollo';
 import { JwtPayload } from '../dto/jwt.payload';
 
 @Injectable()
@@ -50,10 +49,10 @@ export class TokenIntrospectionStrategy extends PassportStrategy(
       };
 
       if (!result.active) {
-        throw new AuthenticationError('Token is not active');
+        throw new UnauthorizedException('Token is not active');
       }
       if (!result.sub || !result.email) {
-        throw new AuthenticationError(
+        throw new UnauthorizedException(
           'Токен не содержит необходимых данных. Войдите снова.',
         );
       }
@@ -70,11 +69,11 @@ export class TokenIntrospectionStrategy extends PassportStrategy(
         realm_roles: realmRoles.length > 0 ? realmRoles : undefined,
       };
     } catch (error) {
-      if (error instanceof AuthenticationError) {
+      if (error instanceof UnauthorizedException) {
         throw error;
       }
       console.error('Token introspection failed:', error);
-      throw new AuthenticationError('Failed to verify token with the provider');
+      throw new UnauthorizedException('Failed to verify token with the provider');
     }
   }
 }
