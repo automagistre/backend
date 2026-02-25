@@ -27,7 +27,11 @@ export class WalletTransactionResolver {
     @AuthContextDecorator() ctx: AuthContextType,
     @Parent() tx: { source: number; sourceId: string },
   ): Promise<string> {
-    return this.walletTransactionService.getSourceDisplay(ctx, tx.source, tx.sourceId);
+    return this.walletTransactionService.getSourceDisplay(
+      ctx,
+      tx.source,
+      tx.sourceId,
+    );
   }
 
   @RequireTenant()

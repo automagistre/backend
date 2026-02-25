@@ -24,7 +24,10 @@ export class ReviewModel {
   @Field(() => Date, { description: 'Дата публикации' })
   publishAt: Date;
 
-  @Field(() => GraphQLJSON, { nullable: true, description: 'Сырые данные источника (Yell: link, score, user и т.д.)' })
+  @Field(() => GraphQLJSON, {
+    nullable: true,
+    description: 'Сырые данные источника (Yell: link, score, user и т.д.)',
+  })
   raw: unknown;
 
   @Field(() => String)

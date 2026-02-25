@@ -1,4 +1,13 @@
-import { Args, ID, Int, Mutation, Parent, Query, ResolveField, Resolver } from '@nestjs/graphql';
+import {
+  Args,
+  ID,
+  Int,
+  Mutation,
+  Parent,
+  Query,
+  ResolveField,
+  Resolver,
+} from '@nestjs/graphql';
 import { OrganizationService } from 'src/modules/organization/organization.service';
 import { PersonService } from 'src/modules/person/person.service';
 import { IncomeService } from './income.service';
@@ -27,7 +36,10 @@ export class IncomeResolver {
     @AuthContext() ctx: AuthContextType,
     @Parent() income: { supplierId: string },
   ) {
-    const organization = await this.organizationService.findOne(ctx, income.supplierId);
+    const organization = await this.organizationService.findOne(
+      ctx,
+      income.supplierId,
+    );
     if (organization) return organization;
     return this.personService.findOne(ctx, income.supplierId);
   }
@@ -52,9 +64,21 @@ export class IncomeResolver {
     @Args('skip', { type: () => Int, nullable: true }) skip?: number,
     @Args('take', { type: () => Int, nullable: true }) take?: number,
     @Args('supplierId', { type: () => ID, nullable: true }) supplierId?: string,
-    @Args('partId', { type: () => ID, nullable: true, description: 'Фильтр по запчасти (возвращает приходы содержащие запчасть)' }) partId?: string,
+    @Args('partId', {
+      type: () => ID,
+      nullable: true,
+      description:
+        'Фильтр по запчасти (возвращает приходы содержащие запчасть)',
+    })
+    partId?: string,
   ): Promise<PaginatedIncomes> {
-    return this.incomeService.findMany(ctx, skip ?? 0, take ?? 50, supplierId, partId);
+    return this.incomeService.findMany(
+      ctx,
+      skip ?? 0,
+      take ?? 50,
+      supplierId,
+      partId,
+    );
   }
 
   @Mutation(() => IncomeModel, {
@@ -70,7 +94,8 @@ export class IncomeResolver {
 
   @Mutation(() => IncomeModel, {
     name: 'updateIncome',
-    description: 'Обновить приход (номер документа, только если не оприходован)',
+    description:
+      'Обновить приход (номер документа, только если не оприходован)',
   })
   async updateIncome(
     @AuthContext() ctx: AuthContextType,

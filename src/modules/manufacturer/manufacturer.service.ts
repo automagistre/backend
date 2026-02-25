@@ -66,7 +66,10 @@ export class ManufacturerService {
     return await this.prismaService.manufacturer.findUnique({ where: { id } });
   }
 
-  async create(ctx: UserContext, input: CreateManufacturerInput): Promise<ManufacturerModel> {
+  async create(
+    ctx: UserContext,
+    input: CreateManufacturerInput,
+  ): Promise<ManufacturerModel> {
     const manufacturer = await this.prismaService.manufacturer.create({
       data: {
         ...input,

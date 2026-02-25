@@ -1,4 +1,8 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import {
   CreateEmployeeInput,
@@ -127,13 +131,19 @@ export class EmployeeService {
     });
   }
 
-  async resolvePersonIdByEmployeeId(ctx: AuthContext, employeeId: string | null): Promise<string | null> {
+  async resolvePersonIdByEmployeeId(
+    ctx: AuthContext,
+    employeeId: string | null,
+  ): Promise<string | null> {
     if (!employeeId) return null;
     const employee = await this.findOne(ctx, employeeId);
     return employee?.personId ?? null;
   }
 
-  async resolveEmployeeIdByPersonId(ctx: AuthContext, personId: string | null): Promise<string | null> {
+  async resolveEmployeeIdByPersonId(
+    ctx: AuthContext,
+    personId: string | null,
+  ): Promise<string | null> {
     if (!personId) return null;
     const employee = await this.findByPersonId(ctx, personId);
     return employee?.id ?? null;
@@ -145,7 +155,10 @@ export class EmployeeService {
     return this.findOne(ctx, workerId);
   }
 
-  async resolvePersonIdByWorkerId(ctx: AuthContext, workerId: string | null): Promise<string | null> {
+  async resolvePersonIdByWorkerId(
+    ctx: AuthContext,
+    workerId: string | null,
+  ): Promise<string | null> {
     if (!workerId) return null;
     const byPerson = await this.findByPersonId(ctx, workerId);
     if (byPerson) return byPerson.personId;

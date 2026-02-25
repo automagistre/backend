@@ -35,7 +35,10 @@ import { PaginationArgs } from 'src/common/pagination.args';
 import { PaginatedOrders } from './inputs/paginatedOrders.type';
 import { OrderStatus } from './enums/order-status.enum';
 import { AuthContext } from 'src/common/decorators/auth-context.decorator';
-import { RequireTenant, SkipTenant } from 'src/common/decorators/skip-tenant.decorator';
+import {
+  RequireTenant,
+  SkipTenant,
+} from 'src/common/decorators/skip-tenant.decorator';
 import type { AuthContext as AuthContextType } from 'src/common/user-id.store';
 
 @Resolver(() => OrderModel)
@@ -108,7 +111,8 @@ export class OrderResolver {
 
   @Mutation(() => WalletTransactionModel, {
     name: 'createOrderPrepay',
-    description: 'Создать предоплату по заказу (order_payment + проводка по кошельку в одной транзакции)',
+    description:
+      'Создать предоплату по заказу (order_payment + проводка по кошельку в одной транзакции)',
   })
   async createOrderPrepay(
     @AuthContext() ctx: AuthContextType,
@@ -119,7 +123,8 @@ export class OrderResolver {
 
   @Mutation(() => WalletTransactionModel, {
     name: 'refundOrderPrepay',
-    description: 'Возврат предоплаты: order_payment с отрицательной суммой + проводка списания по выбранному счёту',
+    description:
+      'Возврат предоплаты: order_payment с отрицательной суммой + проводка списания по выбранному счёту',
   })
   async refundOrderPrepay(
     @AuthContext() ctx: AuthContextType,
@@ -186,7 +191,10 @@ export class OrderResolver {
     if (!order.carId) {
       return null;
     }
-    return (await this.carService.findById(ctx, order.carId)) as CarModel | null;
+    return (await this.carService.findById(
+      ctx,
+      order.carId,
+    )) as CarModel | null;
   }
 
   @ResolveField(() => PersonModel, { nullable: true })
@@ -197,7 +205,10 @@ export class OrderResolver {
     if (!order.customerId) {
       return null;
     }
-    return (await this.personService.findOne(ctx, order.customerId)) as PersonModel | null;
+    return (await this.personService.findOne(
+      ctx,
+      order.customerId,
+    )) as PersonModel | null;
   }
 
   @ResolveField(() => EmployeeModel, { nullable: true })
@@ -208,7 +219,10 @@ export class OrderResolver {
     if (!order.workerId) {
       return null;
     }
-    return (await this.employeeService.findOne(ctx, order.workerId)) as EmployeeModel | null;
+    return (await this.employeeService.findOne(
+      ctx,
+      order.workerId,
+    )) as EmployeeModel | null;
   }
 
   @ResolveField(() => Date, { nullable: true })

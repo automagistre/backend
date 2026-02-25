@@ -11,7 +11,7 @@ import { CarModel, CarNumber, VehicleIdentifier } from './models/car.model';
 import { VINScalar } from 'src/common/scalars/vin.scalar';
 import { Car } from '@prisma/client';
 import { GosNomerRUScalar } from 'src/common/scalars/gosnomer-ru.scalar';
-import { CreateCarInput, UpdateCarInput} from './inputs/car.input';
+import { CreateCarInput, UpdateCarInput } from './inputs/car.input';
 import { PaginationArgs } from 'src/common/pagination.args';
 import { PaginatedCars } from './inputs/paginatedCar.type';
 import { AuthContext } from 'src/common/decorators/auth-context.decorator';
@@ -108,7 +108,10 @@ export class CarResolver {
     @AuthContext() ctx: AuthContextType,
     @Args('identifier') identifier: string,
   ): Promise<CarModel | null> {
-    return (await this.carService.findByIdentifier(ctx, identifier)) as CarModel;
+    return (await this.carService.findByIdentifier(
+      ctx,
+      identifier,
+    )) as CarModel;
   }
 
   @Mutation(() => CarModel, { name: 'createOneCar' })
@@ -116,7 +119,10 @@ export class CarResolver {
     @AuthContext() ctx: AuthContextType,
     @Args('input') input: CreateCarInput,
   ): Promise<CarModel> {
-    return (await this.carService.create(ctx, this.parseInput(input))) as CarModel;
+    return (await this.carService.create(
+      ctx,
+      this.parseInput(input),
+    )) as CarModel;
   }
 
   @Mutation(() => CarModel, { name: 'updateOneCar' })
@@ -124,7 +130,10 @@ export class CarResolver {
     @AuthContext() ctx: AuthContextType,
     @Args('input') input: UpdateCarInput,
   ): Promise<CarModel> {
-    return (await this.carService.update(ctx, this.parseInput(input))) as CarModel;
+    return (await this.carService.update(
+      ctx,
+      this.parseInput(input),
+    )) as CarModel;
   }
 
   @Mutation(() => CarModel, { name: 'deleteOneCar' })

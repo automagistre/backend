@@ -22,7 +22,8 @@ export class McEquipmentResolver {
     @AuthContext() ctx: AuthContextType,
     @Args() pagination?: PaginationArgs,
     @Args('search', { type: () => String, nullable: true }) search?: string,
-    @Args('vehicleId', { type: () => String, nullable: true }) vehicleId?: string,
+    @Args('vehicleId', { type: () => String, nullable: true })
+    vehicleId?: string,
     @Args('period', { type: () => Number, nullable: true }) period?: number,
   ) {
     const { take = 25, skip = 0 } = pagination ?? {};

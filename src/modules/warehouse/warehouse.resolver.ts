@@ -25,7 +25,8 @@ export class WarehouseResolver {
 
   @Query(() => ProcurementTableResult, {
     name: 'procurementTable',
-    description: 'Таблица Закупки: наличие, в заказах, в резерве, в поставке, нужно заказать',
+    description:
+      'Таблица Закупки: наличие, в заказах, в резерве, в поставке, нужно заказать',
   })
   async procurementTable(
     @AuthContext() ctx: AuthContextType,
@@ -33,12 +34,17 @@ export class WarehouseResolver {
     @Args('take', { type: () => Int, defaultValue: 25 }) take: number,
     @Args('search', { type: () => String, nullable: true }) search?: string,
   ): Promise<{ items: ProcurementRowModel[]; total: number }> {
-    return this.procurementService.getProcurementTable(ctx, { skip, take, search });
+    return this.procurementService.getProcurementTable(ctx, {
+      skip,
+      take,
+      search,
+    });
   }
 
   @Query(() => [PartInOrderModel], {
     name: 'ordersWithPart',
-    description: 'Заказы, в которых содержится запчасть (активные), с кол-вом и резервом',
+    description:
+      'Заказы, в которых содержится запчасть (активные), с кол-вом и резервом',
   })
   async ordersWithPart(
     @AuthContext() ctx: AuthContextType,
@@ -102,7 +108,8 @@ export class WarehouseResolver {
   })
   async motions(
     @AuthContext() ctx: AuthContextType,
-    @Args('filter', { type: () => MotionFilterInput, nullable: true }) filter?: MotionFilterInput,
+    @Args('filter', { type: () => MotionFilterInput, nullable: true })
+    filter?: MotionFilterInput,
     @Args('skip', { type: () => Int, nullable: true }) skip?: number,
     @Args('take', { type: () => Int, nullable: true }) take?: number,
   ): Promise<PaginatedMotions> {

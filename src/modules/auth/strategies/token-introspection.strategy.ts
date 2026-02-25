@@ -74,9 +74,7 @@ export class TokenIntrospectionStrategy extends PassportStrategy(
         throw error;
       }
       console.error('Token introspection failed:', error);
-      throw new AuthenticationError(
-        'Failed to verify token with the provider',
-      );
+      throw new AuthenticationError('Failed to verify token with the provider');
     }
   }
 }

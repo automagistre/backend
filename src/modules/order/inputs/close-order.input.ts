@@ -32,7 +32,8 @@ export class CloseOrderInput {
   @Type(() => CloseOrderPaymentItem)
   @Field(() => [CloseOrderPaymentItem], {
     nullable: true,
-    description: 'Платежи при закрытии: сколько на какой счёт внесено (без order_payment)',
+    description:
+      'Платежи при закрытии: сколько на какой счёт внесено (без order_payment)',
   })
   payments?: CloseOrderPaymentItem[] | null;
 }

@@ -21,6 +21,9 @@ export class ExpenseModel implements Expense {
 
   createdBy: string | null;
 
-  @Field(() => WalletModel, { nullable: true, description: 'Счёт по умолчанию' })
+  @Field(() => WalletModel, {
+    nullable: true,
+    description: 'Счёт по умолчанию',
+  })
   wallet?: WalletModel | null;
 }

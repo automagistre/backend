@@ -20,4 +20,3 @@ export class CreateCarRecommendationPartInput {
   @IsOptional()
   price?: MoneyInput;
 }
-

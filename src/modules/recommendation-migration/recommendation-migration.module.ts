@@ -8,7 +8,10 @@ import { RecommendationMigrationResolver } from 'src/modules/recommendation-migr
 
 @Module({
   imports: [PrismaModule, OrderModule, EmployeeModule, RecommendationModule],
-  providers: [RecommendationWorkMigrationService, RecommendationMigrationResolver],
+  providers: [
+    RecommendationWorkMigrationService,
+    RecommendationMigrationResolver,
+  ],
   exports: [RecommendationWorkMigrationService],
 })
 export class RecommendationMigrationModule {}

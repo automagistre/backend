@@ -115,7 +115,10 @@ export class OrderService {
       );
     }
     const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
-    const { currencyCode } = applyDefaultCurrency(input.amount, defaultCurrency);
+    const { currencyCode } = applyDefaultCurrency(
+      input.amount,
+      defaultCurrency,
+    );
     return this.prisma.$transaction(async (tx) => {
       await tx.orderPayment.create({
         data: {
@@ -169,7 +172,7 @@ export class OrderService {
       if (item.part) {
         const p = item.part.priceAmount ?? 0n;
         const d = item.part.discountAmount ?? 0n;
-        total += (p - d) * BigInt(item.part.quantity) / 100n;
+        total += ((p - d) * BigInt(item.part.quantity)) / 100n;
       }
     }
     return total;
@@ -178,14 +181,20 @@ export class OrderService {
   async getDisplayContext(ctx: AuthContext, orderId: string): Promise<string> {
     const order = await this.prisma.order.findFirst({
       where: { id: orderId, tenantId: ctx.tenantId },
-      select: { number: true, customerId: true, customer: { select: { lastname: true, firstname: true } } },
+      select: {
+        number: true,
+        customerId: true,
+        customer: { select: { lastname: true, firstname: true } },
+      },
     });
     if (!order) return '';
     const parts = [`№${order.number}`];
     if (order.customerId) {
       const personName =
         order.customer &&
-        [order.customer.lastname, order.customer.firstname].filter(Boolean).join(' ');
+        [order.customer.lastname, order.customer.firstname]
+          .filter(Boolean)
+          .join(' ');
       if (personName) {
         parts.push(personName);
       } else {
@@ -303,7 +312,7 @@ export class OrderService {
         and.push({ OR: searchOr });
       }
     }
-    return and.length === 1 ? (and[0] as Record<string, unknown>) : { AND: and };
+    return and.length === 1 ? and[0] : { AND: and };
   }
 
   private async checkCanDelete(
@@ -383,7 +392,10 @@ export class OrderService {
     return close.orderDeal?.createdAt ?? close.orderCancel?.createdAt ?? null;
   }
 
-  private getBusinessDayRange(now: Date = new Date()): { start: Date; end: Date } {
+  private getBusinessDayRange(now: Date = new Date()): {
+    start: Date;
+    end: Date;
+  } {
     const shifted = new Date(now);
     shifted.setHours(shifted.getHours() - 3);
 
@@ -418,8 +430,7 @@ export class OrderService {
 
   private isBlockedByStatus(orderStatus: OrderStatus): boolean {
     return (
-      orderStatus == OrderStatus.CLOSED ||
-      orderStatus == OrderStatus.CANCELLED
+      orderStatus == OrderStatus.CLOSED || orderStatus == OrderStatus.CANCELLED
     );
   }
 
@@ -429,10 +440,13 @@ export class OrderService {
       select: { status: true },
     });
     if (!order) return false;
-    return !this.isBlockedByStatus(order.status)
+    return !this.isBlockedByStatus(order.status);
   }
 
-  async getCloseValidation(ctx: AuthContext, orderId: string): Promise<{
+  async getCloseValidation(
+    ctx: AuthContext,
+    orderId: string,
+  ): Promise<{
     canClose: boolean;
     closeDeficiencies: string[];
   }> {
@@ -477,7 +491,11 @@ export class OrderService {
       deficiencies.push('MILEAGE_MISSING');
     }
 
-    type ItemWithService = { type: string; service?: { workerId: string | null } | null; children?: ItemWithService[] };
+    type ItemWithService = {
+      type: string;
+      service?: { workerId: string | null } | null;
+      children?: ItemWithService[];
+    };
     const hasServiceWithoutWorker = (item: ItemWithService): boolean => {
       if (item.type === '1' && item.service && item.service.workerId == null) {
         return true;
@@ -495,7 +513,10 @@ export class OrderService {
     };
   }
 
-  async validateOrderEditable(ctx: AuthContext, orderId: string): Promise<void> {
+  async validateOrderEditable(
+    ctx: AuthContext,
+    orderId: string,
+  ): Promise<void> {
     const order = await this.prisma.order.findFirst({
       where: { id: orderId, tenantId: ctx.tenantId },
       select: { status: true },
@@ -622,7 +643,10 @@ export class OrderService {
    * Закрыть заказ: OrderClose + OrderDeal, платежи при закрытии, перенос предоплат, списание заказа, статус CLOSED, затем зарплата по работам.
    * В OrderDeal.balance сохраняется баланс заказчика на момент закрытия до списания/начисления по заказу.
    */
-  async closeOrder(ctx: AuthContext, input: CloseOrderInput): Promise<OrderModel> {
+  async closeOrder(
+    ctx: AuthContext,
+    input: CloseOrderInput,
+  ): Promise<OrderModel> {
     const { tenantId, userId } = ctx;
     const order = await this.prisma.order.findFirst({
       where: { id: input.orderId, tenantId },
@@ -643,9 +667,7 @@ export class OrderService {
       const details = closeValidation.closeDeficiencies
         .map((d) => messages[d] ?? d)
         .join('; ');
-      throw new BadRequestException(
-        `Нельзя закрыть заказ: ${details}`,
-      );
+      throw new BadRequestException(`Нельзя закрыть заказ: ${details}`);
     }
 
     const payments = input.payments ?? [];
@@ -668,7 +690,10 @@ export class OrderService {
     const satisfaction = input.satisfaction ?? 0;
     const balance =
       order.customerId != null
-        ? await this.customerTransactionService.getBalance(ctx, order.customerId)
+        ? await this.customerTransactionService.getBalance(
+            ctx,
+            order.customerId,
+          )
         : 0n;
     const orderTotal = await this.getOrderTotal(ctx, input.orderId);
 
@@ -748,10 +773,7 @@ export class OrderService {
         }
       }
 
-      if (
-        order.customerId != null &&
-        orderTotal > 0n
-      ) {
+      if (order.customerId != null && orderTotal > 0n) {
         await this.customerTransactionService.createWithinTransaction(
           tx,
           {
@@ -784,7 +806,10 @@ export class OrderService {
   async ensureOrderClosed(ctx: AuthContext, orderId: string): Promise<void> {
     const order = await this.prisma.order.findFirst({
       where: { id: orderId, tenantId: ctx.tenantId },
-      select: { id: true, close: { select: { orderDeal: { select: { id: true } } } } },
+      select: {
+        id: true,
+        close: { select: { orderDeal: { select: { id: true } } } },
+      },
     });
     if (!order) {
       throw new NotFoundException(`Заказ с ID ${orderId} не найден`);

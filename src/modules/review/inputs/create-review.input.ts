@@ -1,5 +1,13 @@
 import { Field, Int, InputType } from '@nestjs/graphql';
-import { IsInt, IsOptional, IsString, Max, MaxLength, Min, MinLength } from 'class-validator';
+import {
+  IsInt,
+  IsOptional,
+  IsString,
+  Max,
+  MaxLength,
+  Min,
+  MinLength,
+} from 'class-validator';
 
 @InputType()
 export class CreateReviewInput {
@@ -24,10 +32,16 @@ export class CreateReviewInput {
   @IsInt()
   @Min(0)
   @Max(5)
-  @Field(() => Int, { nullable: true, description: 'Источник (0–5), по умолчанию 2 — внутренний' })
+  @Field(() => Int, {
+    nullable: true,
+    description: 'Источник (0–5), по умолчанию 2 — внутренний',
+  })
   source?: number;
 
   @IsOptional()
-  @Field(() => Date, { nullable: true, description: 'Дата публикации, по умолчанию — сейчас' })
+  @Field(() => Date, {
+    nullable: true,
+    description: 'Дата публикации, по умолчанию — сейчас',
+  })
   publishAt?: Date;
 }

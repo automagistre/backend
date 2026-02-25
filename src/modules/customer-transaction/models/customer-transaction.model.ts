@@ -14,7 +14,9 @@ export class CustomerTransactionModel implements CustomerTransaction {
   @Field(() => ID)
   id: string;
 
-  @Field(() => String, { description: 'ID заказчика (Person или Organization)' })
+  @Field(() => String, {
+    description: 'ID заказчика (Person или Organization)',
+  })
   operandId: string;
 
   @IsInt()
@@ -55,7 +57,8 @@ export class CustomerTransactionModel implements CustomerTransaction {
 
   /** Контекстная строка для отображения (номер заказа, название счёта и т.д.). */
   @Field(() => String, {
-    description: 'Строка объекта для отображения. Фронт склеивает с меткой типа.',
+    description:
+      'Строка объекта для отображения. Фронт склеивает с меткой типа.',
   })
   sourceDisplay?: string;
 }

@@ -14,6 +14,8 @@ export class CreateEmployeeSalaryInput {
   @Max(31)
   payday: number;
 
-  @Field(() => MoneyInput, { description: 'Сумма в минорных единицах (копейки)' })
+  @Field(() => MoneyInput, {
+    description: 'Сумма в минорных единицах (копейки)',
+  })
   amount: MoneyInput;
 }

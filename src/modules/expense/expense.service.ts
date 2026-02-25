@@ -1,4 +1,8 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateExpenseInput } from './inputs/create-expense.input';
 import { UpdateExpenseInput } from './inputs/update-expense.input';
@@ -112,7 +116,10 @@ export class ExpenseService {
     });
   }
 
-  async createExpenseTransaction(ctx: AuthContext, input: CreateExpenseTransactionInput) {
+  async createExpenseTransaction(
+    ctx: AuthContext,
+    input: CreateExpenseTransactionInput,
+  ) {
     const expense = await this.findOne(ctx, input.expenseId);
     if (!expense) throw new NotFoundException('Статья расходов не найдена');
     const wallet = await this.walletService.findOne(ctx, input.walletId);

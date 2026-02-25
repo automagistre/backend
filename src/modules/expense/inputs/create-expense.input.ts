@@ -1,5 +1,11 @@
 import { Field, ID, InputType } from '@nestjs/graphql';
-import { IsOptional, IsString, IsUUID, MaxLength, MinLength } from 'class-validator';
+import {
+  IsOptional,
+  IsString,
+  IsUUID,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
 
 @InputType()
 export class CreateExpenseInput {
@@ -11,6 +17,9 @@ export class CreateExpenseInput {
 
   @IsOptional()
   @IsUUID()
-  @Field(() => ID, { nullable: true, description: 'ID счёта списания по умолчанию' })
+  @Field(() => ID, {
+    nullable: true,
+    description: 'ID счёта списания по умолчанию',
+  })
   walletId?: string | null;
 }

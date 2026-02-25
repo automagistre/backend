@@ -27,7 +27,10 @@ export class CreatePartInput {
   @IsOptional()
   price?: MoneyInput | null;
 
-  @Field(() => MoneyInput, { nullable: true, description: 'Скидка на запчасть' })
+  @Field(() => MoneyInput, {
+    nullable: true,
+    description: 'Скидка на запчасть',
+  })
   @IsOptional()
   discount?: MoneyInput | null;
 }

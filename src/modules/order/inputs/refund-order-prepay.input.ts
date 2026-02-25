@@ -13,7 +13,8 @@ export class RefundOrderPrepayInput {
   walletId: string;
 
   @Field(() => MoneyInput, {
-    description: 'Сумма возврата в минорных единицах (копейки), положительное число',
+    description:
+      'Сумма возврата в минорных единицах (копейки), положительное число',
   })
   amount: MoneyInput;
 

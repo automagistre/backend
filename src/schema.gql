@@ -83,6 +83,48 @@ enum BodyType {
   WAGON
 }
 
+"""Запись в календаре"""
+type CalendarEntryModel {
+  createdAt: DateTime
+  createdBy: ID
+  id: ID!
+
+  """Информация о заказе (последняя версия)"""
+  orderInfo: CalendarEntryOrderInfoModel
+
+  """Актуальное расписание (последняя версия)"""
+  schedule: CalendarEntryScheduleModel
+}
+
+"""Информация о заказе в записи календаря"""
+type CalendarEntryOrderInfoModel {
+  car: CarModel
+  carId: ID
+  createdAt: DateTime
+  customer: PersonModel
+  customerId: ID
+  description: String
+  id: ID!
+
+  """Сотрудник-механик"""
+  worker: EmployeeModel
+
+  """ID механика/работника (employee_id)"""
+  workerId: ID
+}
+
+"""Расписание записи в календаре"""
+type CalendarEntryScheduleModel {
+  createdAt: DateTime
+
+  """Дата и время записи"""
+  date: DateTime!
+
+  """Длительность (ISO 8601 duration)"""
+  duration: String!
+  id: ID!
+}
+
 input CancelPartSupplyInput {
   partId: ID!
   quantity: Int!
@@ -289,6 +331,15 @@ input CloseOrderPaymentItem {
 
 """Контрагент — персона или организация (поставщик/подрядчик)"""
 union Counterparty = OrganizationModel | PersonModel
+
+input CreateCalendarEntryInput {
+  carId: ID
+  customerId: ID
+  date: DateTime!
+  description: String
+  duration: String!
+  workerId: ID
+}
 
 input CreateCarInput {
   """Тип кузова автомобиля"""
@@ -728,6 +779,21 @@ A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date
 """
 scalar DateTime
 
+input DeleteCalendarEntryInput {
+  description: String
+  id: ID!
+  reason: DeletionReason!
+}
+
+"""Причины удаления записи в календаре"""
+enum DeletionReason {
+  NOT_HAVE_TIME_TO_ARRIVE
+  NO_REASON
+  PLAN_ANOTHER_TIME
+  SOLVE_PROBLEM_WITHOUT_SERVICE
+  WE_ARE_CONDOMS
+}
+
 """Сотрудник"""
 type EmployeeModel {
   createdAt: DateTime
@@ -1077,6 +1143,9 @@ type Mutation {
   """Закрыть заказ"""
   closeOrder(input: CloseOrderInput!): OrderModel!
 
+  """Создать запись календаря"""
+  createCalendarEntry(input: CreateCalendarEntryInput!): CalendarEntryModel!
+
   """Создать рекомендацию по автомобилю"""
   createCarRecommendation(input: CreateCarRecommendationInput!): CarRecommendationModel!
 
@@ -1139,6 +1208,9 @@ type Mutation {
 
   """Создать отзыв"""
   createReview(input: CreateReviewInput!): ReviewModel!
+
+  """Удалить запись календаря"""
+  deleteCalendarEntry(input: DeleteCalendarEntryInput!): Boolean!
 
   """Удалить рекомендацию по автомобилю"""
   deleteCarRecommendation(id: ID!): Boolean!
@@ -1215,6 +1287,9 @@ type Mutation {
   """Перенести резерв между позициями заказов (сценарий "занять")"""
   transferReservation(input: TransferReservationInput!): Boolean!
   updateAppealStatus(input: UpdateAppealStatusInput!): Boolean!
+
+  """Обновить запись календаря"""
+  updateCalendarEntry(input: UpdateCalendarEntryInput!): CalendarEntryModel
 
   """Обновить рекомендацию по автомобилю"""
   updateCarRecommendation(input: UpdateCarRecommendationInput!): CarRecommendationModel!
@@ -1766,6 +1841,12 @@ type Query {
   appealDetail(input: GetAppealDetailInput!): AppealDetailModel!
   appealOpenCount: Float!
   appeals(skip: Int = 0, take: Int = 25): PaginatedAppeals!
+
+  """Список записей календаря за день"""
+  calendarEntriesByDate(date: DateTime!): [CalendarEntryModel!]!
+
+  """Запись календаря по ID"""
+  calendarEntry(id: ID!): CalendarEntryModel
   car(id: String!): CarModel
   carByIdentifier(identifier: String!): CarModel
 
@@ -2111,6 +2192,14 @@ enum Unit {
 input UpdateAppealStatusInput {
   appealId: String!
   status: Float!
+}
+
+input UpdateCalendarEntryInput {
+  date: DateTime
+  description: String
+  duration: String
+  id: ID!
+  workerId: ID
 }
 
 input UpdateCarInput {

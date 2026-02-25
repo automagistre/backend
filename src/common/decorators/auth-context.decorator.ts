@@ -5,7 +5,10 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { GqlExecutionContext } from '@nestjs/graphql';
-import type { AuthContext as AuthContextType, UserContext } from '../user-id.store';
+import type {
+  AuthContext as AuthContextType,
+  UserContext,
+} from '../user-id.store';
 
 interface ReqWithCtx {
   ctx?: UserContext;
@@ -17,7 +20,7 @@ function getReqCtx(ctx: ExecutionContext): UserContext | undefined {
     const gqlCtx = GqlExecutionContext.create(ctx);
     req = gqlCtx.getContext().req as ReqWithCtx;
   } catch {
-    req = ctx.switchToHttp().getRequest() as ReqWithCtx;
+    req = ctx.switchToHttp().getRequest();
   }
   return req?.ctx;
 }

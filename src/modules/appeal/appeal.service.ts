@@ -26,9 +26,13 @@ interface AppealViewRow {
 export class AppealService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async listAppeals(ctx: AuthContext, take = 25, skip = 0): Promise<{ items: AppealModel[]; total: number }> {
+  async listAppeals(
+    ctx: AuthContext,
+    take = 25,
+    skip = 0,
+  ): Promise<{ items: AppealModel[]; total: number }> {
     const { tenantId } = ctx;
-    
+
     const [rows, countResult] = await Promise.all([
       this.prisma.$queryRaw<AppealViewRow[]>(
         Prisma.sql`
@@ -60,10 +64,11 @@ export class AppealService {
           },
         });
         if (person) {
-          personFullName = [person.firstname, person.lastname]
-            .filter(Boolean)
-            .join(' ')
-            .trim() || null;
+          personFullName =
+            [person.firstname, person.lastname]
+              .filter(Boolean)
+              .join(' ')
+              .trim() || null;
         }
       }
 
@@ -82,7 +87,11 @@ export class AppealService {
     return { items: appeals, total };
   }
 
-  async getAppealDetail(ctx: AuthContext, id: string, type: number): Promise<AppealDetailModel> {
+  async getAppealDetail(
+    ctx: AuthContext,
+    id: string,
+    type: number,
+  ): Promise<AppealDetailModel> {
     const { tenantId } = ctx;
 
     const statusRecord = await this.prisma.appealStatusRecord.findFirst({
@@ -203,7 +212,11 @@ export class AppealService {
     };
   }
 
-  async updateAppealStatus(ctx: AuthContext, appealId: string, status: number): Promise<void> {
+  async updateAppealStatus(
+    ctx: AuthContext,
+    appealId: string,
+    status: number,
+  ): Promise<void> {
     const { tenantId, userId } = ctx;
 
     const latest = await this.prisma.appealStatusRecord.findFirst({

@@ -29,9 +29,7 @@ const LABELS: Record<WalletTransactionSource, string> = {
   [WalletTransactionSource.Initial]: 'Начальный баланс',
 };
 
-export function getWalletTransactionSourceLabel(
-  source: number,
-): string {
+export function getWalletTransactionSourceLabel(source: number): string {
   return LABELS[source as WalletTransactionSource] ?? `Источник ${source}`;
 }
 

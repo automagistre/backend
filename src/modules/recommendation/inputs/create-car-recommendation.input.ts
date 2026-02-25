@@ -13,7 +13,8 @@ export class CreateCarRecommendationInput {
   service: string;
 
   @Field(() => ID, {
-    description: 'ID сотрудника (employeeId) — диагност/исполнитель рекомендации',
+    description:
+      'ID сотрудника (employeeId) — диагност/исполнитель рекомендации',
   })
   @IsUUID()
   workerId: string;
@@ -26,4 +27,3 @@ export class CreateCarRecommendationInput {
   @IsOptional()
   price?: MoneyInput;
 }
-

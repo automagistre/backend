@@ -1,15 +1,7 @@
-import {
-  Args,
-  Mutation,
-  Query,
-  Resolver,
-} from '@nestjs/graphql';
+import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { WalletModel } from './models/wallet.model';
 import { WalletService } from './wallet.service';
-import {
-  CreateWalletInput,
-  UpdateWalletInput,
-} from './inputs/wallet.input';
+import { CreateWalletInput, UpdateWalletInput } from './inputs/wallet.input';
 import { PaginationArgs } from 'src/common/pagination.args';
 import { PaginatedWallets } from './types/paginated-wallets.type';
 import { RequireTenant } from 'src/common/decorators/skip-tenant.decorator';

@@ -4,10 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import {
-  CreateWalletInput,
-  UpdateWalletInput,
-} from './inputs/wallet.input';
+import { CreateWalletInput, UpdateWalletInput } from './inputs/wallet.input';
 import { SettingsService } from 'src/modules/settings/settings.service';
 import type { AuthContext } from 'src/common/user-id.store';
 
@@ -92,9 +89,7 @@ export class WalletService {
       where: { walletId: id },
     });
     if (transactionsCount > 0) {
-      throw new BadRequestException(
-        'Нельзя удалить кошелёк с проводками',
-      );
+      throw new BadRequestException('Нельзя удалить кошелёк с проводками');
     }
     return this.prisma.wallet.delete({
       where: { id },

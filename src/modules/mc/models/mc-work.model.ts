@@ -17,7 +17,10 @@ export class McWorkModel {
   @Field(() => String)
   tenantId: string;
 
-  @Field(() => BigInt, { nullable: true, description: 'Цена в минорных единицах (копейки)' })
+  @Field(() => BigInt, {
+    nullable: true,
+    description: 'Цена в минорных единицах (копейки)',
+  })
   priceAmount: bigint | null;
 
   @Field(() => String, { nullable: true })

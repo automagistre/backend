@@ -38,8 +38,14 @@ export class RecommendationResolver {
     @Inject('PUB_SUB') private readonly pubSub: PubSub,
   ) {}
 
-  private async publishCarRecommendationsUpdated(ctx: AuthContextType, carId: string): Promise<void> {
-    const recommendations = await this.recommendationService.findByCarId(ctx, carId);
+  private async publishCarRecommendationsUpdated(
+    ctx: AuthContextType,
+    carId: string,
+  ): Promise<void> {
+    const recommendations = await this.recommendationService.findByCarId(
+      ctx,
+      carId,
+    );
     await this.pubSub.publish(`CAR_RECOMMENDATIONS_UPDATED_${carId}`, {
       carRecommendationsUpdated: recommendations,
       carId,
@@ -48,7 +54,8 @@ export class RecommendationResolver {
 
   @Query(() => [CarRecommendationModel], {
     name: 'carRecommendations',
-    description: 'Список рекомендаций по автомобилю (для отображения в заказах и карточке авто)',
+    description:
+      'Список рекомендаций по автомобилю (для отображения в заказах и карточке авто)',
   })
   async carRecommendations(
     @AuthContext() ctx: AuthContextType,
@@ -66,8 +73,10 @@ export class RecommendationResolver {
     @Args('input') input: CreateCarRecommendationInput,
   ) {
     const workerId =
-      (await this.employeeService.resolvePersonIdByWorkerId(ctx, input.workerId)) ??
-      input.workerId;
+      (await this.employeeService.resolvePersonIdByWorkerId(
+        ctx,
+        input.workerId,
+      )) ?? input.workerId;
     const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
     const priceData = input.price
       ? applyDefaultCurrency(input.price, defaultCurrency)
@@ -98,20 +107,26 @@ export class RecommendationResolver {
     }
     if (input.workerId !== undefined) {
       data.workerId =
-        (await this.employeeService.resolvePersonIdByWorkerId(ctx, input.workerId)) ??
-        input.workerId;
+        (await this.employeeService.resolvePersonIdByWorkerId(
+          ctx,
+          input.workerId,
+        )) ?? input.workerId;
     }
     if (input.expiredAt !== undefined) {
       data.expiredAt = input.expiredAt;
     }
     if (input.price !== undefined) {
-      const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
+      const defaultCurrency =
+        await this.settingsService.getDefaultCurrencyCode();
       const priceData = applyDefaultCurrency(input.price, defaultCurrency);
       data.priceAmount = priceData.amountMinor;
       data.priceCurrencyCode = priceData.currencyCode;
     }
 
-    const result = await this.recommendationService.updateRecommendation(ctx, { id: input.id, ...data });
+    const result = await this.recommendationService.updateRecommendation(ctx, {
+      id: input.id,
+      ...data,
+    });
     if (result.carId) {
       await this.publishCarRecommendationsUpdated(ctx, result.carId);
     }
@@ -128,8 +143,11 @@ export class RecommendationResolver {
   ) {
     const recommendation = await this.recommendationService.findById(ctx, id);
     const carId = recommendation?.carId;
-    
-    const result = await this.recommendationService.deleteRecommendation(ctx, id);
+
+    const result = await this.recommendationService.deleteRecommendation(
+      ctx,
+      id,
+    );
     if (carId) {
       await this.publishCarRecommendationsUpdated(ctx, carId);
     }
@@ -148,14 +166,20 @@ export class RecommendationResolver {
     const priceData = input.price
       ? applyDefaultCurrency(input.price, defaultCurrency)
       : { amountMinor: 0n, currencyCode: defaultCurrency };
-    const result = await this.recommendationService.createRecommendationPart(ctx, {
-      recommendationId: input.recommendationId,
-      partId: input.partId,
-      quantity: input.quantity,
-      priceAmount: priceData.amountMinor,
-      priceCurrencyCode: priceData.currencyCode,
-    });
-    const recommendation = await this.recommendationService.findById(ctx, input.recommendationId);
+    const result = await this.recommendationService.createRecommendationPart(
+      ctx,
+      {
+        recommendationId: input.recommendationId,
+        partId: input.partId,
+        quantity: input.quantity,
+        priceAmount: priceData.amountMinor,
+        priceCurrencyCode: priceData.currencyCode,
+      },
+    );
+    const recommendation = await this.recommendationService.findById(
+      ctx,
+      input.recommendationId,
+    );
     if (recommendation?.carId) {
       await this.publishCarRecommendationsUpdated(ctx, recommendation.carId);
     }
@@ -175,15 +199,22 @@ export class RecommendationResolver {
       data.quantity = input.quantity;
     }
     if (input.price !== undefined) {
-      const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
+      const defaultCurrency =
+        await this.settingsService.getDefaultCurrencyCode();
       const priceData = applyDefaultCurrency(input.price, defaultCurrency);
       data.priceAmount = priceData.amountMinor;
       data.priceCurrencyCode = priceData.currencyCode;
     }
 
-    const result = await this.recommendationService.updateRecommendationPart(ctx, { id: input.id, ...data });
+    const result = await this.recommendationService.updateRecommendationPart(
+      ctx,
+      { id: input.id, ...data },
+    );
     if (result.recommendationId) {
-      const recommendation = await this.recommendationService.findById(ctx, result.recommendationId);
+      const recommendation = await this.recommendationService.findById(
+        ctx,
+        result.recommendationId,
+      );
       if (recommendation?.carId) {
         await this.publishCarRecommendationsUpdated(ctx, recommendation.carId);
       }
@@ -199,10 +230,16 @@ export class RecommendationResolver {
     @AuthContext() ctx: AuthContextType,
     @Args('id', { type: () => ID }) id: string,
   ) {
-    const part = await this.recommendationService.findRecommendationPartById(ctx, id);
+    const part = await this.recommendationService.findRecommendationPartById(
+      ctx,
+      id,
+    );
     const carId = part?.recommendation?.carId;
-    
-    const result = await this.recommendationService.deleteRecommendationPart(ctx, id);
+
+    const result = await this.recommendationService.deleteRecommendationPart(
+      ctx,
+      id,
+    );
     if (carId) {
       await this.publishCarRecommendationsUpdated(ctx, carId);
     }
@@ -215,7 +252,10 @@ export class RecommendationResolver {
     @Parent() rec: CarRecommendationModel,
   ): Promise<EmployeeModel | null> {
     if (!rec.workerId) return null;
-    return (await this.employeeService.resolveEmployeeByWorkerId(ctx, rec.workerId)) as any;
+    return (await this.employeeService.resolveEmployeeByWorkerId(
+      ctx,
+      rec.workerId,
+    )) as any;
   }
 
   @ResolveField(() => CarModel, { nullable: true })
@@ -237,7 +277,11 @@ export class RecommendationResolver {
       return recommendations.some((r: any) => r.carId === variables.carId);
     },
   })
-  async carRecommendationsUpdated(@Args('carId', { type: () => ID }) carId: string) {
-    return this.pubSub.asyncIterableIterator(`CAR_RECOMMENDATIONS_UPDATED_${carId}`);
+  async carRecommendationsUpdated(
+    @Args('carId', { type: () => ID }) carId: string,
+  ) {
+    return this.pubSub.asyncIterableIterator(
+      `CAR_RECOMMENDATIONS_UPDATED_${carId}`,
+    );
   }
 }

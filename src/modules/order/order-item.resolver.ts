@@ -33,7 +33,10 @@ export class OrderItemResolver {
     @Inject('PUB_SUB') private readonly pubSub: PubSub,
   ) {}
 
-  private async publishOrderUpdated(ctx: AuthContextType, orderId: string): Promise<void> {
+  private async publishOrderUpdated(
+    ctx: AuthContextType,
+    orderId: string,
+  ): Promise<void> {
     const order = await this.orderService.findOne(ctx, orderId);
     if (!order) {
       return;
@@ -63,7 +66,10 @@ export class OrderItemResolver {
     if (!item.service?.workerId) {
       return null;
     }
-    const employee = await this.employeeService.findByPersonId(ctx, item.service.workerId);
+    const employee = await this.employeeService.findByPersonId(
+      ctx,
+      item.service.workerId,
+    );
     return employee as EmployeeModel | null;
   }
 

@@ -9,9 +9,15 @@ import { ReservationModule } from 'src/modules/reservation/reservation.module';
 import { OrderModule } from 'src/modules/order/order.module';
 
 @Module({
-  imports: [PrismaModule, CommonModule, EmployeeModule, CarModule, ReservationModule, OrderModule],
+  imports: [
+    PrismaModule,
+    CommonModule,
+    EmployeeModule,
+    CarModule,
+    ReservationModule,
+    OrderModule,
+  ],
   providers: [RecommendationService, RecommendationResolver],
   exports: [RecommendationService],
 })
 export class RecommendationModule {}
-

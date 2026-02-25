@@ -1,6 +1,9 @@
 import { Parent, ResolveField, Resolver } from '@nestjs/graphql';
 import { MotionModel } from './models/motion.model';
-import { MotionSourceUnion, MotionSourceType } from './unions/motion-source.union';
+import {
+  MotionSourceUnion,
+  MotionSourceType,
+} from './unions/motion-source.union';
 import { MotionSourceLoader } from './loaders/motion-source.loader';
 import { MotionSourceType as MotionSourceTypeEnum } from './enums/motion-source-type.enum';
 
@@ -10,7 +13,12 @@ export class MotionResolver {
 
   @ResolveField('source', () => MotionSourceUnion, { nullable: true })
   async source(
-    @Parent() motion: { sourceType: MotionSourceTypeEnum; sourceId: string; description?: string | null },
+    @Parent()
+    motion: {
+      sourceType: MotionSourceTypeEnum;
+      sourceId: string;
+      description?: string | null;
+    },
   ): Promise<MotionSourceType | null> {
     if (!motion.sourceId) return null;
 

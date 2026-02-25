@@ -12,7 +12,11 @@ import { OrganizationModule } from '../organization/organization.module';
 import { PersonModule } from '../person/person.module';
 
 @Module({
-  imports: [forwardRef(() => ReservationModule), OrganizationModule, PersonModule],
+  imports: [
+    forwardRef(() => ReservationModule),
+    OrganizationModule,
+    PersonModule,
+  ],
   providers: [
     WarehouseService,
     PartMotionService,

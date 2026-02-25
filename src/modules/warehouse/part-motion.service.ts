@@ -13,7 +13,8 @@ export class PartMotionService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(ctx: AuthContext, dto: CreateMotionInput): Promise<Motion> {
-    if (dto.quantity === 0) throw new Error('Количество не может быть равно нулю');
+    if (dto.quantity === 0)
+      throw new Error('Количество не может быть равно нулю');
     return this.createWithinTransaction(
       this.prisma as unknown as Prisma.TransactionClient,
       dto,
@@ -28,7 +29,8 @@ export class PartMotionService {
     tenantId: string,
     createdBy: string | null = null,
   ): Promise<Motion> {
-    if (dto.quantity === 0) throw new Error('Количество не может быть равно нулю');
+    if (dto.quantity === 0)
+      throw new Error('Количество не может быть равно нулю');
     return tx.motion.create({
       data: {
         partId: dto.partId,
@@ -134,7 +136,13 @@ export class PartMotionService {
     description?: string,
   ): Promise<Motion> {
     if (quantity <= 0) throw new Error('Количество должно быть положительным');
-    return this.create(ctx, { partId, quantity, sourceType, sourceId, description });
+    return this.create(ctx, {
+      partId,
+      quantity,
+      sourceType,
+      sourceId,
+      description,
+    });
   }
 
   async decrease(
@@ -146,6 +154,12 @@ export class PartMotionService {
     description?: string,
   ): Promise<Motion> {
     if (quantity <= 0) throw new Error('Количество должно быть положительным');
-    return this.create(ctx, { partId, quantity: -quantity, sourceType, sourceId, description });
+    return this.create(ctx, {
+      partId,
+      quantity: -quantity,
+      sourceType,
+      sourceId,
+      description,
+    });
   }
 }

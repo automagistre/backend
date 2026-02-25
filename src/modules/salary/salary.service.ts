@@ -44,7 +44,10 @@ export class SalaryService {
       const totalPrice = priceAmount - discountAmount;
       if (totalPrice <= 0n) continue;
 
-      const employee = await this.employeeService.resolveEmployeeByWorkerId(ctx, svc.workerId);
+      const employee = await this.employeeService.resolveEmployeeByWorkerId(
+        ctx,
+        svc.workerId,
+      );
       if (!employee || employee.ratio == null || employee.firedAt) continue;
 
       const amount = (totalPrice * BigInt(employee.ratio)) / 100n;
@@ -76,7 +79,11 @@ export class SalaryService {
     const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
 
     const now = new Date();
-    const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    const lastDayOfMonth = new Date(
+      now.getFullYear(),
+      now.getMonth() + 1,
+      0,
+    ).getDate();
     const isLastDayOfMonth = payday === lastDayOfMonth;
 
     const paydayFilter = isLastDayOfMonth

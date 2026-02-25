@@ -23,7 +23,10 @@ export class RecommendationMigrationResolver {
     @AuthContext() ctx: AuthContextType,
     @Args('input') input: RealizeCarRecommendationInput,
   ): Promise<RealizeCarRecommendationPayload[]> {
-    return this.recommendationWorkMigrationService.realizeCarRecommendation(ctx, input);
+    return this.recommendationWorkMigrationService.realizeCarRecommendation(
+      ctx,
+      input,
+    );
   }
 
   @Mutation(() => ReturnWorkToRecommendationPayload, {
@@ -34,6 +37,9 @@ export class RecommendationMigrationResolver {
     @AuthContext() ctx: AuthContextType,
     @Args('input') input: ReturnWorkToRecommendationInput,
   ): Promise<ReturnWorkToRecommendationPayload> {
-    return this.recommendationWorkMigrationService.returnWorkToRecommendation(ctx, input);
+    return this.recommendationWorkMigrationService.returnWorkToRecommendation(
+      ctx,
+      input,
+    );
   }
 }

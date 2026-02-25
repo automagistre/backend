@@ -42,7 +42,8 @@ export class NoteResolver {
   @Mutation(() => NoteModel, { name: 'deleteNote' })
   async deleteNote(
     @Args('id', { type: () => ID }) id: string,
-    @Args('description', { type: () => String, nullable: true }) description: string | undefined,
+    @Args('description', { type: () => String, nullable: true })
+    description: string | undefined,
     @AuthContext() ctx: AuthContextType,
   ) {
     return this.noteService.softDelete(ctx, id, description);

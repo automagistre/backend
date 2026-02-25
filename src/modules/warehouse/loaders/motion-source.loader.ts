@@ -37,10 +37,18 @@ export class MotionSourceLoader {
     return this.loader.load(key);
   }
 
-  private async batchLoad(keys: MotionSourceKey[]): Promise<(MotionSourceType | null)[]> {
-    const orderKeys = keys.filter((k) => k.sourceType === MotionSourceTypeEnum.ORDER);
-    const incomeKeys = keys.filter((k) => k.sourceType === MotionSourceTypeEnum.INCOME);
-    const manualKeys = keys.filter((k) => k.sourceType === MotionSourceTypeEnum.MANUAL);
+  private async batchLoad(
+    keys: MotionSourceKey[],
+  ): Promise<(MotionSourceType | null)[]> {
+    const orderKeys = keys.filter(
+      (k) => k.sourceType === MotionSourceTypeEnum.ORDER,
+    );
+    const incomeKeys = keys.filter(
+      (k) => k.sourceType === MotionSourceTypeEnum.INCOME,
+    );
+    const manualKeys = keys.filter(
+      (k) => k.sourceType === MotionSourceTypeEnum.MANUAL,
+    );
     const inventorizationKeys = keys.filter(
       (k) => k.sourceType === MotionSourceTypeEnum.INVENTORIZATION,
     );
@@ -51,7 +59,8 @@ export class MotionSourceLoader {
     ]);
 
     const manualSources = this.loadManual(manualKeys);
-    const inventorizationSources = this.loadInventorization(inventorizationKeys);
+    const inventorizationSources =
+      this.loadInventorization(inventorizationKeys);
 
     const resultMap = new Map<string, MotionSourceType | null>();
 
@@ -68,7 +77,9 @@ export class MotionSourceLoader {
       resultMap.set(key, value);
     }
 
-    return keys.map((k) => resultMap.get(`${k.sourceType}:${k.sourceId}`) ?? null);
+    return keys.map(
+      (k) => resultMap.get(`${k.sourceType}:${k.sourceId}`) ?? null,
+    );
   }
 
   private async loadOrders(
@@ -118,29 +129,44 @@ export class MotionSourceLoader {
       }),
       this.prisma.incomeAccrue.findMany({
         where: { id: { in: sourceIds } },
-        select: { id: true, income: { select: { id: true, document: true, supplierId: true } } },
+        select: {
+          id: true,
+          income: { select: { id: true, document: true, supplierId: true } },
+        },
       }),
       this.prisma.incomePart.findMany({
         where: { id: { in: sourceIds } },
-        select: { id: true, income: { select: { id: true, document: true, supplierId: true } } },
+        select: {
+          id: true,
+          income: { select: { id: true, document: true, supplierId: true } },
+        },
       }),
     ]);
 
     const incomeMap = new Map(incomes.map((i) => [i.id, i]));
-    const incomeAccrueMap = new Map(incomeAccrues.map((ia) => [ia.id, ia.income]));
+    const incomeAccrueMap = new Map(
+      incomeAccrues.map((ia) => [ia.id, ia.income]),
+    );
     const incomePartMap = new Map(incomeParts.map((ip) => [ip.id, ip.income]));
 
     const supplierIds = new Set<string>();
     incomes.forEach((i) => i.supplierId && supplierIds.add(i.supplierId));
-    incomeAccrues.forEach((ia) => ia.income?.supplierId && supplierIds.add(ia.income.supplierId));
-    incomeParts.forEach((ip) => ip.income?.supplierId && supplierIds.add(ip.income.supplierId));
+    incomeAccrues.forEach(
+      (ia) => ia.income?.supplierId && supplierIds.add(ia.income.supplierId),
+    );
+    incomeParts.forEach(
+      (ip) => ip.income?.supplierId && supplierIds.add(ip.income.supplierId),
+    );
 
     const [orgNames, personNames] = await Promise.all([
       this.organizationService.getNamesByIds([...supplierIds]),
       this.personService.getNamesByIds([...supplierIds]),
     ]);
 
-    const supplierNameMap = new Map<string, string>([...orgNames, ...personNames]);
+    const supplierNameMap = new Map<string, string>([
+      ...orgNames,
+      ...personNames,
+    ]);
 
     const result = new Map<string, IncomeSourceModel & { __type: 'INCOME' }>();
 
@@ -151,7 +177,9 @@ export class MotionSourceLoader {
         incomePartMap.get(key.sourceId);
 
       if (income) {
-        const supplierName = income.supplierId ? supplierNameMap.get(income.supplierId) : null;
+        const supplierName = income.supplierId
+          ? supplierNameMap.get(income.supplierId)
+          : null;
 
         result.set(`${MotionSourceTypeEnum.INCOME}:${key.sourceId}`, {
           __type: 'INCOME',
@@ -184,7 +212,10 @@ export class MotionSourceLoader {
   private loadInventorization(
     keys: MotionSourceKey[],
   ): Map<string, InventorizationSourceModel & { __type: 'INVENTORIZATION' }> {
-    const result = new Map<string, InventorizationSourceModel & { __type: 'INVENTORIZATION' }>();
+    const result = new Map<
+      string,
+      InventorizationSourceModel & { __type: 'INVENTORIZATION' }
+    >();
 
     for (const key of keys) {
       result.set(`${MotionSourceTypeEnum.INVENTORIZATION}:${key.sourceId}`, {

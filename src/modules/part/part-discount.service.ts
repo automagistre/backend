@@ -20,7 +20,9 @@ export class PartDiscountService {
       data: {
         partId: createPartDiscountDto.partId,
         since: createPartDiscountDto.since,
-        discountAmount: normalizeMoneyAmount(createPartDiscountDto.discountAmount),
+        discountAmount: normalizeMoneyAmount(
+          createPartDiscountDto.discountAmount,
+        ),
         discountCurrencyCode: defaultCurrency,
         tenantId: createPartDiscountDto.tenantId,
         createdBy: createPartDiscountDto.createdBy,
@@ -40,7 +42,10 @@ export class PartDiscountService {
     });
   }
 
-  findActualDiscountPart(partId: string, tenantId: string): Promise<PartDiscount | null> {
+  findActualDiscountPart(
+    partId: string,
+    tenantId: string,
+  ): Promise<PartDiscount | null> {
     return this.prisma.partDiscount.findFirst({
       where: {
         partId,

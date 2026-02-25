@@ -13,7 +13,8 @@ export class MoneyInput {
   @Length(3, 3)
   @Field(() => String, {
     nullable: true,
-    description: 'Код валюты (например RUB). Если не указан — используется валюта по умолчанию.',
+    description:
+      'Код валюты (например RUB). Если не указан — используется валюта по умолчанию.',
   })
   currencyCode?: string | null;
 }

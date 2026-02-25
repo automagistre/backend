@@ -21,7 +21,8 @@ const LABELS: Record<CustomerTransactionSource, string> = {
   [CustomerTransactionSource.OrderSalary]: 'Зарплата по заказу',
   [CustomerTransactionSource.MonthlySalary]: 'Начисление ежемесячного оклада',
   [CustomerTransactionSource.Manual]: 'Ручная проводка',
-  [CustomerTransactionSource.ManualWithoutWallet]: 'Ручная проводка (без счёта)',
+  [CustomerTransactionSource.ManualWithoutWallet]:
+    'Ручная проводка (без счёта)',
 };
 
 export function getCustomerTransactionSourceLabel(source: number): string {

@@ -18,7 +18,8 @@ export class CreateManualCustomerTransactionInput {
   @IsUUID()
   @Field(() => ID, {
     nullable: true,
-    description: 'ID счёта. Если не указан — проводка без счёта (ManualWithoutWallet).',
+    description:
+      'ID счёта. Если не указан — проводка без счёта (ManualWithoutWallet).',
   })
   walletId?: string | null;
 

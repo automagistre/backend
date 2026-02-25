@@ -14,4 +14,3 @@ export class TransferReservationInput {
   @Field(() => ID, { nullable: true })
   tenantId?: string;
 }
-

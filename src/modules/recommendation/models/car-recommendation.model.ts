@@ -3,7 +3,9 @@ import { EmployeeModel } from 'src/modules/employee/models/employee.model';
 import { CarModel } from 'src/modules/vehicle/models/car.model';
 import { CarRecommendationPartModel } from './car-recommendation-part.model';
 
-@ObjectType({ description: 'Рекомендация по автомобилю (результат диагностики)' })
+@ObjectType({
+  description: 'Рекомендация по автомобилю (результат диагностики)',
+})
 export class CarRecommendationModel {
   @Field(() => ID)
   id: string;
@@ -44,4 +46,3 @@ export class CarRecommendationModel {
   @Field(() => ID, { nullable: true })
   createdBy: string | null;
 }
-

@@ -71,7 +71,9 @@ export class ProcurementService {
                 {
                   manufacturer: {
                     OR: [
-                      { name: { contains: term, mode: 'insensitive' as const } },
+                      {
+                        name: { contains: term, mode: 'insensitive' as const },
+                      },
                       {
                         localizedName: {
                           contains: term,
@@ -100,25 +102,31 @@ export class ProcurementService {
 
     const partIds = parts.map((p) => p.id);
     const supplyExpiryDays = await this.settingsService.getSupplyExpiryDays();
-    const [stockMap, orderedMap, reservedMap, supplyMap, availabilityMap, delayedPartIds] =
-      await Promise.all([
-        this.partMotionService.getStockQuantityByPartIds(partIds, tenantId),
-        this.partSupplyService.getOrderedQuantityInActiveOrdersByPartIds(
-          partIds,
-          tenantId,
-        ),
-        this.reservationService.getTotalReservedInActiveOrdersByPartIds(
-          partIds,
-          tenantId,
-        ),
-        this.partSupplyService.getSupplyTotalByPartIds(partIds, tenantId),
-        this.getAvailabilityByPartIds(partIds, tenantId),
-        this.partSupplyService.getPartIdsWithDelayedSupply(
-          partIds,
-          supplyExpiryDays,
-          tenantId,
-        ),
-      ]);
+    const [
+      stockMap,
+      orderedMap,
+      reservedMap,
+      supplyMap,
+      availabilityMap,
+      delayedPartIds,
+    ] = await Promise.all([
+      this.partMotionService.getStockQuantityByPartIds(partIds, tenantId),
+      this.partSupplyService.getOrderedQuantityInActiveOrdersByPartIds(
+        partIds,
+        tenantId,
+      ),
+      this.reservationService.getTotalReservedInActiveOrdersByPartIds(
+        partIds,
+        tenantId,
+      ),
+      this.partSupplyService.getSupplyTotalByPartIds(partIds, tenantId),
+      this.getAvailabilityByPartIds(partIds, tenantId),
+      this.partSupplyService.getPartIdsWithDelayedSupply(
+        partIds,
+        supplyExpiryDays,
+        tenantId,
+      ),
+    ]);
 
     const allRows: ProcurementRow[] = [];
     for (const part of parts) {
@@ -128,7 +136,10 @@ export class ProcurementService {
       const supplyQuantity = supplyMap.get(part.id) ?? 0;
       const availability = availabilityMap.get(part.id) ?? null;
 
-      const inOrdersNotReserved = Math.max(0, orderedQuantity - reservedQuantity);
+      const inOrdersNotReserved = Math.max(
+        0,
+        orderedQuantity - reservedQuantity,
+      );
       const availableToUse = stockQuantity + supplyQuantity;
       const needForOrders = Math.max(0, orderedQuantity - availableToUse);
       let needForStock = 0;
@@ -196,7 +207,9 @@ export class ProcurementService {
           where: {
             orderItem: {
               tenantId,
-              order: { status: { notIn: [OrderStatus.CLOSED, OrderStatus.CANCELLED] } },
+              order: {
+                status: { notIn: [OrderStatus.CLOSED, OrderStatus.CANCELLED] },
+              },
             },
           },
           select: { partId: true },
@@ -228,18 +241,30 @@ export class ProcurementService {
     const rows = await this.prisma.partRequiredAvailability.findMany({
       where: { partId: { in: partIds }, tenantId },
       orderBy: { createdAt: 'desc' },
-      select: { partId: true, orderFromQuantity: true, orderUpToQuantity: true },
+      select: {
+        partId: true,
+        orderFromQuantity: true,
+        orderUpToQuantity: true,
+      },
     });
 
-    const result = new Map<string, { orderFrom: number; orderUpTo: number } | null>();
+    const result = new Map<
+      string,
+      { orderFrom: number; orderUpTo: number } | null
+    >();
     for (const r of rows) {
       if (!result.has(r.partId)) {
         const isNoThreshold =
           r.orderFromQuantity === 0 && r.orderUpToQuantity === 0;
-        result.set(r.partId, isNoThreshold ? null : {
-          orderFrom: r.orderFromQuantity,
-          orderUpTo: r.orderUpToQuantity,
-        });
+        result.set(
+          r.partId,
+          isNoThreshold
+            ? null
+            : {
+                orderFrom: r.orderFromQuantity,
+                orderUpTo: r.orderUpToQuantity,
+              },
+        );
       }
     }
     return result;
@@ -327,7 +352,11 @@ export class ProcurementService {
 
       const car = order.car as any;
       const carName =
-        [car?.vehicle?.manufacturer?.name, car?.vehicle?.name, car?.vehicle?.caseName]
+        [
+          car?.vehicle?.manufacturer?.name,
+          car?.vehicle?.name,
+          car?.vehicle?.caseName,
+        ]
           .filter(Boolean)
           .join(' ')
           .trim() || null;

@@ -24,11 +24,21 @@ export async function getGraphQLConfig(
       if (!req && (extra || connectionParams)) {
         const params = connectionParams || {};
         const headers = params.headers || {};
-        const authorization = headers.Authorization || headers.authorization || params.authorization || params.Authorization || '';
-        
+        const authorization =
+          headers.Authorization ||
+          headers.authorization ||
+          params.authorization ||
+          params.Authorization ||
+          '';
+
         // Tenant из connectionParams
-        let tenantId = headers['x-tenant-id'] || headers['X-Tenant-Id'] || params['x-tenant-id'] || params['X-Tenant-Id'] || '';
-        
+        let tenantId =
+          headers['x-tenant-id'] ||
+          headers['X-Tenant-Id'] ||
+          params['x-tenant-id'] ||
+          params['X-Tenant-Id'] ||
+          '';
+
         // Если нет в connectionParams — читаем из cookie в upgrade request
         if (!tenantId && extra?.request?.headers?.cookie) {
           const cookieHeader = extra.request.headers.cookie;
@@ -37,7 +47,7 @@ export async function getGraphQLConfig(
             tenantId = match[1];
           }
         }
-        
+
         req = {
           headers: {
             authorization,
@@ -46,7 +56,7 @@ export async function getGraphQLConfig(
           },
         };
       }
-      
+
       return {
         req: req ?? extra?.request,
         res,

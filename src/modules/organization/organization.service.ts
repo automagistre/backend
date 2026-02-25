@@ -1,4 +1,8 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import {
   CreateOrganizationInput,
@@ -37,7 +41,11 @@ export class OrganizationService {
 
   async update(
     ctx: AuthContext,
-    { id, requisite, ...mainData }: UpdateOrganizationInput & { requisite?: any },
+    {
+      id,
+      requisite,
+      ...mainData
+    }: UpdateOrganizationInput & { requisite?: any },
   ) {
     const existing = await this.prisma.organization.findFirst({
       where: { id, tenantGroupId: ctx.tenantGroupId },

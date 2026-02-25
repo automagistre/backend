@@ -31,7 +31,10 @@ export class ReservationService {
     private readonly orderService: OrderService,
   ) {}
 
-  private async getStockQuantity(partId: string, tenantId: string): Promise<number> {
+  private async getStockQuantity(
+    partId: string,
+    tenantId: string,
+  ): Promise<number> {
     const result = await this.prisma.motion.aggregate({
       where: { partId, tenantId },
       _sum: { quantity: true },
@@ -185,7 +188,10 @@ export class ReservationService {
         const order = oip?.orderItem?.order;
         if (!oip || !order) return null;
 
-        const customerName = [order.customer?.lastname, order.customer?.firstname]
+        const customerName = [
+          order.customer?.lastname,
+          order.customer?.firstname,
+        ]
           .filter(Boolean)
           .join(' ')
           .trim();
@@ -193,9 +199,16 @@ export class ReservationService {
         const manufacturer = (order.car as any)?.vehicle?.manufacturer?.name as
           | string
           | undefined;
-        const modelName = (order.car as any)?.vehicle?.name as string | undefined;
-        const caseName = (order.car as any)?.vehicle?.caseName as string | undefined;
-        const carName = [manufacturer, modelName, caseName].filter(Boolean).join(' ').trim();
+        const modelName = (order.car as any)?.vehicle?.name as
+          | string
+          | undefined;
+        const caseName = (order.car as any)?.vehicle?.caseName as
+          | string
+          | undefined;
+        const carName = [manufacturer, modelName, caseName]
+          .filter(Boolean)
+          .join(' ')
+          .trim();
 
         return {
           orderId: order.id,
@@ -228,16 +241,21 @@ export class ReservationService {
     return oip?.orderItem?.orderId ?? null;
   }
 
-  async transferReservation(ctx: AuthContext, input: TransferReservationInput): Promise<{
+  async transferReservation(
+    ctx: AuthContext,
+    input: TransferReservationInput,
+  ): Promise<{
     fromOrderId: string | null;
     toOrderId: string | null;
   }> {
     const { fromOrderItemPartId, toOrderItemPartId, quantity } = input;
     const tenantId = input.tenantId ?? ctx.tenantId;
 
-    const fromOrderId = await this.getOrderIdByOrderItemPartId(fromOrderItemPartId);
+    const fromOrderId =
+      await this.getOrderIdByOrderItemPartId(fromOrderItemPartId);
     const toOrderId = await this.getOrderIdByOrderItemPartId(toOrderItemPartId);
-    if (fromOrderId) await this.orderService.validateOrderEditable(ctx, fromOrderId);
+    if (fromOrderId)
+      await this.orderService.validateOrderEditable(ctx, fromOrderId);
     if (toOrderId && toOrderId !== fromOrderId) {
       await this.orderService.validateOrderEditable(ctx, toOrderId);
     }
@@ -341,7 +359,10 @@ export class ReservationService {
   /**
    * Резервирование запчасти для элемента заказа
    */
-  async reserve(ctx: AuthContext, input: ReservePartInput): Promise<Reservation> {
+  async reserve(
+    ctx: AuthContext,
+    input: ReservePartInput,
+  ): Promise<Reservation> {
     const { orderItemPartId, quantity } = input;
     const tenantId = input.tenantId ?? ctx.tenantId;
 
@@ -370,7 +391,10 @@ export class ReservationService {
 
     // Проверяем, достаточно ли товара на складе с учётом резервов в активных заказах.
     // Причина: иначе можно «зарезервировать» больше, чем есть физически, и UI будет вводить в заблуждение.
-    const stockQuantity = await this.getStockQuantity(orderItemPart.partId, tenantId);
+    const stockQuantity = await this.getStockQuantity(
+      orderItemPart.partId,
+      tenantId,
+    );
     const totalReservedActive = await this.getTotalReservedInActiveOrders(
       orderItemPart.partId,
       tenantId,
@@ -474,7 +498,10 @@ export class ReservationService {
    * Снятие резерва с запчасти
    * Если quantity не указан - удаляются все резервации
    */
-  async release(ctx: AuthContext, input: ReleaseReservationInput): Promise<number> {
+  async release(
+    ctx: AuthContext,
+    input: ReleaseReservationInput,
+  ): Promise<number> {
     const { orderItemPartId, quantity } = input;
 
     const orderId = await this.getOrderIdByOrderItemPartId(orderItemPartId);

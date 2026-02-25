@@ -42,9 +42,7 @@ export function isNonNegative(m: Money): boolean {
 
 export function assertSameCurrency(a: Money, b: Money): void {
   if (a.currencyCode !== b.currencyCode) {
-    throw new Error(
-      `Разные валюты: ${a.currencyCode} и ${b.currencyCode}`,
-    );
+    throw new Error(`Разные валюты: ${a.currencyCode} и ${b.currencyCode}`);
   }
 }
 
@@ -67,12 +65,8 @@ export function subtract(a: Money, b: Money): Money {
 /**
  * Умножить сумму на процент (в сотых долях: 100 = 100%).
  */
-export function multiplyByPercent(
-  m: Money,
-  percentHundredths: number,
-): Money {
-  const result =
-    (m.amountMinor * BigInt(Math.round(percentHundredths))) / 100n;
+export function multiplyByPercent(m: Money, percentHundredths: number): Money {
+  const result = (m.amountMinor * BigInt(Math.round(percentHundredths))) / 100n;
   return { amountMinor: result, currencyCode: m.currencyCode };
 }
 
@@ -94,7 +88,6 @@ export function netFromPriceAndDiscount(
   priceMinor?: bigint | null,
   discountMinor?: bigint | null,
 ): bigint {
-  const net =
-    normalizeAmount(priceMinor) - normalizeAmount(discountMinor);
+  const net = normalizeAmount(priceMinor) - normalizeAmount(discountMinor);
   return net < 0n ? 0n : net;
 }

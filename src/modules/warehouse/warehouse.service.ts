@@ -7,9 +7,7 @@ import type { AuthContext } from 'src/common/user-id.store';
 /** Складской модуль: списание, приёмка, резервы. */
 @Injectable()
 export class WarehouseService {
-  constructor(
-    private readonly partMotionService: PartMotionService,
-  ) {}
+  constructor(private readonly partMotionService: PartMotionService) {}
 
   async getStockQuantity(ctx: AuthContext, partId: string): Promise<number> {
     return this.partMotionService.getStockQuantity(ctx, partId);

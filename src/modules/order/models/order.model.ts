@@ -42,8 +42,7 @@ export class OrderModel {
   createdBy: string | null;
 
   @Field(() => Boolean, {
-    description:
-      'Можно удалить заказ (пустой, в течение периода охлаждения)',
+    description: 'Можно удалить заказ (пустой, в течение периода охлаждения)',
   })
   canDelete?: boolean;
 

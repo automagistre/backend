@@ -56,7 +56,10 @@ export class McWorkService {
         name: data.name.trim(),
         description: data.description?.trim() ?? null,
         comment: data.comment?.trim() ?? null,
-        priceAmount: data.price?.amountMinor != null ? BigInt(data.price.amountMinor) : null,
+        priceAmount:
+          data.price?.amountMinor != null
+            ? BigInt(data.price.amountMinor)
+            : null,
         priceCurrencyCode: data.price?.currencyCode ?? null,
         tenantId,
         createdBy: userId,
@@ -81,7 +84,9 @@ export class McWorkService {
       data.comment = input.comment?.trim() ?? null;
     if (input.price !== undefined) {
       data.priceAmount =
-        input.price?.amountMinor != null ? BigInt(input.price.amountMinor) : null;
+        input.price?.amountMinor != null
+          ? BigInt(input.price.amountMinor)
+          : null;
       data.priceCurrencyCode = input.price?.currencyCode ?? null;
     }
     return this.prisma.mcWork.update({

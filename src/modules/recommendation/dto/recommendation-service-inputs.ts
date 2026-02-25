@@ -37,4 +37,3 @@ export type CreateCarRecommendationPartServiceInput = {
 export type UpdateCarRecommendationPartServiceInput = {
   id: string;
 } & Partial<CarRecommendationPartWriteFields>;
-

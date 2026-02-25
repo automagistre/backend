@@ -62,7 +62,8 @@ export class ProcurementRowModel {
   status: ProcurementStatus;
 
   @Field(() => Boolean, {
-    description: 'Есть поставка с задержкой (updatedAt старше supplyExpiryDays дней)',
+    description:
+      'Есть поставка с задержкой (updatedAt старше supplyExpiryDays дней)',
   })
   hasDelayedSupply: boolean;
 }

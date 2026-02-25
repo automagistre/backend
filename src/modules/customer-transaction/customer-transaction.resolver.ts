@@ -27,7 +27,11 @@ export class CustomerTransactionResolver {
     @AuthContextDecorator() ctx: AuthContextType,
     @Parent() tx: { source: number; sourceId: string },
   ): Promise<string> {
-    return this.customerTransactionService.getSourceDisplay(ctx, tx.source, tx.sourceId);
+    return this.customerTransactionService.getSourceDisplay(
+      ctx,
+      tx.source,
+      tx.sourceId,
+    );
   }
 
   @ResolveField(() => String, {

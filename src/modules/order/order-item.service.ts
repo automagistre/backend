@@ -157,7 +157,10 @@ export class OrderItemService {
     return typeMap[typeStr] || OrderItemType.SERVICE; // По умолчанию service
   }
 
-  async createGroup(ctx: AuthContext, input: CreateOrderItemGroupInput): Promise<OrderItemModel> {
+  async createGroup(
+    ctx: AuthContext,
+    input: CreateOrderItemGroupInput,
+  ): Promise<OrderItemModel> {
     const { tenantId, userId } = ctx;
     await this.orderService.validateOrderEditable(ctx, input.orderId);
 
@@ -222,7 +225,10 @@ export class OrderItemService {
     return this.toModel(orderItem as any);
   }
 
-  async createPart(ctx: AuthContext, input: CreateOrderItemPartInput): Promise<OrderItemModel> {
+  async createPart(
+    ctx: AuthContext,
+    input: CreateOrderItemPartInput,
+  ): Promise<OrderItemModel> {
     const { tenantId, userId } = ctx;
     await this.orderService.validateOrderEditable(ctx, input.orderId);
 
@@ -396,7 +402,10 @@ export class OrderItemService {
     }
   }
 
-  async updatePart(ctx: AuthContext, input: UpdateOrderItemPartInput): Promise<OrderItemModel> {
+  async updatePart(
+    ctx: AuthContext,
+    input: UpdateOrderItemPartInput,
+  ): Promise<OrderItemModel> {
     const orderItem = await this.prisma.orderItem.findUnique({
       where: { id: input.id },
       include: { part: true },
@@ -439,7 +448,8 @@ export class OrderItemService {
     const updateData: any = {};
     if (input.quantity !== undefined) updateData.quantity = input.quantity;
     if (input.price !== undefined) {
-      const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
+      const defaultCurrency =
+        await this.settingsService.getDefaultCurrencyCode();
       const priceData =
         input.price != null
           ? applyDefaultCurrency(input.price, defaultCurrency)
@@ -448,7 +458,8 @@ export class OrderItemService {
       updateData.priceCurrencyCode = priceData.currencyCode;
     }
     if (input.discount !== undefined) {
-      const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
+      const defaultCurrency =
+        await this.settingsService.getDefaultCurrencyCode();
       const discountData =
         input.discount != null
           ? applyDefaultCurrency(input.discount, defaultCurrency)
@@ -519,7 +530,8 @@ export class OrderItemService {
     const updateData: any = {};
     if (input.service !== undefined) updateData.service = input.service;
     if (input.price !== undefined) {
-      const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
+      const defaultCurrency =
+        await this.settingsService.getDefaultCurrencyCode();
       const priceData =
         input.price != null
           ? applyDefaultCurrency(input.price, defaultCurrency)
@@ -528,7 +540,8 @@ export class OrderItemService {
       updateData.priceCurrencyCode = priceData.currencyCode;
     }
     if (input.discount !== undefined) {
-      const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
+      const defaultCurrency =
+        await this.settingsService.getDefaultCurrencyCode();
       const discountData =
         input.discount != null
           ? applyDefaultCurrency(input.discount, defaultCurrency)

@@ -34,14 +34,20 @@ export class TenantGuard implements CanActivate {
     };
     const tenantId = this.getTenantId(req);
 
-    const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [handler, cls]);
+    const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
+      handler,
+      cls,
+    ]);
     if (isPublic) {
       return true;
     }
 
     // Приоритет: декоратор на методе > декоратор на классе
     // @RequireTenant() требует tenant, @SkipTenant() пропускает проверку
-    const requireOnHandler = this.reflector.get<boolean>(REQUIRE_TENANT_KEY, handler);
+    const requireOnHandler = this.reflector.get<boolean>(
+      REQUIRE_TENANT_KEY,
+      handler,
+    );
     const skipOnHandler = this.reflector.get<boolean>(SKIP_TENANT_KEY, handler);
     const requireOnClass = this.reflector.get<boolean>(REQUIRE_TENANT_KEY, cls);
     const skipOnClass = this.reflector.get<boolean>(SKIP_TENANT_KEY, cls);
@@ -132,7 +138,9 @@ export class TenantGuard implements CanActivate {
     // Парсим cookie из заголовка (для WebSocket)
     const cookieHeader = headers?.cookie;
     if (typeof cookieHeader === 'string') {
-      const match = cookieHeader.match(new RegExp(`${X_TENANT_ID_COOKIE}=([^;]+)`));
+      const match = cookieHeader.match(
+        new RegExp(`${X_TENANT_ID_COOKIE}=([^;]+)`),
+      );
       if (match?.[1]) {
         return match[1].trim();
       }

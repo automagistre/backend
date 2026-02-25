@@ -8,11 +8,7 @@ import { CustomerTransactionModule } from 'src/modules/customer-transaction/cust
 import { SettingsModule } from 'src/modules/settings/settings.module';
 
 @Module({
-  imports: [
-    EmployeeModule,
-    CustomerTransactionModule,
-    SettingsModule,
-  ],
+  imports: [EmployeeModule, CustomerTransactionModule, SettingsModule],
   providers: [
     SalaryService,
     EmployeeSalaryService,

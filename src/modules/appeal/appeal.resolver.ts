@@ -42,7 +42,11 @@ export class AppealResolver {
     @AuthContext() ctx: AuthContextType,
     @Args('input') input: UpdateAppealStatusInput,
   ): Promise<boolean> {
-    await this.appealService.updateAppealStatus(ctx, input.appealId, input.status);
+    await this.appealService.updateAppealStatus(
+      ctx,
+      input.appealId,
+      input.status,
+    );
     return true;
   }
 }

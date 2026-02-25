@@ -1,7 +1,9 @@
 import { Field, ID, Int, ObjectType } from '@nestjs/graphql';
 import { OrderStatus } from '../../order/enums/order-status.enum';
 
-@ObjectType({ description: 'Источник резерва по запчасти (для сценария "занять")' })
+@ObjectType({
+  description: 'Источник резерва по запчасти (для сценария "занять")',
+})
 export class PartReservationSourceModel {
   @Field(() => ID)
   orderId: string;
@@ -24,4 +26,3 @@ export class PartReservationSourceModel {
   @Field(() => String, { nullable: true })
   carName?: string | null;
 }
-

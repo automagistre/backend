@@ -39,7 +39,8 @@ export class WalletTransactionModel implements WalletTransaction {
 
   /** Контекстная строка для отображения (номер заказа, ФИО). Формируется на бекенде. */
   @Field(() => String, {
-    description: 'Строка объекта: номер заказа/ФИО и т.д. Фронт склеивает с меткой типа.',
+    description:
+      'Строка объекта: номер заказа/ФИО и т.д. Фронт склеивает с меткой типа.',
   })
   sourceDisplay?: string;
 
@@ -48,7 +49,10 @@ export class WalletTransactionModel implements WalletTransaction {
   tenantId: string;
 
   @IsOptional()
-  @Field(() => BigInt, { nullable: true, description: 'Сумма в минорных единицах (копейки)' })
+  @Field(() => BigInt, {
+    nullable: true,
+    description: 'Сумма в минорных единицах (копейки)',
+  })
   amountAmount: bigint | null;
 
   @IsOptional()

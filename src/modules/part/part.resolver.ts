@@ -59,7 +59,8 @@ export class PartResolver {
 
     const part = await this.partService.create(ctx, data as CreatePartInput);
     if (price != null) {
-      const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
+      const defaultCurrency =
+        await this.settingsService.getDefaultCurrencyCode();
       const priceData = applyDefaultCurrency(price, defaultCurrency);
       await this.partPriceService.create({
         partId: part.id,
@@ -95,7 +96,10 @@ export class PartResolver {
       ctx.tenantId,
     );
     const currentDiscount =
-      await this.partDiscountService.findActualDiscountPart(input.id, ctx.tenantId);
+      await this.partDiscountService.findActualDiscountPart(
+        input.id,
+        ctx.tenantId,
+      );
     const { price, discount, ...data } = input;
 
     const part = await this.partService.update(ctx, data);
@@ -185,7 +189,10 @@ export class PartResolver {
     @Parent() part: PartModel,
     @AuthContext() ctx: AuthContextType,
   ): Promise<PartDiscountModel | null> {
-    return this.partDiscountService.findActualDiscountPart(part.id, ctx.tenantId);
+    return this.partDiscountService.findActualDiscountPart(
+      part.id,
+      ctx.tenantId,
+    );
   }
 
   @ResolveField(() => [PartDiscountModel])
@@ -217,10 +224,11 @@ export class PartResolver {
     @Parent() part: PartModel,
     @AuthContext() ctx: AuthContextType,
   ): Promise<number | null> {
-    const map = await this.reservationService.getTotalReservedInActiveOrdersByPartIds(
-      [part.id],
-      ctx.tenantId,
-    );
+    const map =
+      await this.reservationService.getTotalReservedInActiveOrdersByPartIds(
+        [part.id],
+        ctx.tenantId,
+      );
     return map.get(part.id) ?? 0;
   }
 

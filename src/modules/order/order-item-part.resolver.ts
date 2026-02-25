@@ -11,4 +11,3 @@ export class OrderItemPartResolver {
     return this.reservationService.getTotalReserved(part.id);
   }
 }
-

@@ -5,7 +5,9 @@ import { CreateMcEquipmentInput } from './create-mc-equipment.input';
 import { McLineInput } from './mc-line-input';
 
 @InputType()
-export class UpdateMcEquipmentInput extends PartialType(CreateMcEquipmentInput) {
+export class UpdateMcEquipmentInput extends PartialType(
+  CreateMcEquipmentInput,
+) {
   @IsUUID()
   @Field(() => ID)
   id: string;

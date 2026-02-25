@@ -17,4 +17,3 @@ export class UpdateCarRecommendationPartInput {
   @IsOptional()
   price?: MoneyInput;
 }
-

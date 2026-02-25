@@ -37,7 +37,10 @@ export class PartPriceService {
     });
   }
 
-  findActualPricePart(partId: string, tenantId: string): Promise<PartPrice | null> {
+  findActualPricePart(
+    partId: string,
+    tenantId: string,
+  ): Promise<PartPrice | null> {
     return this.prisma.partPrice.findFirst({
       where: {
         partId,

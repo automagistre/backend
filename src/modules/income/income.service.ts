@@ -87,7 +87,10 @@ export class IncomeService {
     };
   }
 
-  async create(ctx: AuthContext, input: CreateIncomeInput): Promise<IncomeModel> {
+  async create(
+    ctx: AuthContext,
+    input: CreateIncomeInput,
+  ): Promise<IncomeModel> {
     const { tenantId, userId } = ctx;
     const income = await this.prisma.income.create({
       data: {
@@ -157,12 +160,17 @@ export class IncomeService {
     return { items: rows.map((r) => this.toIncomeModel(r)), total };
   }
 
-  async update(ctx: AuthContext, input: UpdateIncomeInput): Promise<IncomeModel> {
+  async update(
+    ctx: AuthContext,
+    input: UpdateIncomeInput,
+  ): Promise<IncomeModel> {
     await this.ensureIncomeEditable(ctx, input.id);
     const income = await this.prisma.income.update({
       where: { id: input.id },
       data: {
-        ...(input.document !== undefined && { document: input.document ?? null }),
+        ...(input.document !== undefined && {
+          document: input.document ?? null,
+        }),
       },
       include: {
         incomeAccrue: true,
@@ -174,7 +182,10 @@ export class IncomeService {
     return this.toIncomeModel(income);
   }
 
-  private async ensureIncomeEditable(ctx: AuthContext, id: string): Promise<void> {
+  private async ensureIncomeEditable(
+    ctx: AuthContext,
+    id: string,
+  ): Promise<void> {
     const income = await this.prisma.income.findFirst({
       where: { id, tenantId: ctx.tenantId },
       include: { incomeAccrue: true },
@@ -189,11 +200,13 @@ export class IncomeService {
     }
   }
 
-  async createIncomePart(ctx: AuthContext, input: CreateIncomePartInput): Promise<IncomePartModel> {
+  async createIncomePart(
+    ctx: AuthContext,
+    input: CreateIncomePartInput,
+  ): Promise<IncomePartModel> {
     await this.ensureIncomeEditable(ctx, input.incomeId);
     const { tenantId, userId } = ctx;
-    const defaultCurrency =
-      await this.settingsService.getDefaultCurrencyCode();
+    const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
     const priceData = applyDefaultCurrency(input.price, defaultCurrency);
 
     if (input.quantity <= 0) {
@@ -215,7 +228,10 @@ export class IncomeService {
     return this.toIncomePartModel(part);
   }
 
-  async updateIncomePart(ctx: AuthContext, input: UpdateIncomePartInput): Promise<IncomePartModel> {
+  async updateIncomePart(
+    ctx: AuthContext,
+    input: UpdateIncomePartInput,
+  ): Promise<IncomePartModel> {
     const existing = await this.prisma.incomePart.findFirst({
       where: { id: input.id, tenantId: ctx.tenantId },
       include: { income: { include: { incomeAccrue: true } } },
@@ -229,8 +245,7 @@ export class IncomeService {
       );
     }
 
-    const defaultCurrency =
-      await this.settingsService.getDefaultCurrencyCode();
+    const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
     const updateData: {
       quantity?: number;
       priceAmount?: bigint;
@@ -311,9 +326,7 @@ export class IncomeService {
       throw new BadRequestException('Приход уже оприходован');
     }
     if (income.incomeParts.length === 0) {
-      throw new BadRequestException(
-        'Нельзя оприходовать приход без позиций',
-      );
+      throw new BadRequestException('Нельзя оприходовать приход без позиций');
     }
 
     return this.prisma.$transaction(async (tx) => {
@@ -361,10 +374,7 @@ export class IncomeService {
         orderIds.forEach((oid) => allOrderIds.add(oid));
       }
       for (const orderId of allOrderIds) {
-        await this.orderService.trySetNotificationIfFullyReserved(
-          tx,
-          orderId,
-        );
+        await this.orderService.trySetNotificationIfFullyReserved(tx, orderId);
       }
 
       const updated = await tx.income.findUniqueOrThrow({

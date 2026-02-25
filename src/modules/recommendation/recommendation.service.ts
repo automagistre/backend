@@ -40,7 +40,9 @@ export class RecommendationService {
 
     const partIds = Array.from(
       new Set(
-        recommendations.flatMap((r) => r.parts.map((p) => p.partId)).filter(Boolean),
+        recommendations
+          .flatMap((r) => r.parts.map((p) => p.partId))
+          .filter(Boolean),
       ),
     );
 
@@ -66,7 +68,10 @@ export class RecommendationService {
 
   async findByRealization(ctx: AuthContext, orderItemServiceId: string) {
     return this.prisma.carRecommendation.findFirst({
-      where: { realization: orderItemServiceId, tenantGroupId: ctx.tenantGroupId },
+      where: {
+        realization: orderItemServiceId,
+        tenantGroupId: ctx.tenantGroupId,
+      },
       include: { parts: true },
     });
   }
@@ -108,7 +113,9 @@ export class RecommendationService {
         workerId: input.workerId,
         expiredAt: input.expiredAt ?? null,
         priceAmount: normalizeMoneyAmount(input.priceAmount),
-        priceCurrencyCode: input.priceCurrencyCode ?? (await this.settingsService.getDefaultCurrencyCode()),
+        priceCurrencyCode:
+          input.priceCurrencyCode ??
+          (await this.settingsService.getDefaultCurrencyCode()),
         tenantGroupId: ctx.tenantGroupId,
         createdBy: ctx.userId,
       },
@@ -124,7 +131,9 @@ export class RecommendationService {
 
   async updateRecommendation(
     ctx: AuthContext,
-    input: UpdateCarRecommendationServiceInput & { realization?: string | null },
+    input: UpdateCarRecommendationServiceInput & {
+      realization?: string | null;
+    },
     tx?: Prisma.TransactionClient,
   ) {
     const client = tx ?? this.prisma;
@@ -150,7 +159,11 @@ export class RecommendationService {
     });
   }
 
-  async deleteRecommendation(ctx: AuthContext, id: string, tx?: Prisma.TransactionClient) {
+  async deleteRecommendation(
+    ctx: AuthContext,
+    id: string,
+    tx?: Prisma.TransactionClient,
+  ) {
     const client = tx ?? this.prisma;
     const exists = await client.carRecommendation.findFirst({
       where: { id, tenantGroupId: ctx.tenantGroupId },
@@ -160,11 +173,15 @@ export class RecommendationService {
     }
 
     if (tx) {
-      await client.carRecommendationPart.deleteMany({ where: { recommendationId: id } });
+      await client.carRecommendationPart.deleteMany({
+        where: { recommendationId: id },
+      });
       await client.carRecommendation.delete({ where: { id } });
     } else {
       await this.prisma.$transaction([
-        this.prisma.carRecommendationPart.deleteMany({ where: { recommendationId: id } }),
+        this.prisma.carRecommendationPart.deleteMany({
+          where: { recommendationId: id },
+        }),
         this.prisma.carRecommendation.delete({ where: { id } }),
       ]);
     }
@@ -199,7 +216,9 @@ export class RecommendationService {
         partId: input.partId,
         quantity: input.quantity,
         priceAmount: normalizeMoneyAmount(input.priceAmount),
-        priceCurrencyCode: input.priceCurrencyCode ?? (await this.settingsService.getDefaultCurrencyCode()),
+        priceCurrencyCode:
+          input.priceCurrencyCode ??
+          (await this.settingsService.getDefaultCurrencyCode()),
         tenantGroupId: ctx.tenantGroupId,
         createdBy: ctx.userId,
       },
@@ -240,7 +259,9 @@ export class RecommendationService {
       where: { id, tenantGroupId: ctx.tenantGroupId },
     });
     if (!exists) {
-      throw new NotFoundException(`Запчасть рекомендации с ID ${id} не найдена`);
+      throw new NotFoundException(
+        `Запчасть рекомендации с ID ${id} не найдена`,
+      );
     }
 
     await this.prisma.carRecommendationPart.delete({ where: { id } });

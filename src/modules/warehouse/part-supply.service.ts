@@ -13,9 +13,7 @@ export interface SupplyBySupplier {
 
 @Injectable()
 export class PartSupplyService {
-  constructor(
-    private readonly prisma: PrismaService,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   /**
    * Сумма ожидаемых поставок по запчасти (ledger: SUM всех записей, при оприходовании добавляется -quantity).
@@ -211,7 +209,12 @@ export class PartSupplyService {
     partId: string,
     supplierId: string,
     quantity: number,
-  ): Promise<{ id: string; partId: string; supplierId: string; quantity: number }> {
+  ): Promise<{
+    id: string;
+    partId: string;
+    supplierId: string;
+    quantity: number;
+  }> {
     if (quantity <= 0) {
       throw new BadRequestException('Количество должно быть больше 0');
     }

@@ -13,7 +13,10 @@ export class UpdateCarRecommendationInput {
   @Length(1, 255)
   service?: string | null;
 
-  @Field(() => ID, { nullable: true, description: 'ID сотрудника (employeeId)' })
+  @Field(() => ID, {
+    nullable: true,
+    description: 'ID сотрудника (employeeId)',
+  })
   @IsOptional()
   @IsUUID()
   workerId?: string | null;
@@ -26,4 +29,3 @@ export class UpdateCarRecommendationInput {
   @IsOptional()
   price?: MoneyInput;
 }
-

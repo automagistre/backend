@@ -17,7 +17,10 @@ export interface CurrentUserOptions {
  * @param options.required — при true бросает UnauthorizedException, если user отсутствует.
  */
 export const CurrentUser = createParamDecorator(
-  (options: CurrentUserOptions | undefined, ctx: ExecutionContext): JwtPayload | undefined => {
+  (
+    options: CurrentUserOptions | undefined,
+    ctx: ExecutionContext,
+  ): JwtPayload | undefined => {
     let user: JwtPayload | undefined;
     try {
       const gqlCtx = GqlExecutionContext.create(ctx);

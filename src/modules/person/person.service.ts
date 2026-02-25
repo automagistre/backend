@@ -1,4 +1,8 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreatePersonInput } from './inputs/create.input';
 import { UpdatePersonInput } from './inputs/update.input';
@@ -12,7 +16,10 @@ const DEFAULT_SKIP = 0;
 export class PersonService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(ctx: AuthContext, createPersonInput: CreatePersonInput): Promise<Person> {
+  async create(
+    ctx: AuthContext,
+    createPersonInput: CreatePersonInput,
+  ): Promise<Person> {
     return this.prisma.person.create({
       data: {
         ...createPersonInput,
@@ -95,7 +102,10 @@ export class PersonService {
     );
   }
 
-  async update(ctx: AuthContext, updatePersonInput: UpdatePersonInput): Promise<Person> {
+  async update(
+    ctx: AuthContext,
+    updatePersonInput: UpdatePersonInput,
+  ): Promise<Person> {
     const { id, ...data } = updatePersonInput;
 
     const existing = await this.prisma.person.findFirst({
@@ -122,14 +132,19 @@ export class PersonService {
       throw new NotFoundException(`Клиент не найден или недоступен`);
     }
 
-    const [employeeCount, calendarCustomerCount, calendarWorkerCount, orderCount, incomeCount] =
-      await Promise.all([
-        this.prisma.employee.count({ where: { personId: id } }),
-        this.prisma.calendarEntryOrderInfo.count({ where: { customerId: id } }),
-        this.prisma.calendarEntryOrderInfo.count({ where: { workerId: id } }),
-        this.prisma.order.count({ where: { customerId: id } }),
-        this.prisma.income.count({ where: { supplierId: id } }),
-      ]);
+    const [
+      employeeCount,
+      calendarCustomerCount,
+      calendarWorkerCount,
+      orderCount,
+      incomeCount,
+    ] = await Promise.all([
+      this.prisma.employee.count({ where: { personId: id } }),
+      this.prisma.calendarEntryOrderInfo.count({ where: { customerId: id } }),
+      this.prisma.calendarEntryOrderInfo.count({ where: { workerId: id } }),
+      this.prisma.order.count({ where: { customerId: id } }),
+      this.prisma.income.count({ where: { supplierId: id } }),
+    ]);
 
     if (employeeCount > 0) {
       throw new ConflictException(

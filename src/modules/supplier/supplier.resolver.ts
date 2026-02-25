@@ -23,8 +23,7 @@ export class SupplierResolver {
   }
 
   @Query(() => [CounterpartyUnion], {
-    description:
-      'Список подрядчиков (без сотрудников); опциональный поиск.',
+    description: 'Список подрядчиков (без сотрудников); опциональный поиск.',
   })
   async contractors(
     @AuthContext() ctx: AuthContextType,

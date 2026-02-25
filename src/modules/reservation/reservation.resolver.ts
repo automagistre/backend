@@ -20,7 +20,10 @@ export class ReservationResolver {
     @Inject('PUB_SUB') private readonly pubSub: PubSub,
   ) {}
 
-  private async publishOrderUpdated(ctx: AuthContextType, orderId: string | null): Promise<void> {
+  private async publishOrderUpdated(
+    ctx: AuthContextType,
+    orderId: string | null,
+  ): Promise<void> {
     if (!orderId) return;
     const order = await this.orderService.findOne(ctx, orderId);
     if (!order) return;
@@ -144,7 +147,9 @@ export class ReservationResolver {
     });
     await this.publishOrderUpdated(
       ctx,
-      await this.reservationService.getOrderIdByOrderItemPartId(orderItemPartId),
+      await this.reservationService.getOrderIdByOrderItemPartId(
+        orderItemPartId,
+      ),
     );
     return result;
   }
@@ -159,11 +164,11 @@ export class ReservationResolver {
   ): Promise<boolean> {
     const { fromOrderId, toOrderId } =
       await this.reservationService.transferReservation(ctx, {
-      fromOrderItemPartId: input.fromOrderItemPartId,
-      toOrderItemPartId: input.toOrderItemPartId,
-      quantity: input.quantity,
-      tenantId: input.tenantId,
-    });
+        fromOrderItemPartId: input.fromOrderItemPartId,
+        toOrderItemPartId: input.toOrderItemPartId,
+        quantity: input.quantity,
+        tenantId: input.tenantId,
+      });
     await this.publishOrderUpdated(ctx, fromOrderId);
     if (toOrderId !== fromOrderId) {
       await this.publishOrderUpdated(ctx, toOrderId);

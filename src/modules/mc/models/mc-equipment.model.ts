@@ -7,7 +7,9 @@ import { CarEngineAirIntake } from 'src/modules/vehicle/enums/car-engine-airInta
 import { CarEngineInjection } from 'src/modules/vehicle/enums/car-engine-injection.enum';
 import { McLineModel } from './mc-line.model';
 
-@ObjectType({ description: 'Комплектация (модель авто + оборудование + период ТО)' })
+@ObjectType({
+  description: 'Комплектация (модель авто + оборудование + период ТО)',
+})
 export class McEquipmentModel {
   @Field(() => ID)
   id: string;
@@ -63,7 +65,9 @@ export class McEquipmentModel {
   @Field(() => String)
   tenantId: string;
 
-  @Field(() => [McLineModel], { description: 'Строки карты ТО (работы + запчасти)' })
+  @Field(() => [McLineModel], {
+    description: 'Строки карты ТО (работы + запчасти)',
+  })
   lines: McLineModel[];
 
   @Field(() => Date, { nullable: true })

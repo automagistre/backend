@@ -10,9 +10,18 @@ export class NoteService {
 
   private async validateSubject(subjectId: string): Promise<void> {
     const [order, car, person] = await Promise.all([
-      this.prisma.order.findFirst({ where: { id: subjectId }, select: { id: true } }),
-      this.prisma.car.findFirst({ where: { id: subjectId }, select: { id: true } }),
-      this.prisma.person.findFirst({ where: { id: subjectId }, select: { id: true } }),
+      this.prisma.order.findFirst({
+        where: { id: subjectId },
+        select: { id: true },
+      }),
+      this.prisma.car.findFirst({
+        where: { id: subjectId },
+        select: { id: true },
+      }),
+      this.prisma.person.findFirst({
+        where: { id: subjectId },
+        select: { id: true },
+      }),
     ]);
     if (!order && !car && !person) {
       throw new NotFoundException('Subject not found (Order, Car or Person)');

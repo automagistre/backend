@@ -90,7 +90,9 @@ export class DisplayContextService {
       select: { lastname: true, firstname: true },
     });
     if (person) {
-      const name = [person.lastname, person.firstname].filter(Boolean).join(' ');
+      const name = [person.lastname, person.firstname]
+        .filter(Boolean)
+        .join(' ');
       return name || null;
     }
     const org = await this.prisma.organization.findUnique({

@@ -36,14 +36,16 @@ export class EmployeeResolver {
       pagination = { take: undefined, skip: undefined };
     }
     const { take = 25, skip = 0 } = pagination;
-    return this.employeeService.findMany(ctx, { take, skip, search, includeFired });
+    return this.employeeService.findMany(ctx, {
+      take,
+      skip,
+      search,
+      includeFired,
+    });
   }
 
   @Query(() => EmployeeModel, { nullable: true })
-  async employee(
-    @AuthContext() ctx: AuthContextType,
-    @Args('id') id: string,
-  ) {
+  async employee(@AuthContext() ctx: AuthContextType, @Args('id') id: string) {
     return this.employeeService.findOne(ctx, id);
   }
 

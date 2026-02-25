@@ -8,10 +8,16 @@ export class MotionFilterInput {
   @Field(() => ID, { nullable: true, description: 'Фильтр по запчасти' })
   partId?: string;
 
-  @Field(() => MotionSourceType, { nullable: true, description: 'Фильтр по типу источника' })
+  @Field(() => MotionSourceType, {
+    nullable: true,
+    description: 'Фильтр по типу источника',
+  })
   sourceType?: MotionSourceType;
 
   @IsUUID()
-  @Field(() => ID, { nullable: true, description: 'Фильтр по источнику (заказ, приход и т.д.)' })
+  @Field(() => ID, {
+    nullable: true,
+    description: 'Фильтр по источнику (заказ, приход и т.д.)',
+  })
   sourceId?: string;
 }

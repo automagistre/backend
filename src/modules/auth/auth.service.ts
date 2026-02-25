@@ -111,14 +111,16 @@ export class AuthService {
             message =
               'redirect_uri не совпадает. Проверьте KEYCLOAK_REDIRECT_URI (backend) и NUXT_PUBLIC_KEYCLOAK_REDIRECT_URI (admin).';
           } else {
-            message =
-              errorJson.error_description || errorJson.error || message;
+            message = errorJson.error_description || errorJson.error || message;
           }
         } catch {
           if (errorBody.includes('invalid_redirect_uri')) {
             message =
               'redirect_uri не совпадает. Проверьте KEYCLOAK_REDIRECT_URI.';
-          } else if (errorBody.includes('invalid_grant') || errorBody.includes('Code')) {
+          } else if (
+            errorBody.includes('invalid_grant') ||
+            errorBody.includes('Code')
+          ) {
             message =
               'Код авторизации недействителен или уже использован. Попробуйте войти снова.';
           } else {

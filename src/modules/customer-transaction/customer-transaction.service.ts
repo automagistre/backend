@@ -161,13 +161,19 @@ export class CustomerTransactionService {
     sourceId: string,
   ): Promise<string> {
     if (source === CustomerTransactionSource.OrderSalary) {
-      return this.displayContextService.getOrderContextByOrderIdForSalary(ctx, sourceId);
+      return this.displayContextService.getOrderContextByOrderIdForSalary(
+        ctx,
+        sourceId,
+      );
     }
     if (ORDER_SOURCES.includes(source as CustomerTransactionSource)) {
       return this.displayContextService.getOrderContext(ctx, sourceId);
     }
     if (source === CustomerTransactionSource.Manual) {
-      return this.displayContextService.getWalletNameByWalletTransactionId(ctx, sourceId);
+      return this.displayContextService.getWalletNameByWalletTransactionId(
+        ctx,
+        sourceId,
+      );
     }
     if (source === CustomerTransactionSource.ManualWithoutWallet) {
       return 'Ручная проводка (без счёта)';
@@ -175,7 +181,10 @@ export class CustomerTransactionService {
     return '';
   }
 
-  async createManualTransaction(ctx: AuthContext, input: CreateManualCustomerTransactionInput) {
+  async createManualTransaction(
+    ctx: AuthContext,
+    input: CreateManualCustomerTransactionInput,
+  ) {
     const { tenantId, userId } = ctx;
     const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
     const { amountMinor: amountAmount, currencyCode: amountCurrencyCode } =
@@ -203,7 +212,10 @@ export class CustomerTransactionService {
             walletId: input.walletId!,
             source: WalletTransactionSource.OperandManual,
             sourceId: ct.id,
-            amount: { amountMinor: amountAmount, currencyCode: amountCurrencyCode },
+            amount: {
+              amountMinor: amountAmount,
+              currencyCode: amountCurrencyCode,
+            },
             description: input.description ?? null,
           },
           tenantId,
@@ -223,7 +235,7 @@ export class CustomerTransactionService {
       data: {
         operandId: input.operandId,
         source: CustomerTransactionSource.ManualWithoutWallet,
-        sourceId: userId!,
+        sourceId: userId,
         description: input.description ?? null,
         amountAmount,
         amountCurrencyCode,

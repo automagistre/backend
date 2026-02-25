@@ -13,7 +13,8 @@ export class SettingsModel {
   minMarkupRatio: number;
 
   @Field(() => Int, {
-    description: 'Порог задержки поставки в днях: если updatedAt поставки старше — считать «задержка»',
+    description:
+      'Порог задержки поставки в днях: если updatedAt поставки старше — считать «задержка»',
   })
   supplyExpiryDays: number;
 }

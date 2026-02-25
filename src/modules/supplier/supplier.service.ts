@@ -14,7 +14,10 @@ function personDisplayName(p: Person): string {
 
 function buildPersonSearchWhere(search: string | undefined) {
   if (!search?.trim()) return {};
-  const terms = search.trim().split(/\s+/).filter((t) => t.length > 0);
+  const terms = search
+    .trim()
+    .split(/\s+/)
+    .filter((t) => t.length > 0);
   return {
     AND: terms.map((term) => ({
       OR: [
@@ -72,10 +75,19 @@ export class SupplierService {
     ]);
     const map = new Map<string, number>();
     for (const id of ids) map.set(id, 0);
-    for (const row of incomeCounts) map.set(row.supplierId, (map.get(row.supplierId) ?? 0) + row._count.supplierId);
-    for (const row of partSupplyCounts) map.set(row.supplierId, (map.get(row.supplierId) ?? 0) + row._count.supplierId);
+    for (const row of incomeCounts)
+      map.set(
+        row.supplierId,
+        (map.get(row.supplierId) ?? 0) + row._count.supplierId,
+      );
+    for (const row of partSupplyCounts)
+      map.set(
+        row.supplierId,
+        (map.get(row.supplierId) ?? 0) + row._count.supplierId,
+      );
     for (const row of orderItemParts) {
-      if (row.supplierId != null) map.set(row.supplierId, (map.get(row.supplierId) ?? 0) + 1);
+      if (row.supplierId != null)
+        map.set(row.supplierId, (map.get(row.supplierId) ?? 0) + 1);
     }
     return map;
   }
@@ -93,7 +105,8 @@ export class SupplierService {
     const map = new Map<string, number>();
     for (const id of ids) map.set(id, 0);
     for (const row of rows) {
-      if (row.workerId != null) map.set(row.workerId, (map.get(row.workerId) ?? 0) + 1);
+      if (row.workerId != null)
+        map.set(row.workerId, (map.get(row.workerId) ?? 0) + 1);
     }
     return map;
   }
@@ -117,7 +130,8 @@ export class SupplierService {
 
     const personWhere = buildPersonSearchWhere(search);
     const orgWhere = buildOrganizationSearchWhere(search);
-    const roleFilter = role === 'seller' ? { seller: true } : { contractor: true };
+    const roleFilter =
+      role === 'seller' ? { seller: true } : { contractor: true };
 
     const [personsRaw, organizations] = await Promise.all([
       this.prisma.person.findMany({
@@ -141,7 +155,10 @@ export class SupplierService {
         : Promise.resolve(personsRaw);
 
     const personsResolved = await persons;
-    const allIds = [...personsResolved.map((p) => p.id), ...organizations.map((o) => o.id)];
+    const allIds = [
+      ...personsResolved.map((p) => p.id),
+      ...organizations.map((o) => o.id),
+    ];
     const usageCounts =
       role === 'seller'
         ? await this.getSupplierUsageCounts(allIds, tenantId)
@@ -161,8 +178,8 @@ export class SupplierService {
       ...personsResolved.map(withLabel),
       ...organizations.map(withLabelOrg),
     ].sort((a, b) => {
-      const c = (b._count as number) - (a._count as number);
-      return c !== 0 ? c : (a._display as string).localeCompare(b._display as string);
+      const c = b._count - a._count;
+      return c !== 0 ? c : a._display.localeCompare(b._display);
     });
 
     return merged
@@ -171,12 +188,20 @@ export class SupplierService {
   }
 
   /** Поставщики (seller=true), для автокомплита с опциональным поиском. */
-  async getSuppliers(ctx: AuthContext, search?: string, take = DEFAULT_TAKE): Promise<CounterpartyItem[]> {
+  async getSuppliers(
+    ctx: AuthContext,
+    search?: string,
+    take = DEFAULT_TAKE,
+  ): Promise<CounterpartyItem[]> {
     return this.getCounterparties(ctx, 'seller', search, take);
   }
 
   /** Подрядчики (contractor=true), без сотрудников ни одного тенанта; для автокомплита. */
-  async getContractors(ctx: AuthContext, search?: string, take = DEFAULT_TAKE): Promise<CounterpartyItem[]> {
+  async getContractors(
+    ctx: AuthContext,
+    search?: string,
+    take = DEFAULT_TAKE,
+  ): Promise<CounterpartyItem[]> {
     return this.getCounterparties(ctx, 'contractor', search, take);
   }
 }

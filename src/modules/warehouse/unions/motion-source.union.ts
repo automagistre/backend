@@ -14,7 +14,12 @@ export const MotionSourceUnion = createUnionType({
   name: 'MotionSource',
   description: 'Источник движения запчасти',
   types: () =>
-    [OrderSourceModel, IncomeSourceModel, ManualSourceModel, InventorizationSourceModel] as const,
+    [
+      OrderSourceModel,
+      IncomeSourceModel,
+      ManualSourceModel,
+      InventorizationSourceModel,
+    ] as const,
   resolveType(value: { __type?: string }) {
     switch (value.__type) {
       case 'ORDER':

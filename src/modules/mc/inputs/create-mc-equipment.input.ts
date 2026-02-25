@@ -1,5 +1,12 @@
 import { Field, InputType, Int } from '@nestjs/graphql';
-import { IsInt, IsOptional, IsString, IsUUID, MaxLength, Min } from 'class-validator';
+import {
+  IsInt,
+  IsOptional,
+  IsString,
+  IsUUID,
+  MaxLength,
+  Min,
+} from 'class-validator';
 import { CarTransmission } from 'src/modules/vehicle/enums/car-transmission.enum';
 import { CarWheelDrive } from 'src/modules/vehicle/enums/car-wheel-drive.enum';
 import { CarEngineType } from 'src/modules/vehicle/enums/car-engine-type.enum';
