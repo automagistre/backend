@@ -14,6 +14,8 @@ import { PaginationArgs } from 'src/common/pagination.args';
 import { PaginatedPersons } from './inputs/paginatedPersons.type';
 import { CustomerTransactionService } from 'src/modules/customer-transaction/customer-transaction.service';
 import { PaginatedCustomerTransactions } from 'src/modules/customer-transaction/types/paginated-customer-transactions.type';
+import { CarService } from 'src/modules/vehicle/car.service';
+import { CarModel } from 'src/modules/vehicle/models/car.model';
 import { AuthContext } from 'src/common/decorators/auth-context.decorator';
 import { RequireTenant } from 'src/common/decorators/skip-tenant.decorator';
 import type { AuthContext as AuthContextType } from 'src/common/user-id.store';
@@ -24,6 +26,7 @@ export class PersonResolver {
   constructor(
     private readonly personService: PersonService,
     private readonly customerTransactionService: CustomerTransactionService,
+    private readonly carService: CarService,
   ) {}
 
   @Query(() => PaginatedPersons, {
@@ -113,5 +116,18 @@ export class PersonResolver {
       dateFrom,
       dateTo,
     });
+  }
+
+  @ResolveField(() => [CarModel], {
+    description: 'Автомобили клиента по истории заказов',
+  })
+  async cars(
+    @AuthContext() ctx: AuthContextType,
+    @Parent() person: PersonModel,
+  ): Promise<CarModel[]> {
+    return (await this.carService.findManyByCustomerId(
+      ctx,
+      person.id,
+    )) as CarModel[];
   }
 }

@@ -107,6 +107,49 @@ export class CarService {
     return { items, total };
   }
 
+  async findManyByCustomerId(
+    ctx: AuthContext,
+    customerId: string,
+  ) {
+    const links = await this.prisma.order.findMany({
+      where: {
+        tenantId: ctx.tenantId,
+        customerId,
+        carId: { not: null },
+      },
+      select: { carId: true },
+      distinct: ['carId'],
+      orderBy: { id: 'desc' },
+    });
+
+    const allCarIds = links
+      .map((item) => item.carId)
+      .filter((carId): carId is string => Boolean(carId));
+
+    if (allCarIds.length === 0) {
+      return [];
+    }
+
+    const rows = await this.prisma.car.findMany({
+      where: {
+        tenantGroupId: ctx.tenantGroupId,
+        id: { in: allCarIds },
+      },
+      include: {
+        vehicle: {
+          include: {
+            manufacturer: true,
+          },
+        },
+      },
+    });
+
+    const byId = new Map(rows.map((item) => [item.id, item]));
+    return allCarIds
+      .map((id) => byId.get(id))
+      .filter((item): item is NonNullable<typeof item> => Boolean(item));
+  }
+
   async findById(ctx: AuthContext, id: string) {
     return this.prisma.car.findFirst({
       where: { id, tenantGroupId: ctx.tenantGroupId },
