@@ -4,9 +4,10 @@ import { CarResolver } from './car.resolver';
 import { CarService } from './car.service';
 import { GosNomerRUScalar } from 'src/common/scalars/gosnomer-ru.scalar';
 import { VINScalar } from 'src/common/scalars/vin.scalar';
+import { CustomerCarRelationModule } from 'src/modules/customer-car-relation/customer-car-relation.module';
 
 @Module({
-  imports: [VehicleModelModule],
+  imports: [VehicleModelModule, CustomerCarRelationModule],
   controllers: [],
   providers: [CarService, CarResolver, VINScalar, GosNomerRUScalar],
   exports: [CarService],

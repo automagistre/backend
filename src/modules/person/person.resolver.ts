@@ -1,5 +1,6 @@
 import {
   Args,
+  Int,
   Mutation,
   Parent,
   Query,
@@ -14,8 +15,8 @@ import { PaginationArgs } from 'src/common/pagination.args';
 import { PaginatedPersons } from './inputs/paginatedPersons.type';
 import { CustomerTransactionService } from 'src/modules/customer-transaction/customer-transaction.service';
 import { PaginatedCustomerTransactions } from 'src/modules/customer-transaction/types/paginated-customer-transactions.type';
-import { CarService } from 'src/modules/vehicle/car.service';
 import { CarModel } from 'src/modules/vehicle/models/car.model';
+import { CustomerCarRelationService } from 'src/modules/customer-car-relation/customer-car-relation.service';
 import { AuthContext } from 'src/common/decorators/auth-context.decorator';
 import { RequireTenant } from 'src/common/decorators/skip-tenant.decorator';
 import type { AuthContext as AuthContextType } from 'src/common/user-id.store';
@@ -26,7 +27,7 @@ export class PersonResolver {
   constructor(
     private readonly personService: PersonService,
     private readonly customerTransactionService: CustomerTransactionService,
-    private readonly carService: CarService,
+    private readonly customerCarRelationService: CustomerCarRelationService,
   ) {}
 
   @Query(() => PaginatedPersons, {
@@ -124,10 +125,13 @@ export class PersonResolver {
   async cars(
     @AuthContext() ctx: AuthContextType,
     @Parent() person: PersonModel,
+    @Args('search', { nullable: true }) search?: string,
+    @Args('take', { type: () => Int, nullable: true }) take?: number,
   ): Promise<CarModel[]> {
-    return (await this.carService.findManyByCustomerId(
+    return (await this.customerCarRelationService.findCarsByCustomerId(
       ctx,
       person.id,
+      { search, take },
     )) as CarModel[];
   }
 }

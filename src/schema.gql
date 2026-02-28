@@ -220,6 +220,9 @@ type CarModel {
   """Пробег автомобиля"""
   mileage: Int
 
+  """Клиенты автомобиля по истории заказов"""
+  persons(search: String, take: Int): [PersonModel!]!
+
   """ID группы клиента"""
   tenantGroupId: String
 
@@ -1778,7 +1781,7 @@ type PersonModel {
   balance: Int!
 
   """Автомобили клиента по истории заказов"""
-  cars: [CarModel!]!
+  cars(search: String, take: Int): [CarModel!]!
   contractor: Boolean!
   createdAt: DateTime
   createdBy: ID

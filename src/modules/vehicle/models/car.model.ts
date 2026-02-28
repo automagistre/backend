@@ -9,6 +9,7 @@ import { CarEngineInjection } from '../enums/car-engine-injection.enum';
 import { BodyType } from '../enums/case-type.enum';
 import { VINScalar } from 'src/common/scalars/vin.scalar';
 import { GosNomerRUScalar } from 'src/common/scalars/gosnomer-ru.scalar';
+import { PersonModel } from 'src/modules/person/models/person.model';
 
 export {
   CarTransmission,
@@ -136,6 +137,11 @@ export class CarModel implements Omit<Car, 'identifier' | 'gosnomer'> {
   // Связи
   @Field(() => VehicleModel, { description: 'Модель автомобиля' })
   vehicle: VehicleModel;
+
+  @Field(() => [PersonModel], {
+    description: 'Клиенты автомобиля по истории заказов',
+  })
+  persons: PersonModel[];
 
   // Метаданные
   @Field(() => Date, { nullable: true, description: 'Дата создания записи' })
