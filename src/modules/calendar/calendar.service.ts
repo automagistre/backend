@@ -210,6 +210,8 @@ export class CalendarService {
           entryId,
           tenantId,
           createdBy: userId,
+          customerId: currentOrderInfo?.customerId ?? null,
+          carId: currentOrderInfo?.carId ?? null,
           workerId: nextWorkerId,
           description: nextDescription,
         },
