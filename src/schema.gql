@@ -1474,6 +1474,9 @@ type OrderModel {
   """Предоплаты по заказу"""
   prepayments: [OrderPaymentModel!]!
   status: OrderStatus!
+
+  """ID tenant"""
+  tenantId: String!
   walletTransactions: [WalletTransactionModel!]!
   worker: EmployeeModel
   workerId: ID
@@ -1965,7 +1968,7 @@ type Query {
   """Поиск работ по названию (временно из уже созданных работ в заказах)"""
   services(search: String): [String!]!
 
-  """Глобальные настройки приложения"""
+  """Настройки приложения"""
   settings: SettingsModel!
 
   """Список поставщиков; опциональный поиск по имени/телефону/email."""
@@ -2129,7 +2132,7 @@ type ReviewModel {
   text: String!
 }
 
-"""Глобальные настройки приложения"""
+"""Настройки приложения (tenant-scoped в будущем)"""
 type SettingsModel {
   """Валюта по умолчанию (например для проводок, цен)"""
   defaultCurrencyCode: String!
@@ -2141,6 +2144,9 @@ type SettingsModel {
   Порог задержки поставки в днях: если updatedAt поставки старше — считать «задержка»
   """
   supplyExpiryDays: Int!
+
+  """Реквизиты Автосервиса"""
+  tenantRequisites: TenantRequisitesModel
 }
 
 type Subscription {
@@ -2152,6 +2158,60 @@ type SupplyBySupplierModel {
   quantity: Int!
   supplierId: String!
   updatedAt: DateTime!
+}
+
+"""Реквизиты организации для печати документов"""
+type TenantRequisitesModel {
+  """Адрес"""
+  address: String!
+
+  """Банк"""
+  bank: String!
+
+  """БИК"""
+  bik: String!
+
+  """Email"""
+  email: String
+
+  """URL страницы гарантии (QR)"""
+  guarantyUrl: String!
+
+  """ФИО руководителя"""
+  head: String!
+
+  """Должность руководителя"""
+  headType: String!
+
+  """ИНН"""
+  inn: String!
+
+  """КПП"""
+  kpp: String
+
+  """Корр. счёт"""
+  ks: String!
+
+  """Имя файла логотипа (в /img)"""
+  logo: String!
+
+  """Название организации"""
+  name: String!
+
+  """ОГРН"""
+  ogrn: String
+
+  """Расчётный счёт"""
+  rs: String!
+
+  """Сайт"""
+  site: String
+
+  """Телефоны"""
+  telephones: [String!]!
+
+  """Тип: OOO или IP"""
+  type: String!
 }
 
 type Tokens {

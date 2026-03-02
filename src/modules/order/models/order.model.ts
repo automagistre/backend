@@ -70,5 +70,6 @@ export class OrderModel {
   })
   prepayments?: OrderPaymentModel[];
 
+  @Field(() => String, { description: 'ID tenant' })
   tenantId: string;
 }
