@@ -7,6 +7,7 @@ import { OrderItemPartResolver } from './order-item-part.resolver';
 import { PubSub } from 'graphql-subscriptions';
 import { CarModule } from '../vehicle/car.module';
 import { PersonModule } from '../person/person.module';
+import { OrganizationModule } from '../organization/organization.module';
 import { EmployeeModule } from '../employee/employee.module';
 import { ReservationModule } from '../reservation/reservation.module';
 import { WarehouseModule } from '../warehouse/warehouse.module';
@@ -20,6 +21,7 @@ import './enums/close-deficiency.enum';
   imports: [
     CarModule,
     PersonModule,
+    OrganizationModule,
     EmployeeModule,
     forwardRef(() => ReservationModule),
     forwardRef(() => WarehouseModule),

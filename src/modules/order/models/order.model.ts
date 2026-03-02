@@ -1,7 +1,9 @@
 import { Field, ID, Int, ObjectType } from '@nestjs/graphql';
 import { CarModel } from '../../vehicle/models/car.model';
 import { PersonModel } from '../../person/models/person.model';
+import { OrganizationModel } from '../../organization/models/organization.model';
 import { EmployeeModel } from '../../employee/models/employee.model';
+import { CounterpartyUnion } from '../../supplier/supplier.union';
 import { OrderPaymentModel } from './order-payment.model';
 import { OrderCloseValidationModel } from './order-close-validation.model';
 import { OrderStatus } from '../enums/order-status.enum';
@@ -59,8 +61,11 @@ export class OrderModel {
   @Field(() => CarModel, { nullable: true })
   car?: CarModel | null;
 
-  @Field(() => PersonModel, { nullable: true })
-  customer?: PersonModel | null;
+  @Field(() => CounterpartyUnion, {
+    nullable: true,
+    description: 'Заказчик (персона или организация)',
+  })
+  customer?: PersonModel | OrganizationModel | null;
 
   @Field(() => EmployeeModel, { nullable: true })
   worker?: EmployeeModel | null;

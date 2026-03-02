@@ -17,10 +17,13 @@ import { OrderItemService } from './order-item.service';
 import { PubSub } from 'graphql-subscriptions';
 import { CarService } from '../vehicle/car.service';
 import { PersonService } from '../person/person.service';
+import { OrganizationService } from '../organization/organization.service';
 import { EmployeeService } from '../employee/employee.service';
 import { CarModel } from '../vehicle/models/car.model';
 import { PersonModel } from '../person/models/person.model';
+import { OrganizationModel } from '../organization/models/organization.model';
 import { EmployeeModel } from '../employee/models/employee.model';
+import { CounterpartyUnion } from '../supplier/supplier.union';
 import { WalletTransactionModel } from '../wallet/models/wallet-transaction.model';
 import { OrderPaymentModel } from './models/order-payment.model';
 import { CustomerTransactionModel } from '../customer-transaction/models/customer-transaction.model';
@@ -48,6 +51,7 @@ export class OrderResolver {
     private readonly orderService: OrderService,
     private readonly orderItemService: OrderItemService,
     private readonly carService: CarService,
+    private readonly organizationService: OrganizationService,
     private readonly personService: PersonService,
     private readonly employeeService: EmployeeService,
     private readonly walletTransactionService: WalletTransactionService,
@@ -197,18 +201,16 @@ export class OrderResolver {
     )) as CarModel | null;
   }
 
-  @ResolveField(() => PersonModel, { nullable: true })
+  @ResolveField(() => CounterpartyUnion, { nullable: true })
   async customer(
     @AuthContext() ctx: AuthContextType,
     @Parent() order: OrderModel,
-  ): Promise<PersonModel | null> {
-    if (!order.customerId) {
-      return null;
-    }
-    return (await this.personService.findOne(
-      ctx,
-      order.customerId,
-    )) as PersonModel | null;
+  ): Promise<PersonModel | OrganizationModel | null> {
+    if (!order.customerId) return null;
+    const person = await this.personService.findOne(ctx, order.customerId);
+    if (person) return person as PersonModel;
+    const org = await this.organizationService.findOne(ctx, order.customerId);
+    return org as OrganizationModel | null;
   }
 
   @ResolveField(() => EmployeeModel, { nullable: true })

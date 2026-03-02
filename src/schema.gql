@@ -1459,7 +1459,9 @@ type OrderModel {
   closedAt: DateTime
   createdAt: DateTime
   createdBy: ID
-  customer: PersonModel
+
+  """Заказчик (персона или организация)"""
+  customer: Counterparty
   customerId: ID
   customerTransactions: [CustomerTransactionModel!]!
   description: String
@@ -1553,6 +1555,9 @@ type OrganizationModel {
 
   """Баланс"""
   balance: String!
+
+  """Автомобили организации по истории заказов"""
+  cars(search: String, take: Int): [CarModel!]!
 
   """Является контрагентом"""
   contractor: Boolean!
