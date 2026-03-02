@@ -1,5 +1,6 @@
 import {
   Args,
+  Int,
   Mutation,
   Parent,
   Query,
@@ -17,6 +18,8 @@ import { PaginatedOrganizations } from './types/paginated-organizations.type';
 import { Organization } from '@prisma/client';
 import { CustomerTransactionService } from 'src/modules/customer-transaction/customer-transaction.service';
 import { PaginatedCustomerTransactions } from 'src/modules/customer-transaction/types/paginated-customer-transactions.type';
+import { CustomerCarRelationService } from 'src/modules/customer-car-relation/customer-car-relation.service';
+import { CarModel } from 'src/modules/vehicle/models/car.model';
 import { AuthContext } from 'src/common/decorators/auth-context.decorator';
 import { RequireTenant } from 'src/common/decorators/skip-tenant.decorator';
 import type { AuthContext as AuthContextType } from 'src/common/user-id.store';
@@ -27,6 +30,7 @@ export class OrganizationResolver {
   constructor(
     private readonly organizationService: OrganizationService,
     private readonly customerTransactionService: CustomerTransactionService,
+    private readonly customerCarRelationService: CustomerCarRelationService,
   ) {}
 
   @Query(() => PaginatedOrganizations)
@@ -101,6 +105,22 @@ export class OrganizationResolver {
       dateFrom,
       dateTo,
     });
+  }
+
+  @ResolveField(() => [CarModel], {
+    description: 'Автомобили организации по истории заказов',
+  })
+  async cars(
+    @AuthContext() ctx: AuthContextType,
+    @Parent() organization: OrganizationModel,
+    @Args('search', { nullable: true }) search?: string,
+    @Args('take', { type: () => Int, nullable: true }) take?: number,
+  ): Promise<CarModel[]> {
+    return (await this.customerCarRelationService.findCarsByCustomerId(
+      ctx,
+      organization.id,
+      { search, take },
+    )) as CarModel[];
   }
 
   @ResolveField(() => RequisiteModel, { nullable: true })
