@@ -18,9 +18,11 @@ export class NoteResolver {
   })
   async notes(
     @Args('subjectId', { type: () => ID }) subjectId: string,
+    @Args('isPublic', { type: () => Boolean, nullable: true })
+    isPublic: boolean | null | undefined,
     @AuthContext() ctx: AuthContextType,
   ) {
-    return this.noteService.findBySubject(ctx, subjectId);
+    return this.noteService.findBySubject(ctx, subjectId, isPublic);
   }
 
   @Mutation(() => NoteModel, { name: 'createNote' })

@@ -28,10 +28,20 @@ export class NoteService {
     }
   }
 
-  async findBySubject(ctx: AuthContext, subjectId: string) {
+  async findBySubject(
+    ctx: AuthContext,
+    subjectId: string,
+    isPublic?: boolean | null,
+  ) {
     const { tenantId } = ctx;
+    const where = {
+      subject: subjectId,
+      tenantId,
+      noteDelete: null,
+      ...(isPublic !== undefined && isPublic !== null && { isPublic }),
+    };
     return this.prisma.note.findMany({
-      where: { subject: subjectId, tenantId, noteDelete: null },
+      where,
       orderBy: { createdAt: 'desc' },
     });
   }

@@ -1921,7 +1921,7 @@ type Query {
   motions(filter: MotionFilterInput, skip: Int, take: Int): PaginatedMotions!
 
   """Заметки по subject (Order, Car или Person)"""
-  notes(subjectId: ID!): [NoteModel!]!
+  notes(isPublic: Boolean, subjectId: ID!): [NoteModel!]!
 
   """Заказ по ID"""
   order(id: ID!): OrderModel
