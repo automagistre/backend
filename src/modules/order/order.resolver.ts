@@ -81,12 +81,13 @@ export class OrderResolver {
     @Args('search', { nullable: true }) search?: string,
     @Args('status', { type: () => [OrderStatus], nullable: true })
     status?: OrderStatus[],
+    @Args('customerId', { type: () => ID, nullable: true }) customerId?: string,
   ): Promise<PaginatedOrders> {
     if (!pagination) {
       pagination = { take: undefined, skip: undefined };
     }
     const { take = 25, skip = 0 } = pagination;
-    return this.orderService.findMany(ctx, { take, skip, search, status });
+    return this.orderService.findMany(ctx, { take, skip, search, status, customerId });
   }
 
   @Query(() => [OrderModel], {

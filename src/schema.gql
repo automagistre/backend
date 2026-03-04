@@ -1930,7 +1930,7 @@ type Query {
   orderItems(orderId: ID!): [OrderItemModel!]!
 
   """Список всех заказов с пагинацией"""
-  orders(search: String, skip: Int = 0, status: [OrderStatus!], take: Int = 25): PaginatedOrders!
+  orders(customerId: ID, search: String, skip: Int = 0, status: [OrderStatus!], take: Int = 25): PaginatedOrders!
 
   """Заказы, в которых содержится запчасть (активные), с кол-вом и резервом"""
   ordersWithPart(partId: ID!): [PartInOrderModel!]!

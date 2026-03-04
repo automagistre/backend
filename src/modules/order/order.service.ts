@@ -215,14 +215,16 @@ export class OrderService {
       skip,
       search,
       status,
+      customerId,
     }: {
       take?: number;
       skip?: number;
       search?: string;
       status?: OrderStatus[];
+      customerId?: string;
     },
   ): Promise<{ items: OrderModel[]; total: number }> {
-    const where = this.buildOrdersWhere(ctx.tenantId, search, status);
+    const where = this.buildOrdersWhere(ctx.tenantId, search, status, undefined, customerId);
     const [items, total] = await this.prisma.$transaction([
       this.prisma.order.findMany({
         where,
@@ -280,7 +282,7 @@ export class OrderService {
       ],
     };
 
-    const where = this.buildOrdersWhere(tenantId, search, status, activeWhere);
+    const where = this.buildOrdersWhere(tenantId, search, status, activeWhere, undefined);
 
     return this.prisma.order.findMany({
       where,
@@ -293,8 +295,12 @@ export class OrderService {
     search?: string,
     status?: OrderStatus[],
     baseWhere: Record<string, unknown> = { tenantId },
+    customerId?: string,
   ): Record<string, unknown> {
     const and: Record<string, unknown>[] = [{ ...baseWhere }];
+    if (customerId) {
+      and.push({ customerId });
+    }
     if (status?.length) {
       and.push({ status: { in: status } });
     }
