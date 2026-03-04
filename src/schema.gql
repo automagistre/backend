@@ -272,6 +272,13 @@ type CarRecommendationPartModel {
   recommendationId: ID!
 }
 
+type CarServiceHistoryItemModel {
+  executorName: String
+  id: ID!
+  price: MoneyModel
+  service: String!
+}
+
 """Тип трансмиссии автомобиля"""
 enum CarTransmission {
   """Автоматическая (AT)"""
@@ -1496,6 +1503,15 @@ type OrderPaymentModel {
   orderId: String!
 }
 
+type OrderServicesGroupModel {
+  orderDate: String
+  orderId: ID!
+  orderMileage: Int
+  orderNumber: Int!
+  orderStatus: OrderStatus!
+  services: [CarServiceHistoryItemModel!]!
+}
+
 """Источник движения: заказ"""
 type OrderSourceModel {
   """Название машины"""
@@ -1590,6 +1606,11 @@ type OrganizationModel {
 
 type PaginatedAppeals {
   items: [AppealModel!]!
+  total: Int!
+}
+
+type PaginatedCarServices {
+  items: [OrderServicesGroupModel!]!
   total: Int!
 }
 
@@ -1868,6 +1889,9 @@ type Query {
   Список рекомендаций по автомобилю (для отображения в заказах и карточке авто)
   """
   carRecommendations(carId: ID!): [CarRecommendationModel!]!
+
+  """История выполненных работ по автомобилю"""
+  carServicesHistory(carId: ID!, search: String, skip: Int, take: Int): PaginatedCarServices!
   cars(search: String, skip: Int = 0, take: Int = 25): PaginatedCars!
 
   """Список подрядчиков (без сотрудников); опциональный поиск."""
@@ -1930,7 +1954,7 @@ type Query {
   orderItems(orderId: ID!): [OrderItemModel!]!
 
   """Список всех заказов с пагинацией"""
-  orders(customerId: ID, search: String, skip: Int = 0, status: [OrderStatus!], take: Int = 25): PaginatedOrders!
+  orders(carId: ID, customerId: ID, search: String, skip: Int = 0, status: [OrderStatus!], take: Int = 25): PaginatedOrders!
 
   """Заказы, в которых содержится запчасть (активные), с кол-вом и резервом"""
   ordersWithPart(partId: ID!): [PartInOrderModel!]!
