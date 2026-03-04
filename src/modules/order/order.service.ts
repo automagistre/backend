@@ -662,7 +662,13 @@ export class OrderService {
     const { tenantId, userId } = ctx;
     const order = await this.prisma.order.findFirst({
       where: { id: input.orderId, tenantId },
-      select: { id: true, customerId: true, close: { select: { id: true } } },
+      select: {
+        id: true,
+        customerId: true,
+        carId: true,
+        mileage: true,
+        close: { select: { id: true } },
+      },
     });
     if (!order) {
       throw new NotFoundException(`Заказ с ID ${input.orderId} не найден`);
@@ -808,6 +814,13 @@ export class OrderService {
         where: { id: input.orderId },
         data: { status: OrderStatus.CLOSED },
       });
+
+      if (order.carId != null && order.mileage != null) {
+        await tx.car.update({
+          where: { id: order.carId },
+          data: { mileage: order.mileage },
+        });
+      }
     });
 
     await this.salaryService.chargeByOrder(ctx, input.orderId);
