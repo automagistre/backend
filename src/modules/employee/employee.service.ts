@@ -18,16 +18,23 @@ export class EmployeeService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(ctx: AuthContext, data: CreateEmployeeInput) {
-    return this.prisma.employee.create({
-      data: {
-        ...data,
-        hiredAt: data.hiredAt || new Date(),
-        tenantId: ctx.tenantId,
-        createdBy: ctx.userId,
-      },
-      include: {
-        person: true,
-      },
+    return this.prisma.$transaction(async (tx) => {
+      const employee = await tx.employee.create({
+        data: {
+          ...data,
+          hiredAt: data.hiredAt || new Date(),
+          tenantId: ctx.tenantId,
+          createdBy: ctx.userId,
+        },
+      });
+      await tx.person.update({
+        where: { id: data.personId },
+        data: { contractor: true },
+      });
+      return tx.employee.findUniqueOrThrow({
+        where: { id: employee.id },
+        include: { person: true },
+      });
     });
   }
 
@@ -173,14 +180,19 @@ export class EmployeeService {
       throw new NotFoundException('Сотрудник не найден или недоступен');
     }
 
-    return this.prisma.employee.update({
-      where: { id },
-      data: {
-        firedAt: new Date(),
-      },
-      include: {
-        person: true,
-      },
+    return this.prisma.$transaction(async (tx) => {
+      await tx.employee.update({
+        where: { id },
+        data: { firedAt: new Date() },
+      });
+      await tx.person.update({
+        where: { id: existing.personId },
+        data: { contractor: false },
+      });
+      return tx.employee.findUniqueOrThrow({
+        where: { id },
+        include: { person: true },
+      });
     });
   }
 

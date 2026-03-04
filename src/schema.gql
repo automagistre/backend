@@ -483,7 +483,7 @@ input CreateManualCustomerTransactionInput {
   operandId: ID!
 
   """
-  Источник проводки при отсутствии счёта. Штраф — только если явно передано 9. Иначе ManualWithoutWallet (11).
+  Источник проводки. 5 = Выдача зарплаты (при наличии walletId). 9 = Штраф (без счёта). Иначе Manual/ManualWithoutWallet.
   """
   source: Float
 

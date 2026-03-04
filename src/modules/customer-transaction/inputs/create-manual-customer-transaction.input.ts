@@ -27,7 +27,7 @@ export class CreateManualCustomerTransactionInput {
   @Field(() => Number, {
     nullable: true,
     description:
-      'Источник проводки при отсутствии счёта. Штраф — только если явно передано 9. Иначе ManualWithoutWallet (11).',
+      'Источник проводки. 5 = Выдача зарплаты (при наличии walletId). 9 = Штраф (без счёта). Иначе Manual/ManualWithoutWallet.',
   })
   source?: number | null;
 

@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { Prisma } from 'src/generated/prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { WalletService } from 'src/modules/wallet/wallet.service';
@@ -169,7 +173,10 @@ export class CustomerTransactionService {
     if (ORDER_SOURCES.includes(source as CustomerTransactionSource)) {
       return this.displayContextService.getOrderContext(ctx, sourceId);
     }
-    if (source === CustomerTransactionSource.Manual) {
+    if (
+      source === CustomerTransactionSource.Manual ||
+      source === CustomerTransactionSource.Payroll
+    ) {
       return this.displayContextService.getWalletNameByWalletTransactionId(
         ctx,
         sourceId,
@@ -193,14 +200,27 @@ export class CustomerTransactionService {
     const { amountMinor: amountAmount, currencyCode: amountCurrencyCode } =
       applyDefaultCurrency(input.amount, defaultCurrency);
 
+    if (input.source === CustomerTransactionSource.Payroll && !input.walletId) {
+      throw new BadRequestException(
+        'Для выдачи зарплаты обязателен выбор счёта',
+      );
+    }
+
     if (input.walletId) {
       const wallet = await this.walletService.findOne(ctx, input.walletId);
       if (!wallet) throw new NotFoundException('Счёт не найден');
+      const isPayroll = input.source === CustomerTransactionSource.Payroll;
+      const ctSource = isPayroll
+        ? CustomerTransactionSource.Payroll
+        : CustomerTransactionSource.Manual;
+      const wtSource = isPayroll
+        ? WalletTransactionSource.Payroll
+        : WalletTransactionSource.OperandManual;
       return this.prisma.$transaction(async (tx) => {
         const ct = await tx.customerTransaction.create({
           data: {
             operandId: input.operandId,
-            source: CustomerTransactionSource.Manual,
+            source: ctSource,
             sourceId: '00000000-0000-0000-0000-000000000000',
             description: input.description ?? null,
             amountAmount,
@@ -213,7 +233,7 @@ export class CustomerTransactionService {
           tx,
           {
             walletId: input.walletId!,
-            source: WalletTransactionSource.OperandManual,
+            source: wtSource,
             sourceId: ct.id,
             amount: {
               amountMinor: amountAmount,
