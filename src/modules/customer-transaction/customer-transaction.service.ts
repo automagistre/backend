@@ -178,6 +178,9 @@ export class CustomerTransactionService {
     if (source === CustomerTransactionSource.ManualWithoutWallet) {
       return 'Ручная проводка (без счёта)';
     }
+    if (source === CustomerTransactionSource.Penalty) {
+      return '';
+    }
     return '';
   }
 
@@ -231,10 +234,14 @@ export class CustomerTransactionService {
       });
     }
 
+    const source =
+      input.source === CustomerTransactionSource.Penalty
+        ? CustomerTransactionSource.Penalty
+        : CustomerTransactionSource.ManualWithoutWallet;
     return this.prisma.customerTransaction.create({
       data: {
         operandId: input.operandId,
-        source: CustomerTransactionSource.ManualWithoutWallet,
+        source,
         sourceId: userId,
         description: input.description ?? null,
         amountAmount,

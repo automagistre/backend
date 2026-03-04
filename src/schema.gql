@@ -482,7 +482,12 @@ input CreateManualCustomerTransactionInput {
   """ID операнда (Person или Organization)"""
   operandId: ID!
 
-  """ID счёта. Если не указан — проводка без счёта (ManualWithoutWallet)."""
+  """
+  Источник проводки при отсутствии счёта. Штраф — только если явно передано 9. Иначе ManualWithoutWallet (11).
+  """
+  source: Float
+
+  """ID счёта. Если не указан — проводка без счёта."""
   walletId: ID
 }
 

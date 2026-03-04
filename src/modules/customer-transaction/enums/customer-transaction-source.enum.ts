@@ -10,6 +10,8 @@ export enum CustomerTransactionSource {
   OrderPrepayRefund = OrderSalary,
   /** Начисление ежемесячного оклада (sourceId = employee_salary.id) */
   MonthlySalary = 8,
+  /** Штраф (без счёта, sourceId = userId) */
+  Penalty = 9,
   Manual = 10,
   ManualWithoutWallet = 11,
 }
@@ -20,6 +22,7 @@ const LABELS: Record<CustomerTransactionSource, string> = {
   [CustomerTransactionSource.OrderPayment]: 'Списание по заказу',
   [CustomerTransactionSource.OrderSalary]: 'Зарплата по заказу',
   [CustomerTransactionSource.MonthlySalary]: 'Начисление ежемесячного оклада',
+  [CustomerTransactionSource.Penalty]: 'Штраф',
   [CustomerTransactionSource.Manual]: 'Ручная проводка',
   [CustomerTransactionSource.ManualWithoutWallet]:
     'Ручная проводка (без счёта)',
