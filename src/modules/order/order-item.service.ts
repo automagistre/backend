@@ -7,6 +7,7 @@ import { CreateOrderItemServiceInput } from './inputs/create-order-item-service.
 import { CreateOrderItemPartInput } from './inputs/create-order-item-part.input';
 import { UpdateOrderItemPartInput } from './inputs/update-order-item-part.input';
 import { UpdateOrderItemServiceInput } from './inputs/update-order-item-service.input';
+import { UpdateOrderItemGroupInput } from './inputs/update-order-item-group.input';
 import {
   OrderItem,
   OrderItemGroup,
@@ -183,6 +184,59 @@ export class OrderItemService {
     });
 
     return this.toModel(orderItem as any);
+  }
+
+  async updateGroup(
+    ctx: AuthContext,
+    input: UpdateOrderItemGroupInput,
+  ): Promise<OrderItemModel> {
+    const orderItem = await this.prisma.orderItem.findUnique({
+      where: { id: input.id },
+      include: { group: true },
+    });
+
+    if (!orderItem) {
+      throw new NotFoundException(`Элемент заказа с ID ${input.id} не найден`);
+    }
+
+    if (!orderItem.group) {
+      throw new NotFoundException(
+        `Элемент заказа с ID ${input.id} не является группой`,
+      );
+    }
+
+    await this.orderService.validateOrderEditable(ctx, orderItem.orderId!);
+
+    const updateData: { name?: string; hideParts?: boolean } = {};
+    if (input.name !== undefined) updateData.name = input.name;
+    if (input.hideParts !== undefined) updateData.hideParts = input.hideParts;
+
+    if (Object.keys(updateData).length > 0) {
+      await this.prisma.orderItemGroup.update({
+        where: { id: input.id },
+        data: updateData,
+      });
+    }
+
+    const updated = await this.prisma.orderItem.findUnique({
+      where: { id: input.id },
+      include: {
+        group: true,
+        service: true,
+        part: {
+          include: {
+            part: {
+              include: {
+                manufacturer: true,
+              },
+            },
+            supplier: true,
+          },
+        },
+      },
+    });
+
+    return this.toModel(updated as any);
   }
 
   async createService(

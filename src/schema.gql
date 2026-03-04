@@ -1343,6 +1343,9 @@ type Mutation {
   """Обновить заказ"""
   updateOrder(input: UpdateOrderInput!): OrderModel!
 
+  """Обновить группу элементов заказа"""
+  updateOrderItemGroup(input: UpdateOrderItemGroupInput!): OrderItemModel!
+
   """Обновить запчасть в заказе"""
   updateOrderItemPart(input: UpdateOrderItemPartInput!): OrderItemModel!
 
@@ -2484,6 +2487,15 @@ input UpdateOrderInput {
   mileage: Int
   status: OrderStatus
   workerId: ID
+}
+
+input UpdateOrderItemGroupInput {
+  hideParts: Boolean = false
+  id: ID!
+  name: String
+  orderId: ID
+  parentId: ID
+  tenantId: ID
 }
 
 input UpdateOrderItemPartInput {

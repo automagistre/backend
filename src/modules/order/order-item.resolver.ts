@@ -11,6 +11,7 @@ import {
 import { OrderItemService } from './order-item.service';
 import { OrderItemModel } from './models/order-item.model';
 import { CreateOrderItemGroupInput } from './inputs/create-order-item-group.input';
+import { UpdateOrderItemGroupInput } from './inputs/update-order-item-group.input';
 import { CreateOrderItemServiceInput } from './inputs/create-order-item-service.input';
 import { CreateOrderItemPartInput } from './inputs/create-order-item-part.input';
 import { UpdateOrderItemPartInput } from './inputs/update-order-item-part.input';
@@ -86,6 +87,21 @@ export class OrderItemResolver {
       await this.publishOrderUpdated(ctx, created.orderId);
     }
     return created;
+  }
+
+  @Mutation(() => OrderItemModel, {
+    name: 'updateOrderItemGroup',
+    description: 'Обновить группу элементов заказа',
+  })
+  async updateOrderItemGroup(
+    @AuthContext() ctx: AuthContextType,
+    @Args('input') input: UpdateOrderItemGroupInput,
+  ) {
+    const updated = await this.orderItemService.updateGroup(ctx, input);
+    if (updated.orderId) {
+      await this.publishOrderUpdated(ctx, updated.orderId);
+    }
+    return updated;
   }
 
   @Mutation(() => OrderItemModel, {
