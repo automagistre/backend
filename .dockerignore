@@ -1,6 +1,23 @@
+# Зависимости и артефакты (собираются в образе)
 node_modules
 dist
+coverage
+*.tsbuildinfo
+
+# Git и локальные конфиги
 .git
 .env
 .env.*
 !.env.example
+
+# Локальная разработка
+.cursor
+.idea
+*.log
+npm-debug.log*
+
+# Тесты не нужны в production-образе
+test
+*.spec.ts
+*.e2e-spec.ts
+jest.config.js

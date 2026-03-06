@@ -1,6 +1,7 @@
 services:
   backend:
     image: ${HARBOR_REGISTRY}/automagistre/backend:${TAG:-latest}
+    pull_policy: always
     restart: always
     env_file:
       - .env
