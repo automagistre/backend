@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { Organization, Person } from '@prisma/client';
+import { Organization, Person } from 'src/generated/prisma/client';
 import type { AuthContext } from 'src/common/user-id.store';
 
 export type CounterpartyItem = Person | Organization;

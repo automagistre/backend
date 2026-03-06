@@ -1,6 +1,5 @@
 import { Field, ID, ObjectType } from '@nestjs/graphql';
-import { Organization } from '@prisma/client';
-import { Decimal } from '@prisma/client/runtime/client';
+import { Organization, Prisma } from 'src/generated/prisma/client';
 import { PhoneNumberScalar } from 'src/common/scalars/phone.scaral';
 
 @ObjectType({ description: 'Реквизиты организации' })
@@ -74,7 +73,7 @@ export class OrganizationModel implements Organization {
   createdBy: string | null;
 
   @Field(() => String, { description: 'Баланс' })
-  balance: Decimal;
+  balance: Prisma.Decimal;
 
   // Поля для Prisma
   requisiteBank: string | null;

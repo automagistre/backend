@@ -6,7 +6,7 @@ import {
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreatePersonInput } from './inputs/create.input';
 import { UpdatePersonInput } from './inputs/update.input';
-import { Person } from '@prisma/client';
+import { Person } from 'src/generated/prisma/client';
 import type { AuthContext } from 'src/common/user-id.store';
 
 const DEFAULT_TAKE = 25;

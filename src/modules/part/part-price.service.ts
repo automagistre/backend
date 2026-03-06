@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreatePartPriceDto } from './dto/create-part-price.dto';
-import { PartPrice } from '@prisma/client';
+import { PartPrice } from 'src/generated/prisma/client';
 import { normalizeMoneyAmount } from 'src/common/utils/money.util';
 import { SettingsService } from 'src/modules/settings/settings.service';
 

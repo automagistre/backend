@@ -1,0 +1,21 @@
+services:
+  backend:
+    image: ${HARBOR_REGISTRY}/automagistre/backend:${TAG:-latest}
+    restart: always
+    env_file:
+      - .env
+    networks:
+      - traefik-public
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik-public"
+      - "traefik.http.routers.automagistre-backend.rule=Host(`crm.automagistre.ru`) && PathPrefix(`/api`)"
+      - "traefik.http.routers.automagistre-backend.priority=15"
+      - "traefik.http.routers.automagistre-backend.entrypoints=websecure"
+      - "traefik.http.routers.automagistre-backend.tls=true"
+      - "traefik.http.routers.automagistre-backend.tls.certresolver=letsencrypt"
+      - "traefik.http.services.automagistre-backend.loadbalancer.server.port=3000"
+
+networks:
+  traefik-public:
+    external: true

@@ -1,5 +1,5 @@
 import { Field, ID, Int, ObjectType } from '@nestjs/graphql';
-import { Vehicle } from '@prisma/client';
+import { Vehicle } from 'src/generated/prisma/client';
 import { Max, Min } from 'class-validator';
 import { ManufacturerModel } from 'src/modules/manufacturer/models/manufacturer.model';
 

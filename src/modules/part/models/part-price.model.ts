@@ -1,5 +1,5 @@
 import { Field, ID, Int, ObjectType } from '@nestjs/graphql';
-import { PartPrice } from '@prisma/client';
+import { PartPrice } from 'src/generated/prisma/client';
 
 @ObjectType({ description: 'Цена запчасти' })
 export class PartPriceModel implements PartPrice {

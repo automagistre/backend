@@ -1,5 +1,5 @@
 import { Field, ID, Int, ObjectType } from '@nestjs/graphql';
-import { Employee } from '@prisma/client';
+import { Employee } from 'src/generated/prisma/client';
 import { PersonModel } from 'src/modules/person/models/person.model';
 
 @ObjectType({ description: 'Сотрудник' })

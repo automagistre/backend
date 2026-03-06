@@ -1,5 +1,5 @@
 import { Field, ID, Int, ObjectType } from '@nestjs/graphql';
-import { Car } from '@prisma/client';
+import { Car } from 'src/generated/prisma/client';
 import { VehicleModel } from './vahicle.model';
 import { CarEngineType } from '../enums/car-engine-type.enum';
 import { CarEngineAirIntake } from '../enums/car-engine-airIntake.enum';

@@ -10,12 +10,12 @@ export async function getGraphQLConfig(
   return {
     driver: ApolloDriver,
     autoSchemaFile: join(process.cwd(), 'src/schema.gql'),
-    path: '/api/graphql',
+    path: '/api/v1/graphql',
     sortSchema: true,
     playground: isDev(configService),
     subscriptions: {
       'graphql-ws': {
-        path: '/api/graphql',
+        path: '/api/v1/graphql',
       },
     },
 

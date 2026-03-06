@@ -14,7 +14,7 @@ import {
 } from './inputs/employee.input';
 import { PaginationArgs } from 'src/common/pagination.args';
 import { PaginatedEmployees } from './types/paginated-employees.type';
-import { Employee } from '@prisma/client';
+import { Employee } from 'src/generated/prisma/client';
 import { AuthContext } from 'src/common/decorators/auth-context.decorator';
 import { RequireTenant } from 'src/common/decorators/skip-tenant.decorator';
 import type { AuthContext as AuthContextType } from 'src/common/user-id.store';

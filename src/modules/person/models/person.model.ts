@@ -1,6 +1,5 @@
 import { Field, ID, Int, ObjectType } from '@nestjs/graphql';
-import { Person } from '@prisma/client';
-import { Decimal } from '@prisma/client/runtime/client';
+import { Person, Prisma } from 'src/generated/prisma/client';
 import { PhoneNumberScalar } from 'src/common/scalars/phone.scaral';
 
 @ObjectType()
@@ -39,5 +38,5 @@ export class PersonModel implements Person {
   createdBy: string | null;
 
   @Field(() => Int)
-  balance: Decimal;
+  balance: Prisma.Decimal;
 }

@@ -1,6 +1,5 @@
 import { Field, ID, ObjectType } from '@nestjs/graphql';
-import { Decimal } from '@prisma/client/runtime/client';
-import { Wallet } from 'src/generated/prisma/client';
+import { Prisma, Wallet } from 'src/generated/prisma/client';
 
 @ObjectType({ description: 'Кошелёк' })
 export class WalletModel implements Wallet {
@@ -46,5 +45,5 @@ export class WalletModel implements Wallet {
   createdBy: string | null;
 
   @Field(() => String, { description: 'Баланс' })
-  balance: Decimal;
+  balance: Prisma.Decimal;
 }

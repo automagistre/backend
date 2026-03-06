@@ -15,7 +15,7 @@ import {
 } from './inputs/organization.input';
 import { PaginationArgs } from 'src/common/pagination.args';
 import { PaginatedOrganizations } from './types/paginated-organizations.type';
-import { Organization } from '@prisma/client';
+import { Organization } from 'src/generated/prisma/client';
 import { CustomerTransactionService } from 'src/modules/customer-transaction/customer-transaction.service';
 import { PaginatedCustomerTransactions } from 'src/modules/customer-transaction/types/paginated-customer-transactions.type';
 import { CustomerCarRelationService } from 'src/modules/customer-car-relation/customer-car-relation.service';

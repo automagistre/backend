@@ -10,7 +10,7 @@ import {
 import { CarService } from './car.service';
 import { CarModel, CarNumber, VehicleIdentifier } from './models/car.model';
 import { VINScalar } from 'src/common/scalars/vin.scalar';
-import { Car } from '@prisma/client';
+import { Car } from 'src/generated/prisma/client';
 import { GosNomerRUScalar } from 'src/common/scalars/gosnomer-ru.scalar';
 import { CreateCarInput, UpdateCarInput } from './inputs/car.input';
 import { PaginationArgs } from 'src/common/pagination.args';

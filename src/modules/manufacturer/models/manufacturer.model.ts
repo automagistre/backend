@@ -1,5 +1,5 @@
 import { Field, ObjectType } from '@nestjs/graphql';
-import { Manufacturer } from '@prisma/client';
+import { Manufacturer } from 'src/generated/prisma/client';
 import { LoggedCreatedByModel } from 'src/common/models/created-by.model';
 
 @ObjectType({ description: 'Модель производителя' })

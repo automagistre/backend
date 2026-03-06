@@ -1,7 +1,7 @@
 import { Field, ID, Int, ObjectType } from '@nestjs/graphql';
 import { ManufacturerModel } from '../../manufacturer/models/manufacturer.model';
 import { Unit } from '../enums/unit.enum';
-import { Part } from '@prisma/client';
+import { Part } from 'src/generated/prisma/client';
 import { PartPriceModel } from './part-price.model';
 import { PartDiscountModel } from './part-discount.model';
 
