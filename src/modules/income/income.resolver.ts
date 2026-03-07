@@ -21,6 +21,7 @@ import { UpdateIncomePartInput } from './inputs/update-income-part.input';
 import { AuthContext } from 'src/common/decorators/auth-context.decorator';
 import { RequireTenant } from 'src/common/decorators/skip-tenant.decorator';
 import type { AuthContext as AuthContextType } from 'src/common/user-id.store';
+import { AccrueIncomePaymentInput } from './inputs/accrue-income-payment.input';
 
 @Resolver(() => IncomeModel)
 @RequireTenant()
@@ -155,7 +156,13 @@ export class IncomeResolver {
   async accrueIncome(
     @AuthContext() ctx: AuthContextType,
     @Args('incomeId', { type: () => ID }) incomeId: string,
+    @Args('payment', {
+      type: () => AccrueIncomePaymentInput,
+      nullable: true,
+      description: 'Опциональная оплата при оприходовании',
+    })
+    payment?: AccrueIncomePaymentInput | null,
   ): Promise<IncomeModel> {
-    return this.incomeService.accrue(ctx, incomeId);
+    return this.incomeService.accrue(ctx, incomeId, payment);
   }
 }

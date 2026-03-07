@@ -55,7 +55,7 @@ export class WalletTransactionResolver {
     @AuthContextDecorator() ctx: AuthContextType,
     @Args('id') id: string,
   ) {
-    return this.walletTransactionService.findOne(ctx, id);
+    return this.walletTransactionService.findOneTransaction(ctx, id);
   }
 
   @RequireTenant()

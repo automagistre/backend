@@ -2,6 +2,17 @@
 # THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
 # ------------------------------------------------------
 
+input AccrueIncomePaymentInput {
+  """Сумма оплаты (минорные единицы + валюта)"""
+  amount: MoneyInput!
+
+  """Комментарий к оплате"""
+  description: String
+
+  """ID счета для оплаты прихода"""
+  walletId: ID!
+}
+
 input AddPartCrossInput {
   """ID взаимозаменяемой запчасти"""
   crossPartId: ID!
@@ -1155,7 +1166,12 @@ enum MotionSourceType {
 
 type Mutation {
   """Оприходовать приход"""
-  accrueIncome(incomeId: ID!): IncomeModel!
+  accrueIncome(
+    incomeId: ID!
+
+    """Опциональная оплата при оприходовании"""
+    payment: AccrueIncomePaymentInput
+  ): IncomeModel!
   addPartCross(input: AddPartCrossInput!): PartModel!
   cancelEmployeeSalary(salaryId: ID!): Boolean!
 

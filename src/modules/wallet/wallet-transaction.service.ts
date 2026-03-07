@@ -29,9 +29,13 @@ export class WalletTransactionService {
     return { amountAmount: m.amountMinor, amountCurrencyCode: m.currencyCode };
   }
 
+  async findOne(ctx: AuthContext, walletId: string) {
+    return this.walletService.findOne(ctx, walletId);
+  }
+
   async create(ctx: AuthContext, data: CreateWalletTransactionInput) {
     const { tenantId, userId } = ctx;
-    const wallet = await this.walletService.findOne(ctx, data.walletId);
+    const wallet = await this.findOne(ctx, data.walletId);
     if (!wallet) throw new NotFoundException('Счёт не найден');
     const { amountAmount, amountCurrencyCode } =
       await this.normalizeAmountFields(data);
@@ -142,7 +146,7 @@ export class WalletTransactionService {
     });
   }
 
-  async findOne(ctx: AuthContext, id: string) {
+  async findOneTransaction(ctx: AuthContext, id: string) {
     return this.prisma.walletTransaction.findFirst({
       where: { id, tenantId: ctx.tenantId },
       include: { wallet: true },

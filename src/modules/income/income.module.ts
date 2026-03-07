@@ -7,6 +7,7 @@ import { SettingsModule } from '../settings/settings.module';
 import { WarehouseModule } from '../warehouse/warehouse.module';
 import { ReservationModule } from '../reservation/reservation.module';
 import { OrderModule } from '../order/order.module';
+import { WalletModule } from '../wallet/wallet.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { OrderModule } from '../order/order.module';
     PersonModule,
     OrganizationModule,
     WarehouseModule,
+    WalletModule,
     forwardRef(() => ReservationModule),
     forwardRef(() => OrderModule),
   ],

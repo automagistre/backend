@@ -11,12 +11,15 @@ import { PartSupplyService } from 'src/modules/warehouse/part-supply.service';
 import { MotionSourceType } from 'src/modules/warehouse/enums/motion-source-type.enum';
 import { ReservationService } from 'src/modules/reservation/reservation.service';
 import { OrderService } from 'src/modules/order/order.service';
+import { WalletTransactionSource } from 'src/modules/wallet/enums/wallet-transaction-source.enum';
+import { WalletTransactionService } from 'src/modules/wallet/wallet-transaction.service';
 import { IncomeModel } from './models/income.model';
 import { IncomePartModel } from './models/income-part.model';
 import { CreateIncomeInput } from './inputs/create-income.input';
 import { CreateIncomePartInput } from './inputs/create-income-part.input';
 import { UpdateIncomeInput } from './inputs/update-income.input';
 import { UpdateIncomePartInput } from './inputs/update-income-part.input';
+import { AccrueIncomePaymentInput } from './inputs/accrue-income-payment.input';
 import type { AuthContext } from 'src/common/user-id.store';
 
 const DEFAULT_TAKE = 50;
@@ -30,6 +33,7 @@ export class IncomeService {
     private readonly partSupplyService: PartSupplyService,
     private readonly reservationService: ReservationService,
     private readonly orderService: OrderService,
+    private readonly walletTransactionService: WalletTransactionService,
   ) {}
 
   private toIncomeModel(row: {
@@ -308,7 +312,11 @@ export class IncomeService {
     return true;
   }
 
-  async accrue(ctx: AuthContext, incomeId: string): Promise<IncomeModel> {
+  async accrue(
+    ctx: AuthContext,
+    incomeId: string,
+    payment?: AccrueIncomePaymentInput | null,
+  ): Promise<IncomeModel> {
     const { tenantId } = ctx;
     const income = await this.prisma.income.findFirst({
       where: { id: incomeId, tenantId },
@@ -327,6 +335,41 @@ export class IncomeService {
     }
     if (income.incomeParts.length === 0) {
       throw new BadRequestException('Нельзя оприходовать приход без позиций');
+    }
+
+    const incomeTotal = income.incomeParts.reduce((sum, part) => {
+      const priceAmount = part.priceAmount ?? 0n;
+      if (priceAmount <= 0n) {
+        return sum;
+      }
+
+      return sum + (priceAmount * BigInt(part.quantity)) / 100n;
+    }, 0n);
+
+    if (payment) {
+      if (payment.amount.amountMinor <= 0n) {
+        throw new BadRequestException('Сумма оплаты должна быть больше 0');
+      }
+      if (payment.amount.amountMinor > incomeTotal) {
+        throw new BadRequestException(
+          'Сумма оплаты не может быть больше суммы прихода',
+        );
+      }
+
+      const wallet = await this.walletTransactionService.findOne(
+        ctx,
+        payment.walletId,
+      );
+
+      if (!wallet) {
+        throw new NotFoundException(`Счет не найден: ${payment.walletId}`);
+      }
+
+      if (!wallet.useInIncome) {
+        throw new BadRequestException(
+          'Выбранный счет недоступен для оплаты приходов',
+        );
+      }
     }
 
     return this.prisma.$transaction(async (tx) => {
@@ -375,6 +418,24 @@ export class IncomeService {
       }
       for (const orderId of allOrderIds) {
         await this.orderService.trySetNotificationIfFullyReserved(tx, orderId);
+      }
+
+      if (payment) {
+        await this.walletTransactionService.createWithinTransaction(
+          tx,
+          {
+            walletId: payment.walletId,
+            source: WalletTransactionSource.IncomePayment,
+            sourceId: incomeId,
+            amount: {
+              amountMinor: 0n - payment.amount.amountMinor,
+              currencyCode: payment.amount.currencyCode,
+            },
+            description: payment.description,
+          },
+          tenantId,
+          ctx.userId,
+        );
       }
 
       const updated = await tx.income.findUniqueOrThrow({
