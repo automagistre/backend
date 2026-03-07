@@ -92,7 +92,9 @@ const normalizeLatestScheduleDuration = <
   if (!schedule) {
     return entry;
   }
-  schedule.duration = minutesToIsoShort(parseDurationToMinutes(schedule.duration));
+  schedule.duration = minutesToIsoShort(
+    parseDurationToMinutes(schedule.duration),
+  );
   return entry;
 };
 
@@ -156,6 +158,18 @@ export class CalendarService {
               },
             }
           : {}),
+        ...(data.orderId
+          ? {
+              CalendarEntryOrder: {
+                create: {
+                  id: uuidv6(),
+                  orderId: data.orderId,
+                  tenantId,
+                  createdBy: userId,
+                },
+              },
+            }
+          : {}),
       },
     });
 
@@ -204,31 +218,35 @@ export class CalendarService {
     const tx: Prisma.PrismaPromise<unknown>[] = [];
 
     if (shouldCreateOrderInfo) {
-      tx.push(this.prisma.calendarEntryOrderInfo.create({
-        data: {
-          id: uuidv6(),
-          entryId,
-          tenantId,
-          createdBy: userId,
-          customerId: currentOrderInfo?.customerId ?? null,
-          carId: currentOrderInfo?.carId ?? null,
-          workerId: nextWorkerId,
-          description: nextDescription,
-        },
-      }));
+      tx.push(
+        this.prisma.calendarEntryOrderInfo.create({
+          data: {
+            id: uuidv6(),
+            entryId,
+            tenantId,
+            createdBy: userId,
+            customerId: currentOrderInfo?.customerId ?? null,
+            carId: currentOrderInfo?.carId ?? null,
+            workerId: nextWorkerId,
+            description: nextDescription,
+          },
+        }),
+      );
     }
 
     if (shouldCreateSchedule && nextDate && nextDuration) {
-      tx.push(this.prisma.calendarEntrySchedule.create({
-        data: {
-          id: uuidv6(),
-          entryId,
-          tenantId,
-          createdBy: userId,
-          date: nextDate,
-          duration: nextDuration,
-        },
-      }));
+      tx.push(
+        this.prisma.calendarEntrySchedule.create({
+          data: {
+            id: uuidv6(),
+            entryId,
+            tenantId,
+            createdBy: userId,
+            date: nextDate,
+            duration: nextDuration,
+          },
+        }),
+      );
     }
 
     if (tx.length) {
@@ -324,7 +342,8 @@ export class CalendarService {
     return items
       .map((item) => normalizeLatestScheduleDuration(item))
       .sort(
-      (left, right) => (idsOrder.get(left.id) ?? 0) - (idsOrder.get(right.id) ?? 0),
+        (left, right) =>
+          (idsOrder.get(left.id) ?? 0) - (idsOrder.get(right.id) ?? 0),
       );
   }
 

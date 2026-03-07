@@ -83,6 +83,12 @@ enum BodyType {
   WAGON
 }
 
+"""Источник создания записи календаря"""
+enum CalendarEntryCreateSource {
+  CALENDAR_FLOW
+  ORDER_FLOW
+}
+
 """Запись в календаре"""
 type CalendarEntryModel {
   createdAt: DateTime
@@ -351,6 +357,8 @@ input CreateCalendarEntryInput {
   date: DateTime!
   description: String
   duration: String!
+  orderId: ID
+  source: CalendarEntryCreateSource
   workerId: ID
 }
 
@@ -1494,6 +1502,7 @@ type OrderModel {
 
   """Предоплаты по заказу"""
   prepayments: [OrderPaymentModel!]!
+  scheduledAt: DateTime
   status: OrderStatus!
 
   """ID tenant"""

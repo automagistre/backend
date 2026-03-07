@@ -40,6 +40,9 @@ export class OrderModel {
   @Field(() => Date, { nullable: true })
   closedAt?: Date | null;
 
+  @Field(() => Date, { nullable: true })
+  scheduledAt?: Date | null;
+
   @Field(() => ID, { nullable: true })
   createdBy: string | null;
 

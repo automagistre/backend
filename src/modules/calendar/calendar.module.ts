@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { CalendarService } from './calendar.service';
 import { HomeAssistantModule } from '../home-assistant/home-assistant.module';
 import {
@@ -8,9 +8,16 @@ import {
 import { EmployeeModule } from '../employee/employee.module';
 import { PersonModule } from '../person/person.module';
 import { CarModule } from '../vehicle/car.module';
+import { OrderModule } from '../order/order.module';
 
 @Module({
-  imports: [HomeAssistantModule, EmployeeModule, PersonModule, CarModule],
+  imports: [
+    HomeAssistantModule,
+    EmployeeModule,
+    PersonModule,
+    CarModule,
+    forwardRef(() => OrderModule),
+  ],
   providers: [
     CalendarService,
     CalendarResolver,

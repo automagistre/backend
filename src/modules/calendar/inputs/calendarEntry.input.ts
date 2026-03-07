@@ -27,6 +27,11 @@ export enum DeletionReason {
   WE_ARE_CONDOMS = 'WE_ARE_CONDOMS',
 }
 
+export enum CalendarEntryCreateSource {
+  CALENDAR_FLOW = 'CALENDAR_FLOW',
+  ORDER_FLOW = 'ORDER_FLOW',
+}
+
 export const DeletionReasonLabels: Record<DeletionReason, string> = {
   [DeletionReason.NO_REASON]: 'Заказчик отменил запись без причины',
   [DeletionReason.PLAN_ANOTHER_TIME]:
@@ -43,8 +48,23 @@ registerEnumType(DeletionReason, {
   description: 'Причины удаления записи в календаре',
 });
 
+registerEnumType(CalendarEntryCreateSource, {
+  name: 'CalendarEntryCreateSource',
+  description: 'Источник создания записи календаря',
+});
+
 @InputType()
 export class CreateCalendarEntryInput {
+  @Field(() => ID, { nullable: true })
+  @IsOptional()
+  @IsUUID()
+  orderId?: string;
+
+  @Field(() => CalendarEntryCreateSource, { nullable: true })
+  @IsOptional()
+  @IsEnum(CalendarEntryCreateSource)
+  source?: CalendarEntryCreateSource;
+
   @Field(() => ID, { nullable: true })
   @IsOptional()
   @IsUUID()
@@ -66,7 +86,9 @@ export class CreateCalendarEntryInput {
 
   @Field(() => String)
   @IsString()
-  @Matches(ISO_DURATION_PATTERN, { message: 'duration must be valid ISO 8601 duration' })
+  @Matches(ISO_DURATION_PATTERN, {
+    message: 'duration must be valid ISO 8601 duration',
+  })
   duration: string;
 
   @Field(() => String, { nullable: true })
@@ -78,7 +100,12 @@ export class CreateCalendarEntryInput {
 
 @InputType()
 export class UpdateCalendarEntryInput extends PartialType(
-  OmitType(CreateCalendarEntryInput, ['carId', 'customerId']),
+  OmitType(CreateCalendarEntryInput, [
+    'carId',
+    'customerId',
+    'orderId',
+    'source',
+  ]),
 ) {
   @Field(() => ID)
   @IsUUID()

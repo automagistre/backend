@@ -405,6 +405,23 @@ export class OrderService {
     return close.orderDeal?.createdAt ?? close.orderCancel?.createdAt ?? null;
   }
 
+  async getScheduledAt(ctx: AuthContext, orderId: string): Promise<Date | null> {
+    const link = await this.prisma.calendarEntryOrder.findFirst({
+      where: { orderId, tenantId: ctx.tenantId },
+      orderBy: { id: 'desc' },
+      select: { entryId: true },
+    });
+    if (!link) {
+      return null;
+    }
+    const schedule = await this.prisma.calendarEntrySchedule.findFirst({
+      where: { entryId: link.entryId, tenantId: ctx.tenantId },
+      orderBy: { id: 'desc' },
+      select: { date: true },
+    });
+    return schedule?.date ?? null;
+  }
+
   private getBusinessDayRange(now: Date = new Date()): {
     start: Date;
     end: Date;

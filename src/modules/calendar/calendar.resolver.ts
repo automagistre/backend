@@ -7,6 +7,8 @@ import {
   ResolveField,
   Resolver,
 } from '@nestjs/graphql';
+import { Inject, Logger } from '@nestjs/common';
+import { PubSub } from 'graphql-subscriptions';
 import { AuthContext } from 'src/common/decorators/auth-context.decorator';
 import { RequireTenant } from 'src/common/decorators/skip-tenant.decorator';
 import type { AuthContext as AuthContextType } from 'src/common/user-id.store';
@@ -15,6 +17,7 @@ import { PersonService } from '../person/person.service';
 import { CarService } from '../vehicle/car.service';
 import { CalendarService } from './calendar.service';
 import {
+  CalendarEntryCreateSource,
   CreateCalendarEntryInput,
   DeleteCalendarEntryInput,
   UpdateCalendarEntryInput,
@@ -26,11 +29,19 @@ import { EmployeeModel } from '../employee/models/employee.model';
 import { PersonModel } from '../person/models/person.model';
 import { CarModel } from '../vehicle/models/car.model';
 import { OrderModel } from '../order/models/order.model';
+import { OrderService } from '../order/order.service';
+import { OrderStatus } from '../order/enums/order-status.enum';
 
 @Resolver(() => CalendarEntryModel)
 @RequireTenant()
 export class CalendarResolver {
-  constructor(private readonly calendarService: CalendarService) {}
+  private readonly logger = new Logger(CalendarResolver.name);
+
+  constructor(
+    private readonly calendarService: CalendarService,
+    private readonly orderService: OrderService,
+    @Inject('PUB_SUB') private readonly pubSub: PubSub,
+  ) {}
 
   @Query(() => CalendarEntryModel, {
     nullable: true,
@@ -69,10 +80,36 @@ export class CalendarResolver {
     @AuthContext() ctx: AuthContextType,
     @Args('input') input: CreateCalendarEntryInput,
   ): Promise<CalendarEntryModel> {
-    return (await this.calendarService.createEntry(
+    const created = (await this.calendarService.createEntry(
       ctx,
       input,
     )) as CalendarEntryModel;
+
+    if (
+      input.orderId &&
+      (input.source ?? CalendarEntryCreateSource.CALENDAR_FLOW) ===
+        CalendarEntryCreateSource.ORDER_FLOW
+    ) {
+      try {
+        const updated = await this.orderService.update(ctx, {
+          id: input.orderId,
+          status: OrderStatus.SCHEDULING,
+        });
+        await this.pubSub.publish(`ORDER_UPDATED_${input.orderId}`, {
+          orderUpdated: {
+            ...updated,
+            orderId: input.orderId,
+          },
+        });
+      } catch (error) {
+        this.logger.warn(
+          `Не удалось обновить статус заказа ${input.orderId} после создания записи`,
+          error instanceof Error ? error.stack : undefined,
+        );
+      }
+    }
+
+    return created;
   }
 
   @Mutation(() => CalendarEntryModel, {
@@ -121,7 +158,10 @@ export class CalendarResolver {
     @AuthContext() ctx: AuthContextType,
     @Parent() entry: CalendarEntryModel,
   ): Promise<OrderModel | null> {
-    return this.calendarService.getOrderForEntry(ctx, entry.id) as Promise<OrderModel | null>;
+    return this.calendarService.getOrderForEntry(
+      ctx,
+      entry.id,
+    ) as Promise<OrderModel | null>;
   }
 }
 

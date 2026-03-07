@@ -237,6 +237,14 @@ export class OrderResolver {
     return this.orderService.getClosedAt(ctx, order.id);
   }
 
+  @ResolveField(() => Date, { nullable: true })
+  async scheduledAt(
+    @AuthContext() ctx: AuthContextType,
+    @Parent() order: OrderModel,
+  ): Promise<Date | null> {
+    return this.orderService.getScheduledAt(ctx, order.id);
+  }
+
   @ResolveField(() => Boolean)
   async canDelete(
     @AuthContext() ctx: AuthContextType,
