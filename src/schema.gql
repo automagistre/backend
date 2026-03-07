@@ -1990,7 +1990,7 @@ type Query {
   partReservationSources(excludeOrderId: ID, partId: ID!): [PartReservationSourceModel!]!
 
   """Запчасти с пагинацией"""
-  parts(search: String, skip: Int = 0, take: Int = 25): PaginatedParts!
+  parts(search: String, skip: Int = 0, sortBy: String, sortDir: SortDirection, take: Int = 25): PaginatedParts!
 
   """Клиент по id"""
   person(id: String!): PersonModel!
@@ -2197,6 +2197,12 @@ type SettingsModel {
 
   """Реквизиты Автосервиса"""
   tenantRequisites: TenantRequisitesModel
+}
+
+"""Направление сортировки"""
+enum SortDirection {
+  ASC
+  DESC
 }
 
 type Subscription {

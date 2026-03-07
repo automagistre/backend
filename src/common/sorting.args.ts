@@ -11,8 +11,8 @@ registerEnumType(SortDirection, {
 });
 
 @ArgsType()
-export class SortingArgs<T> {
-  @Field({
+export class SortingArgs<T = string> {
+  @Field(() => String, {
     description: 'Поле для сортировки',
   })
   field: T;

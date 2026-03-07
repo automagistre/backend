@@ -1,10 +1,12 @@
 import { ConflictException, Injectable } from '@nestjs/common';
+import { SortDirection } from 'src/common/sorting.args';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreatePartInput } from './inputs/create.input';
 import { PartModel } from './models/part.model';
 import { UpdatePartInput } from './inputs/update.input';
 import { cleanUpcaseString } from 'src/common/utils/clean-upcase.util';
 import type { AuthContext } from 'src/common/user-id.store';
+import { Prisma } from 'src/generated/prisma/client';
 
 const DEFAULT_TAKE = 25;
 const DEFAULT_SKIP = 0;
@@ -12,6 +14,16 @@ const DEFAULT_SKIP = 0;
 @Injectable()
 export class PartService {
   constructor(private readonly prisma: PrismaService) {}
+
+  private buildOrderBy(
+    sortBy?: string,
+    sortDir: SortDirection = SortDirection.ASC,
+  ): Prisma.PartOrderByWithRelationInput[] {
+    if (sortBy === 'name') return [{ name: sortDir }];
+    if (sortBy === 'number') return [{ number: sortDir }];
+    if (sortBy === 'manufacturer.name') return [{ manufacturer: { name: sortDir } }];
+    return [{ id: SortDirection.DESC }];
+  }
 
   async findAll(): Promise<PartModel[]> {
     const parts = await this.prisma.part.findMany({
@@ -27,56 +39,133 @@ export class PartService {
     take = DEFAULT_TAKE,
     skip = DEFAULT_SKIP,
     search,
+    sortBy,
+    sortDir = SortDirection.ASC,
+    tenantId,
   }: {
     take: number;
     skip: number;
     search?: string;
+    sortBy?: string;
+    sortDir?: SortDirection;
+    tenantId?: string;
   }) {
-    let where = {};
-
-    if (search) {
-      const searchTerms = search
-        .trim()
-        .split(/\s+/)
-        .filter((term) => term.length > 0);
-
-      const andConditions = searchTerms.map((term) => ({
-        OR: [
-          { name: { contains: term, mode: 'insensitive' as const } },
-          { number: { contains: term, mode: 'insensitive' as const } },
-          {
-            manufacturer: {
-              name: { contains: term, mode: 'insensitive' as const },
-            },
-          },
-          {
-            manufacturer: {
-              localizedName: { contains: term, mode: 'insensitive' as const },
-            },
-          },
-        ],
-      }));
-
-      where = { AND: andConditions };
+    if (sortBy === 'stockQuantity' && tenantId) {
+      return this.findManyOrderedByStock({ take, skip, search, sortDir, tenantId });
     }
+
+    const where = this.buildWhere(search);
+    const orderBy = this.buildOrderBy(sortBy, sortDir);
 
     const [items, total] = await Promise.all([
       this.prisma.part.findMany({
         where,
         take: +take,
         skip: +skip,
-        include: {
-          manufacturer: true,
-        },
-        orderBy: [{ id: 'desc' }],
+        include: { manufacturer: true },
+        orderBy,
       }),
       this.prisma.part.count({ where }),
     ]);
 
+    return { items, total };
+  }
+
+  private buildWhere(search?: string): Prisma.PartWhereInput {
+    if (!search) return {};
+    const terms = search
+      .trim()
+      .split(/\s+/)
+      .filter((t) => t.length > 0);
     return {
-      items,
-      total,
+      AND: terms.map((term) => ({
+        OR: [
+          { name: { contains: term, mode: 'insensitive' as const } },
+          { number: { contains: term, mode: 'insensitive' as const } },
+          { manufacturer: { name: { contains: term, mode: 'insensitive' as const } } },
+          { manufacturer: { localizedName: { contains: term, mode: 'insensitive' as const } } },
+        ],
+      })),
     };
+  }
+
+  private async findManyOrderedByStock({
+    take,
+    skip,
+    search,
+    sortDir,
+    tenantId,
+  }: {
+    take: number;
+    skip: number;
+    search?: string;
+    sortDir: SortDirection;
+    tenantId: string;
+  }) {
+    const dir = sortDir === SortDirection.ASC ? 'ASC' : 'DESC';
+    const whereClause = this.buildStockSearchWhere(search);
+
+    const tenantIdx = whereClause.params.length + 1;
+    const limitIdx = tenantIdx + 1;
+    const offsetIdx = tenantIdx + 2;
+
+    const idsResult = (await this.prisma.$queryRawUnsafe<{ id: string }[]>(
+      `
+      WITH part_stock AS (
+        SELECT part_id, COALESCE(SUM(quantity), 0)::int AS stock
+        FROM motion
+        WHERE tenant_id = $${tenantIdx}
+        GROUP BY part_id
+      )
+      SELECT p.id
+      FROM part p
+      LEFT JOIN manufacturer m ON m.id = p.manufacturer_id
+      LEFT JOIN part_stock ps ON ps.part_id = p.id
+      ${whereClause.sql}
+      ORDER BY COALESCE(ps.stock, 0) ${dir}
+      LIMIT $${limitIdx} OFFSET $${offsetIdx}
+      `,
+      ...whereClause.params,
+      tenantId,
+      +take,
+      +skip,
+    )) as { id: string }[];
+
+    const total = await this.prisma.part.count({ where: this.buildWhere(search) });
+    const orderedIds = idsResult.map((r) => r.id);
+    if (orderedIds.length === 0) {
+      return { items: [], total };
+    }
+
+    const parts = await this.prisma.part.findMany({
+      where: { id: { in: orderedIds } },
+      include: { manufacturer: true },
+    });
+    const byId = new Map(parts.map((p) => [p.id, p]));
+    const items = orderedIds.map((id) => byId.get(id)).filter(Boolean) as Awaited<
+      ReturnType<PrismaService['part']['findMany']>
+    >;
+
+    return { items, total };
+  }
+
+  private buildStockSearchWhere(search?: string): { sql: string; params: unknown[] } {
+    if (!search) {
+      return { sql: '', params: [] };
+    }
+    const terms = search.trim().split(/\s+/).filter((t) => t.length > 0);
+    const conditions: string[] = [];
+    const params: unknown[] = [];
+    let idx = 1;
+    for (const term of terms) {
+      const pattern = `%${term}%`;
+      params.push(pattern);
+      conditions.push(
+        `(p.name ILIKE $${idx} OR p.number ILIKE $${idx} OR m.name ILIKE $${idx} OR m.localized_name ILIKE $${idx})`,
+      );
+      idx += 1;
+    }
+    return { sql: `WHERE ${conditions.join(' AND ')}`, params };
   }
 
   async findOne(id: string): Promise<PartModel | null> {

@@ -19,6 +19,7 @@ import { PartDiscountModel } from './models/part-discount.model';
 import { PartCrossService } from './part-cross.service';
 import { AddPartCrossInput } from './inputs/add-part-cross.input';
 import { PaginationArgs } from 'src/common/pagination.args';
+import { SortDirection } from 'src/common/sorting.args';
 import { PaginatedParts } from './inputs/paginatedParts.type';
 import { WarehouseService } from '../warehouse/warehouse.service';
 import { PartRequiredAvailabilityService } from './part-required-availability.service';
@@ -147,15 +148,25 @@ export class PartResolver {
     description: 'Запчасти с пагинацией',
   })
   async getAllParts(
+    @AuthContext() ctx: AuthContextType,
     @Args() pagination?: PaginationArgs,
     @Args('search', { nullable: true }) search?: string,
+    @Args('sortBy', { nullable: true }) sortBy?: string,
+    @Args('sortDir', { type: () => SortDirection, nullable: true }) sortDir?: SortDirection,
   ) {
     if (!pagination) {
       pagination = { take: undefined, skip: undefined };
     }
     const { take = 25, skip = 0 } = pagination;
 
-    return await this.partService.findMany({ take, skip, search });
+    return await this.partService.findMany({
+      take,
+      skip,
+      search,
+      sortBy,
+      sortDir,
+      tenantId: ctx.tenantId,
+    });
   }
 
   @Query(() => PartModel)
