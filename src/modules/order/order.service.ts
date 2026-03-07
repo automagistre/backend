@@ -407,7 +407,13 @@ export class OrderService {
 
   async getScheduledAt(ctx: AuthContext, orderId: string): Promise<Date | null> {
     const link = await this.prisma.calendarEntryOrder.findFirst({
-      where: { orderId, tenantId: ctx.tenantId },
+      where: {
+        orderId,
+        tenantId: ctx.tenantId,
+        calendarEntry: {
+          calendarEntryDeletion: null,
+        },
+      },
       orderBy: { id: 'desc' },
       select: { entryId: true },
     });

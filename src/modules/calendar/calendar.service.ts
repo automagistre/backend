@@ -361,4 +361,17 @@ export class CalendarService {
       where: { id: link.orderId, tenantId },
     });
   }
+
+  async getLinkedOrderIdForEntry(
+    ctx: AuthContext,
+    entryId: string,
+  ): Promise<string | null> {
+    const { tenantId } = ctx;
+    const link = await this.prisma.calendarEntryOrder.findFirst({
+      where: { entryId, tenantId },
+      orderBy: { id: 'desc' },
+      select: { orderId: true },
+    });
+    return link?.orderId ?? null;
+  }
 }

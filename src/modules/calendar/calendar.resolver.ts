@@ -135,7 +135,32 @@ export class CalendarResolver {
     @AuthContext() ctx: AuthContextType,
     @Args('input') input: DeleteCalendarEntryInput,
   ): Promise<boolean> {
+    const linkedOrderId = await this.calendarService.getLinkedOrderIdForEntry(
+      ctx,
+      input.id,
+    );
     await this.calendarService.deleteEntry(ctx, input);
+
+    if (linkedOrderId) {
+      try {
+        const updated = await this.orderService.update(ctx, {
+          id: linkedOrderId,
+          status: OrderStatus.NOTIFICATION,
+        });
+        await this.pubSub.publish(`ORDER_UPDATED_${linkedOrderId}`, {
+          orderUpdated: {
+            ...updated,
+            orderId: linkedOrderId,
+          },
+        });
+      } catch (error) {
+        this.logger.warn(
+          `Не удалось обновить статус заказа ${linkedOrderId} после удаления записи`,
+          error instanceof Error ? error.stack : undefined,
+        );
+      }
+    }
+
     return true;
   }
 
