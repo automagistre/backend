@@ -99,7 +99,7 @@ export class CarService {
             },
           },
         },
-        orderBy: { id: 'desc' },
+        orderBy: { createdAt: 'desc' },
       }),
       this.prisma.car.count({ where }),
     ]);

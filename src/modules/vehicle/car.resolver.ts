@@ -1,4 +1,7 @@
 import {
+  BadRequestException,
+} from '@nestjs/common';
+import {
   Args,
   Int,
   Mutation,
@@ -123,10 +126,17 @@ export class CarResolver {
     @AuthContext() ctx: AuthContextType,
     @Args('input') input: CreateCarInput,
   ): Promise<CarModel> {
-    return (await this.carService.create(
-      ctx,
-      this.parseInput(input),
-    )) as CarModel;
+    const parsed = this.parseInput(input);
+    const hasIdentifier =
+      parsed.identifier != null && String(parsed.identifier).trim() !== '';
+    const hasGosnomer =
+      parsed.gosnomer != null && String(parsed.gosnomer).trim() !== '';
+    if (!hasIdentifier && !hasGosnomer) {
+      throw new BadRequestException(
+        'Укажите VIN, номер кузова или госномер',
+      );
+    }
+    return (await this.carService.create(ctx, parsed)) as CarModel;
   }
 
   @Mutation(() => CarModel, { name: 'updateOneCar' })
