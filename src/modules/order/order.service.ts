@@ -21,6 +21,7 @@ import { SettingsService } from 'src/modules/settings/settings.service';
 import { WarehouseService } from 'src/modules/warehouse/warehouse.service';
 import { applyDefaultCurrency } from 'src/common/money';
 import type { AuthContext } from 'src/common/user-id.store';
+import { v6 as uuidv6 } from 'uuid';
 
 const DELETE_COOLING_HOURS = 3;
 /** Совместимость со старой CRM: DiscriminatorMap OrderClose — 1 = OrderDeal, 2 = OrderCancel */
@@ -422,22 +423,82 @@ export class OrderService {
 
   async create(ctx: AuthContext, input: CreateOrderInput): Promise<OrderModel> {
     const { tenantId, userId } = ctx;
-    const agg = await this.prisma.order.aggregate({
-      where: { tenantId },
-      _max: { number: true },
+    const entryId = input.entryId ?? undefined;
+    if (!entryId) {
+      const agg = await this.prisma.order.aggregate({
+        where: { tenantId },
+        _max: { number: true },
+      });
+      const nextNumber = (agg._max?.number ?? 0) + 1;
+      return this.prisma.order.create({
+        data: {
+          tenantId,
+          number: nextNumber,
+          status: OrderStatus.WORKING,
+          customerId: input.customerId ?? null,
+          carId: input.carId ?? null,
+          workerId: input.workerId ?? null,
+          createdBy: userId,
+        },
+      }) as Promise<OrderModel>;
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const entry = await tx.calendarEntry.findFirst({
+        where: {
+          id: entryId,
+          tenantId,
+          calendarEntryDeletion: null,
+        },
+        select: { id: true },
+      });
+      if (!entry) {
+        throw new NotFoundException(`Запись календаря с ID ${entryId} не найдена`);
+      }
+
+      // Блокируем строку записи, чтобы параллельные запросы не создали дубль заказа.
+      await tx.$queryRaw(
+        Prisma.sql`SELECT id FROM calendar_entry WHERE id = ${entryId} FOR UPDATE`,
+      );
+
+      const existingLink = await tx.calendarEntryOrder.findFirst({
+        where: { entryId, tenantId },
+        orderBy: { id: 'desc' },
+        select: { orderId: true },
+      });
+      if (existingLink) {
+        throw new BadRequestException('Для этой записи уже создан заказ');
+      }
+
+      const agg = await tx.order.aggregate({
+        where: { tenantId },
+        _max: { number: true },
+      });
+      const nextNumber = (agg._max?.number ?? 0) + 1;
+      const order = await tx.order.create({
+        data: {
+          tenantId,
+          number: nextNumber,
+          status: OrderStatus.WORKING,
+          customerId: input.customerId ?? null,
+          carId: input.carId ?? null,
+          workerId: input.workerId ?? null,
+          createdBy: userId,
+        },
+      });
+
+      await tx.calendarEntryOrder.create({
+        data: {
+          id: uuidv6(),
+          entryId,
+          orderId: order.id,
+          tenantId,
+          createdBy: userId,
+        },
+      });
+
+      return order as OrderModel;
     });
-    const nextNumber = (agg._max?.number ?? 0) + 1;
-    return this.prisma.order.create({
-      data: {
-        tenantId,
-        number: nextNumber,
-        status: OrderStatus.WORKING,
-        customerId: input.customerId ?? null,
-        carId: input.carId ?? null,
-        workerId: input.workerId ?? null,
-        createdBy: userId,
-      },
-    }) as Promise<OrderModel>;
   }
 
   private isBlockedByStatus(orderStatus: OrderStatus): boolean {

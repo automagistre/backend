@@ -89,6 +89,9 @@ type CalendarEntryModel {
   createdBy: ID
   id: ID!
 
+  """Заказ, связанный с записью"""
+  order: OrderModel
+
   """Информация о заказе (последняя версия)"""
   orderInfo: CalendarEntryOrderInfoModel
 
@@ -558,6 +561,7 @@ input CreateNoteInput {
 input CreateOrderInput {
   carId: ID
   customerId: ID
+  entryId: ID
   workerId: ID
 }
 

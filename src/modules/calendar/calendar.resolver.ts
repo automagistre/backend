@@ -25,6 +25,7 @@ import { CalendarEntryScheduleModel } from './models/calendar-entry-schedule.mod
 import { EmployeeModel } from '../employee/models/employee.model';
 import { PersonModel } from '../person/models/person.model';
 import { CarModel } from '../vehicle/models/car.model';
+import { OrderModel } from '../order/models/order.model';
 
 @Resolver(() => CalendarEntryModel)
 @RequireTenant()
@@ -113,6 +114,14 @@ export class CalendarResolver {
     @Parent() entry: CalendarEntryModel,
   ): CalendarEntryOrderInfoModel | null {
     return entry.calendarEntryOrderInfo?.[0] ?? null;
+  }
+
+  @ResolveField(() => OrderModel, { nullable: true })
+  async order(
+    @AuthContext() ctx: AuthContextType,
+    @Parent() entry: CalendarEntryModel,
+  ): Promise<OrderModel | null> {
+    return this.calendarService.getOrderForEntry(ctx, entry.id) as Promise<OrderModel | null>;
   }
 }
 
