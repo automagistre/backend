@@ -65,7 +65,7 @@ export class ServiceService {
     ctx: AuthContext,
     carId: string,
     search?: string,
-    take = 20,
+    take = 50,
     skip = 0,
   ): Promise<PaginatedCarServices> {
     const searchTerms = search
@@ -75,6 +75,7 @@ export class ServiceService {
     const orderWhere = {
       carId,
       tenantId: ctx.tenantId,
+      status: OrderStatus.CLOSED,
       items: {
         some: {
           type: '1',
