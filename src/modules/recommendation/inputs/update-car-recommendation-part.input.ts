@@ -8,6 +8,11 @@ export class UpdateCarRecommendationPartInput {
   @IsUUID()
   id: string;
 
+  @Field(() => ID, { nullable: true })
+  @IsOptional()
+  @IsUUID()
+  partId?: string | null;
+
   @Field(() => Int, { nullable: true })
   @IsOptional()
   @Min(0)

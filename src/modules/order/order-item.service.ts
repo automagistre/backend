@@ -477,29 +477,32 @@ export class OrderItemService {
 
     await this.orderService.validateOrderEditable(ctx, orderItem.orderId!);
 
-    // Обновляем резерв при изменении количества по правилу "полный резерв или ничего".
-    // Причина: сотруднику проще понимать состояние — либо зарезервировано всё, либо резерв отсутствует (дефицит).
-    if (
-      input.quantity !== undefined &&
-      input.quantity !== orderItem.part.quantity
-    ) {
-      const newQuantity = input.quantity;
-      await this.reservationService.releaseAll(orderItem.part.id);
-      if (newQuantity > 0) {
-        try {
-          await this.reservationService.reserve(ctx, {
-            orderItemPartId: orderItem.part.id,
-            quantity: newQuantity,
-            tenantId: orderItem.tenantId,
-          });
-        } catch {
-          // no-op
-        }
+    const isPartChanged =
+      input.partId !== undefined && input.partId !== orderItem.part.partId;
+    const isQuantityChanged =
+      input.quantity !== undefined && input.quantity !== orderItem.part.quantity;
+
+    // При замене запчасти или изменении количества пересобираем резерв:
+    // сначала снимаем старый, затем после апдейта пытаемся поставить новый.
+    const shouldRebuildReservation = isPartChanged || isQuantityChanged;
+
+    if (isPartChanged) {
+      const part = await this.prisma.part.findUnique({
+        where: { id: input.partId },
+        select: { id: true },
+      });
+      if (!part) {
+        throw new NotFoundException(`Запчасть с ID ${input.partId} не найдена`);
       }
+    }
+
+    if (shouldRebuildReservation) {
+      await this.reservationService.releaseAll(orderItem.part.id);
     }
 
     // Обновляем только переданные поля
     const updateData: any = {};
+    if (input.partId !== undefined) updateData.partId = input.partId;
     if (input.quantity !== undefined) updateData.quantity = input.quantity;
     if (input.price !== undefined) {
       const defaultCurrency =
@@ -536,6 +539,21 @@ export class OrderItemService {
         where: { id: orderItem.part.id },
         data: updateData,
       });
+    }
+
+    if (shouldRebuildReservation) {
+      const nextQuantity = input.quantity ?? orderItem.part.quantity;
+      if (nextQuantity > 0) {
+        try {
+          await this.reservationService.reserve(ctx, {
+            orderItemPartId: orderItem.part.id,
+            quantity: nextQuantity,
+            tenantId: orderItem.tenantId,
+          });
+        } catch {
+          // no-op
+        }
+      }
     }
 
     const updated = await this.prisma.orderItem.findUnique({

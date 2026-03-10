@@ -2402,6 +2402,7 @@ input UpdateCarRecommendationInput {
 
 input UpdateCarRecommendationPartInput {
   id: ID!
+  partId: ID
   price: MoneyInput
   quantity: Int
 }

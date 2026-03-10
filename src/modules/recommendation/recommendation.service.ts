@@ -243,6 +243,16 @@ export class RecommendationService {
       );
     }
 
+    if (input.partId !== undefined) {
+      const part = await client.part.findUnique({
+        where: { id: input.partId },
+        select: { id: true },
+      });
+      if (!part) {
+        throw new NotFoundException(`Запчасть с ID ${input.partId} не найдена`);
+      }
+    }
+
     const { id, ...data } = input;
 
     return client.carRecommendationPart.update({

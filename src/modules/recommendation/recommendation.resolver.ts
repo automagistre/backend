@@ -195,6 +195,9 @@ export class RecommendationResolver {
     @Args('input') input: UpdateCarRecommendationPartInput,
   ) {
     const data: any = {};
+    if (input.partId !== undefined && input.partId !== null) {
+      data.partId = input.partId;
+    }
     if (input.quantity !== undefined && input.quantity !== null) {
       data.quantity = input.quantity;
     }
