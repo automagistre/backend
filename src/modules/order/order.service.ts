@@ -166,11 +166,13 @@ export class OrderService {
     let total = 0n;
     for (const item of items) {
       if (item.service) {
+        if (item.service.warranty) continue;
         const p = item.service.priceAmount ?? 0n;
         const d = item.service.discountAmount ?? 0n;
         total += p - d;
       }
       if (item.part) {
+        if (item.part.warranty) continue;
         const p = item.part.priceAmount ?? 0n;
         const d = item.part.discountAmount ?? 0n;
         total += ((p - d) * BigInt(item.part.quantity)) / 100n;

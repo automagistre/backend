@@ -37,6 +37,7 @@ export class SalaryService {
 
     for (const item of services) {
       const svc = item.service!;
+      if (svc.warranty) continue;
       if (!svc.workerId) continue;
 
       const priceAmount = svc.priceAmount ?? 0n;
