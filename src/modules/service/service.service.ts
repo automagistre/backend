@@ -59,7 +59,7 @@ export class ServiceService {
 
   /**
    * История выполненных работ по автомобилю, сгруппированная по заказам.
-   * Основная строка: номер заказа, пробег, дата. Раскрытие: работы (название, исполнитель, цена).
+   * Пагинация по работам: take/skip — число работ, total — общее число работ.
    */
   async getCarServicesHistory(
     ctx: AuthContext,
@@ -72,44 +72,15 @@ export class ServiceService {
       ?.trim()
       .split(/\s+/)
       .filter((term) => term.length > 0);
-    const orderWhere = {
-      carId,
-      tenantId: ctx.tenantId,
-      status: OrderStatus.CLOSED,
-      items: {
-        some: {
-          type: '1',
-          service: searchTerms?.length
-            ? {
-                AND: searchTerms.map((term) => ({
-                  service: { contains: term, mode: 'insensitive' as const },
-                })),
-              }
-            : { isNot: null },
-        },
-      },
-    };
 
-    const [orders, total] = await this.prisma.$transaction([
-      this.prisma.order.findMany({
-        where: orderWhere,
-        select: { id: true, number: true, status: true, mileage: true, createdAt: true },
-        orderBy: { createdAt: 'desc' },
-        take,
-        skip,
-      }),
-      this.prisma.order.count({ where: orderWhere }),
-    ]);
-
-    if (orders.length === 0) {
-      return { items: [], total };
-    }
-
-    const orderIds = orders.map((o) => o.id);
     const servicesWhere = {
       orderItem: {
-        orderId: { in: orderIds },
         type: '1',
+        order: {
+          carId,
+          tenantId: ctx.tenantId,
+          status: OrderStatus.CLOSED,
+        },
       },
       ...(searchTerms?.length
         ? {
@@ -120,12 +91,38 @@ export class ServiceService {
         : {}),
     };
 
-    const services = await this.prisma.orderItemService.findMany({
-      where: servicesWhere,
-      include: {
-        orderItem: { select: { orderId: true } },
-      },
-    });
+    const [services, total] = await this.prisma.$transaction([
+      this.prisma.orderItemService.findMany({
+        where: servicesWhere,
+        skip,
+        take,
+        orderBy: [
+          { orderItem: { order: { createdAt: 'desc' } } },
+          { id: 'asc' },
+        ],
+        include: {
+          orderItem: {
+            select: {
+              orderId: true,
+              order: {
+                select: {
+                  id: true,
+                  number: true,
+                  status: true,
+                  mileage: true,
+                  createdAt: true,
+                },
+              },
+            },
+          },
+        },
+      }),
+      this.prisma.orderItemService.count({ where: servicesWhere }),
+    ]);
+
+    if (services.length === 0) {
+      return { items: [], total };
+    }
 
     const workerIds = [...new Set(services.map((i) => i.workerId).filter(Boolean))] as string[];
     const workerNamesMap = new Map<string, string>();
@@ -137,9 +134,11 @@ export class ServiceService {
       }
     }
 
-    const servicesByOrder = new Map<string, CarServiceHistoryItemModel[]>();
+    type OrderInfo = { id: string; number: number; status: OrderStatus; mileage: number | null; createdAt: Date | null };
+    const servicesByOrder = new Map<string, { order: OrderInfo; items: CarServiceHistoryItemModel[] }>();
     for (const item of services) {
-      const orderId = item.orderItem.orderId!;
+      const order = item.orderItem.order!;
+      const orderId = order.id;
       const priceAmount = item.priceAmount ?? 0n;
       const discountAmount = item.discountAmount ?? 0n;
       const finalAmount = priceAmount - discountAmount;
@@ -155,18 +154,30 @@ export class ServiceService {
             : null,
         executorName: item.workerId ? workerNamesMap.get(item.workerId) ?? null : null,
       };
-      const list = servicesByOrder.get(orderId) ?? [];
-      list.push(svc);
-      servicesByOrder.set(orderId, list);
+      const entry = servicesByOrder.get(orderId);
+      if (entry) {
+        entry.items.push(svc);
+      } else {
+        servicesByOrder.set(orderId, {
+          order: {
+            id: order.id,
+            number: order.number,
+            status: order.status as OrderStatus,
+            mileage: order.mileage,
+            createdAt: order.createdAt,
+          },
+          items: [svc],
+        });
+      }
     }
 
-    const items: OrderServicesGroupModel[] = orders.map((order) => ({
-      orderId: order.id,
-      orderNumber: order.number,
-      orderStatus: order.status as OrderStatus,
-      orderMileage: order.mileage,
-      orderDate: order.createdAt ? order.createdAt.toISOString() : null,
-      services: servicesByOrder.get(order.id) ?? [],
+    const items: OrderServicesGroupModel[] = [...servicesByOrder.values()].map((entry) => ({
+      orderId: entry.order.id,
+      orderNumber: entry.order.number,
+      orderStatus: entry.order.status,
+      orderMileage: entry.order.mileage,
+      orderDate: entry.order.createdAt ? entry.order.createdAt.toISOString() : null,
+      services: entry.items,
     }));
 
     return { items, total };
