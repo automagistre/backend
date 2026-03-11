@@ -7,9 +7,16 @@ import { UpdatePartInput } from './inputs/update.input';
 import { cleanUpcaseString } from 'src/common/utils/clean-upcase.util';
 import type { AuthContext } from 'src/common/user-id.store';
 import { Prisma } from 'src/generated/prisma/client';
+import { PartSmartAutocompleteItemModel } from './models/part-smart-autocomplete-item.model';
 
 const DEFAULT_TAKE = 25;
 const DEFAULT_SKIP = 0;
+const SMART_AUTOCOMPLETE_DEFAULT_TAKE = 50;
+const SMART_AUTOCOMPLETE_MAX_TAKE = 80;
+
+type PartWithManufacturer = Prisma.PartGetPayload<{
+  include: { manufacturer: true };
+}>;
 
 @Injectable()
 export class PartService {
@@ -21,7 +28,8 @@ export class PartService {
   ): Prisma.PartOrderByWithRelationInput[] {
     if (sortBy === 'name') return [{ name: sortDir }];
     if (sortBy === 'number') return [{ number: sortDir }];
-    if (sortBy === 'manufacturer.name') return [{ manufacturer: { name: sortDir } }];
+    if (sortBy === 'manufacturer.name')
+      return [{ manufacturer: { name: sortDir } }];
     return [{ id: SortDirection.DESC }];
   }
 
@@ -51,7 +59,13 @@ export class PartService {
     tenantId?: string;
   }) {
     if (sortBy === 'stockQuantity' && tenantId) {
-      return this.findManyOrderedByStock({ take, skip, search, sortDir, tenantId });
+      return this.findManyOrderedByStock({
+        take,
+        skip,
+        search,
+        sortDir,
+        tenantId,
+      });
     }
 
     const where = this.buildWhere(search);
@@ -71,6 +85,70 @@ export class PartService {
     return { items, total };
   }
 
+  async smartAutocomplete({
+    search,
+    tenantId,
+    vehicleId,
+    take = SMART_AUTOCOMPLETE_DEFAULT_TAKE,
+  }: {
+    search: string;
+    tenantId: string;
+    vehicleId?: string | null;
+    take?: number;
+  }): Promise<PartSmartAutocompleteItemModel[]> {
+    const normalizedSearch = search.trim();
+    if (!normalizedSearch) return [];
+
+    const limitedTake = Math.max(
+      1,
+      Math.min(take, SMART_AUTOCOMPLETE_MAX_TAKE),
+    );
+    let mainParts: PartWithManufacturer[] = [];
+
+    if (vehicleId) {
+      mainParts = await this.searchWithVehicleCases({
+        search: normalizedSearch,
+        tenantId,
+        vehicleId,
+        take: limitedTake,
+      });
+
+      // По требованиям fallback без кузова запускается только если по кузову 0 результатов.
+      if (mainParts.length === 0) {
+        mainParts = await this.searchWithoutVehicleCases({
+          search: normalizedSearch,
+          tenantId,
+          take: limitedTake,
+        });
+      }
+    } else {
+      // Если кузов не передан, сразу выполняем общий поиск.
+      mainParts = await this.searchWithoutVehicleCases({
+        search: normalizedSearch,
+        tenantId,
+        take: limitedTake,
+      });
+    }
+
+    const items: PartSmartAutocompleteItemModel[] = mainParts.map((part) => ({
+      part,
+      isAnalog: false,
+      analogGroupKey: null,
+      analogGroupLabel: null,
+    }));
+
+    if (mainParts.length <= 3) {
+      const analogs = await this.fetchAnalogsInStock({
+        sourceParts: mainParts,
+        tenantId,
+        limit: limitedTake - items.length,
+      });
+      items.push(...analogs);
+    }
+
+    return items.slice(0, limitedTake);
+  }
+
   private buildWhere(search?: string): Prisma.PartWhereInput {
     if (!search) return {};
     const terms = search
@@ -82,11 +160,246 @@ export class PartService {
         OR: [
           { name: { contains: term, mode: 'insensitive' as const } },
           { number: { contains: term, mode: 'insensitive' as const } },
-          { manufacturer: { name: { contains: term, mode: 'insensitive' as const } } },
-          { manufacturer: { localizedName: { contains: term, mode: 'insensitive' as const } } },
+          {
+            manufacturer: {
+              name: { contains: term, mode: 'insensitive' as const },
+            },
+          },
+          {
+            manufacturer: {
+              localizedName: { contains: term, mode: 'insensitive' as const },
+            },
+          },
         ],
       })),
     };
+  }
+
+  private buildTokenWhere(search: string): Prisma.PartWhereInput {
+    const terms = search
+      .trim()
+      .split(/\s+/)
+      .filter((t) => t.length > 0);
+
+    return {
+      AND: terms.map((term) => ({
+        OR: [
+          { name: { contains: term, mode: 'insensitive' as const } },
+          { number: { contains: term, mode: 'insensitive' as const } },
+          {
+            manufacturer: {
+              name: { contains: term, mode: 'insensitive' as const },
+            },
+          },
+          {
+            manufacturer: {
+              localizedName: { contains: term, mode: 'insensitive' as const },
+            },
+          },
+        ],
+      })),
+    };
+  }
+
+  private async searchWithVehicleCases({
+    search,
+    tenantId,
+    vehicleId,
+    take,
+  }: {
+    search: string;
+    tenantId: string;
+    vehicleId: string;
+    take: number;
+  }): Promise<PartWithManufacturer[]> {
+    const caseRows = await this.prisma.partCase.findMany({
+      where: { vehicleId },
+      select: { partId: true },
+    });
+    const partIds = Array.from(new Set(caseRows.map((r) => r.partId)));
+    if (partIds.length === 0) return [];
+
+    const candidates = await this.prisma.part.findMany({
+      where: {
+        id: { in: partIds },
+        ...this.buildTokenWhere(search),
+      },
+      include: { manufacturer: true },
+      take: Math.max(take * 3, take),
+    });
+
+    return this.sortPartsByStock(candidates, tenantId, take);
+  }
+
+  private async searchWithoutVehicleCases({
+    search,
+    tenantId,
+    take,
+  }: {
+    search: string;
+    tenantId: string;
+    take: number;
+  }): Promise<PartWithManufacturer[]> {
+    const candidates = await this.prisma.part.findMany({
+      where: this.buildTokenWhere(search),
+      include: { manufacturer: true },
+      take: Math.max(take * 3, take),
+    });
+
+    return this.sortPartsByStock(candidates, tenantId, take);
+  }
+
+  private async sortPartsByStock(
+    parts: PartWithManufacturer[],
+    tenantId: string,
+    take: number,
+  ): Promise<PartWithManufacturer[]> {
+    if (parts.length === 0) return [];
+    const stockByPartId = await this.getStockByPartIds(
+      parts.map((p) => p.id),
+      tenantId,
+    );
+
+    return parts
+      .slice()
+      .sort((a, b) => {
+        const stockA = stockByPartId.get(a.id) ?? 0;
+        const stockB = stockByPartId.get(b.id) ?? 0;
+        if (stockA !== stockB) return stockB - stockA;
+        const nameCmp = a.name.localeCompare(b.name, 'ru');
+        if (nameCmp !== 0) return nameCmp;
+        return a.number.localeCompare(b.number, 'ru');
+      })
+      .slice(0, take);
+  }
+
+  private async getStockByPartIds(
+    partIds: string[],
+    tenantId: string,
+  ): Promise<Map<string, number>> {
+    if (partIds.length === 0) return new Map();
+
+    const grouped = await this.prisma.motion.groupBy({
+      by: ['partId'],
+      where: {
+        tenantId,
+        partId: { in: partIds },
+      },
+      _sum: { quantity: true },
+    });
+
+    const result = new Map<string, number>();
+    for (const row of grouped) {
+      if (!row.partId) continue;
+      result.set(row.partId, row._sum.quantity ?? 0);
+    }
+    return result;
+  }
+
+  private async fetchAnalogsInStock({
+    sourceParts,
+    tenantId,
+    limit,
+  }: {
+    sourceParts: PartWithManufacturer[];
+    tenantId: string;
+    limit: number;
+  }): Promise<PartSmartAutocompleteItemModel[]> {
+    if (sourceParts.length === 0 || limit <= 0) return [];
+
+    const sourcePartIds = sourceParts.map((p) => p.id);
+    const sourceById = new Map(sourceParts.map((p) => [p.id, p]));
+
+    const sourceCrossLinks = await this.prisma.partCrossPart.findMany({
+      where: { partId: { in: sourcePartIds } },
+      select: { partId: true, partCrossId: true },
+    });
+    if (sourceCrossLinks.length === 0) return [];
+
+    const sourcePartByCross = new Map<string, PartWithManufacturer>();
+    for (const link of sourceCrossLinks) {
+      if (!sourcePartByCross.has(link.partCrossId)) {
+        const sourcePart = sourceById.get(link.partId);
+        if (sourcePart) {
+          sourcePartByCross.set(link.partCrossId, sourcePart);
+        }
+      }
+    }
+
+    const crossIds = Array.from(
+      new Set(sourceCrossLinks.map((l) => l.partCrossId)),
+    );
+    const groupMembers = await this.prisma.partCrossPart.findMany({
+      where: { partCrossId: { in: crossIds } },
+      include: { part: { include: { manufacturer: true } } },
+    });
+
+    const excludedIds = new Set(sourcePartIds);
+    const seenAnalogIds = new Set<string>();
+    const candidateAnalogs: Array<{
+      part: PartWithManufacturer;
+      partCrossId: string;
+      groupLabel: string;
+    }> = [];
+
+    for (const member of groupMembers) {
+      if (!member.part) continue;
+      if (excludedIds.has(member.partId)) continue;
+      if (seenAnalogIds.has(member.partId)) continue;
+      seenAnalogIds.add(member.partId);
+
+      const sourcePart = sourcePartByCross.get(member.partCrossId);
+      const groupLabel = sourcePart
+        ? `Аналоги для ${sourcePart.number}`
+        : 'Аналоги';
+
+      candidateAnalogs.push({
+        part: member.part,
+        partCrossId: member.partCrossId,
+        groupLabel,
+      });
+    }
+
+    if (candidateAnalogs.length === 0) return [];
+
+    const stockByPartId = await this.getStockByPartIds(
+      candidateAnalogs.map((a) => a.part.id),
+      tenantId,
+    );
+
+    const groupedByCross = new Map<
+      string,
+      Array<{ part: PartWithManufacturer; stock: number; groupLabel: string }>
+    >();
+    for (const analog of candidateAnalogs) {
+      const stock = stockByPartId.get(analog.part.id) ?? 0;
+      if (stock <= 0) continue;
+      const bucket = groupedByCross.get(analog.partCrossId) ?? [];
+      bucket.push({ part: analog.part, stock, groupLabel: analog.groupLabel });
+      groupedByCross.set(analog.partCrossId, bucket);
+    }
+
+    const result: PartSmartAutocompleteItemModel[] = [];
+    for (const [crossId, parts] of groupedByCross.entries()) {
+      const ordered = parts.slice().sort((a, b) => {
+        if (a.stock !== b.stock) return b.stock - a.stock;
+        const nameCmp = a.part.name.localeCompare(b.part.name, 'ru');
+        if (nameCmp !== 0) return nameCmp;
+        return a.part.number.localeCompare(b.part.number, 'ru');
+      });
+
+      for (const item of ordered) {
+        if (result.length >= limit) return result;
+        result.push({
+          part: item.part,
+          isAnalog: true,
+          analogGroupKey: crossId,
+          analogGroupLabel: item.groupLabel,
+        });
+      }
+    }
+
+    return result;
   }
 
   private async findManyOrderedByStock({
@@ -131,7 +444,9 @@ export class PartService {
       +skip,
     )) as { id: string }[];
 
-    const total = await this.prisma.part.count({ where: this.buildWhere(search) });
+    const total = await this.prisma.part.count({
+      where: this.buildWhere(search),
+    });
     const orderedIds = idsResult.map((r) => r.id);
     if (orderedIds.length === 0) {
       return { items: [], total };
@@ -142,18 +457,26 @@ export class PartService {
       include: { manufacturer: true },
     });
     const byId = new Map(parts.map((p) => [p.id, p]));
-    const items = orderedIds.map((id) => byId.get(id)).filter(Boolean) as Awaited<
+    const items = orderedIds
+      .map((id) => byId.get(id))
+      .filter(Boolean) as Awaited<
       ReturnType<PrismaService['part']['findMany']>
     >;
 
     return { items, total };
   }
 
-  private buildStockSearchWhere(search?: string): { sql: string; params: unknown[] } {
+  private buildStockSearchWhere(search?: string): {
+    sql: string;
+    params: unknown[];
+  } {
     if (!search) {
       return { sql: '', params: [] };
     }
-    const terms = search.trim().split(/\s+/).filter((t) => t.length > 0);
+    const terms = search
+      .trim()
+      .split(/\s+/)
+      .filter((t) => t.length > 0);
     const conditions: string[] = [];
     const params: unknown[] = [];
     let idx = 1;

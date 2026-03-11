@@ -26,10 +26,9 @@ import { PartRequiredAvailabilityService } from './part-required-availability.se
 import { applyDefaultCurrency } from 'src/common/money';
 import { ReservationService } from '../reservation/reservation.service';
 import { SettingsService } from '../settings/settings.service';
-import {
-  AuthContext,
-  CurrentUserContext,
-} from 'src/common/decorators/auth-context.decorator';
+import { PartsSmartAutocompleteInput } from './inputs/parts-smart-autocomplete.input';
+import { PartSmartAutocompleteItemModel } from './models/part-smart-autocomplete-item.model';
+import { AuthContext } from 'src/common/decorators/auth-context.decorator';
 import {
   RequireTenant,
   SkipTenant,
@@ -152,7 +151,8 @@ export class PartResolver {
     @Args() pagination?: PaginationArgs,
     @Args('search', { nullable: true }) search?: string,
     @Args('sortBy', { nullable: true }) sortBy?: string,
-    @Args('sortDir', { type: () => SortDirection, nullable: true }) sortDir?: SortDirection,
+    @Args('sortDir', { type: () => SortDirection, nullable: true })
+    sortDir?: SortDirection,
   ) {
     if (!pagination) {
       pagination = { take: undefined, skip: undefined };
@@ -174,6 +174,23 @@ export class PartResolver {
     @Args('id', { type: () => ID }) id: string,
   ): Promise<PartModel | null> {
     return this.partService.findOne(id);
+  }
+
+  @RequireTenant()
+  @Query(() => [PartSmartAutocompleteItemModel], {
+    name: 'partsSmartAutocomplete',
+    description: 'Умный автокомплит запчастей с учетом кузова и аналогов',
+  })
+  async partsSmartAutocomplete(
+    @AuthContext() ctx: AuthContextType,
+    @Args('input') input: PartsSmartAutocompleteInput,
+  ): Promise<PartSmartAutocompleteItemModel[]> {
+    return this.partService.smartAutocomplete({
+      search: input.search,
+      take: input.take ?? undefined,
+      vehicleId: input.vehicleId ?? null,
+      tenantId: ctx.tenantId,
+    });
   }
 
   @ResolveField(() => PartPriceModel)

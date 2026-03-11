@@ -863,15 +863,18 @@ model Organization {
 
 // /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 
-// model part_case {
-//   id         String    @id @default(uuid()) @db.Uuid
-//   part_id    String    @db.Uuid
-//   vehicle_id String    @db.Uuid
-//   created_at DateTime? @default(now()) @db.Timestamptz(0)
-//   created_by String?   @default(dbgenerated("(current_setting('app.user_id'::text))::uuid")) @db.Uuid
+model PartCase {
+  id        String    @id @default(uuid()) @db.Uuid
+  partId    String    @map("part_id") @db.Uuid
+  vehicleId String    @map("vehicle_id") @db.Uuid
+  createdAt DateTime? @default(now()) @map("created_at") @db.Timestamptz(0)
+  createdBy String?   @map("created_by") @db.Uuid
 
-//   @@unique([part_id, vehicle_id], map: "uniq_2a0e7894ce34bec545317d1")
-// }
+  @@unique([partId, vehicleId], map: "uniq_2a0e7894ce34bec545317d1")
+  @@index([vehicleId], map: "idx_part_case_vehicle_id")
+  @@index([partId], map: "idx_part_case_part_id")
+  @@map("part_case")
+}
 
 model PartCrossPart {
   partCrossId String @map("part_cross_id") @db.Uuid
