@@ -539,6 +539,20 @@ input CreateManualCustomerTransactionInput {
   walletId: ID
 }
 
+"""Ручная корректировка количества запчасти на складе"""
+input CreateManualPartMotionInput {
+  """Комментарий к корректировке"""
+  description: String
+
+  """ID запчасти"""
+  partId: ID!
+
+  """
+  Дельта количества (×100). Положительное — зачисление, отрицательное — списание.
+  """
+  quantityDelta: Int!
+}
+
 input CreateManufacturerInput {
   """Название производителя на русском"""
   localizedName: String
@@ -1261,6 +1275,9 @@ type Mutation {
   """Добавить позицию в приход"""
   createIncomePart(input: CreateIncomePartInput!): IncomePartModel!
   createManualCustomerTransaction(input: CreateManualCustomerTransactionInput!): CustomerTransactionModel!
+
+  """Ручная корректировка количества запчасти на складе"""
+  createManualPartMotion(input: CreateManualPartMotionInput!): Boolean!
 
   """Создать комплектацию"""
   createMcEquipment(input: CreateMcEquipmentInput!): McEquipmentModel!

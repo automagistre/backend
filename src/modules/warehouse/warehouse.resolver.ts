@@ -8,8 +8,10 @@ import { SupplyBySupplierModel } from './models/supply-by-supplier.model';
 import { PartInOrderModel } from './models/part-in-order.model';
 import { PaginatedMotions } from './types/paginated-motions.type';
 import { CreatePartSupplyInput } from './inputs/create-part-supply.input';
+import { CreateManualPartMotionInput } from './inputs/create-manual-part-motion.input';
 import { CancelPartSupplyInput } from './inputs/cancel-part-supply.input';
 import { MotionFilterInput } from './inputs/motion-filter.input';
+import { MotionSourceType } from './enums/motion-source-type.enum';
 import { AuthContext } from 'src/common/decorators/auth-context.decorator';
 import { RequireTenant } from 'src/common/decorators/skip-tenant.decorator';
 import type { AuthContext as AuthContextType } from 'src/common/user-id.store';
@@ -83,6 +85,26 @@ export class WarehouseResolver {
       quantity: supply.quantity,
       updatedAt: new Date(),
     };
+  }
+
+  @Mutation(() => Boolean, {
+    name: 'createManualPartMotion',
+    description: 'Ручная корректировка количества запчасти на складе',
+  })
+  async createManualPartMotion(
+    @AuthContext() ctx: AuthContextType,
+    @Args('input') input: CreateManualPartMotionInput,
+  ): Promise<boolean> {
+    if (input.quantityDelta === 0) return true;
+    const { randomUUID } = await import('node:crypto');
+    await this.partMotionService.create(ctx, {
+      partId: input.partId,
+      quantity: input.quantityDelta,
+      sourceType: MotionSourceType.MANUAL,
+      sourceId: randomUUID(),
+      description: input.description ?? undefined,
+    });
+    return true;
   }
 
   @Mutation(() => Boolean, {
