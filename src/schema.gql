@@ -52,6 +52,32 @@ type AppealModel {
   type: Int!
 }
 
+"""Применить шаблон к заказу: дерево работ и запчастей"""
+input ApplyTemplateInput {
+  """Элементы шаблона: каждая работа и массив её запчастей"""
+  items: [ApplyTemplateItemInput!]!
+  orderId: ID!
+}
+
+"""Элемент шаблона: работа и её запчасти"""
+input ApplyTemplateItemInput {
+  parts: [ApplyTemplatePartInput!]! = []
+  work: ApplyTemplateWorkInput!
+}
+
+"""Запчасть в применении шаблона (в рамках одной работы)"""
+input ApplyTemplatePartInput {
+  partId: ID!
+  price: MoneyInput
+  quantity: Int!
+}
+
+"""Работа в применении шаблона"""
+input ApplyTemplateWorkInput {
+  name: String!
+  price: MoneyInput
+}
+
 """BigInt custom scalar type"""
 scalar BigInt
 
@@ -951,6 +977,30 @@ input LoginDto {
   redirectUri: String!
 }
 
+"""Элемент шаблона ТО: работа, ее запчасти и период"""
+type MaintenanceTemplateItemModel {
+  parts: [TemplatePartModel!]!
+
+  """Период ТО в км (10000, 20000, ...)"""
+  period: Int!
+
+  """Рекомендуемая работа"""
+  recommended: Boolean!
+  work: TemplateWorkModel!
+}
+
+"""Шаблон ТО (подходящая комплектация)"""
+type MaintenanceTemplateModel {
+  """ID комплектации McEquipment"""
+  id: ID!
+
+  """Элементы шаблона (работы с периодом и их запчастями)"""
+  items: [MaintenanceTemplateItemModel!]!
+
+  """Подпись комплектации"""
+  label: String!
+}
+
 """Источник движения: ручная корректировка"""
 type ManualSourceModel {
   """Описание корректировки"""
@@ -1173,6 +1223,9 @@ type Mutation {
     payment: AccrueIncomePaymentInput
   ): IncomeModel!
   addPartCross(input: AddPartCrossInput!): PartModel!
+
+  """Применить шаблон к заказу: добавить переданные работы и запчасти."""
+  applyTemplate(input: ApplyTemplateInput!): Boolean!
   cancelEmployeeSalary(salaryId: ID!): Boolean!
 
   """Отменить поставку (удалить из ожидаемых)"""
@@ -2059,6 +2112,11 @@ type Query {
   """Список ожидаемых поставок по запчасти (по поставщикам)"""
   suppliesByPart(partId: ID!): [SupplyBySupplierModel!]!
 
+  """
+  Шаблоны для автомобиля, сгруппированные по типам (заполняются через field resolvers)
+  """
+  templates(carId: ID!): TemplatesModel!
+
   """Общее количество зарезервированных единиц"""
   totalReserved(orderItemPartId: ID!): Float!
 
@@ -2246,6 +2304,28 @@ type SupplyBySupplierModel {
   quantity: Int!
   supplierId: String!
   updatedAt: DateTime!
+}
+
+"""Запчасть шаблона"""
+type TemplatePartModel {
+  manufacturer: String
+  name: String
+  number: String
+  partId: ID!
+  price: MoneyModel
+  quantity: Int!
+}
+
+"""Работа шаблона"""
+type TemplateWorkModel {
+  name: String!
+  price: MoneyModel
+}
+
+"""Подходящие для автомобиля шаблоны по типам"""
+type TemplatesModel {
+  """Шаблоны ТО для автомобиля"""
+  maintenance: [MaintenanceTemplateModel!]!
 }
 
 """Реквизиты организации для печати документов"""

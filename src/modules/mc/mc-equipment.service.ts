@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma } from 'src/generated/prisma/client';
+import { type Car, Prisma } from 'src/generated/prisma/client';
+import { normalizeEngineCapacity } from 'src/common/utils/engine-capacity.util';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateMcEquipmentInput } from './inputs/create-mc-equipment.input';
 import { UpdateMcEquipmentInput } from './inputs/update-mc-equipment.input';
@@ -93,7 +94,7 @@ export class McEquipmentService {
         equipmentEngineType: data.equipmentEngineType ?? 0,
         equipmentEngineAirIntake: data.equipmentEngineAirIntake ?? 0,
         equipmentEngineInjection: data.equipmentEngineInjection ?? 0,
-        equipmentEngineCapacity: data.equipmentEngineCapacity,
+        equipmentEngineCapacity: normalizeEngineCapacity(data.equipmentEngineCapacity) ?? data.equipmentEngineCapacity ?? '',
         tenantId,
         createdBy: userId,
       },
@@ -124,7 +125,7 @@ export class McEquipmentService {
       if (input.equipmentEngineInjection !== undefined)
         baseData.equipmentEngineInjection = input.equipmentEngineInjection;
       if (input.equipmentEngineCapacity !== undefined)
-        baseData.equipmentEngineCapacity = input.equipmentEngineCapacity;
+        baseData.equipmentEngineCapacity = normalizeEngineCapacity(input.equipmentEngineCapacity) ?? input.equipmentEngineCapacity;
 
       if (Object.keys(baseData).length > 0) {
         await tx.mcEquipment.update({
@@ -189,5 +190,256 @@ export class McEquipmentService {
     return this.prisma.mcEquipment.delete({
       where: { id },
     });
+  }
+
+  /**
+   * Условие where для поиска комплектаций по данным авто: для ненулевых полей авто — (значение авто OR у комплектации 0).
+   * У комплектации 0 = «не указано» / любой. Объём двигателя — точное совпадение (норма в БД).
+   */
+  private buildEquipmentWhereByCar(
+    tenantId: string,
+    vehicleId: string,
+    car: Pick<
+      Car,
+      | 'equipmentTransmission'
+      | 'equipmentWheelDrive'
+      | 'equipmentEngineType'
+      | 'equipmentEngineAirIntake'
+      | 'equipmentEngineInjection'
+      | 'equipmentEngineName'
+      | 'equipmentEngineCapacity'
+    >,
+  ): Prisma.McEquipmentWhereInput {
+    const tr = car.equipmentTransmission ?? 0;
+    const wd = car.equipmentWheelDrive ?? 0;
+    const et = car.equipmentEngineType ?? 0;
+    const ai = car.equipmentEngineAirIntake ?? 0;
+    const inj = car.equipmentEngineInjection ?? 0;
+    const engineName = car.equipmentEngineName?.trim() ?? '';
+    const capacity = normalizeEngineCapacity(car.equipmentEngineCapacity) ?? '';
+
+    const and: Prisma.McEquipmentWhereInput[] = [];
+    if (tr !== 0) and.push({ OR: [{ equipmentTransmission: 0 }, { equipmentTransmission: tr }] });
+    if (wd !== 0) and.push({ OR: [{ equipmentWheelDrive: 0 }, { equipmentWheelDrive: wd }] });
+    if (et !== 0) and.push({ OR: [{ equipmentEngineType: 0 }, { equipmentEngineType: et }] });
+    if (ai !== 0) and.push({ OR: [{ equipmentEngineAirIntake: 0 }, { equipmentEngineAirIntake: ai }] });
+    if (inj !== 0) and.push({ OR: [{ equipmentEngineInjection: 0 }, { equipmentEngineInjection: inj }] });
+    // if (engineName !== '') and.push({ OR: [{ equipmentEngineName: null }, { equipmentEngineName: engineName }] });
+    if (capacity !== '') and.push({ equipmentEngineCapacity: capacity });
+
+    return {
+      tenantId,
+      vehicleId,
+      ...(and.length > 0 ? { AND: and } : {}),
+    };
+  }
+
+  /**
+   * Все комплектации, подходящие автомобилю (vehicleId + фильтр по ненулевым полям: КПП, привод, двигатель и т.д.).
+   * Для выбора шаблона ТО в модалке.
+   */
+  async findAllByCar(ctx: AuthContext, carId: string): Promise<
+    Array<{
+      id: string;
+      period: number;
+      equipmentEngineName: string | null;
+      equipmentEngineCapacity: string;
+      equipmentEngineType: number;
+      equipmentTransmission: number;
+      equipmentWheelDrive: number;
+    }>
+  > {
+    const { tenantId, tenantGroupId } = ctx;
+    const car = await this.prisma.car.findFirst({
+      where: { id: carId, tenantGroupId },
+      select: {
+        vehicleId: true,
+        equipmentTransmission: true,
+        equipmentWheelDrive: true,
+        equipmentEngineName: true,
+        equipmentEngineType: true,
+        equipmentEngineAirIntake: true,
+        equipmentEngineInjection: true,
+        equipmentEngineCapacity: true,
+      },
+    });
+    if (!car?.vehicleId) return [];
+
+    const where = this.buildEquipmentWhereByCar(tenantId, car.vehicleId, car);
+    return this.prisma.mcEquipment.findMany({
+      where,
+      select: {
+        id: true,
+        period: true,
+        equipmentEngineName: true,
+        equipmentEngineCapacity: true,
+        equipmentEngineType: true,
+        equipmentTransmission: true,
+        equipmentWheelDrive: true,
+      },
+    });
+  }
+
+  /**
+   * Поиск одной комплектации по данным автомобиля (vehicleId + фильтр по ненулевым полям: КПП, привод, двигатель и т.д.).
+   */
+  async findOneByCar(ctx: AuthContext, carId: string) {
+    const { tenantId, tenantGroupId } = ctx;
+    const car = await this.prisma.car.findFirst({
+      where: { id: carId, tenantGroupId },
+      select: {
+        vehicleId: true,
+        equipmentTransmission: true,
+        equipmentWheelDrive: true,
+        equipmentEngineName: true,
+        equipmentEngineType: true,
+        equipmentEngineAirIntake: true,
+        equipmentEngineInjection: true,
+        equipmentEngineCapacity: true,
+      },
+    });
+    if (!car?.vehicleId) return null;
+
+    const where = this.buildEquipmentWhereByCar(tenantId, car.vehicleId, car);
+    const match = await this.prisma.mcEquipment.findFirst({
+      where,
+      include: EQUIPMENT_INCLUDE,
+    });
+    return match;
+  }
+
+  /**
+   * Все линии карты ТО по комплектации (без фильтра по пробегу).
+   * Для фильтра по пробегу на клиенте: line.period > 0 && mileage % line.period === 0.
+   */
+  async getLinesForEquipment(
+    ctx: AuthContext,
+    equipmentId: string,
+  ): Promise<
+    Array<{
+      period: number;
+      recommended: boolean;
+      work: { name: string; priceAmount: bigint | null; priceCurrencyCode: string | null };
+      parts: Array<{
+        partId: string;
+        partName: string | null;
+        partNumber: string | null;
+        partManufacturerName: string | null;
+        quantity: number;
+        priceAmount: bigint | null;
+        priceCurrencyCode: string | null;
+      }>;
+    }>
+  > {
+    const { tenantId } = ctx;
+    const equipment = await this.prisma.mcEquipment.findFirst({
+      where: { id: equipmentId, tenantId },
+      include: {
+        lines: {
+          orderBy: { position: 'asc' as const },
+          where: { period: { gt: 0 } },
+          include: {
+            work: true,
+            parts: {
+              include: {
+                part: {
+                  include: {
+                    manufacturer: true,
+                    PartPrice: {
+                      take: 1,
+                      orderBy: { since: 'desc' as const },
+                      select: { priceAmount: true, priceCurrencyCode: true },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+    if (!equipment) return [];
+    return equipment.lines.map((line) => ({
+      period: line.period,
+      recommended: line.recommended,
+      work: {
+        name: line.work?.name ?? '',
+        priceAmount: line.work?.priceAmount ?? null,
+        priceCurrencyCode: line.work?.priceCurrencyCode ?? null,
+      },
+      parts: line.parts.map((mp) => ({
+        partId: mp.partId,
+        partName: mp.part?.name ?? null,
+        partNumber: mp.part?.number ?? null,
+        partManufacturerName: mp.part?.manufacturer?.name ?? null,
+        quantity: mp.quantity,
+        priceAmount: mp.part?.PartPrice?.[0]?.priceAmount ?? null,
+        priceCurrencyCode: mp.part?.PartPrice?.[0]?.priceCurrencyCode ?? null,
+      })),
+    }));
+  }
+
+  /**
+   * Линии карты ТО по комплектации и пробегу (фильтр по кратности: mileage % line.period === 0).
+   * Возвращает массив { work, parts } для добавления в заказ.
+   */
+  async getLinesForMileage(
+    ctx: AuthContext,
+    equipmentId: string,
+    mileage: number,
+  ): Promise<
+    Array<{
+      work: { name: string; priceAmount: bigint | null; priceCurrencyCode: string | null };
+      parts: Array<{
+        partId: string;
+        quantity: number;
+        priceAmount: bigint | null;
+        priceCurrencyCode: string | null;
+      }>;
+    }>
+  > {
+    const { tenantId } = ctx;
+    const equipment = await this.prisma.mcEquipment.findFirst({
+      where: { id: equipmentId, tenantId },
+      include: {
+        lines: {
+          orderBy: { position: 'asc' as const },
+          where: { period: { gt: 0 } },
+          include: {
+            work: true,
+            parts: {
+              include: {
+                part: {
+                  include: {
+                    PartPrice: {
+                      take: 1,
+                      orderBy: { since: 'desc' as const },
+                      select: { priceAmount: true, priceCurrencyCode: true },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+    if (!equipment) return [];
+    const filtered = equipment.lines.filter(
+      (line) => line.period > 0 && mileage % line.period === 0,
+    );
+    return filtered.map((line) => ({
+      work: {
+        name: line.work?.name ?? '',
+        priceAmount: line.work?.priceAmount ?? null,
+        priceCurrencyCode: line.work?.priceCurrencyCode ?? null,
+      },
+      parts: line.parts.map((mp) => ({
+        partId: mp.partId,
+        quantity: mp.quantity,
+        priceAmount: mp.part?.PartPrice?.[0]?.priceAmount ?? null,
+        priceCurrencyCode: mp.part?.PartPrice?.[0]?.priceCurrencyCode ?? null,
+      })),
+    }));
   }
 }

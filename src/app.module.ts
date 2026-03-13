@@ -35,6 +35,7 @@ import { IncomeModule } from './modules/income/income.module';
 import { ExpenseModule } from './modules/expense/expense.module';
 import { ReviewModule } from './modules/review/review.module';
 import { McModule } from './modules/mc/mc.module';
+import { TemplateModule } from './modules/template/template.module';
 import { DevAuthGuard } from './modules/auth/guards/dev-auth.guard';
 import { TenantGuard } from './common/guards/tenant.guard';
 import { Reflector } from '@nestjs/core';
@@ -80,6 +81,7 @@ import authConfig from './config/auth.config';
     ExpenseModule,
     ReviewModule,
     McModule,
+    TemplateModule,
   ],
   providers: [
     {

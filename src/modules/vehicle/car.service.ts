@@ -3,6 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { normalizeEngineCapacity } from 'src/common/utils/engine-capacity.util';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateCarInput, UpdateCarInputPrisma } from './inputs/car.input';
 import type { AuthContext } from 'src/common/user-id.store';
@@ -11,7 +12,16 @@ import type { AuthContext } from 'src/common/user-id.store';
 export class CarService {
   constructor(private readonly prisma: PrismaService) {}
 
+  private static prepareCarData<T extends { equipmentEngineCapacity?: string | null }>(data: T): T {
+    if (data.equipmentEngineCapacity !== undefined && data.equipmentEngineCapacity !== null) {
+      const normalized = normalizeEngineCapacity(data.equipmentEngineCapacity);
+      return { ...data, equipmentEngineCapacity: normalized ?? data.equipmentEngineCapacity };
+    }
+    return data;
+  }
+
   async create(ctx: AuthContext, data: CreateCarInput) {
+    const prepared = CarService.prepareCarData(data);
     return this.prisma.car.create({
       include: {
         vehicle: {
@@ -21,7 +31,7 @@ export class CarService {
         },
       },
       data: {
-        ...data,
+        ...prepared,
         mileage: 0,
         tenantGroupId: ctx.tenantGroupId,
         createdBy: ctx.userId,
@@ -37,6 +47,7 @@ export class CarService {
       throw new NotFoundException('Автомобиль не найден или недоступен');
     }
 
+    const prepared = CarService.prepareCarData(data);
     return this.prisma.car.update({
       include: {
         vehicle: {
@@ -46,7 +57,7 @@ export class CarService {
         },
       },
       where: { id },
-      data,
+      data: prepared,
     });
   }
 
