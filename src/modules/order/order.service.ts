@@ -319,6 +319,10 @@ export class OrderService {
       const searchOr = [
         ...(Number.isInteger(num) ? [{ number: num }] : []),
         { car: { gosnomer: { contains: term, mode: 'insensitive' } } },
+        { car: { vehicle: { manufacturer: { name: { contains: term, mode: 'insensitive' } } } } },
+        { car: { vehicle: { manufacturer: { localizedName: { contains: term, mode: 'insensitive' } } } } },
+        { car: { vehicle: { name: { contains: term, mode: 'insensitive' } } } },
+        { car: { vehicle: { localizedName: { contains: term, mode: 'insensitive' } } } },
         { customer: { firstname: { contains: term, mode: 'insensitive' } } },
         { customer: { lastname: { contains: term, mode: 'insensitive' } } },
         { customer: { telephone: { contains: term, mode: 'insensitive' } } },
