@@ -123,6 +123,29 @@ export class OrganizationService {
     });
   }
 
+  /** ID организаций по поисковому запросу (для поиска заказов по заказчику-юрлицу). */
+  async findIdsBySearch(ctx: AuthContext, search: string): Promise<string[]> {
+    const term = search.trim();
+    if (!term) return [];
+    const orgs = await this.prisma.organization.findMany({
+      where: {
+        tenantGroupId: ctx.tenantGroupId,
+        OR: [
+          { name: { contains: term, mode: 'insensitive' } },
+          { address: { contains: term, mode: 'insensitive' } },
+          { email: { contains: term, mode: 'insensitive' } },
+          { telephone: { contains: term, mode: 'insensitive' } },
+          { officePhone: { contains: term, mode: 'insensitive' } },
+          { requisiteInn: { contains: term, mode: 'insensitive' } },
+          { requisiteOgrn: { contains: term, mode: 'insensitive' } },
+        ],
+      },
+      select: { id: true },
+      take: 500,
+    });
+    return orgs.map((o) => o.id);
+  }
+
   async getNamesByIds(ids: string[]): Promise<Map<string, string>> {
     if (ids.length === 0) return new Map();
 

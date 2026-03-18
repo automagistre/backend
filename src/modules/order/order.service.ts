@@ -19,6 +19,7 @@ import { CustomerTransactionService } from 'src/modules/customer-transaction/cus
 import { CustomerTransactionSource } from 'src/modules/customer-transaction/enums/customer-transaction-source.enum';
 import { SettingsService } from 'src/modules/settings/settings.service';
 import { WarehouseService } from 'src/modules/warehouse/warehouse.service';
+import { OrganizationService } from 'src/modules/organization/organization.service';
 import { applyDefaultCurrency } from 'src/common/money';
 import type { AuthContext } from 'src/common/user-id.store';
 import { v6 as uuidv6 } from 'uuid';
@@ -36,6 +37,7 @@ export class OrderService {
     private readonly customerTransactionService: CustomerTransactionService,
     private readonly settingsService: SettingsService,
     private readonly warehouseService: WarehouseService,
+    private readonly organizationService: OrganizationService,
   ) {}
 
   async findOne(ctx: AuthContext, id: string): Promise<OrderModel | null> {
@@ -229,7 +231,16 @@ export class OrderService {
       carId?: string;
     },
   ): Promise<{ items: OrderModel[]; total: number }> {
-    const where = this.buildOrdersWhere(ctx.tenantId, search, status, undefined, customerId, carId);
+    const orgIdsForSearch = await this.organizationService.findIdsBySearch(ctx, search ?? '');
+    const where = this.buildOrdersWhere(
+      ctx.tenantId,
+      search,
+      status,
+      undefined,
+      customerId,
+      carId,
+      orgIdsForSearch,
+    );
     const [items, total] = await this.prisma.$transaction([
       this.prisma.order.findMany({
         where,
@@ -287,7 +298,16 @@ export class OrderService {
       ],
     };
 
-    const where = this.buildOrdersWhere(tenantId, search, status, activeWhere, undefined, undefined);
+    const orgIdsForSearch = await this.organizationService.findIdsBySearch(ctx, search ?? '');
+    const where = this.buildOrdersWhere(
+      tenantId,
+      search,
+      status,
+      activeWhere,
+      undefined,
+      undefined,
+      orgIdsForSearch,
+    );
 
     return this.prisma.order.findMany({
       where,
@@ -302,6 +322,7 @@ export class OrderService {
     baseWhere: Record<string, unknown> = { tenantId },
     customerId?: string,
     carId?: string,
+    orgIdsForSearch: string[] = [],
   ): Record<string, unknown> {
     const and: Record<string, unknown>[] = [{ ...baseWhere }];
     if (customerId) {
@@ -326,6 +347,7 @@ export class OrderService {
         { customer: { firstname: { contains: term, mode: 'insensitive' } } },
         { customer: { lastname: { contains: term, mode: 'insensitive' } } },
         { customer: { telephone: { contains: term, mode: 'insensitive' } } },
+        ...(orgIdsForSearch.length > 0 ? [{ customerId: { in: orgIdsForSearch } }] : []),
       ].filter(Boolean);
       if (searchOr.length) {
         and.push({ OR: searchOr });
