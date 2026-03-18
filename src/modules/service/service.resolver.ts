@@ -36,16 +36,19 @@ export class ServiceResolver {
       'Поиск работ по названию (временно из уже созданных работ в заказах)',
   })
   async searchServices(
+    @AuthContext() ctx: AuthContextType,
     @Args('search', { type: () => String, nullable: true }) search?: string,
   ): Promise<string[]> {
-    return this.serviceService.searchServices(search);
+    return this.serviceService.searchServices(ctx, search);
   }
 
   @Query(() => [String], {
     name: 'popularServices',
-    description: 'Популярные работы (топ-20 по частоте использования)',
+    description: 'Популярные работы (топ-20 по частоте в закрытых заказах)',
   })
-  async getPopularServices(): Promise<string[]> {
-    return this.serviceService.getPopularServices();
+  async getPopularServices(
+    @AuthContext() ctx: AuthContextType,
+  ): Promise<string[]> {
+    return this.serviceService.getPopularServices(ctx);
   }
 }

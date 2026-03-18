@@ -15,40 +15,58 @@ export class ServiceService {
   ) {}
 
   /**
-   * Поиск уникальных названий работ из всех заказов.
-   * Причина: для автокомплита в UI без отдельного справочника работ.
+   * Поиск уникальных названий работ из заказов тенанта.
    * Слова через пробел — каждое должно входить в название (AND).
+   * Сортировка по популярности (частоте), затем по названию.
    */
-  async searchServices(search?: string): Promise<string[]> {
+  async searchServices(
+    ctx: AuthContext,
+    search?: string,
+  ): Promise<string[]> {
     const searchTerms = search
       ?.trim()
       .split(/\s+/)
       .filter((term) => term.length > 0);
-    const where = searchTerms?.length
-      ? { AND: searchTerms.map((term) => ({ service: { contains: term, mode: 'insensitive' as const } })) }
-      : undefined;
+    const where = {
+      service: { not: '' },
+      orderItem: {
+        tenantId: ctx.tenantId,
+        order: { status: OrderStatus.CLOSED },
+      },
+      ...(searchTerms?.length
+        ? { AND: searchTerms.map((term) => ({ service: { contains: term, mode: 'insensitive' as const } })) }
+        : {}),
+    };
 
-    const services = await this.prisma.orderItemService.findMany({
+    const result = await this.prisma.orderItemService.groupBy({
+      by: ['service'],
       where,
-      select: { service: true },
-      distinct: ['service'],
-      orderBy: { service: 'asc' },
+      _count: { service: true },
+      orderBy: [
+        { _count: { service: 'desc' } },
+        { service: 'asc' },
+      ],
       take: 50,
     });
 
-    return services
-      .map((s) => s.service)
+    return result
+      .map((r) => r.service)
       .filter((s): s is string => Boolean(s && s.trim()));
   }
 
   /**
-   * Популярные работы (топ по частоте использования).
-   * Причина: быстрый выбор без ввода и минимизация запросов.
+   * Популярные работы (топ по частоте в закрытых заказах тенанта).
    */
-  async getPopularServices(limit = 20): Promise<string[]> {
+  async getPopularServices(ctx: AuthContext, limit = 20): Promise<string[]> {
     const result = await this.prisma.orderItemService.groupBy({
       by: ['service'],
-      where: { service: { not: '' } },
+      where: {
+        service: { not: '' },
+        orderItem: {
+          tenantId: ctx.tenantId,
+          order: { status: OrderStatus.CLOSED },
+        },
+      },
       _count: { service: true },
       orderBy: { _count: { service: 'desc' } },
       take: limit,

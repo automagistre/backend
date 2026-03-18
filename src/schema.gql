@@ -2100,7 +2100,7 @@ type Query {
   """Клиенты с пагинацией"""
   persons(search: String, skip: Int = 0, take: Int = 25): PaginatedPersons!
 
-  """Популярные работы (топ-20 по частоте использования)"""
+  """Популярные работы (топ-20 по частоте в закрытых заказах)"""
   popularServices: [String!]!
 
   """
