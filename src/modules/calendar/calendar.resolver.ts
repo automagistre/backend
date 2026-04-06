@@ -31,6 +31,8 @@ import { CarModel } from '../vehicle/models/car.model';
 import { OrderModel } from '../order/models/order.model';
 import { OrderService } from '../order/order.service';
 import { OrderStatus } from '../order/enums/order-status.enum';
+import { AppUserModel } from '../app-user/models/app-user.model';
+import { AppUserLoader } from '../app-user/app-user.loader';
 
 @Resolver(() => CalendarEntryModel)
 @RequireTenant()
@@ -40,6 +42,7 @@ export class CalendarResolver {
   constructor(
     private readonly calendarService: CalendarService,
     private readonly orderService: OrderService,
+    private readonly appUserLoader: AppUserLoader,
     @Inject('PUB_SUB') private readonly pubSub: PubSub,
   ) {}
 
@@ -187,6 +190,12 @@ export class CalendarResolver {
       ctx,
       entry.id,
     ) as Promise<OrderModel | null>;
+  }
+
+  @ResolveField(() => AppUserModel, { nullable: true })
+  async createdByUser(@Parent() entry: CalendarEntryModel) {
+    if (!entry.createdBy) return null;
+    return this.appUserLoader.load(entry.createdBy);
   }
 }
 

@@ -138,6 +138,7 @@ enum CalendarEntryCreateSource {
 type CalendarEntryModel {
   createdAt: DateTime
   createdBy: ID
+  createdByUser: AppUserModel
   id: ID!
 
   """Заказ, связанный с записью"""
