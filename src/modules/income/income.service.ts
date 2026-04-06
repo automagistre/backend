@@ -41,7 +41,8 @@ export class IncomeService {
     supplierId: string;
     document: string | null;
     createdAt: Date | null;
-    incomeAccrue: { id: string; createdAt?: Date | null } | null;
+    createdBy: string | null;
+    incomeAccrue: { id: string; createdAt?: Date | null; createdBy?: string | null } | null;
     incomeParts: Array<{
       id: string;
       incomeId: string | null;
@@ -57,9 +58,10 @@ export class IncomeService {
       supplierId: row.supplierId,
       document: row.document ?? undefined,
       createdAt: row.createdAt ?? undefined,
+      createdBy: row.createdBy ?? undefined,
       isAccrued: row.incomeAccrue != null,
       incomeAccrue: row.incomeAccrue
-        ? { createdAt: row.incomeAccrue.createdAt }
+        ? { createdAt: row.incomeAccrue.createdAt, createdBy: row.incomeAccrue.createdBy }
         : null,
       incomeParts: row.incomeParts.map((p) => this.toIncomePartModel(p)),
     };

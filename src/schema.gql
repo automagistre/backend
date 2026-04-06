@@ -946,10 +946,14 @@ scalar GosNomerRU
 
 type IncomeAccrueModel {
   createdAt: DateTime
+  createdBy: ID
+  createdByUser: AppUserModel
 }
 
 type IncomeModel {
   createdAt: DateTime
+  createdBy: ID
+  createdByUser: AppUserModel
   document: String
   id: ID!
   incomeAccrue: IncomeAccrueModel

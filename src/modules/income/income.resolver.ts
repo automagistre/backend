@@ -22,6 +22,9 @@ import { AuthContext } from 'src/common/decorators/auth-context.decorator';
 import { RequireTenant } from 'src/common/decorators/skip-tenant.decorator';
 import type { AuthContext as AuthContextType } from 'src/common/user-id.store';
 import { AccrueIncomePaymentInput } from './inputs/accrue-income-payment.input';
+import { IncomeAccrueModel } from './models/income-accrue.model';
+import { AppUserModel } from '../app-user/models/app-user.model';
+import { AppUserLoader } from '../app-user/app-user.loader';
 
 @Resolver(() => IncomeModel)
 @RequireTenant()
@@ -30,7 +33,14 @@ export class IncomeResolver {
     private readonly incomeService: IncomeService,
     private readonly personService: PersonService,
     private readonly organizationService: OrganizationService,
+    private readonly appUserLoader: AppUserLoader,
   ) {}
+
+  @ResolveField(() => AppUserModel, { nullable: true })
+  async createdByUser(@Parent() income: IncomeModel) {
+    if (!income.createdBy) return null;
+    return this.appUserLoader.load(income.createdBy);
+  }
 
   @ResolveField('supplier')
   async supplier(
@@ -164,5 +174,17 @@ export class IncomeResolver {
     payment?: AccrueIncomePaymentInput | null,
   ): Promise<IncomeModel> {
     return this.incomeService.accrue(ctx, incomeId, payment);
+  }
+}
+
+@Resolver(() => IncomeAccrueModel)
+@RequireTenant()
+export class IncomeAccrueResolver {
+  constructor(private readonly appUserLoader: AppUserLoader) {}
+
+  @ResolveField(() => AppUserModel, { nullable: true })
+  async createdByUser(@Parent() accrue: IncomeAccrueModel) {
+    if (!accrue.createdBy) return null;
+    return this.appUserLoader.load(accrue.createdBy);
   }
 }

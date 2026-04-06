@@ -25,6 +25,9 @@ export class IncomeModel {
   @Field(() => Date, { nullable: true })
   createdAt?: Date | null;
 
+  @Field(() => ID, { nullable: true })
+  createdBy?: string | null;
+
   @Field(() => Boolean, {
     description: 'True если приход уже оприходован (редактирование запрещено)',
   })
