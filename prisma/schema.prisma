@@ -145,9 +145,22 @@ model Person {
   workerCalendarEntryOrderInfo   CalendarEntryOrderInfo[] @relation("Worker")
   Employee                       Employee[]
   CustomerOrder                  Order[]                  @relation("CustomerOrder")
+  appUser                        AppUser?
 
   @@unique([telephone, tenantGroupId], map: "uniq_34dcd176450ff010dff2bbb0")
   @@map("person")
+}
+
+model AppUser {
+  id          String   @id @db.Uuid
+  displayName String   @map("display_name")
+  personId    String?  @unique @map("person_id") @db.Uuid
+  person      Person?  @relation(fields: [personId], references: [id])
+  preferences Json     @default("{}")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("app_user")
 }
 
 model Vehicle {

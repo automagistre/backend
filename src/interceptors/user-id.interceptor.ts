@@ -7,10 +7,10 @@ import {
 import { GqlExecutionContext } from '@nestjs/graphql';
 import { Observable } from 'rxjs';
 import type { UserContext } from '../common/user-id.store';
+import { AppUserService } from '../modules/app-user/app-user.service';
 
-/** Расширение req с ctx и tenantId */
 interface ReqWithCtx {
-  user?: { sub?: string };
+  user?: { sub?: string; name?: string; email?: string };
   tenantId?: string;
   tenantGroupId?: string;
   ctx?: UserContext;
@@ -18,10 +18,14 @@ interface ReqWithCtx {
 
 /**
  * Агрегирует req.ctx = { userId, tenantId, tenantGroupId } для декораторов @AuthContext/@CurrentUserContext.
- * tenantId и tenantGroupId заполняются TenantGuard, userId из JWT.
+ * При первом запросе пользователя — upsert профиля в app_user из данных токена.
  */
 @Injectable()
 export class UserIdInterceptor implements NestInterceptor {
+  private readonly syncedUsers = new Set<string>();
+
+  constructor(private readonly appUserService: AppUserService) {}
+
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     const req = this.getRequest(context) as ReqWithCtx;
     const userId = req.user?.sub ?? '';
@@ -29,6 +33,12 @@ export class UserIdInterceptor implements NestInterceptor {
     const tenantGroupId = req.tenantGroupId ?? null;
 
     req.ctx = { userId, tenantId, tenantGroupId };
+
+    if (userId && !this.syncedUsers.has(userId)) {
+      this.syncedUsers.add(userId);
+      const displayName = req.user?.name || req.user?.email || userId;
+      this.appUserService.upsert(userId, displayName).catch(() => {});
+    }
 
     return next.handle();
   }

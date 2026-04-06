@@ -21,6 +21,14 @@ input AddPartCrossInput {
   partId: ID!
 }
 
+"""Профиль пользователя (Keycloak)"""
+type AppUserModel {
+  """Отображаемое имя (fallback из Keycloak)"""
+  displayName: String!
+  id: ID!
+  personId: ID
+}
+
 type AppealDetailModel {
   category: Int
   createdAt: DateTime!
@@ -1149,6 +1157,9 @@ type McWorkModel {
 }
 
 type MeModel {
+  """Профиль пользователя"""
+  profile: AppUserModel
+
   """Доступные организации"""
   tenants: [MeTenantModel!]!
 }
@@ -1457,6 +1468,7 @@ type Mutation {
 type NoteModel {
   createdAt: DateTime
   createdBy: ID!
+  createdByUser: AppUserModel
   id: ID!
   isPublic: Boolean
   subject: ID!
