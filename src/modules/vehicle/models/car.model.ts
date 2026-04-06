@@ -147,5 +147,6 @@ export class CarModel implements Omit<Car, 'identifier' | 'gosnomer'> {
   @Field(() => Date, { nullable: true, description: 'Дата создания записи' })
   createdAt: Date;
 
+  @Field(() => ID, { nullable: true })
   createdBy: string | null;
 }

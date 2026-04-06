@@ -23,6 +23,8 @@ import { CarModel } from 'src/modules/vehicle/models/car.model';
 import { AuthContext } from 'src/common/decorators/auth-context.decorator';
 import { RequireTenant } from 'src/common/decorators/skip-tenant.decorator';
 import type { AuthContext as AuthContextType } from 'src/common/user-id.store';
+import { AppUserModel } from 'src/modules/app-user/models/app-user.model';
+import { AppUserLoader } from 'src/modules/app-user/app-user.loader';
 
 @Resolver(() => OrganizationModel)
 @RequireTenant()
@@ -31,6 +33,7 @@ export class OrganizationResolver {
     private readonly organizationService: OrganizationService,
     private readonly customerTransactionService: CustomerTransactionService,
     private readonly customerCarRelationService: CustomerCarRelationService,
+    private readonly appUserLoader: AppUserLoader,
   ) {}
 
   @Query(() => PaginatedOrganizations)
@@ -77,6 +80,12 @@ export class OrganizationResolver {
     @Args('id') id: string,
   ) {
     return this.organizationService.remove(ctx, id);
+  }
+
+  @ResolveField(() => AppUserModel, { nullable: true })
+  async createdByUser(@Parent() organization: OrganizationModel) {
+    if (!organization.createdBy) return null;
+    return this.appUserLoader.load(organization.createdBy);
   }
 
   @ResolveField(() => BigInt, {

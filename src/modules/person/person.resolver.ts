@@ -20,6 +20,8 @@ import { CustomerCarRelationService } from 'src/modules/customer-car-relation/cu
 import { AuthContext } from 'src/common/decorators/auth-context.decorator';
 import { RequireTenant } from 'src/common/decorators/skip-tenant.decorator';
 import type { AuthContext as AuthContextType } from 'src/common/user-id.store';
+import { AppUserModel } from 'src/modules/app-user/models/app-user.model';
+import { AppUserLoader } from 'src/modules/app-user/app-user.loader';
 
 @Resolver(() => PersonModel)
 @RequireTenant()
@@ -28,6 +30,7 @@ export class PersonResolver {
     private readonly personService: PersonService,
     private readonly customerTransactionService: CustomerTransactionService,
     private readonly customerCarRelationService: CustomerCarRelationService,
+    private readonly appUserLoader: AppUserLoader,
   ) {}
 
   @Query(() => PaginatedPersons, {
@@ -89,6 +92,12 @@ export class PersonResolver {
     @Args('id') id: string,
   ): Promise<PersonModel> {
     return this.personService.delete(ctx, id);
+  }
+
+  @ResolveField(() => AppUserModel, { nullable: true })
+  async createdByUser(@Parent() person: PersonModel) {
+    if (!person.createdBy) return null;
+    return this.appUserLoader.load(person.createdBy);
   }
 
   @ResolveField(() => BigInt, {

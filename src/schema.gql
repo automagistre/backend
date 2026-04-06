@@ -238,6 +238,8 @@ type CarModel {
 
   """Дата создания записи"""
   createdAt: DateTime
+  createdBy: ID
+  createdByUser: AppUserModel
 
   """Информация о автомобиле"""
   description: String
@@ -1702,6 +1704,8 @@ type OrganizationModel {
   """Является контрагентом"""
   contractor: Boolean!
   createdAt: DateTime
+  createdBy: ID
+  createdByUser: AppUserModel
 
   """Email"""
   email: String
@@ -1951,6 +1955,7 @@ type PersonModel {
   contractor: Boolean!
   createdAt: DateTime
   createdBy: ID
+  createdByUser: AppUserModel
   email: String
   firstname: String
   id: ID!

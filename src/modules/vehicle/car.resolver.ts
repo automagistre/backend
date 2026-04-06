@@ -23,6 +23,8 @@ import { RequireTenant } from 'src/common/decorators/skip-tenant.decorator';
 import type { AuthContext as AuthContextType } from 'src/common/user-id.store';
 import { PersonModel } from 'src/modules/person/models/person.model';
 import { CustomerCarRelationService } from 'src/modules/customer-car-relation/customer-car-relation.service';
+import { AppUserModel } from 'src/modules/app-user/models/app-user.model';
+import { AppUserLoader } from 'src/modules/app-user/app-user.loader';
 
 @Resolver(() => CarModel)
 @RequireTenant()
@@ -30,6 +32,7 @@ export class CarResolver {
   constructor(
     private readonly carService: CarService,
     private readonly customerCarRelationService: CustomerCarRelationService,
+    private readonly appUserLoader: AppUserLoader,
     private readonly vinScalar: VINScalar,
     private readonly gosnomerRUScalar: GosNomerRUScalar,
   ) {}
@@ -156,6 +159,12 @@ export class CarResolver {
     @Args('id') id: string,
   ): Promise<CarModel> {
     return (await this.carService.delete(ctx, id)) as CarModel;
+  }
+
+  @ResolveField(() => AppUserModel, { nullable: true })
+  async createdByUser(@Parent() car: CarModel) {
+    if (!car.createdBy) return null;
+    return this.appUserLoader.load(car.createdBy);
   }
 
   @ResolveField(() => VehicleIdentifier)

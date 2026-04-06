@@ -70,6 +70,7 @@ export class OrganizationModel implements Organization {
   @Field(() => Date, { nullable: true })
   createdAt: Date | null;
 
+  @Field(() => ID, { nullable: true })
   createdBy: string | null;
 
   @Field(() => String, { description: 'Баланс' })
