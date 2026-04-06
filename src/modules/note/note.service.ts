@@ -9,7 +9,7 @@ export class NoteService {
   constructor(private readonly prisma: PrismaService) {}
 
   private async validateSubject(subjectId: string): Promise<void> {
-    const [order, car, person] = await Promise.all([
+    const [order, car, person, part] = await Promise.all([
       this.prisma.order.findFirst({
         where: { id: subjectId },
         select: { id: true },
@@ -22,9 +22,13 @@ export class NoteService {
         where: { id: subjectId },
         select: { id: true },
       }),
+      this.prisma.part.findFirst({
+        where: { id: subjectId },
+        select: { id: true },
+      }),
     ]);
-    if (!order && !car && !person) {
-      throw new NotFoundException('Subject not found (Order, Car or Person)');
+    if (!order && !car && !person && !part) {
+      throw new NotFoundException('Subject not found');
     }
   }
 
