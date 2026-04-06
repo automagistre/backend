@@ -53,6 +53,8 @@ export class CustomerTransactionModel implements CustomerTransaction {
   @Field(() => Date, { nullable: true })
   createdAt: Date | null;
 
+  @IsOptional()
+  @Field(() => ID, { nullable: true })
   createdBy: string | null;
 
   /** Контекстная строка для отображения (номер заказа, название счёта и т.д.). */

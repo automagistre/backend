@@ -337,3 +337,14 @@ export class OrderSubscriptionResolver {
     return this.pubSub.asyncIterableIterator(`ORDER_UPDATED_${orderId}`);
   }
 }
+
+@Resolver(() => OrderPaymentModel)
+export class OrderPaymentResolver {
+  constructor(private readonly appUserLoader: AppUserLoader) {}
+
+  @ResolveField(() => AppUserModel, { nullable: true })
+  async createdByUser(@Parent() payment: OrderPaymentModel) {
+    if (!payment.createdBy) return null;
+    return this.appUserLoader.load(payment.createdBy);
+  }
+}

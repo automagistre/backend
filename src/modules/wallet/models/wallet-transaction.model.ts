@@ -65,5 +65,7 @@ export class WalletTransactionModel implements WalletTransaction {
   @Field(() => Date, { nullable: true })
   createdAt: Date | null;
 
+  @IsOptional()
+  @Field(() => ID, { nullable: true })
   createdBy: string | null;
 }

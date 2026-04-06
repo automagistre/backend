@@ -845,6 +845,8 @@ type CustomerTransactionModel {
   amountAmount: BigInt
   amountCurrencyCode: String
   createdAt: DateTime
+  createdBy: ID
+  createdByUser: AppUserModel
   description: String
   id: ID!
 
@@ -1632,6 +1634,7 @@ type OrderPaymentModel {
   amountCurrencyCode: String
   createdAt: DateTime
   createdBy: ID
+  createdByUser: AppUserModel
   description: String
   id: ID!
   orderId: String!
@@ -2936,6 +2939,8 @@ type WalletTransactionModel {
   amountAmount: BigInt
   amountCurrencyCode: String
   createdAt: DateTime
+  createdBy: ID
+  createdByUser: AppUserModel
   description: String
   id: ID!
 

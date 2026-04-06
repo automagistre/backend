@@ -14,11 +14,14 @@ import { PaginatedCustomerTransactions } from './types/paginated-customer-transa
 import { RequireTenant } from 'src/common/decorators/skip-tenant.decorator';
 import { AuthContext as AuthContextDecorator } from 'src/common/decorators/auth-context.decorator';
 import type { AuthContext as AuthContextType } from 'src/common/user-id.store';
+import { AppUserModel } from '../app-user/models/app-user.model';
+import { AppUserLoader } from '../app-user/app-user.loader';
 
 @Resolver(() => CustomerTransactionModel)
 export class CustomerTransactionResolver {
   constructor(
     private readonly customerTransactionService: CustomerTransactionService,
+    private readonly appUserLoader: AppUserLoader,
   ) {}
 
   @RequireTenant()
@@ -81,5 +84,11 @@ export class CustomerTransactionResolver {
     @Args('input') input: CreateManualCustomerTransactionInput,
   ) {
     return this.customerTransactionService.createManualTransaction(ctx, input);
+  }
+
+  @ResolveField(() => AppUserModel, { nullable: true })
+  async createdByUser(@Parent() tx: CustomerTransactionModel) {
+    if (!tx.createdBy) return null;
+    return this.appUserLoader.load(tx.createdBy);
   }
 }

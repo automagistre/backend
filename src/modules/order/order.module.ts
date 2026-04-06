@@ -1,6 +1,6 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { OrderService } from './order.service';
-import { OrderResolver, OrderSubscriptionResolver } from './order.resolver';
+import { OrderResolver, OrderSubscriptionResolver, OrderPaymentResolver } from './order.resolver';
 import { OrderItemService } from './order-item.service';
 import { OrderItemResolver } from './order-item.resolver';
 import { OrderItemPartResolver, OrderItemServiceResolver, OrderItemGroupResolver } from './order-item-part.resolver';
@@ -38,6 +38,7 @@ import './enums/close-deficiency.enum';
     OrderItemPartResolver,
     OrderItemServiceResolver,
     OrderItemGroupResolver,
+    OrderPaymentResolver,
     {
       provide: 'PUB_SUB',
       useValue: new PubSub(),
