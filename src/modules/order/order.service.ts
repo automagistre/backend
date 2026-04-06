@@ -433,6 +433,22 @@ export class OrderService {
     return close.orderDeal?.createdAt ?? close.orderCancel?.createdAt ?? null;
   }
 
+  async getClosedBy(ctx: AuthContext, orderId: string): Promise<string | null> {
+    const close = await this.prisma.orderClose.findFirst({
+      where: { orderId, tenantId: ctx.tenantId },
+      include: {
+        orderDeal: true,
+        orderCancel: true,
+      },
+    });
+
+    if (!close) {
+      return null;
+    }
+
+    return close.orderDeal?.createdBy ?? close.orderCancel?.createdBy ?? null;
+  }
+
   async getScheduledAt(ctx: AuthContext, orderId: string): Promise<Date | null> {
     const link = await this.prisma.calendarEntryOrder.findFirst({
       where: {

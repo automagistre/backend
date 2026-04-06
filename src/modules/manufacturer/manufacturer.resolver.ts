@@ -1,4 +1,4 @@
-import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
+import { Args, Mutation, Parent, Query, ResolveField, Resolver } from '@nestjs/graphql';
 import { CreateManufacturerInput } from './inputs/create.input';
 import { UpdateManufacturerInput } from './inputs/update.input';
 import { ManufacturerModel } from './models/manufacturer.model';
@@ -8,11 +8,22 @@ import { PaginatedManufacturers } from './inputs/paginatedManufacturers.type';
 import { CurrentUserContext } from 'src/common/decorators/auth-context.decorator';
 import { SkipTenant } from 'src/common/decorators/skip-tenant.decorator';
 import type { UserContext } from 'src/common/user-id.store';
+import { AppUserModel } from '../app-user/models/app-user.model';
+import { AppUserLoader } from '../app-user/app-user.loader';
 
 @Resolver(() => ManufacturerModel)
 @SkipTenant()
 export class ManufacturerResolver {
-  constructor(private ManufacturerService: ManufacturerService) {}
+  constructor(
+    private ManufacturerService: ManufacturerService,
+    private readonly appUserLoader: AppUserLoader,
+  ) {}
+
+  @ResolveField(() => AppUserModel, { nullable: true })
+  async createdByUser(@Parent() manufacturer: ManufacturerModel) {
+    if (!manufacturer.createdBy) return null;
+    return this.appUserLoader.load(manufacturer.createdBy);
+  }
 
   // Получить всех производителей
   @Query(() => PaginatedManufacturers)

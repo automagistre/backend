@@ -1043,6 +1043,7 @@ type ManufacturerModel {
 
   """Кем создан"""
   createdBy: ID
+  createdByUser: AppUserModel
   id: ID!
 
   """Название производителя на русском"""
@@ -1589,8 +1590,10 @@ type OrderModel {
   """Валидация закрытия заказа"""
   closeValidation: OrderCloseValidationModel!
   closedAt: DateTime
+  closedByUser: AppUserModel
   createdAt: DateTime
   createdBy: ID
+  createdByUser: AppUserModel
 
   """Заказчик (персона или организация)"""
   customer: Counterparty
@@ -2874,6 +2877,7 @@ type VehicleModel {
 
   """ID создателя"""
   createdBy: ID
+  createdByUser: AppUserModel
 
   """ID модели"""
   id: ID!

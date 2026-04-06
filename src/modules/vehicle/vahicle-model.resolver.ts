@@ -1,4 +1,4 @@
-import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
+import { Args, Mutation, Parent, Query, ResolveField, Resolver } from '@nestjs/graphql';
 import { VehicleModelService } from './vehicle-model.service';
 import { VehicleModel } from './models/vahicle.model';
 import { CreateVehicleInput, UpdateVehicleInput } from './inputs/vehicle.input';
@@ -7,11 +7,22 @@ import { PaginatedVehicles } from './inputs/paginatedVehicles.type';
 import { CurrentUserContext } from 'src/common/decorators/auth-context.decorator';
 import { SkipTenant } from 'src/common/decorators/skip-tenant.decorator';
 import type { UserContext } from 'src/common/user-id.store';
+import { AppUserModel } from '../app-user/models/app-user.model';
+import { AppUserLoader } from '../app-user/app-user.loader';
 
 @Resolver(() => VehicleModel)
 @SkipTenant()
 export class VahicleModelResolver {
-  constructor(private readonly vehicleModelService: VehicleModelService) {}
+  constructor(
+    private readonly vehicleModelService: VehicleModelService,
+    private readonly appUserLoader: AppUserLoader,
+  ) {}
+
+  @ResolveField(() => AppUserModel, { nullable: true })
+  async createdByUser(@Parent() vehicle: VehicleModel) {
+    if (!vehicle.createdBy) return null;
+    return this.appUserLoader.load(vehicle.createdBy);
+  }
 
   @Query(() => PaginatedVehicles, {
     name: 'vehicles',

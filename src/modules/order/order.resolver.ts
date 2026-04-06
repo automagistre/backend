@@ -43,6 +43,8 @@ import {
   SkipTenant,
 } from 'src/common/decorators/skip-tenant.decorator';
 import type { AuthContext as AuthContextType } from 'src/common/user-id.store';
+import { AppUserModel } from '../app-user/models/app-user.model';
+import { AppUserLoader } from '../app-user/app-user.loader';
 
 @Resolver(() => OrderModel)
 @RequireTenant()
@@ -56,6 +58,7 @@ export class OrderResolver {
     private readonly employeeService: EmployeeService,
     private readonly walletTransactionService: WalletTransactionService,
     private readonly customerTransactionService: CustomerTransactionService,
+    private readonly appUserLoader: AppUserLoader,
     @Inject('PUB_SUB') private readonly pubSub: PubSub,
   ) {}
 
@@ -229,12 +232,28 @@ export class OrderResolver {
     )) as EmployeeModel | null;
   }
 
+  @ResolveField(() => AppUserModel, { nullable: true })
+  async createdByUser(@Parent() order: OrderModel) {
+    if (!order.createdBy) return null;
+    return this.appUserLoader.load(order.createdBy);
+  }
+
   @ResolveField(() => Date, { nullable: true })
   async closedAt(
     @AuthContext() ctx: AuthContextType,
     @Parent() order: OrderModel,
   ): Promise<Date | null> {
     return this.orderService.getClosedAt(ctx, order.id);
+  }
+
+  @ResolveField(() => AppUserModel, { nullable: true })
+  async closedByUser(
+    @AuthContext() ctx: AuthContextType,
+    @Parent() order: OrderModel,
+  ) {
+    const closedBy = await this.orderService.getClosedBy(ctx, order.id);
+    if (!closedBy) return null;
+    return this.appUserLoader.load(closedBy);
   }
 
   @ResolveField(() => Date, { nullable: true })
@@ -304,13 +323,17 @@ export class OrderResolver {
     return this.orderService.deleteOrder(ctx, id);
   }
 
+}
+
+@Resolver(() => OrderModel)
+export class OrderSubscriptionResolver {
+  constructor(@Inject('PUB_SUB') private readonly pubSub: PubSub) {}
+
   @Subscription(() => OrderModel, {
     filter: (payload, variables) =>
       payload.orderUpdated.orderId === variables.orderId,
   })
   async orderUpdated(@Args('orderId', { type: () => ID }) orderId: string) {
-    // Причина: в текущей версии `graphql-subscriptions` используется `asyncIterableIterator`,
-    // а не `asyncIterator` — иначе подписка падает при подключении по `graphql-ws`.
     return this.pubSub.asyncIterableIterator(`ORDER_UPDATED_${orderId}`);
   }
 }
