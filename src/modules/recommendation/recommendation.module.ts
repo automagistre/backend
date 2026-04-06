@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { RecommendationResolver } from './recommendation.resolver';
+import { RecommendationResolver, CarRecommendationPartResolver, RecommendationSubscriptionResolver } from './recommendation.resolver';
 import { RecommendationService } from './recommendation.service';
 import { PrismaModule } from 'src/prisma/prisma.module';
 import { EmployeeModule } from 'src/modules/employee/employee.module';
@@ -17,7 +17,7 @@ import { OrderModule } from 'src/modules/order/order.module';
     ReservationModule,
     OrderModule,
   ],
-  providers: [RecommendationService, RecommendationResolver],
+  providers: [RecommendationService, RecommendationResolver, CarRecommendationPartResolver, RecommendationSubscriptionResolver],
   exports: [RecommendationService],
 })
 export class RecommendationModule {}

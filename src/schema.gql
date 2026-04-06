@@ -305,6 +305,7 @@ type CarRecommendationModel {
   carId: ID
   createdAt: DateTime
   createdBy: ID
+  createdByUser: AppUserModel
   expiredAt: DateTime
   id: ID!
   parts: [CarRecommendationPartModel!]!
@@ -320,6 +321,7 @@ type CarRecommendationModel {
 type CarRecommendationPartModel {
   createdAt: DateTime
   createdBy: ID
+  createdByUser: AppUserModel
   id: ID!
   part: PartModel!
   partId: ID!

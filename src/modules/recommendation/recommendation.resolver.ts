@@ -26,6 +26,8 @@ import { SettingsService } from '../settings/settings.service';
 import { AuthContext } from 'src/common/decorators/auth-context.decorator';
 import { RequireTenant } from 'src/common/decorators/skip-tenant.decorator';
 import type { AuthContext as AuthContextType } from 'src/common/user-id.store';
+import { AppUserModel } from '../app-user/models/app-user.model';
+import { AppUserLoader } from '../app-user/app-user.loader';
 
 @Resolver(() => CarRecommendationModel)
 @RequireTenant()
@@ -35,6 +37,7 @@ export class RecommendationResolver {
     private readonly employeeService: EmployeeService,
     private readonly carService: CarService,
     private readonly settingsService: SettingsService,
+    private readonly appUserLoader: AppUserLoader,
     @Inject('PUB_SUB') private readonly pubSub: PubSub,
   ) {}
 
@@ -270,9 +273,30 @@ export class RecommendationResolver {
     return (await this.carService.findById(ctx, rec.carId)) as any;
   }
 
+  @ResolveField(() => AppUserModel, { nullable: true })
+  async createdByUser(@Parent() rec: CarRecommendationModel) {
+    if (!rec.createdBy) return null;
+    return this.appUserLoader.load(rec.createdBy);
+  }
+}
+
+@Resolver(() => CarRecommendationPartModel)
+export class CarRecommendationPartResolver {
+  constructor(private readonly appUserLoader: AppUserLoader) {}
+
+  @ResolveField(() => AppUserModel, { nullable: true })
+  async createdByUser(@Parent() part: CarRecommendationPartModel) {
+    if (!part.createdBy) return null;
+    return this.appUserLoader.load(part.createdBy);
+  }
+}
+
+@Resolver(() => CarRecommendationModel)
+export class RecommendationSubscriptionResolver {
+  constructor(@Inject('PUB_SUB') private readonly pubSub: PubSub) {}
+
   @Subscription(() => [CarRecommendationModel], {
     filter: (payload, variables) => {
-      // Подписка фильтруется по carId
       const recommendations = payload.carRecommendationsUpdated;
       if (!recommendations || recommendations.length === 0) {
         return variables.carId === payload.carId;
