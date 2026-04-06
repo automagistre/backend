@@ -1513,6 +1513,7 @@ type OrderCloseValidationModel {
 type OrderItemGroupModel {
   createdAt: DateTime
   createdBy: ID
+  createdByUser: AppUserModel
   hideParts: Boolean!
   id: ID!
   name: String!
@@ -1535,6 +1536,7 @@ type OrderItemModel {
 type OrderItemPartModel {
   createdAt: DateTime
   createdBy: ID
+  createdByUser: AppUserModel
   discountAmount: BigInt
   discountCurrencyCode: String
   id: ID!
@@ -1557,6 +1559,7 @@ type OrderItemPartModel {
 type OrderItemServiceModel {
   createdAt: DateTime
   createdBy: ID
+  createdByUser: AppUserModel
   discountAmount: BigInt
   discountCurrencyCode: String
   id: ID!
