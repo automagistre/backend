@@ -491,6 +491,34 @@ export class PartService {
     return { sql: `WHERE ${conditions.join(' AND ')}`, params };
   }
 
+  async getAverageSoldQuantity(
+    partId: string,
+    tenantId: string,
+  ): Promise<number | null> {
+    const recentSales = await this.prisma.orderItemPart.findMany({
+      where: {
+        partId,
+        orderItem: {
+          tenantId,
+          order: { status: 10 },
+        },
+      },
+      select: { quantity: true },
+      orderBy: { id: 'desc' },
+      take: 100,
+    });
+
+    if (recentSales.length === 0) return null;
+
+    const totalQuantity = recentSales.reduce(
+      (sum, row) => sum + (row.quantity ?? 0),
+      0,
+    );
+    const avgRaw = totalQuantity / recentSales.length;
+
+    return Math.max(1, Math.round(avgRaw / 100));
+  }
+
   async findOne(id: string): Promise<PartModel | null> {
     const part = await this.prisma.part.findUnique({
       where: { id },

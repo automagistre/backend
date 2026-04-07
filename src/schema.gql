@@ -1878,6 +1878,10 @@ type PartInOrderModel {
 
 """Запчасть"""
 type PartModel {
+  """
+  Среднее количество в закрытых заказах (по последним 100 продажам), округлённое до целого
+  """
+  averageSoldQuantity: Int
   createdAt: DateTime
   createdBy: ID
   crossParts: [PartModel!]!

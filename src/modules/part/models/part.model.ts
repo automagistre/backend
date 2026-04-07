@@ -66,4 +66,11 @@ export class PartModel implements Part {
 
   @Field(() => Int, { nullable: true })
   orderUpToQuantity?: number | null;
+
+  @Field(() => Int, {
+    nullable: true,
+    description:
+      'Среднее количество в закрытых заказах (по последним 100 продажам), округлённое до целого',
+  })
+  averageSoldQuantity?: number | null;
 }

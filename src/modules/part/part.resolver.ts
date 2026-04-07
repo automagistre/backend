@@ -286,6 +286,19 @@ export class PartResolver {
     return availability?.orderUpToQuantity ?? null;
   }
 
+  @RequireTenant()
+  @ResolveField(() => Int, {
+    nullable: true,
+    description:
+      'Среднее количество в закрытых заказах (по последним 100 продажам)',
+  })
+  async averageSoldQuantity(
+    @Parent() part: PartModel,
+    @AuthContext() ctx: AuthContextType,
+  ): Promise<number | null> {
+    return this.partService.getAverageSoldQuantity(part.id, ctx.tenantId);
+  }
+
   @Mutation(() => PartModel)
   async addPartCross(
     @Args('input') input: AddPartCrossInput,
