@@ -180,6 +180,71 @@ type CalendarEntryScheduleModel {
   id: ID!
 }
 
+enum CallCallbackStatus {
+  CALLED_BACK
+  NOT_SET
+}
+
+enum CallDirection {
+  INBOUND
+  OUTBOUND
+}
+
+input CallFilterInput {
+  callbackStatus: CallCallbackStatus
+  isMissed: Boolean
+  search: String
+  status: CallStatus
+}
+
+type CallModel {
+  answeredAt: DateTime
+  callbackMarkedAt: DateTime
+  callbackMarkedByUserId: ID
+  callbackStatus: CallCallbackStatus!
+  calleePhone: String
+  callerPhone: String
+  createdAt: DateTime
+  direction: CallDirection!
+  durationSec: Int
+  endedAt: DateTime
+  id: ID!
+  isMissed: Boolean!
+  operator: String!
+  personFullName: String
+  personId: ID
+  personMatchState: CallPersonMatchState!
+  providerCallSessionId: String!
+  providerCommunicationId: String
+  providerExternalId: String
+  recordingAvailableUntil: DateTime
+  recordingPath: String
+  recordingState: CallRecordingState!
+  startedAt: DateTime!
+  status: CallStatus!
+}
+
+enum CallPersonMatchState {
+  AMBIGUOUS
+  MATCHED
+  NOT_FOUND
+}
+
+enum CallRecordingState {
+  DOWNLOADED
+  FAILED
+  NONE
+  PENDING
+}
+
+enum CallStatus {
+  ANSWERED
+  COMPLETED
+  FAILED
+  MISSED
+  RINGING
+}
+
 input CancelPartSupplyInput {
   partId: ID!
   quantity: Int!
@@ -1063,6 +1128,10 @@ type ManufacturerModel {
   updatedAt: DateTime!
 }
 
+input MarkCallCallbackInput {
+  callId: ID!
+}
+
 """Комплектация (модель авто + оборудование + период ТО)"""
 type McEquipmentModel {
   createdAt: DateTime
@@ -1399,6 +1468,7 @@ type Mutation {
   fireEmployee(id: String!): EmployeeModel!
   login(input: LoginDto!): Tokens!
   logout(input: RefreshDto!): Boolean!
+  markCallCallback(input: MarkCallCallbackInput!): CallModel!
   passwordLogin(input: PasswordLoginDto!): Tokens!
 
   """Реализовать рекомендацию в заказе"""
@@ -1748,6 +1818,11 @@ type PaginatedAppeals {
   total: Int!
 }
 
+type PaginatedCalls {
+  items: [CallModel!]!
+  total: Int!
+}
+
 type PaginatedCarServices {
   items: [OrderServicesGroupModel!]!
   total: Int!
@@ -2039,6 +2114,7 @@ type Query {
 
   """Запись календаря по ID"""
   calendarEntry(id: ID!): CalendarEntryModel
+  calls(filter: CallFilterInput, skip: Int = 0, take: Int = 25): PaginatedCalls!
   car(id: String!): CarModel
   carByIdentifier(identifier: String!): CarModel
 
@@ -2097,6 +2173,7 @@ type Query {
 
   """Текущий пользователь и доступные tenant"""
   me: MeModel!
+  missedCallsCount: Int!
 
   """Движения запчастей с фильтрацией и пагинацией"""
   motions(filter: MotionFilterInput, skip: Int, take: Int): PaginatedMotions!

@@ -37,6 +37,7 @@ import { ReviewModule } from './modules/review/review.module';
 import { McModule } from './modules/mc/mc.module';
 import { TemplateModule } from './modules/template/template.module';
 import { AppUserModule } from './modules/app-user/app-user.module';
+import { CallsModule } from './modules/calls/calls.module';
 import { DevAuthGuard } from './modules/auth/guards/dev-auth.guard';
 import { TenantGuard } from './common/guards/tenant.guard';
 import { Reflector } from '@nestjs/core';
@@ -84,6 +85,7 @@ import authConfig from './config/auth.config';
     ReviewModule,
     McModule,
     TemplateModule,
+    CallsModule,
   ],
   providers: [
     {

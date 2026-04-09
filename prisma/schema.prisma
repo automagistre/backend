@@ -73,6 +73,52 @@ enum OrderStatus {
   CANCELLED
 }
 
+enum CallDirection {
+  INBOUND
+  OUTBOUND
+}
+
+enum CallStatus {
+  RINGING
+  ANSWERED
+  MISSED
+  COMPLETED
+  FAILED
+}
+
+enum CallPersonMatchState {
+  MATCHED
+  NOT_FOUND
+  AMBIGUOUS
+}
+
+enum CallCallbackStatus {
+  NOT_SET
+  CALLED_BACK
+}
+
+enum CallRecordingState {
+  NONE
+  PENDING
+  DOWNLOADED
+  FAILED
+}
+
+enum CallRecordingSource {
+  WEBHOOK_FILE_LINK
+  DATA_API_CALL_RECORDS
+  DATA_API_FULL_RECORD_LINK
+}
+
+enum CallEventType {
+  CREATED
+  RINGING
+  ANSWERED
+  MISSED
+  COMPLETED
+  RECORDING_READY
+}
+
 model Manufacturer {
   id            String    @id @default(uuid()) @db.Uuid
   name          String    @unique(map: "uniq_3d0ae6dc5e237e06") @db.VarChar(64)
@@ -146,6 +192,7 @@ model Person {
   Employee                       Employee[]
   CustomerOrder                  Order[]                  @relation("CustomerOrder")
   appUser                        AppUser?
+  calls                          Call[]
 
   @@unique([telephone, tenantGroupId], map: "uniq_34dcd176450ff010dff2bbb0")
   @@map("person")
@@ -343,6 +390,93 @@ model AppealCall {
   @@map("appeal_call")
 }
 
+model Call {
+  id                       String               @id @default(uuid()) @db.Uuid
+  tenantId                 String               @map("tenant_id") @db.Uuid
+  tenantGroupId            String               @map("tenant_group_id") @db.Uuid
+  operator                 String               @default("uis") @db.VarChar(32)
+  providerCallSessionId    String               @map("provider_call_session_id") @db.VarChar(128)
+  providerCommunicationId  String?              @map("provider_communication_id") @db.VarChar(128)
+  providerExternalId       String?              @map("provider_external_id") @db.VarChar(128)
+  direction                CallDirection
+  status                   CallStatus
+  startedAt                DateTime             @map("started_at") @db.Timestamptz(6)
+  answeredAt               DateTime?            @map("answered_at") @db.Timestamptz(6)
+  endedAt                  DateTime?            @map("ended_at") @db.Timestamptz(6)
+  durationSec              Int?                 @map("duration_sec")
+  callerPhone              String?              @map("caller_phone") @db.VarChar(35)
+  calleePhone              String?              @map("callee_phone") @db.VarChar(35)
+  personId                 String?              @map("person_id") @db.Uuid
+  person                   Person?              @relation(fields: [personId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  personMatchState         CallPersonMatchState @default(NOT_FOUND) @map("person_match_state")
+  isMissed                 Boolean              @default(false) @map("is_missed")
+  callbackStatus           CallCallbackStatus   @default(NOT_SET) @map("callback_status")
+  callbackMarkedAt         DateTime?            @map("callback_marked_at") @db.Timestamptz(6)
+  callbackMarkedByUserId   String?              @map("callback_marked_by_user_id") @db.Uuid
+  recordingState           CallRecordingState   @default(NONE) @map("recording_state")
+  recordingSource          CallRecordingSource? @map("recording_source")
+  recordingProviderId      String?              @map("recording_provider_id") @db.VarChar(255)
+  recordingAvailableUntil  DateTime?            @map("recording_available_until") @db.Timestamptz(6)
+  recordingLastProviderUrl String?              @map("recording_last_provider_url")
+  recordingPath            String?              @map("recording_path") @db.VarChar(1024)
+  recordingMime            String?              @map("recording_mime") @db.VarChar(255)
+  recordingSize            BigInt?              @map("recording_size")
+  recordingHash            String?              @map("recording_hash") @db.VarChar(255)
+  rawPayload               Json?                @map("raw_payload") @db.Json
+  createdAt                DateTime?            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                DateTime?            @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdBy                String?              @map("created_by") @db.Uuid
+  events                   CallEvent[]
+
+  @@unique([operator, providerCallSessionId], map: "uniq_call_operator_provider_session")
+  @@index([operator, providerCommunicationId], map: "idx_call_operator_provider_comm")
+  @@index([tenantId, startedAt], map: "idx_call_tenant_started_at")
+  @@index([tenantId, status, startedAt], map: "idx_call_tenant_status_started_at")
+  @@index([tenantId, isMissed, callbackStatus], map: "idx_call_tenant_missed_callback")
+  @@index([personId], map: "idx_call_person_id")
+  @@map("telephony_call")
+}
+
+model CallEvent {
+  id                    String        @id @default(uuid()) @db.Uuid
+  callId                String        @map("call_id") @db.Uuid
+  call                  Call          @relation(fields: [callId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  tenantId              String        @map("tenant_id") @db.Uuid
+  operator              String        @default("uis") @db.VarChar(32)
+  externalEventId       String?       @map("external_event_id") @db.VarChar(128)
+  providerCallSessionId String?       @map("provider_call_session_id") @db.VarChar(128)
+  eventType             CallEventType @map("event_type")
+  eventAt               DateTime      @map("event_at") @db.Timestamptz(6)
+  payload               Json?         @db.Json
+  createdAt             DateTime?     @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@unique([operator, externalEventId], map: "uniq_call_event_operator_external_event")
+  @@index([callId, eventAt], map: "idx_call_event_call_event_at")
+  @@index([tenantId, eventAt], map: "idx_call_event_tenant_event_at")
+  @@map("telephony_call_event")
+}
+
+model CallRoutingBinding {
+  id             String    @id @default(uuid()) @db.Uuid
+  operator       String    @default("uis") @db.VarChar(32)
+  lineExternalId String?   @map("line_external_id") @db.VarChar(128)
+  virtualPhone   String?   @map("virtual_phone") @db.VarChar(35)
+  webhookToken   String?   @map("webhook_token") @db.VarChar(255)
+  tenantId       String    @map("tenant_id") @db.Uuid
+  tenantGroupId  String    @map("tenant_group_id") @db.Uuid
+  displayName    String?   @map("display_name") @db.VarChar(255)
+  isActive       Boolean   @default(true) @map("is_active")
+  createdAt      DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime? @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdBy      String?   @map("created_by") @db.Uuid
+
+  @@unique([operator, lineExternalId], map: "uniq_call_routing_operator_line")
+  @@unique([operator, virtualPhone], map: "uniq_call_routing_operator_phone")
+  @@index([operator, webhookToken], map: "idx_call_routing_operator_token")
+  @@index([tenantId, isActive], map: "idx_call_routing_tenant_active")
+  @@map("telephony_call_routing_binding")
+}
+
 model AppealCooperation {
   id        String    @id @default(uuid()) @db.Uuid
   name      String    @db.VarChar(255)
@@ -494,9 +628,9 @@ model Expense {
   createdAt DateTime? @default(now()) @map("created_at") @db.Timestamptz(0)
   createdBy String?   @map("created_by") @db.Uuid
   wallet    Wallet?   @relation(fields: [walletId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+
   @@map("expense")
 }
-
 // model google_review_token {
 //   id         String    @id @default(uuid()) @db.Uuid
 //   payload    Json      @db.Json
