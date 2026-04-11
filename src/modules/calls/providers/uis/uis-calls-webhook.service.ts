@@ -787,9 +787,71 @@ export class UisCallsWebhookService {
 
   private parseDate(value?: string): Date | undefined {
     if (!value) return undefined;
-    const date = new Date(value);
+    const trimmed = value.trim();
+    if (!trimmed) return undefined;
+
+    // UIS may return datetime without timezone; interpret it in configured UIS timezone.
+    const hasExplicitTimezone = /([zZ]|[+-]\d{2}:?\d{2})$/.test(trimmed);
+    if (!hasExplicitTimezone) {
+      const parsedWithOffset = this.parseDateTimeWithoutTimezone(trimmed);
+      if (parsedWithOffset) {
+        return parsedWithOffset;
+      }
+    }
+
+    const date = new Date(trimmed);
     if (Number.isNaN(date.getTime())) return undefined;
     return date;
+  }
+
+  private parseDateTimeWithoutTimezone(value: string): Date | undefined {
+    const match = value.match(
+      /^(\d{4})-(\d{2})-(\d{2})(?:[T\s](\d{2}):(\d{2})(?::(\d{2}))?)?$/,
+    );
+    if (!match) return undefined;
+
+    const year = Number(match[1]);
+    const month = Number(match[2]);
+    const day = Number(match[3]);
+    const hours = Number(match[4] ?? '0');
+    const minutes = Number(match[5] ?? '0');
+    const seconds = Number(match[6] ?? '0');
+    if (
+      ![year, month, day, hours, minutes, seconds].every((part) =>
+        Number.isFinite(part),
+      )
+    ) {
+      return undefined;
+    }
+
+    const timezoneOffsetMinutes = this.getUisTimezoneOffsetMinutes();
+    const timestampUtcMs =
+      Date.UTC(year, month - 1, day, hours, minutes, seconds) -
+      timezoneOffsetMinutes * 60_000;
+    const date = new Date(timestampUtcMs);
+    if (Number.isNaN(date.getTime())) return undefined;
+    return date;
+  }
+
+  private getUisTimezoneOffsetMinutes(): number {
+    const localOffsetMinutes = -new Date().getTimezoneOffset();
+    const raw = this.configService.get<string | number>(
+      'UIS_TIMEZONE_OFFSET_MINUTES',
+    );
+    const value =
+      typeof raw === 'number'
+        ? raw
+        : typeof raw === 'string' && raw.trim()
+          ? Number(raw)
+          : localOffsetMinutes;
+    if (!Number.isFinite(value)) {
+      return localOffsetMinutes;
+    }
+
+    const rounded = Math.round(value);
+    if (rounded < -720) return -720;
+    if (rounded > 840) return 840;
+    return rounded;
   }
 
   private normalizePhone(value?: string): string | undefined {

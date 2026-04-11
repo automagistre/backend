@@ -482,13 +482,39 @@ export class UisCallsPollingService {
   }
 
   private toUisDateTime(date: Date): string {
-    const year = date.getFullYear();
-    const month = this.pad2(date.getMonth() + 1);
-    const day = this.pad2(date.getDate());
-    const hours = this.pad2(date.getHours());
-    const minutes = this.pad2(date.getMinutes());
-    const seconds = this.pad2(date.getSeconds());
+    const timezoneOffsetMinutes = this.getUisTimezoneOffsetMinutes();
+    const shiftedDate = new Date(
+      date.getTime() + timezoneOffsetMinutes * 60_000,
+    );
+
+    const year = shiftedDate.getUTCFullYear();
+    const month = this.pad2(shiftedDate.getUTCMonth() + 1);
+    const day = this.pad2(shiftedDate.getUTCDate());
+    const hours = this.pad2(shiftedDate.getUTCHours());
+    const minutes = this.pad2(shiftedDate.getUTCMinutes());
+    const seconds = this.pad2(shiftedDate.getUTCSeconds());
     return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+  }
+
+  private getUisTimezoneOffsetMinutes(): number {
+    const localOffsetMinutes = -new Date().getTimezoneOffset();
+    const raw = this.configService.get<string | number>(
+      'UIS_TIMEZONE_OFFSET_MINUTES',
+    );
+    const value =
+      typeof raw === 'number'
+        ? raw
+        : typeof raw === 'string' && raw.trim()
+          ? Number(raw)
+          : localOffsetMinutes;
+    if (!Number.isFinite(value)) {
+      return localOffsetMinutes;
+    }
+
+    const rounded = Math.round(value);
+    if (rounded < -720) return -720;
+    if (rounded > 840) return 840;
+    return rounded;
   }
 
   private pad2(value: number): string {
