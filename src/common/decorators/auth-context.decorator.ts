@@ -12,17 +12,24 @@ import type {
 
 interface ReqWithCtx {
   ctx?: UserContext;
+  user?: { sub?: string };
+  tenantId?: string;
+  tenantGroupId?: string;
 }
 
-function getReqCtx(ctx: ExecutionContext): UserContext | undefined {
-  let req: ReqWithCtx;
+function getReqWithFallback(ctx: ExecutionContext): ReqWithCtx | undefined {
   try {
     const gqlCtx = GqlExecutionContext.create(ctx);
-    req = gqlCtx.getContext().req as ReqWithCtx;
+    const gqlContext: { req?: ReqWithCtx } | undefined = gqlCtx.getContext();
+    const gqlReq = gqlContext?.req;
+    if (gqlReq) {
+      return gqlReq;
+    }
   } catch {
-    req = ctx.switchToHttp().getRequest();
+    // Not GraphQL context
   }
-  return req?.ctx;
+  const req = ctx.switchToHttp().getRequest<ReqWithCtx>();
+  return req;
 }
 
 /**
@@ -31,20 +38,25 @@ function getReqCtx(ctx: ExecutionContext): UserContext | undefined {
  */
 export const AuthContext = createParamDecorator(
   (_data: unknown, ctx: ExecutionContext): AuthContextType => {
-    const context = getReqCtx(ctx);
-    if (!context?.userId) {
+    const req = getReqWithFallback(ctx);
+    const context = req?.ctx;
+    const userId = context?.userId || req?.user?.sub;
+    const tenantId = context?.tenantId ?? req?.tenantId ?? null;
+    const tenantGroupId = context?.tenantGroupId ?? req?.tenantGroupId ?? null;
+
+    if (!userId) {
       throw new UnauthorizedException('Authentication required');
     }
-    if (!context.tenantId) {
+    if (!tenantId) {
       throw new ForbiddenException('Tenant context required');
     }
-    if (!context.tenantGroupId) {
+    if (!tenantGroupId) {
       throw new ForbiddenException('Tenant group context required');
     }
     return {
-      userId: context.userId,
-      tenantId: context.tenantId,
-      tenantGroupId: context.tenantGroupId,
+      userId,
+      tenantId,
+      tenantGroupId,
     };
   },
 );
@@ -55,10 +67,19 @@ export const AuthContext = createParamDecorator(
  */
 export const CurrentUserContext = createParamDecorator(
   (_data: unknown, ctx: ExecutionContext): UserContext => {
-    const context = getReqCtx(ctx);
-    if (!context?.userId) {
+    const req = getReqWithFallback(ctx);
+    const context = req?.ctx;
+    const userId = context?.userId || req?.user?.sub;
+    const tenantId = context?.tenantId ?? req?.tenantId ?? null;
+    const tenantGroupId = context?.tenantGroupId ?? req?.tenantGroupId ?? null;
+
+    if (!userId) {
       throw new UnauthorizedException('Authentication required');
     }
-    return context;
+    return {
+      userId,
+      tenantId,
+      tenantGroupId,
+    };
   },
 );
