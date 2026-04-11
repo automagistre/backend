@@ -10,7 +10,7 @@ import {
 import { Public } from 'src/modules/auth/decorators/public.decorator';
 import { UisCallsWebhookService } from './uis-calls-webhook.service';
 
-@Controller('integrations/uis')
+@Controller(['integrations/uis', 'api/integrations/uis'])
 export class UisCallsController {
   constructor(
     private readonly uisCallsWebhookService: UisCallsWebhookService,

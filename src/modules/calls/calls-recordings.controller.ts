@@ -6,7 +6,7 @@ import { RequireTenant } from 'src/common/decorators/skip-tenant.decorator';
 import type { AuthContext as AuthContextType } from 'src/common/user-id.store';
 import { CallsService } from './calls.service';
 
-@Controller('calls')
+@Controller(['calls', 'api/calls'])
 @RequireTenant()
 export class CallsRecordingsController {
   constructor(private readonly callsService: CallsService) {}
