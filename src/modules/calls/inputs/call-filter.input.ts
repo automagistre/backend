@@ -1,5 +1,11 @@
-import { Field, InputType } from '@nestjs/graphql';
-import { IsBoolean, IsEnum, IsOptional, IsString } from 'class-validator';
+import { Field, ID, InputType } from '@nestjs/graphql';
+import {
+  IsBoolean,
+  IsEnum,
+  IsOptional,
+  IsString,
+  IsUUID,
+} from 'class-validator';
 import { CallCallbackStatusEnum, CallStatusEnum } from '../enums/call.enums';
 
 @InputType()
@@ -23,4 +29,9 @@ export class CallFilterInput {
   @IsOptional()
   @IsString()
   search?: string;
+
+  @Field(() => ID, { nullable: true })
+  @IsOptional()
+  @IsUUID()
+  personId?: string;
 }

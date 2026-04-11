@@ -6,9 +6,15 @@ import {
 import { PrismaService } from 'src/prisma/prisma.service';
 import {
   CreateOrganizationInput,
+  RequisiteInput,
   UpdateOrganizationInput,
 } from './inputs/organization.input';
 import type { AuthContext } from 'src/common/user-id.store';
+
+export type OrganizationLookupRow = {
+  id: string;
+  name: string;
+};
 
 const DEFAULT_TAKE = 25;
 const DEFAULT_SKIP = 0;
@@ -18,7 +24,7 @@ export class OrganizationService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(ctx: AuthContext, data: CreateOrganizationInput) {
-    const { requisite, ...mainData } = data as any;
+    const { requisite, ...mainData } = data;
 
     return this.prisma.organization.create({
       data: {
@@ -45,7 +51,7 @@ export class OrganizationService {
       id,
       requisite,
       ...mainData
-    }: UpdateOrganizationInput & { requisite?: any },
+    }: UpdateOrganizationInput & { requisite?: RequisiteInput | null },
   ) {
     const existing = await this.prisma.organization.findFirst({
       where: { id, tenantGroupId: ctx.tenantGroupId },
@@ -59,14 +65,14 @@ export class OrganizationService {
       data: {
         ...mainData,
         ...(requisite !== undefined && {
-          requisiteBank: requisite?.bank || null,
-          requisiteLegalAddress: requisite?.legalAddress || null,
-          requisiteOgrn: requisite?.ogrn || null,
-          requisiteInn: requisite?.inn || null,
-          requisiteKpp: requisite?.kpp || null,
-          requisiteRs: requisite?.rs || null,
-          requisiteKs: requisite?.ks || null,
-          requisiteBik: requisite?.bik || null,
+          requisiteBank: requisite?.bank ?? null,
+          requisiteLegalAddress: requisite?.legalAddress ?? null,
+          requisiteOgrn: requisite?.ogrn ?? null,
+          requisiteInn: requisite?.inn ?? null,
+          requisiteKpp: requisite?.kpp ?? null,
+          requisiteRs: requisite?.rs ?? null,
+          requisiteKs: requisite?.ks ?? null,
+          requisiteBik: requisite?.bik ?? null,
         }),
       },
     });
@@ -155,6 +161,25 @@ export class OrganizationService {
     });
 
     return new Map(organizations.map((o) => [o.id, o.name ?? 'Без названия']));
+  }
+
+  async findByPhonesInTenantGroup(
+    tenantGroupId: string,
+    phones: string[],
+    take = 2,
+  ): Promise<OrganizationLookupRow[]> {
+    if (phones.length === 0) {
+      return [];
+    }
+    const rows = await this.prisma.organization.findMany({
+      where: {
+        tenantGroupId,
+        OR: [{ telephone: { in: phones } }, { officePhone: { in: phones } }],
+      },
+      select: { id: true, name: true },
+      take,
+    });
+    return rows;
   }
 
   // TODO: OrderItemPart.supplierId имеет onDelete: SetNull, Order.customerId и Income.supplierId — полиморфные связи.

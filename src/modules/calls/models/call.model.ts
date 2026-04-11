@@ -69,6 +69,9 @@ export class CallModel {
   @Field(() => ID, { nullable: true })
   callbackMarkedByUserId: string | null;
 
+  @Field(() => String, { nullable: true })
+  callbackMarkedByUserName: string | null;
+
   @Field(() => CallRecordingStateEnum)
   recordingState: CallRecordingStateEnum;
 

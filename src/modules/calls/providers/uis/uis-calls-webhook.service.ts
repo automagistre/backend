@@ -1,9 +1,12 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { PubSub } from 'graphql-subscriptions';
 import { PhoneValidationPipe } from 'src/common/pipes/phone-validation.pipe';
+import { CustomerService } from 'src/modules/customer/customer.service';
 import { Prisma } from 'src/generated/prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import {
+  CallCallbackStatusEnum,
   CallDirectionEnum,
   CallEventTypeEnum,
   CallPersonMatchStateEnum,
@@ -12,10 +15,14 @@ import {
   CallStatusEnum,
 } from '../../enums/call.enums';
 
-type UisIngestResult = {
+export type UisIngestResult = {
   processed: boolean;
   ignored?: string;
   callId?: string;
+};
+
+type UisIngestOptions = {
+  skipSecurity?: boolean;
 };
 
 type PersonMatch = {
@@ -32,16 +39,20 @@ export class UisCallsWebhookService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
+    private readonly customerService: CustomerService,
+    @Inject('CALLS_PUB_SUB') private readonly callsPubSub: PubSub,
   ) {}
 
   async ingestWebhook(
     payload: Record<string, unknown>,
     headers?: Record<string, string | string[] | undefined>,
     queryToken?: string,
+    options?: UisIngestOptions,
   ): Promise<UisIngestResult> {
     if (!payload || typeof payload !== 'object') {
       return { processed: false, ignored: 'invalid_payload' };
     }
+    const skipSecurity = options?.skipSecurity ?? false;
 
     const routingTokenRaw =
       queryToken ??
@@ -51,36 +62,38 @@ export class UisCallsWebhookService {
         ? routingTokenRaw.trim()
         : undefined;
 
-    const requireQueryToken = this.getBooleanConfig(
-      'UIS_WEBHOOK_REQUIRE_QUERY_TOKEN',
-      true,
-    );
-    if (requireQueryToken && !routingToken) {
-      return { processed: false, ignored: 'missing_routing_token' };
-    }
+    if (!skipSecurity) {
+      const requireQueryToken = this.getBooleanConfig(
+        'UIS_WEBHOOK_REQUIRE_QUERY_TOKEN',
+        true,
+      );
+      if (requireQueryToken && !routingToken) {
+        return { processed: false, ignored: 'missing_routing_token' };
+      }
 
-    if (!routingToken) {
-      const sharedSecret = this.configService
-        .get<string>('UIS_WEBHOOK_SHARED_SECRET')
-        ?.trim();
-      if (sharedSecret) {
-        const secretHeaderName = (
-          this.configService.get<string>('UIS_WEBHOOK_SECRET_HEADER') ??
-          'x-uis-webhook-secret'
-        )
-          .trim()
-          .toLowerCase();
+      if (!routingToken) {
+        const sharedSecret = this.configService
+          .get<string>('UIS_WEBHOOK_SHARED_SECRET')
+          ?.trim();
+        if (sharedSecret) {
+          const secretHeaderName = (
+            this.configService.get<string>('UIS_WEBHOOK_SECRET_HEADER') ??
+            'x-uis-webhook-secret'
+          )
+            .trim()
+            .toLowerCase();
 
-        const providedSecret =
-          this.getString(payload, ['webhook_secret', 'secret']) ??
-          this.getHeaderValue(headers, [
-            secretHeaderName,
-            'x-uis-webhook-secret',
-            'x-uis-signature',
-          ]);
+          const providedSecret =
+            this.getString(payload, ['webhook_secret', 'secret']) ??
+            this.getHeaderValue(headers, [
+              secretHeaderName,
+              'x-uis-webhook-secret',
+              'x-uis-signature',
+            ]);
 
-        if (!providedSecret || providedSecret !== sharedSecret) {
-          return { processed: false, ignored: 'invalid_webhook_secret' };
+          if (!providedSecret || providedSecret !== sharedSecret) {
+            return { processed: false, ignored: 'invalid_webhook_secret' };
+          }
         }
       }
     }
@@ -167,10 +180,16 @@ export class UisCallsWebhookService {
         'numb',
       ]),
     );
+    const personPhone = this.detectPersonPhoneForMatch({
+      direction,
+      callerPhone,
+      calleePhone,
+      virtualPhone,
+    });
 
     const personMatch = await this.matchPersonByPhone(
       binding.tenantGroupId,
-      callerPhone,
+      personPhone,
     );
 
     const providerCommunicationId = this.getString(payload, [
@@ -321,10 +340,40 @@ export class UisCallsWebhookService {
       return callRecord;
     });
 
+    await this.autoMarkPreviousMissedAsCalledBack({
+      tenantId: binding.tenantId,
+      currentCall: {
+        id: persisted.id,
+        direction: persisted.direction,
+        status,
+        isMissed,
+        startedAt: persisted.startedAt,
+        callerPhone: persisted.callerPhone,
+        calleePhone: persisted.calleePhone,
+        virtualPhone: virtualPhone ?? binding.virtualPhone ?? null,
+      },
+    });
+
+    await this.publishRealtimeEvents({
+      persisted,
+      tenantId: binding.tenantId,
+      eventType,
+      isMissed,
+      payload,
+    });
+
     return {
       processed: true,
       callId: persisted.id,
     };
+  }
+
+  async ingestPollingPayload(
+    payload: Record<string, unknown>,
+  ): Promise<UisIngestResult> {
+    return this.ingestWebhook(payload, undefined, undefined, {
+      skipSecurity: true,
+    });
   }
 
   private getBooleanConfig(key: string, defaultValue: boolean): boolean {
@@ -448,47 +497,224 @@ export class UisCallsWebhookService {
     return null;
   }
 
+  private async autoMarkPreviousMissedAsCalledBack(params: {
+    tenantId: string;
+    currentCall: {
+      id: string;
+      direction: CallDirectionEnum;
+      status: CallStatusEnum;
+      isMissed: boolean;
+      startedAt: Date;
+      callerPhone: string | null;
+      calleePhone: string | null;
+      virtualPhone: string | null;
+    };
+  }): Promise<void> {
+    if (!this.canResolvePreviousMissedWithCurrentCall(params.currentCall)) {
+      return;
+    }
+
+    const personPhone = this.detectPersonPhoneForMatch({
+      direction: params.currentCall.direction,
+      callerPhone: params.currentCall.callerPhone ?? undefined,
+      calleePhone: params.currentCall.calleePhone ?? undefined,
+      virtualPhone: params.currentCall.virtualPhone ?? undefined,
+    });
+    if (!personPhone) {
+      return;
+    }
+
+    await this.prisma.call.updateMany({
+      where: {
+        tenantId: params.tenantId,
+        isMissed: true,
+        callbackStatus: CallCallbackStatusEnum.NOT_SET,
+        id: { not: params.currentCall.id },
+        startedAt: { lt: params.currentCall.startedAt },
+        OR: [{ callerPhone: personPhone }, { calleePhone: personPhone }],
+      },
+      data: {
+        callbackStatus: CallCallbackStatusEnum.CALLED_BACK,
+        callbackMarkedAt: params.currentCall.startedAt,
+        callbackMarkedByUserId: null,
+      },
+    });
+  }
+
+  private canResolvePreviousMissedWithCurrentCall(currentCall: {
+    direction: CallDirectionEnum;
+    status: CallStatusEnum;
+    isMissed: boolean;
+  }): boolean {
+    if (currentCall.isMissed || currentCall.status === CallStatusEnum.MISSED) {
+      return false;
+    }
+
+    if (currentCall.direction === CallDirectionEnum.OUTBOUND) {
+      return (
+        currentCall.status === CallStatusEnum.ANSWERED ||
+        currentCall.status === CallStatusEnum.COMPLETED
+      );
+    }
+
+    return (
+      currentCall.status === CallStatusEnum.ANSWERED ||
+      currentCall.status === CallStatusEnum.COMPLETED
+    );
+  }
+
+  private async publishRealtimeEvents(params: {
+    persisted: {
+      id: string;
+      tenantGroupId: string;
+      operator: string;
+      providerCallSessionId: string;
+      providerCommunicationId: string | null;
+      providerExternalId: string | null;
+      direction: CallDirectionEnum;
+      status: CallStatusEnum;
+      startedAt: Date;
+      answeredAt: Date | null;
+      endedAt: Date | null;
+      durationSec: number | null;
+      callerPhone: string | null;
+      calleePhone: string | null;
+      personId: string | null;
+      personMatchState: CallPersonMatchStateEnum;
+      isMissed: boolean;
+      callbackStatus: string;
+      callbackMarkedAt: Date | null;
+      callbackMarkedByUserId: string | null;
+      recordingState: string;
+      recordingPath: string | null;
+      recordingAvailableUntil: Date | null;
+      createdAt: Date | null;
+    };
+    tenantId: string;
+    eventType: CallEventTypeEnum;
+    isMissed: boolean;
+    payload: Record<string, unknown>;
+  }): Promise<void> {
+    if (this.isPollingPayload(params.payload)) {
+      return;
+    }
+
+    const virtualPhone = this.normalizePhone(
+      this.getString(params.payload, [
+        'virtual_phone_number',
+        'virtual_phone',
+        'numb',
+        'called_phone_number',
+      ]),
+    );
+    const personPhone = this.detectPersonPhoneForMatch({
+      direction: params.persisted.direction,
+      callerPhone: params.persisted.callerPhone ?? undefined,
+      calleePhone: params.persisted.calleePhone ?? undefined,
+      virtualPhone,
+    });
+
+    const personFullName = await this.resolveCustomerDisplayName({
+      tenantGroupId: params.persisted.tenantGroupId,
+      personId: params.persisted.personId,
+      phone: personPhone,
+    });
+    const subscriptionCall = {
+      ...params.persisted,
+      personFullName,
+    };
+    const publishTasks: Array<Promise<void>> = [];
+
+    const shouldPublishIncoming =
+      params.persisted.direction === CallDirectionEnum.INBOUND &&
+      (params.eventType === CallEventTypeEnum.CREATED ||
+        params.eventType === CallEventTypeEnum.RINGING);
+    if (shouldPublishIncoming) {
+      publishTasks.push(
+        this.callsPubSub.publish(`CALL_INCOMING_${params.tenantId}`, {
+          incomingCall: subscriptionCall,
+        }),
+      );
+    }
+
+    const shouldPublishMissed =
+      params.isMissed ||
+      params.eventType === CallEventTypeEnum.MISSED ||
+      params.persisted.status === CallStatusEnum.MISSED;
+    if (shouldPublishMissed) {
+      publishTasks.push(
+        this.callsPubSub.publish(`CALL_MISSED_${params.tenantId}`, {
+          missedCall: subscriptionCall,
+        }),
+      );
+    }
+
+    if (publishTasks.length === 0) {
+      return;
+    }
+
+    await Promise.all(publishTasks).catch(() => {
+      // Realtime publish errors should not break ingestion.
+    });
+  }
+
+  private async resolveCustomerDisplayName(params: {
+    tenantGroupId: string;
+    personId: string | null;
+    phone: string | undefined;
+  }): Promise<string | null> {
+    return this.customerService.resolveCustomerDisplayName(params);
+  }
+
+  private isPollingPayload(payload: Record<string, unknown>): boolean {
+    const source = this.getString(payload, ['source']);
+    return source?.toLowerCase() === 'uis_polling';
+  }
+
+  private detectPersonPhoneForMatch(params: {
+    direction: CallDirectionEnum;
+    callerPhone: string | undefined;
+    calleePhone: string | undefined;
+    virtualPhone: string | undefined;
+  }): string | undefined {
+    const { direction, callerPhone, calleePhone, virtualPhone } = params;
+
+    if (direction === CallDirectionEnum.OUTBOUND) {
+      if (calleePhone && calleePhone !== virtualPhone) return calleePhone;
+      if (callerPhone && callerPhone !== virtualPhone) return callerPhone;
+      return calleePhone ?? callerPhone;
+    }
+
+    if (callerPhone && callerPhone !== virtualPhone) return callerPhone;
+    if (calleePhone && calleePhone !== virtualPhone) return calleePhone;
+    return callerPhone ?? calleePhone;
+  }
+
   private async matchPersonByPhone(
     tenantGroupId: string,
     phone: string | undefined,
   ): Promise<PersonMatch> {
-    if (!phone) {
-      return {
-        personId: null,
-        personMatchState: CallPersonMatchStateEnum.NOT_FOUND,
-      };
-    }
+    const match = await this.customerService.resolvePersonMatchByPhone(
+      tenantGroupId,
+      phone,
+    );
 
-    const variants = Array.from(new Set([phone, phone.replace(/^\+7/, '8')]));
-
-    const matches = await this.prisma.person.findMany({
-      where: {
-        tenantGroupId,
-        OR: [
-          { telephone: { in: variants } },
-          { officePhone: { in: variants } },
-        ],
-      },
-      select: { id: true },
-      take: 2,
-    });
-
-    if (matches.length === 1) {
-      return {
-        personId: matches[0]?.id ?? null,
-        personMatchState: CallPersonMatchStateEnum.MATCHED,
-      };
-    }
-    if (matches.length > 1) {
-      return {
-        personId: null,
-        personMatchState: CallPersonMatchStateEnum.AMBIGUOUS,
-      };
-    }
     return {
-      personId: null,
-      personMatchState: CallPersonMatchStateEnum.NOT_FOUND,
+      personId: match.personId,
+      personMatchState: this.mapPersonMatchState(match.state),
     };
+  }
+
+  private mapPersonMatchState(
+    state: 'MATCHED' | 'AMBIGUOUS' | 'NOT_FOUND',
+  ): CallPersonMatchStateEnum {
+    if (state === 'MATCHED') {
+      return CallPersonMatchStateEnum.MATCHED;
+    }
+    if (state === 'AMBIGUOUS') {
+      return CallPersonMatchStateEnum.AMBIGUOUS;
+    }
+    return CallPersonMatchStateEnum.NOT_FOUND;
   }
 
   private getString(

@@ -193,6 +193,7 @@ enum CallDirection {
 input CallFilterInput {
   callbackStatus: CallCallbackStatus
   isMissed: Boolean
+  personId: ID
   search: String
   status: CallStatus
 }
@@ -201,6 +202,7 @@ type CallModel {
   answeredAt: DateTime
   callbackMarkedAt: DateTime
   callbackMarkedByUserId: ID
+  callbackMarkedByUserName: String
   callbackStatus: CallCallbackStatus!
   calleePhone: String
   callerPhone: String
@@ -235,6 +237,24 @@ enum CallRecordingState {
   FAILED
   NONE
   PENDING
+}
+
+input CallRoutingBindingFilterInput {
+  isActive: Boolean
+  operator: String
+  search: String
+}
+
+type CallRoutingBindingModel {
+  createdAt: DateTime
+  displayName: String
+  id: ID!
+  isActive: Boolean!
+  lineExternalId: String
+  operator: String!
+  updatedAt: DateTime
+  virtualPhone: String
+  webhookToken: String
 }
 
 enum CallStatus {
@@ -475,6 +495,15 @@ input CreateCalendarEntryInput {
   orderId: ID
   source: CalendarEntryCreateSource
   workerId: ID
+}
+
+input CreateCallRoutingBindingInput {
+  displayName: String
+  isActive: Boolean
+  lineExternalId: String
+  operator: String
+  virtualPhone: String
+  webhookToken: String!
 }
 
 input CreateCarInput {
@@ -1347,6 +1376,7 @@ type Mutation {
 
   """Создать запись календаря"""
   createCalendarEntry(input: CreateCalendarEntryInput!): CalendarEntryModel!
+  createCallRoutingBinding(input: CreateCallRoutingBindingInput!): CallRoutingBindingModel!
 
   """Создать рекомендацию по автомобилю"""
   createCarRecommendation(input: CreateCarRecommendationInput!): CarRecommendationModel!
@@ -1416,6 +1446,7 @@ type Mutation {
 
   """Удалить запись календаря"""
   deleteCalendarEntry(input: DeleteCalendarEntryInput!): Boolean!
+  deleteCallRoutingBinding(id: ID!): CallRoutingBindingModel!
 
   """Удалить рекомендацию по автомобилю"""
   deleteCarRecommendation(id: ID!): Boolean!
@@ -1496,6 +1527,7 @@ type Mutation {
 
   """Обновить запись календаря"""
   updateCalendarEntry(input: UpdateCalendarEntryInput!): CalendarEntryModel
+  updateCallRoutingBinding(input: UpdateCallRoutingBindingInput!): CallRoutingBindingModel!
 
   """Обновить рекомендацию по автомобилю"""
   updateCarRecommendation(input: UpdateCarRecommendationInput!): CarRecommendationModel!
@@ -1818,6 +1850,11 @@ type PaginatedAppeals {
   total: Int!
 }
 
+type PaginatedCallRoutingBindings {
+  items: [CallRoutingBindingModel!]!
+  total: Int!
+}
+
 type PaginatedCalls {
   items: [CallModel!]!
   total: Int!
@@ -2114,6 +2151,7 @@ type Query {
 
   """Запись календаря по ID"""
   calendarEntry(id: ID!): CalendarEntryModel
+  callRoutingBindings(filter: CallRoutingBindingFilterInput, skip: Int = 0, take: Int = 25): PaginatedCallRoutingBindings!
   calls(filter: CallFilterInput, skip: Int = 0, take: Int = 25): PaginatedCalls!
   car(id: String!): CarModel
   carByIdentifier(identifier: String!): CarModel
@@ -2428,6 +2466,8 @@ enum SortDirection {
 
 type Subscription {
   carRecommendationsUpdated(carId: ID!): [CarRecommendationModel!]!
+  incomingCall: CallModel!
+  missedCall: CallModel!
   orderUpdated(orderId: ID!): OrderModel!
 }
 
@@ -2565,6 +2605,16 @@ input UpdateCalendarEntryInput {
   duration: String
   id: ID!
   workerId: ID
+}
+
+input UpdateCallRoutingBindingInput {
+  displayName: String
+  id: ID!
+  isActive: Boolean
+  lineExternalId: String
+  operator: String
+  virtualPhone: String
+  webhookToken: String
 }
 
 input UpdateCarInput {

@@ -9,6 +9,12 @@ import { UpdatePersonInput } from './inputs/update.input';
 import { Person } from 'src/generated/prisma/client';
 import type { AuthContext } from 'src/common/user-id.store';
 
+export type PersonLookupRow = {
+  id: string;
+  firstname: string | null;
+  lastname: string | null;
+};
+
 const DEFAULT_TAKE = 25;
 const DEFAULT_SKIP = 0;
 
@@ -99,6 +105,45 @@ export class PersonService {
         p.id,
         [p.lastname, p.firstname].filter(Boolean).join(' ') || 'Без имени',
       ]),
+    );
+  }
+
+  async findByPhonesInTenantGroup(
+    tenantGroupId: string,
+    phones: string[],
+    take = 2,
+  ): Promise<PersonLookupRow[]> {
+    if (phones.length === 0) {
+      return [];
+    }
+    const rows = await this.prisma.person.findMany({
+      where: {
+        tenantGroupId,
+        OR: [{ telephone: { in: phones } }, { officePhone: { in: phones } }],
+      },
+      select: {
+        id: true,
+        firstname: true,
+        lastname: true,
+      },
+      take,
+    });
+
+    return rows;
+  }
+
+  async getDisplayNameById(personId: string): Promise<string | null> {
+    const person = await this.prisma.person.findUnique({
+      where: { id: personId },
+      select: { firstname: true, lastname: true },
+    });
+    if (!person) {
+      return null;
+    }
+
+    return (
+      [person.firstname, person.lastname].filter(Boolean).join(' ').trim() ||
+      null
     );
   }
 
