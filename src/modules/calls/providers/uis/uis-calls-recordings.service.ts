@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { Cron } from '@nestjs/schedule';
 import { createHash } from 'node:crypto';
 import { mkdir, writeFile } from 'node:fs/promises';
-import { dirname, extname, join } from 'node:path';
+import { dirname, extname, join, resolve } from 'node:path';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CallRecordingStateEnum } from '../../enums/call.enums';
 
@@ -278,6 +278,7 @@ export class UisCallsRecordingsService {
     const baseDir =
       this.configService.get<string>('CALL_RECORDINGS_DIR')?.trim() ||
       'storage/call-recordings';
+    const baseAbsolutePath = resolve(process.cwd(), baseDir);
     const year = String(params.startedAt.getUTCFullYear());
     const month = this.pad2(params.startedAt.getUTCMonth() + 1);
     const day = this.pad2(params.startedAt.getUTCDate());
@@ -285,7 +286,7 @@ export class UisCallsRecordingsService {
     const relativeDir = join(params.tenantId, year, month, day);
     const filename = `${params.callId}${params.extension}`;
     const relativePath = this.toStoragePath(join(relativeDir, filename));
-    const absolutePath = join(process.cwd(), baseDir, relativePath);
+    const absolutePath = join(baseAbsolutePath, relativePath);
 
     await mkdir(dirname(absolutePath), { recursive: true });
     await writeFile(absolutePath, params.body);
