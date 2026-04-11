@@ -183,8 +183,9 @@ export class UisCallsPollingService {
     }
 
     const base = latestFromMemory ?? latestFromDb ?? minFrom;
-    const boundedBase = base < minFrom ? minFrom : base;
-    return new Date(boundedBase.getTime() - overlapSeconds * 1000);
+    const boundedMin = base < minFrom ? minFrom : base;
+    const boundedRange = boundedMin > now ? now : boundedMin;
+    return new Date(boundedRange.getTime() - overlapSeconds * 1000);
   }
 
   private async fetchCallsReportPage(

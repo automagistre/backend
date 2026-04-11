@@ -1,6 +1,6 @@
 import { Controller, Get, Param, Res, StreamableFile } from '@nestjs/common';
 import type { FastifyReply } from 'fastify';
-import { createReadStream } from 'node:fs';
+import { readFile } from 'node:fs/promises';
 import { AuthContext } from 'src/common/decorators/auth-context.decorator';
 import { RequireTenant } from 'src/common/decorators/skip-tenant.decorator';
 import type { AuthContext as AuthContextType } from 'src/common/user-id.store';
@@ -18,15 +18,17 @@ export class CallsRecordingsController {
     @Res({ passthrough: true }) reply: FastifyReply,
   ): Promise<StreamableFile> {
     const file = await this.callsService.getRecordingFile(ctx, id);
+    const fileBuffer = await readFile(file.absolutePath);
 
     reply.header('content-type', file.mime ?? 'application/octet-stream');
-    reply.header('content-length', String(file.size));
+    reply.header('content-length', String(fileBuffer.byteLength));
     reply.header(
       'content-disposition',
       `inline; filename="${file.filename.replace(/"/g, '')}"`,
     );
+    reply.header('accept-ranges', 'none');
     reply.header('cache-control', 'private, max-age=60');
 
-    return new StreamableFile(createReadStream(file.absolutePath));
+    return new StreamableFile(fileBuffer);
   }
 }

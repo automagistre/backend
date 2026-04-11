@@ -229,7 +229,7 @@ export class UisCallsWebhookService {
     ]);
 
     const persisted = await this.prisma.$transaction(async (tx) => {
-      const existing = await tx.call.findUnique({
+      const existingBySession = await tx.call.findUnique({
         where: {
           operator_providerCallSessionId: {
             operator: UIS_OPERATOR,
@@ -237,21 +237,53 @@ export class UisCallsWebhookService {
           },
         },
       });
+      const existingByProviderIds =
+        !existingBySession &&
+        Boolean(providerCommunicationId || providerExternalId)
+          ? await tx.call.findFirst({
+              where: {
+                operator: UIS_OPERATOR,
+                tenantId: binding.tenantId,
+                startedAt: {
+                  gte: new Date(startedAt.getTime() - 12 * 60 * 60_000),
+                  lte: new Date(startedAt.getTime() + 12 * 60 * 60_000),
+                },
+                OR: [
+                  ...(providerCommunicationId
+                    ? [{ providerCommunicationId }]
+                    : []),
+                  ...(providerExternalId ? [{ providerExternalId }] : []),
+                ],
+              },
+              orderBy: { createdAt: 'desc' },
+            })
+          : null;
+      const existing = existingBySession ?? existingByProviderIds;
 
       const callRecord = existing
         ? await tx.call.update({
             where: { id: existing.id },
             data: {
+              providerCallSessionId: providerCallSessionId,
               providerCommunicationId:
-                existing.providerCommunicationId ?? providerCommunicationId,
+                providerCommunicationId ?? existing.providerCommunicationId,
               providerExternalId:
-                existing.providerExternalId ?? providerExternalId,
+                providerExternalId ?? existing.providerExternalId,
               direction,
-              status,
-              startedAt: existing.startedAt ?? startedAt,
-              answeredAt: existing.answeredAt ?? answeredAt,
-              endedAt: endedAt ?? existing.endedAt,
-              durationSec: durationSec ?? existing.durationSec,
+              status: this.mergeCallStatus(
+                existing.status as CallStatusEnum,
+                status,
+              ),
+              startedAt: this.pickEarlierRequiredDate(
+                existing.startedAt,
+                startedAt,
+              ),
+              answeredAt: this.pickEarlierDate(existing.answeredAt, answeredAt),
+              endedAt: this.pickLaterDate(existing.endedAt, endedAt),
+              durationSec: this.pickMaxDurationSec(
+                existing.durationSec,
+                durationSec,
+              ),
               callerPhone: existing.callerPhone ?? callerPhone,
               calleePhone: existing.calleePhone ?? calleePhone,
               personId: existing.personId ?? personMatch.personId,
@@ -259,15 +291,15 @@ export class UisCallsWebhookService {
                 ? CallPersonMatchStateEnum.MATCHED
                 : personMatch.personMatchState,
               isMissed: existing.isMissed || isMissed,
-              recordingState:
-                existing.recordingState === CallRecordingStateEnum.DOWNLOADED
-                  ? CallRecordingStateEnum.DOWNLOADED
-                  : recordingState,
-              recordingSource: existing.recordingSource ?? recordingSource,
+              recordingState: this.mergeRecordingState(
+                existing.recordingState as CallRecordingStateEnum,
+                recordingState,
+              ),
+              recordingSource: recordingSource ?? existing.recordingSource,
               recordingProviderId:
-                existing.recordingProviderId ?? recordingProviderId,
+                recordingProviderId ?? existing.recordingProviderId,
               recordingLastProviderUrl:
-                existing.recordingLastProviderUrl ?? fileLink,
+                fileLink ?? existing.recordingLastProviderUrl,
               rawPayload: payload as Prisma.InputJsonValue,
             },
           })
@@ -345,8 +377,8 @@ export class UisCallsWebhookService {
       currentCall: {
         id: persisted.id,
         direction: persisted.direction,
-        status,
-        isMissed,
+        status: persisted.status,
+        isMissed: persisted.isMissed,
         startedAt: persisted.startedAt,
         callerPhone: persisted.callerPhone,
         calleePhone: persisted.calleePhone,
@@ -806,7 +838,7 @@ export class UisCallsWebhookService {
 
   private parseDateTimeWithoutTimezone(value: string): Date | undefined {
     const match = value.match(
-      /^(\d{4})-(\d{2})-(\d{2})(?:[T\s](\d{2}):(\d{2})(?::(\d{2}))?)?$/,
+      /^(\d{4})-(\d{2})-(\d{2})(?:[T\s](\d{2}):(\d{2})(?::(\d{2})(?:[.,](\d{1,6}))?)?)?$/,
     );
     if (!match) return undefined;
 
@@ -816,8 +848,9 @@ export class UisCallsWebhookService {
     const hours = Number(match[4] ?? '0');
     const minutes = Number(match[5] ?? '0');
     const seconds = Number(match[6] ?? '0');
+    const milliseconds = Number((match[7] ?? '0').padEnd(3, '0').slice(0, 3));
     if (
-      ![year, month, day, hours, minutes, seconds].every((part) =>
+      ![year, month, day, hours, minutes, seconds, milliseconds].every((part) =>
         Number.isFinite(part),
       )
     ) {
@@ -826,11 +859,90 @@ export class UisCallsWebhookService {
 
     const timezoneOffsetMinutes = this.getUisTimezoneOffsetMinutes();
     const timestampUtcMs =
-      Date.UTC(year, month - 1, day, hours, minutes, seconds) -
+      Date.UTC(year, month - 1, day, hours, minutes, seconds, milliseconds) -
       timezoneOffsetMinutes * 60_000;
     const date = new Date(timestampUtcMs);
     if (Number.isNaN(date.getTime())) return undefined;
     return date;
+  }
+
+  private pickEarlierRequiredDate(existing: Date, incoming?: Date): Date {
+    if (!incoming) return existing;
+    return incoming.getTime() < existing.getTime() ? incoming : existing;
+  }
+
+  private pickEarlierDate(existing: Date | null, incoming?: Date): Date | null {
+    if (!existing) return incoming ?? null;
+    if (!incoming) return existing;
+    return incoming.getTime() < existing.getTime() ? incoming : existing;
+  }
+
+  private pickLaterDate(existing: Date | null, incoming?: Date): Date | null {
+    if (!existing) return incoming ?? null;
+    if (!incoming) return existing;
+    return incoming.getTime() > existing.getTime() ? incoming : existing;
+  }
+
+  private pickMaxDurationSec(
+    existing: number | null,
+    incoming?: number,
+  ): number | null {
+    if (existing === null || existing === undefined) {
+      return incoming ?? null;
+    }
+    if (incoming === undefined) return existing;
+    return Math.max(existing, incoming);
+  }
+
+  private mergeCallStatus(
+    existing: CallStatusEnum,
+    incoming: CallStatusEnum,
+  ): CallStatusEnum {
+    return this.getCallStatusRank(incoming) >= this.getCallStatusRank(existing)
+      ? incoming
+      : existing;
+  }
+
+  private getCallStatusRank(status: CallStatusEnum): number {
+    switch (status) {
+      case CallStatusEnum.RINGING:
+        return 0;
+      case CallStatusEnum.FAILED:
+        return 1;
+      case CallStatusEnum.MISSED:
+        return 2;
+      case CallStatusEnum.ANSWERED:
+        return 3;
+      case CallStatusEnum.COMPLETED:
+        return 4;
+      default:
+        return 0;
+    }
+  }
+
+  private mergeRecordingState(
+    existing: CallRecordingStateEnum,
+    incoming: CallRecordingStateEnum,
+  ): CallRecordingStateEnum {
+    if (
+      existing === CallRecordingStateEnum.DOWNLOADED ||
+      incoming === CallRecordingStateEnum.DOWNLOADED
+    ) {
+      return CallRecordingStateEnum.DOWNLOADED;
+    }
+    if (
+      existing === CallRecordingStateEnum.PENDING ||
+      incoming === CallRecordingStateEnum.PENDING
+    ) {
+      return CallRecordingStateEnum.PENDING;
+    }
+    if (
+      existing === CallRecordingStateEnum.FAILED ||
+      incoming === CallRecordingStateEnum.FAILED
+    ) {
+      return CallRecordingStateEnum.FAILED;
+    }
+    return CallRecordingStateEnum.NONE;
   }
 
   private getUisTimezoneOffsetMinutes(): number {
