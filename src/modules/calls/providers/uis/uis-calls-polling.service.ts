@@ -125,6 +125,12 @@ export class UisCallsPollingService {
       pages += 1;
       for (const row of rows) {
         const payload = this.mapReportRowToWebhookPayload(row);
+        if (!payload) {
+          ignored += 1;
+          const reason = 'ongoing_call_skipped';
+          ignoredReasons.set(reason, (ignoredReasons.get(reason) ?? 0) + 1);
+          continue;
+        }
         const result =
           await this.uisCallsWebhookService.ingestPollingPayload(payload);
         if (result.processed) {
@@ -168,6 +174,16 @@ export class UisCallsPollingService {
       0,
       60 * 60,
     );
+    const reconcileWindowSeconds = this.getIntConfig(
+      'UIS_POLLING_RECONCILE_WINDOW_SECONDS',
+      1800,
+      0,
+      60 * 60 * 24,
+    );
+    const effectiveOverlapSeconds = Math.max(
+      overlapSeconds,
+      reconcileWindowSeconds,
+    );
 
     const minFrom = new Date(now.getTime() - lookbackMinutes * 60_000);
 
@@ -185,7 +201,10 @@ export class UisCallsPollingService {
     const base = latestFromMemory ?? latestFromDb ?? minFrom;
     const boundedMin = base < minFrom ? minFrom : base;
     const boundedRange = boundedMin > now ? now : boundedMin;
-    return new Date(boundedRange.getTime() - overlapSeconds * 1000);
+    const from = new Date(
+      boundedRange.getTime() - effectiveOverlapSeconds * 1000,
+    );
+    return from < minFrom ? minFrom : from;
   }
 
   private async fetchCallsReportPage(
@@ -316,7 +335,7 @@ export class UisCallsPollingService {
 
   private mapReportRowToWebhookPayload(
     row: UisReportRow,
-  ): Record<string, unknown> {
+  ): Record<string, unknown> | null {
     const providerCallSessionId = this.pickFirstString(row, [
       'id',
       'cdr_id',
@@ -326,7 +345,26 @@ export class UisCallsPollingService {
     const finishTime = this.pickFirstString(row, ['finish_time']);
     const direction = this.pickFirstString(row, ['direction']);
     const isLost = this.pickFirstBoolean(row, ['is_lost']);
-    const eventType = isLost ? 'missed' : finishTime ? 'completed' : 'incoming';
+    const hasFinishTime = Boolean(finishTime);
+    if (!hasFinishTime && !isLost) {
+      return null;
+    }
+
+    const waitDuration = this.pickFirstNumber(row, ['wait_duration']);
+    const talkDuration = this.pickFirstNumber(row, [
+      'clean_talk_duration',
+      'talk_duration',
+    ]);
+    const totalDuration = this.pickFirstNumber(row, ['total_duration']);
+    const durationSec = this.resolveDurationSecForPolling({
+      isLost: Boolean(isLost),
+      hasFinishTime,
+      waitDuration,
+      talkDuration,
+      totalDuration,
+    });
+
+    const eventType = isLost ? 'missed' : 'completed';
     const eventTime = finishTime ?? startTime ?? new Date().toISOString();
     const eventId = this.buildPollingEventId(
       providerCallSessionId,
@@ -343,10 +381,12 @@ export class UisCallsPollingService {
       finish_time: finishTime,
       direction,
       is_lost: isLost,
-      total_duration: this.pickFirstNumber(row, [
-        'total_duration',
-        'talk_duration',
-      ]),
+      duration_sec: durationSec,
+      total_duration: totalDuration,
+      wait_duration: waitDuration,
+      talk_duration: this.pickFirstNumber(row, ['talk_duration']),
+      clean_talk_duration: this.pickFirstNumber(row, ['clean_talk_duration']),
+      finish_reason: this.pickFirstString(row, ['finish_reason']),
       virtual_phone_number: this.pickFirstString(row, [
         'virtual_phone_number',
         'numb',
@@ -373,6 +413,22 @@ export class UisCallsPollingService {
       wav_call_records: this.pickFirstArray(row, ['wav_call_records']),
       source: 'uis_polling',
     });
+  }
+
+  private resolveDurationSecForPolling(params: {
+    isLost: boolean;
+    hasFinishTime: boolean;
+    waitDuration: number | undefined;
+    talkDuration: number | undefined;
+    totalDuration: number | undefined;
+  }): number | undefined {
+    if (!params.hasFinishTime && !params.isLost) {
+      return undefined;
+    }
+    if (params.isLost) {
+      return params.waitDuration ?? params.totalDuration;
+    }
+    return params.talkDuration ?? params.totalDuration ?? params.waitDuration;
   }
 
   private buildPollingEventId(

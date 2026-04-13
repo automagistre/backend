@@ -75,12 +75,27 @@ export class UisCallsRecordingsService {
       1,
       200,
     );
+    const retryFailedAfterMinutes = this.getIntConfig(
+      'UIS_RECORDINGS_RETRY_FAILED_AFTER_MINUTES',
+      15,
+      1,
+      60 * 24 * 7,
+    );
+    const retryFailedBefore = new Date(
+      Date.now() - retryFailedAfterMinutes * 60_000,
+    );
     const pending = await this.prisma.call.findMany({
       where: {
         operator: 'uis',
-        recordingState: CallRecordingStateEnum.PENDING,
         recordingPath: null,
         recordingLastProviderUrl: { not: null },
+        OR: [
+          { recordingState: CallRecordingStateEnum.PENDING },
+          {
+            recordingState: CallRecordingStateEnum.FAILED,
+            updatedAt: { lte: retryFailedBefore },
+          },
+        ],
       },
       select: {
         id: true,
