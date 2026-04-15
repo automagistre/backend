@@ -86,6 +86,14 @@ input ApplyTemplateWorkInput {
   price: MoneyInput
 }
 
+input BackfillQualityControlTasksInput {
+  """Глубина поиска закрытых заказов в днях"""
+  days: Int = 30
+
+  """Максимальное количество заказов за один запуск"""
+  limit: Int = 500
+}
+
 """BigInt custom scalar type"""
 scalar BigInt
 
@@ -875,6 +883,16 @@ input CreateReviewInput {
   text: String!
 }
 
+input CreateTaskInput {
+  customerId: ID
+  description: String
+  orderId: ID
+  scheduledAt: DateTime
+  tags: [String!]
+  title: String!
+  type: TaskType!
+}
+
 """Создать модель автомобиля"""
 input CreateVehicleInput {
   """Код кузова"""
@@ -1361,6 +1379,11 @@ type Mutation {
 
   """Применить шаблон к заказу: добавить переданные работы и запчасти."""
   applyTemplate(input: ApplyTemplateInput!): Boolean!
+
+  """
+  Создать пропущенные задачи контроля качества для недавно закрытых заказов
+  """
+  backfillQualityControlTasks(input: BackfillQualityControlTasksInput): Int!
   cancelEmployeeSalary(salaryId: ID!): Boolean!
 
   """Отменить поставку (удалить из ожидаемых)"""
@@ -1444,6 +1467,9 @@ type Mutation {
   """Создать отзыв"""
   createReview(input: CreateReviewInput!): ReviewModel!
 
+  """Создать задачу"""
+  createTask(input: CreateTaskInput!): TaskModel!
+
   """Удалить запись календаря"""
   deleteCalendarEntry(input: DeleteCalendarEntryInput!): Boolean!
   deleteCallRoutingBinding(id: ID!): CallRoutingBindingModel!
@@ -1496,6 +1522,9 @@ type Mutation {
 
   """Удалить отзыв"""
   deleteReview(id: String!): ReviewModel!
+
+  """Удалить задачу"""
+  deleteTask(id: ID!): Boolean!
   fireEmployee(id: String!): EmployeeModel!
   login(input: LoginDto!): Tokens!
   logout(input: RefreshDto!): Boolean!
@@ -1577,6 +1606,12 @@ type Mutation {
 
   """Обновить отзыв"""
   updateReview(input: UpdateReviewInput!): ReviewModel!
+
+  """Обновить настройки приложения"""
+  updateSettings(input: UpdateSettingsInput!): SettingsModel!
+
+  """Обновить задачу (статус, результат, теги и др.)"""
+  updateTask(input: UpdateTaskInput!): TaskModel!
 }
 
 type NoteModel {
@@ -2281,6 +2316,12 @@ type Query {
   """Список ожидаемых поставок по запчасти (по поставщикам)"""
   suppliesByPart(partId: ID!): [SupplyBySupplierModel!]!
 
+  """Список задач для канбан-доски"""
+  tasksBoard(filter: TaskBoardFilterInput): [TaskModel!]!
+
+  """Счётчики задач для бейджей"""
+  tasksCount(type: TaskType): TasksCountModel!
+
   """
   Шаблоны для автомобиля, сгруппированные по типам (заполняются через field resolvers)
   """
@@ -2450,6 +2491,14 @@ type SettingsModel {
   minMarkupRatio: Float!
 
   """
+  Через сколько дней после закрытия заказа задача контроля качества попадает на доску
+  """
+  qualityControlDelayDays: Int!
+
+  """Час начала рабочего дня для планирования QC-задач (0-23)"""
+  qualityControlStartHour: Int!
+
+  """
   Порог задержки поставки в днях: если updatedAt поставки старше — считать «задержка»
   """
   supplyExpiryDays: Int!
@@ -2475,6 +2524,65 @@ type SupplyBySupplierModel {
   quantity: Int!
   supplierId: String!
   updatedAt: DateTime!
+}
+
+input TaskBoardFilterInput {
+  includeArchived: Boolean
+  type: TaskType
+}
+
+"""Задача для канбан-доски"""
+type TaskModel {
+  archivedAt: DateTime
+  assigneeUserId: ID
+  completedAt: DateTime
+  createdAt: DateTime
+  customer: PersonModel
+  customerId: ID
+  description: String
+  id: ID!
+  notes: String
+  order: OrderModel
+  orderId: ID
+  requiresManagementAction: Boolean!
+  result: TaskResult
+  scheduledAt: DateTime
+  status: TaskStatus!
+  tags: [String!]!
+  title: String!
+  type: TaskType!
+  updatedAt: DateTime
+}
+
+enum TaskResult {
+  ALL_GOOD
+  ISSUES
+  NO_ANSWER
+  REFUSED
+}
+
+enum TaskStatus {
+  ARCHIVED
+  DONE
+  IN_PROGRESS
+  TODO
+}
+
+enum TaskType {
+  GENERAL
+  QUALITY_CONTROL
+}
+
+"""Счётчики задач для бейджей"""
+type TasksCountModel {
+  """В работе"""
+  inProgress: Int!
+
+  """TODO/IN_PROGRESS просроченные (>24ч)"""
+  overdue: Int!
+
+  """TODO с наступившим scheduledAt"""
+  pending: Int!
 }
 
 """Запчасть шаблона"""
@@ -2943,6 +3051,33 @@ input UpdateReviewInput {
 
   """Текст отзыва"""
   text: String
+}
+
+input UpdateSettingsInput {
+  """Валюта по умолчанию (например RUB)"""
+  defaultCurrencyCode: String
+
+  """Минимальная наценка (коэффициент, например 1.25)"""
+  minMarkupRatio: Float
+
+  """Через сколько дней после закрытия заказа создавать QC-задачу"""
+  qualityControlDelayDays: Int
+
+  """Час начала рабочего дня для QC-задач (0-23)"""
+  qualityControlStartHour: Int
+
+  """Порог задержки поставки в днях"""
+  supplyExpiryDays: Int
+}
+
+input UpdateTaskInput {
+  assigneeUserId: ID
+  id: ID!
+  notes: String
+  requiresManagementAction: Boolean
+  result: TaskResult
+  status: TaskStatus
+  tags: [String!]
 }
 
 """Обновить модель автомобиля"""

@@ -1,9 +1,17 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { OrderService } from './order.service';
-import { OrderResolver, OrderSubscriptionResolver, OrderPaymentResolver } from './order.resolver';
+import {
+  OrderResolver,
+  OrderSubscriptionResolver,
+  OrderPaymentResolver,
+} from './order.resolver';
 import { OrderItemService } from './order-item.service';
 import { OrderItemResolver } from './order-item.resolver';
-import { OrderItemPartResolver, OrderItemServiceResolver, OrderItemGroupResolver } from './order-item-part.resolver';
+import {
+  OrderItemPartResolver,
+  OrderItemServiceResolver,
+  OrderItemGroupResolver,
+} from './order-item-part.resolver';
 import { PubSub } from 'graphql-subscriptions';
 import { CarModule } from '../vehicle/car.module';
 import { PersonModule } from '../person/person.module';
@@ -14,6 +22,7 @@ import { WarehouseModule } from '../warehouse/warehouse.module';
 import { WalletModule } from '../wallet/wallet.module';
 import { SalaryModule } from '../salary/salary.module';
 import { CustomerTransactionModule } from '../customer-transaction/customer-transaction.module';
+import { TasksModule } from '../tasks/tasks.module';
 import './enums/order-item-type.enum';
 import './enums/close-deficiency.enum';
 
@@ -28,6 +37,7 @@ import './enums/close-deficiency.enum';
     WalletModule,
     SalaryModule,
     CustomerTransactionModule,
+    TasksModule,
   ],
   providers: [
     OrderService,

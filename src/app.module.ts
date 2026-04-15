@@ -38,6 +38,7 @@ import { McModule } from './modules/mc/mc.module';
 import { TemplateModule } from './modules/template/template.module';
 import { AppUserModule } from './modules/app-user/app-user.module';
 import { CallsModule } from './modules/calls/calls.module';
+import { TasksModule } from './modules/tasks/tasks.module';
 import { DevAuthGuard } from './modules/auth/guards/dev-auth.guard';
 import { TenantGuard } from './common/guards/tenant.guard';
 import { Reflector } from '@nestjs/core';
@@ -86,6 +87,7 @@ import authConfig from './config/auth.config';
     McModule,
     TemplateModule,
     CallsModule,
+    TasksModule,
   ],
   providers: [
     {

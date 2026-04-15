@@ -119,6 +119,25 @@ enum CallEventType {
   RECORDING_READY
 }
 
+enum TaskType {
+  QUALITY_CONTROL
+  GENERAL
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+  ARCHIVED
+}
+
+enum TaskResult {
+  ALL_GOOD
+  ISSUES
+  NO_ANSWER
+  REFUSED
+}
+
 model Manufacturer {
   id            String    @id @default(uuid()) @db.Uuid
   name          String    @unique(map: "uniq_3d0ae6dc5e237e06") @db.VarChar(64)
@@ -191,6 +210,7 @@ model Person {
   workerCalendarEntryOrderInfo   CalendarEntryOrderInfo[] @relation("Worker")
   Employee                       Employee[]
   CustomerOrder                  Order[]                  @relation("CustomerOrder")
+  taskCustomer                   Task[]                   @relation("TaskCustomer")
   appUser                        AppUser?
   calls                          Call[]
 
@@ -974,12 +994,56 @@ model Order {
   items       OrderItem[]
   payments    OrderPayment[]
   close       OrderClose?    @relation("OrderCloseOrder")
+  tasks       Task[]
 
   @@unique([number, tenantId], map: "uniq_e52ffdee96901f549033212a")
   @@index([workerId], map: "idx_e52ffdee6b20ba36")
   @@index([carId])
   @@index([customerId])
   @@map("orders")
+}
+
+model Task {
+  id                       String      @id @default(uuid()) @db.Uuid
+  tenantId                 String      @map("tenant_id") @db.Uuid
+  type                     TaskType
+  status                   TaskStatus  @default(TODO)
+  title                    String      @db.VarChar(255)
+  description              String?
+  orderId                  String?     @map("order_id") @db.Uuid
+  order                    Order?      @relation(fields: [orderId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  customerId               String?     @map("customer_id") @db.Uuid
+  customer                 Person?     @relation("TaskCustomer", fields: [customerId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  assigneeUserId            String?     @map("assignee_user_id") @db.Uuid
+  scheduledAt              DateTime?   @map("scheduled_at") @db.Timestamptz(0)
+  completedAt              DateTime?   @map("completed_at") @db.Timestamptz(0)
+  archivedAt               DateTime?   @map("archived_at") @db.Timestamptz(0)
+  result                   TaskResult?
+  requiresManagementAction Boolean     @default(false) @map("requires_management_action")
+  notes                    String?
+  tags                     String[]    @default([])
+  createdAt                DateTime?   @default(now()) @map("created_at") @db.Timestamptz(0)
+  updatedAt                DateTime?   @updatedAt @map("updated_at") @db.Timestamptz(0)
+  createdBy                String?     @map("created_by") @db.Uuid
+
+  @@index([tenantId, type, status, scheduledAt], map: "idx_task_tenant_type_status_scheduled")
+  @@unique([tenantId, orderId, type], map: "uniq_task_tenant_order_type")
+  @@index([orderId], map: "idx_task_order_id")
+  @@index([customerId], map: "idx_task_customer_id")
+  @@map("task")
+}
+
+model Setting {
+  tenantId  String    @map("tenant_id") @db.Uuid
+  key       String    @db.VarChar(128)
+  value     Json      @db.JsonB
+  createdAt DateTime? @default(now()) @map("created_at") @db.Timestamptz(0)
+  updatedAt DateTime? @updatedAt @map("updated_at") @db.Timestamptz(0)
+  createdBy String?   @map("created_by") @db.Uuid
+
+  @@id([tenantId, key])
+  @@index([tenantId], map: "idx_setting_tenant_id")
+  @@map("setting")
 }
 
 model Organization {

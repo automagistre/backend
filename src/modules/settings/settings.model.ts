@@ -19,6 +19,17 @@ export class SettingsModel {
   })
   supplyExpiryDays: number;
 
+  @Field(() => Int, {
+    description:
+      'Через сколько дней после закрытия заказа задача контроля качества попадает на доску',
+  })
+  qualityControlDelayDays: number;
+
+  @Field(() => Int, {
+    description: 'Час начала рабочего дня для планирования QC-задач (0-23)',
+  })
+  qualityControlStartHour: number;
+
   @Field(() => TenantRequisitesModel, {
     nullable: true,
     description: 'Реквизиты Автосервиса',

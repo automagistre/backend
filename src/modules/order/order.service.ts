@@ -20,6 +20,7 @@ import { CustomerTransactionSource } from 'src/modules/customer-transaction/enum
 import { SettingsService } from 'src/modules/settings/settings.service';
 import { WarehouseService } from 'src/modules/warehouse/warehouse.service';
 import { OrganizationService } from 'src/modules/organization/organization.service';
+import { TasksService } from 'src/modules/tasks/tasks.service';
 import { applyDefaultCurrency } from 'src/common/money';
 import type { AuthContext } from 'src/common/user-id.store';
 import { v6 as uuidv6 } from 'uuid';
@@ -38,6 +39,7 @@ export class OrderService {
     private readonly settingsService: SettingsService,
     private readonly warehouseService: WarehouseService,
     private readonly organizationService: OrganizationService,
+    private readonly tasksService: TasksService,
   ) {}
 
   async findOne(ctx: AuthContext, id: string): Promise<OrderModel | null> {
@@ -792,6 +794,7 @@ export class OrderService {
       where: { id: input.orderId, tenantId },
       select: {
         id: true,
+        number: true,
         customerId: true,
         carId: true,
         mileage: true,
@@ -941,6 +944,13 @@ export class OrderService {
       await tx.order.update({
         where: { id: input.orderId },
         data: { status: OrderStatus.CLOSED },
+      });
+
+      await this.tasksService.createQualityControlTaskOnOrderClose(tx, ctx, {
+        orderId: input.orderId,
+        orderNumber: order.number,
+        customerId: order.customerId,
+        orderTotalMinor: orderTotal,
       });
 
       if (order.carId != null && order.mileage != null) {
