@@ -4,6 +4,7 @@ import {
   OrderResolver,
   OrderSubscriptionResolver,
   OrderPaymentResolver,
+  OrderSuspendResolver,
 } from './order.resolver';
 import { OrderItemService } from './order-item.service';
 import { OrderItemResolver } from './order-item.resolver';
@@ -51,6 +52,7 @@ import './enums/close-deficiency.enum';
     OrderItemServiceResolver,
     OrderItemGroupResolver,
     OrderPaymentResolver,
+    OrderSuspendResolver,
     {
       provide: 'PUB_SUB',
       useValue: new PubSub(),

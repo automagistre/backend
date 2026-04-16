@@ -14,6 +14,7 @@ import { CreateOrderPrepayInput } from './inputs/create-order-prepay.input';
 import { RefundOrderPrepayInput } from './inputs/refund-order-prepay.input';
 import { CloseOrderInput } from './inputs/close-order.input';
 import { CancelOrderInput } from './inputs/cancel-order.input';
+import { SuspendOrderInput } from './inputs/suspend-order.input';
 import { Prisma } from 'src/generated/prisma/client';
 import { WalletTransactionService } from 'src/modules/wallet/wallet-transaction.service';
 import { WalletTransactionSource } from 'src/modules/wallet/enums/wallet-transaction-source.enum';
@@ -273,9 +274,11 @@ export class OrderService {
     {
       search,
       status,
+      includeSuspended,
     }: {
       search?: string;
       status?: OrderStatus[];
+      includeSuspended?: boolean;
     } = {},
   ): Promise<OrderModel[]> {
     const { start, end } = this.getBusinessDayRange();
@@ -325,6 +328,34 @@ export class OrderService {
       undefined,
       orgIdsForSearch,
     );
+
+    const skipSuspendFilter = includeSuspended || !!search?.trim();
+    if (!skipSuspendFilter) {
+      const today = this.startOfTodayUTC();
+      const suspendFilter: Prisma.OrderWhereInput = {
+        suspends: { none: { till: { gt: today } } },
+      };
+      const orders = await this.prisma.order.findMany({
+        where: { AND: [where, suspendFilter] },
+        orderBy: [{ number: 'desc' }],
+      }) as OrderModel[];
+
+      const schedulingOrders = orders.filter(
+        (o) => o.status === OrderStatus.SCHEDULING,
+      );
+      if (schedulingOrders.length === 0) return orders;
+
+      const schedulingIdsToExclude = new Set<string>();
+      for (const o of schedulingOrders) {
+        const scheduledAt = await this.getScheduledAt(ctx, o.id);
+        if (scheduledAt && this.startOfDayUTC(scheduledAt) >= this.startOfTomorrowUTC()) {
+          schedulingIdsToExclude.add(o.id);
+        }
+      }
+
+      if (schedulingIdsToExclude.size === 0) return orders;
+      return orders.filter((o) => !schedulingIdsToExclude.has(o.id));
+    }
 
     return this.prisma.order.findMany({
       where,
@@ -826,6 +857,10 @@ export class OrderService {
       data.status = input.status;
     }
 
+    if (data.status !== undefined) {
+      await this.wakeIfSuspended(ctx, input.id);
+    }
+
     return this.prisma.order.update({
       where: { id: input.id },
       data,
@@ -838,6 +873,7 @@ export class OrderService {
   ): Promise<OrderModel> {
     const { tenantId, userId } = ctx;
     await this.validateOrderEditable(ctx, input.orderId);
+    await this.wakeIfSuspended(ctx, input.orderId);
 
     const order = await this.prisma.order.findFirst({
       where: { id: input.orderId, tenantId },
@@ -975,6 +1011,7 @@ export class OrderService {
     }
 
     await this.validateOrderEditable(ctx, input.orderId);
+    await this.wakeIfSuspended(ctx, input.orderId);
 
     const closeValidation = await this.getCloseValidation(ctx, input.orderId);
     if (!closeValidation.canClose) {
@@ -1153,5 +1190,135 @@ export class OrderService {
 
   async chargeOrderSalary(ctx: AuthContext, orderId: string): Promise<void> {
     await this.salaryService.chargeByOrder(ctx, orderId);
+  }
+
+  private startOfTodayUTC(): Date {
+    const d = new Date();
+    d.setUTCHours(0, 0, 0, 0);
+    return d;
+  }
+
+  private startOfTomorrowUTC(): Date {
+    const d = this.startOfTodayUTC();
+    d.setUTCDate(d.getUTCDate() + 1);
+    return d;
+  }
+
+  private startOfDayUTC(date: Date): Date {
+    const d = new Date(date);
+    d.setUTCHours(0, 0, 0, 0);
+    return d;
+  }
+
+  async getActiveSuspend(
+    ctx: AuthContext,
+    orderId: string,
+  ): Promise<{ id: string; till: Date } | null> {
+    return this.prisma.orderSuspend.findFirst({
+      where: {
+        orderId,
+        tenantId: ctx.tenantId,
+        till: { gt: this.startOfTodayUTC() },
+      },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true, till: true },
+    });
+  }
+
+  async getSuspends(ctx: AuthContext, orderId: string) {
+    return this.prisma.orderSuspend.findMany({
+      where: { orderId, tenantId: ctx.tenantId },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async isSuspended(ctx: AuthContext, order: OrderModel): Promise<boolean> {
+    const activeSuspend = await this.getActiveSuspend(ctx, order.id);
+    if (activeSuspend) return true;
+
+    if (order.status === OrderStatus.SCHEDULING) {
+      const scheduledAt = await this.getScheduledAt(ctx, order.id);
+      if (scheduledAt && this.startOfDayUTC(scheduledAt) >= this.startOfTomorrowUTC())
+        return true;
+    }
+
+    return false;
+  }
+
+  async getSuspendedTill(
+    ctx: AuthContext,
+    order: OrderModel,
+  ): Promise<Date | null> {
+    const activeSuspend = await this.getActiveSuspend(ctx, order.id);
+    if (activeSuspend) return activeSuspend.till;
+
+    if (order.status === OrderStatus.SCHEDULING) {
+      const scheduledAt = await this.getScheduledAt(ctx, order.id);
+      if (scheduledAt && this.startOfDayUTC(scheduledAt) >= this.startOfTomorrowUTC())
+        return this.startOfDayUTC(scheduledAt);
+    }
+
+    return null;
+  }
+
+  async suspendOrder(
+    ctx: AuthContext,
+    input: SuspendOrderInput,
+  ): Promise<OrderModel> {
+    const { tenantId, userId } = ctx;
+
+    const order = await this.prisma.order.findFirst({
+      where: { id: input.orderId, tenantId },
+      select: { id: true, status: true },
+    });
+    if (!order) {
+      throw new NotFoundException(`Заказ с ID ${input.orderId} не найден`);
+    }
+
+    const till = new Date(input.till);
+    till.setHours(0, 0, 0, 0);
+
+    if (till <= this.startOfTodayUTC()) {
+      throw new BadRequestException(
+        'Дата приостановки должна быть не ранее завтрашнего дня',
+      );
+    }
+
+    await this.prisma.orderSuspend.create({
+      data: {
+        id: uuidv6(),
+        orderId: input.orderId,
+        till,
+        reason: input.reason,
+        tenantId,
+        createdBy: userId,
+      },
+    });
+
+    return this.findOne(ctx, input.orderId) as Promise<OrderModel>;
+  }
+
+  async wakeOrder(ctx: AuthContext, orderId: string): Promise<OrderModel> {
+    const activeSuspend = await this.getActiveSuspend(ctx, orderId);
+    if (!activeSuspend) {
+      throw new BadRequestException('У заказа нет активной приостановки');
+    }
+
+    await this.prisma.orderSuspend.update({
+      where: { id: activeSuspend.id },
+      data: { till: this.startOfTodayUTC() },
+    });
+
+    return this.findOne(ctx, orderId) as Promise<OrderModel>;
+  }
+
+  async wakeIfSuspended(ctx: AuthContext, orderId: string): Promise<void> {
+    const activeSuspend = await this.getActiveSuspend(ctx, orderId);
+    if (activeSuspend) {
+      await this.prisma.orderSuspend.update({
+        where: { id: activeSuspend.id },
+        data: { till: this.startOfTodayUTC() },
+      });
+    }
   }
 }

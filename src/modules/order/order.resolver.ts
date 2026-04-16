@@ -35,6 +35,8 @@ import { CreateOrderPrepayInput } from './inputs/create-order-prepay.input';
 import { RefundOrderPrepayInput } from './inputs/refund-order-prepay.input';
 import { CloseOrderInput } from './inputs/close-order.input';
 import { CancelOrderInput } from './inputs/cancel-order.input';
+import { SuspendOrderInput } from './inputs/suspend-order.input';
+import { OrderSuspendModel } from './models/order-suspend.model';
 import { PaginationArgs } from 'src/common/pagination.args';
 import { PaginatedOrders } from './inputs/paginatedOrders.type';
 import { OrderStatus } from './enums/order-status.enum';
@@ -111,8 +113,10 @@ export class OrderResolver {
     @Args('search', { nullable: true }) search?: string,
     @Args('status', { type: () => [OrderStatus], nullable: true })
     status?: OrderStatus[],
+    @Args('includeSuspended', { type: () => Boolean, nullable: true, defaultValue: false })
+    includeSuspended?: boolean,
   ): Promise<OrderModel[]> {
-    return this.orderService.findActiveOrders(ctx, { search, status });
+    return this.orderService.findActiveOrders(ctx, { search, status, includeSuspended });
   }
 
   @Mutation(() => OrderModel, {
@@ -315,6 +319,37 @@ export class OrderResolver {
     return this.orderService.findPaymentsByOrderId(ctx, order.id);
   }
 
+  @ResolveField(() => Boolean, {
+    description: 'Заказ в сне (suspend или SCHEDULING с будущей записью)',
+  })
+  async isSuspended(
+    @AuthContext() ctx: AuthContextType,
+    @Parent() order: OrderModel,
+  ): Promise<boolean> {
+    return this.orderService.isSuspended(ctx, order);
+  }
+
+  @ResolveField(() => Date, {
+    nullable: true,
+    description: 'Дата, до которой заказ в сне',
+  })
+  async suspendedTill(
+    @AuthContext() ctx: AuthContextType,
+    @Parent() order: OrderModel,
+  ): Promise<Date | null> {
+    return this.orderService.getSuspendedTill(ctx, order);
+  }
+
+  @ResolveField(() => [OrderSuspendModel], {
+    description: 'История приостановок заказа',
+  })
+  async suspends(
+    @AuthContext() ctx: AuthContextType,
+    @Parent() order: OrderModel,
+  ): Promise<OrderSuspendModel[]> {
+    return this.orderService.getSuspends(ctx, order.id) as Promise<OrderSuspendModel[]>;
+  }
+
   @ResolveField(() => [WalletTransactionModel])
   async walletTransactions(
     @AuthContext() ctx: AuthContextType,
@@ -329,6 +364,28 @@ export class OrderResolver {
     @Parent() order: OrderModel,
   ): Promise<CustomerTransactionModel[]> {
     return this.customerTransactionService.findByOrderId(ctx, order.id);
+  }
+
+  @Mutation(() => OrderModel, {
+    name: 'suspendOrder',
+    description: 'Отложить заказ (перевести в сон)',
+  })
+  async suspendOrder(
+    @AuthContext() ctx: AuthContextType,
+    @Args('input') input: SuspendOrderInput,
+  ): Promise<OrderModel> {
+    return this.orderService.suspendOrder(ctx, input);
+  }
+
+  @Mutation(() => OrderModel, {
+    name: 'wakeOrder',
+    description: 'Разбудить заказ (снять приостановку досрочно)',
+  })
+  async wakeOrder(
+    @AuthContext() ctx: AuthContextType,
+    @Args('orderId', { type: () => ID }) orderId: string,
+  ): Promise<OrderModel> {
+    return this.orderService.wakeOrder(ctx, orderId);
   }
 
   @Mutation(() => Boolean, {
@@ -353,6 +410,17 @@ export class OrderSubscriptionResolver {
   })
   async orderUpdated(@Args('orderId', { type: () => ID }) orderId: string) {
     return this.pubSub.asyncIterableIterator(`ORDER_UPDATED_${orderId}`);
+  }
+}
+
+@Resolver(() => OrderSuspendModel)
+export class OrderSuspendResolver {
+  constructor(private readonly appUserLoader: AppUserLoader) {}
+
+  @ResolveField(() => AppUserModel, { nullable: true })
+  async createdByUser(@Parent() suspend: OrderSuspendModel) {
+    if (!suspend.createdBy) return null;
+    return this.appUserLoader.load(suspend.createdBy);
   }
 }
 

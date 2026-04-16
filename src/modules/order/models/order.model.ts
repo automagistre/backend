@@ -7,6 +7,7 @@ import { CounterpartyUnion } from '../../supplier/supplier.union';
 import { OrderPaymentModel } from './order-payment.model';
 import { OrderCloseValidationModel } from './order-close-validation.model';
 import { OrderStatus } from '../enums/order-status.enum';
+import { OrderSuspendModel } from './order-suspend.model';
 
 @ObjectType({ description: 'Заказ' })
 export class OrderModel {
@@ -77,6 +78,15 @@ export class OrderModel {
     description: 'Предоплаты по заказу',
   })
   prepayments?: OrderPaymentModel[];
+
+  @Field(() => Boolean, { description: 'Заказ в сне' })
+  isSuspended?: boolean;
+
+  @Field(() => Date, { nullable: true, description: 'Дата окончания сна' })
+  suspendedTill?: Date | null;
+
+  @Field(() => [OrderSuspendModel], { description: 'История приостановок' })
+  suspends?: OrderSuspendModel[];
 
   @Field(() => String, { description: 'ID tenant' })
   tenantId: string;

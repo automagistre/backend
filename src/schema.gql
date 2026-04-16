@@ -1570,6 +1570,9 @@ type Mutation {
   """Вернуть работу в рекомендацию"""
   returnWorkToRecommendation(input: ReturnWorkToRecommendationInput!): ReturnWorkToRecommendationPayload!
 
+  """Отложить заказ (перевести в сон)"""
+  suspendOrder(input: SuspendOrderInput!): OrderModel!
+
   """Перенести резерв между позициями заказов (сценарий "занять")"""
   transferReservation(input: TransferReservationInput!): Boolean!
   updateAppealStatus(input: UpdateAppealStatusInput!): Boolean!
@@ -1632,6 +1635,9 @@ type Mutation {
 
   """Обновить задачу (статус, результат, теги и др.)"""
   updateTask(input: UpdateTaskInput!): TaskModel!
+
+  """Разбудить заказ (снять приостановку досрочно)"""
+  wakeOrder(orderId: ID!): OrderModel!
 }
 
 type NoteModel {
@@ -1768,6 +1774,9 @@ type OrderModel {
 
   """Заказ редактируемый (не закрыт и не отменён)"""
   isEditable: Boolean!
+
+  """Заказ в сне"""
+  isSuspended: Boolean!
   items: [OrderItemModel!]!
   mileage: Int
   number: Int!
@@ -1776,6 +1785,12 @@ type OrderModel {
   prepayments: [OrderPaymentModel!]!
   scheduledAt: DateTime
   status: OrderStatus!
+
+  """Дата окончания сна"""
+  suspendedTill: DateTime
+
+  """История приостановок"""
+  suspends: [OrderSuspendModel!]!
 
   """ID tenant"""
   tenantId: String!
@@ -1856,6 +1871,21 @@ enum OrderStatus {
 
   """В работе"""
   WORKING
+}
+
+"""Запись о приостановке заказа"""
+type OrderSuspendModel {
+  createdAt: DateTime
+  createdBy: ID
+  createdByUser: AppUserModel
+  id: ID!
+  orderId: ID!
+
+  """Причина приостановки"""
+  reason: String!
+
+  """Дата, до которой заказ в сне"""
+  till: DateTime!
 }
 
 """Организация"""
@@ -2196,7 +2226,7 @@ type ProcurementTableResult {
 
 type Query {
   """Список активных заказов"""
-  activeOrders(search: String, status: [OrderStatus!]): [OrderModel!]!
+  activeOrders(includeSuspended: Boolean = false, search: String, status: [OrderStatus!]): [OrderModel!]!
   appealDetail(input: GetAppealDetailInput!): AppealDetailModel!
   appealOpenCount: Float!
   appeals(skip: Int = 0, take: Int = 25): PaginatedAppeals!
@@ -2547,6 +2577,17 @@ type SupplyBySupplierModel {
   quantity: Int!
   supplierId: String!
   updatedAt: DateTime!
+}
+
+input SuspendOrderInput {
+  """ID заказа"""
+  orderId: String!
+
+  """Причина приостановки"""
+  reason: String!
+
+  """Дата, до которой заказ в сне (начало дня = просыпается)"""
+  till: DateTime!
 }
 
 input TaskBoardFilterInput {
