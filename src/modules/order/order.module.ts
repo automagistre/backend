@@ -23,6 +23,7 @@ import { WalletModule } from '../wallet/wallet.module';
 import { SalaryModule } from '../salary/salary.module';
 import { CustomerTransactionModule } from '../customer-transaction/customer-transaction.module';
 import { TasksModule } from '../tasks/tasks.module';
+import { RecommendationMigrationModule } from '../recommendation-migration/recommendation-migration.module';
 import './enums/order-item-type.enum';
 import './enums/close-deficiency.enum';
 
@@ -38,6 +39,7 @@ import './enums/close-deficiency.enum';
     SalaryModule,
     CustomerTransactionModule,
     TasksModule,
+    forwardRef(() => RecommendationMigrationModule),
   ],
   providers: [
     OrderService,

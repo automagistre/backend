@@ -3,6 +3,7 @@ import {
   Injectable,
   BadRequestException,
   NotFoundException,
+  forwardRef,
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { OrderService } from 'src/modules/order/order.service';
@@ -17,12 +18,14 @@ import { RecommendationService } from 'src/modules/recommendation/recommendation
 import { normalizeMoneyAmount } from 'src/common/utils/money.util';
 import { SettingsService } from 'src/modules/settings/settings.service';
 import { v6 as uuidv6 } from 'uuid';
+import type { Prisma } from 'src/generated/prisma/client';
 import type { AuthContext } from 'src/common/user-id.store';
 
 @Injectable()
 export class RecommendationWorkMigrationService {
   constructor(
     private readonly prisma: PrismaService,
+    @Inject(forwardRef(() => OrderService))
     private readonly orderService: OrderService,
     private readonly orderItemService: OrderItemService,
     private readonly employeeService: EmployeeService,
@@ -250,12 +253,27 @@ export class RecommendationWorkMigrationService {
     return results;
   }
 
-  async returnWorkToRecommendation(
+  async syncWorkToRecommendation(
     ctx: AuthContext,
-    input: ReturnWorkToRecommendationInput,
-  ): Promise<ReturnWorkToRecommendationPayload> {
-    const orderItem = await this.prisma.orderItem.findUnique({
-      where: { id: input.orderItemServiceId },
+    params: {
+      orderItemServiceId: string;
+      deleteOrderItem?: boolean;
+      validateOrderEditable?: boolean;
+      tx?: Prisma.TransactionClient;
+      publishUpdates?: boolean;
+    },
+  ): Promise<{ orderId: string; recommendationId: string; carId: string | null }> {
+    const {
+      orderItemServiceId,
+      deleteOrderItem = true,
+      validateOrderEditable = true,
+      tx,
+      publishUpdates = tx == null,
+    } = params;
+    const client = tx ?? this.prisma;
+
+    const orderItem = await client.orderItem.findUnique({
+      where: { id: orderItemServiceId },
       include: {
         service: true,
         children: {
@@ -265,27 +283,37 @@ export class RecommendationWorkMigrationService {
     });
 
     if (!orderItem || !orderItem.service) {
-      throw new NotFoundException(
-        `Работа с ID ${input.orderItemServiceId} не найдена`,
-      );
+      throw new NotFoundException(`Работа с ID ${orderItemServiceId} не найдена`);
     }
 
     if (!orderItem.orderId) {
       throw new BadRequestException('Не указан заказ для работы');
     }
 
-    await this.orderService.validateOrderEditable(ctx, orderItem.orderId);
+    if (validateOrderEditable) {
+      await this.orderService.validateOrderEditable(ctx, orderItem.orderId);
+    }
     const order = await this.orderService.findOne(ctx, orderItem.orderId);
     if (!order) {
       throw new NotFoundException(`Заказ с ID ${orderItem.orderId} не найден`);
     }
 
-    const recommendation = await this.recommendationService.findByRealization(
-      ctx,
-      input.orderItemServiceId,
-    );
+    const recommendation = await client.carRecommendation.findFirst({
+      where: {
+        realization: orderItemServiceId,
+        tenantGroupId: ctx.tenantGroupId,
+      },
+      include: { parts: true },
+    });
 
-    const workParts = orderItem.children
+    type WorkPart = {
+      partId: string;
+      quantity: number;
+      priceAmount: bigint | null;
+      discountAmount: bigint | null;
+    };
+
+    const workParts: WorkPart[] = orderItem.children
       .filter((child) => child.part)
       .map((child) => ({
         partId: child.part!.partId,
@@ -329,138 +357,146 @@ export class RecommendationWorkMigrationService {
     );
 
     const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
+    let resultRecommendationId: string;
 
-    const resolvedRecommendationId = await this.prisma.$transaction(
-      async (tx) => {
-        let resultRecommendationId: string;
+    if (recommendation && sameComposition) {
+      resultRecommendationId = recommendation.id;
+      const workPartsByPartId = new Map<string, WorkPart>(
+        workParts.map((part) => [part.partId, part]),
+      );
 
-        if (recommendation && sameComposition) {
-          resultRecommendationId = recommendation.id;
-          const workPartsByPartId = new Map(
-            workParts.map((part) => [part.partId, part]),
-          );
+      await this.recommendationService.updateRecommendation(
+        ctx,
+        {
+          id: recommendation.id,
+          service: orderItem.service.service,
+          priceAmount: serviceNetPrice,
+          priceCurrencyCode: defaultCurrency,
+          expiredAt: null,
+          realization: null,
+        },
+        client,
+      );
 
-          await this.recommendationService.updateRecommendation(
-            ctx,
-            {
-              id: recommendation.id,
-              service: orderItem.service!.service,
-              priceAmount: serviceNetPrice,
-              priceCurrencyCode: defaultCurrency,
-              expiredAt: null,
-              realization: null,
-            },
-            tx,
-          );
-
-          for (const recPart of recommendation.parts) {
-            const workPart = workPartsByPartId.get(recPart.partId);
-            if (!workPart) continue;
-            await this.recommendationService.updateRecommendationPart(
-              ctx,
-              {
-                id: recPart.id,
-                priceAmount: this.toNetAmount(
-                  workPart.priceAmount ?? null,
-                  workPart.discountAmount ?? null,
-                ),
-                priceCurrencyCode: defaultCurrency,
-              },
-              tx,
-            );
-          }
-        } else if (
-          recommendation &&
-          workParts.length === 0 &&
-          isSameServiceName
-        ) {
-          resultRecommendationId = recommendation.id;
-          await this.recommendationService.updateRecommendation(
-            ctx,
-            {
-              id: recommendation.id,
-              service: orderItem.service!.service,
-              priceAmount: serviceNetPrice,
-              priceCurrencyCode: defaultCurrency,
-              expiredAt: null,
-              realization: null,
-            },
-            tx,
-          );
-        } else {
-          if (!carId) {
-            throw new BadRequestException(
-              'Не указан автомобиль для рекомендации',
-            );
-          }
-          if (!workerId) {
-            throw new BadRequestException('Не удалось определить сотрудника');
-          }
-
-          if (recommendation) {
-            await this.recommendationService.deleteRecommendation(
-              ctx,
-              recommendation.id,
-              tx,
-            );
-          }
-
-          const createdRecommendation =
-            await this.recommendationService.createRecommendation(
-              ctx,
-              {
-                carId,
-                service: orderItem.service!.service,
-                workerId,
-                expiredAt: null,
-                priceAmount: serviceNetPrice,
-                priceCurrencyCode: defaultCurrency,
-              },
-              tx,
-            );
-          resultRecommendationId = createdRecommendation.id;
-
-          for (const part of workParts) {
-            await this.recommendationService.createRecommendationPart(
-              ctx,
-              {
-                recommendationId: resultRecommendationId,
-                partId: part.partId,
-                quantity: part.quantity,
-                priceAmount: this.toNetAmount(
-                  part.priceAmount ?? null,
-                  part.discountAmount ?? null,
-                ),
-                priceCurrencyCode: defaultCurrency,
-              },
-              tx,
-            );
-          }
-        }
-
-        await this.orderItemService.delete(
+      for (const recPart of recommendation.parts) {
+        const workPart = workPartsByPartId.get(recPart.partId);
+        if (!workPart) continue;
+        await this.recommendationService.updateRecommendationPart(
           ctx,
-          input.orderItemServiceId,
-          true,
           {
-            tx,
-            skipValidation: true,
+            id: recPart.id,
+            priceAmount: this.toNetAmount(
+              workPart.priceAmount ?? null,
+              workPart.discountAmount ?? null,
+            ),
+            priceCurrencyCode: defaultCurrency,
           },
+          client,
         );
+      }
+    } else if (
+      recommendation &&
+      workParts.length === 0 &&
+      isSameServiceName
+    ) {
+      resultRecommendationId = recommendation.id;
+      await this.recommendationService.updateRecommendation(
+        ctx,
+        {
+          id: recommendation.id,
+          service: orderItem.service.service,
+          priceAmount: serviceNetPrice,
+          priceCurrencyCode: defaultCurrency,
+          expiredAt: null,
+          realization: null,
+        },
+        client,
+      );
+    } else {
+      if (!carId) {
+        throw new BadRequestException('Не указан автомобиль для рекомендации');
+      }
+      if (!workerId) {
+        throw new BadRequestException('Не удалось определить сотрудника');
+      }
 
-        return resultRecommendationId;
-      },
-    );
+      if (recommendation) {
+        await this.recommendationService.deleteRecommendation(
+          ctx,
+          recommendation.id,
+          client,
+        );
+      }
 
-    await this.publishOrderUpdated(ctx, order.id);
-    if (order.carId) {
-      await this.publishCarRecommendationsUpdated(ctx, order.carId);
+      const createdRecommendation =
+        await this.recommendationService.createRecommendation(
+          ctx,
+          {
+            carId,
+            service: orderItem.service.service,
+            workerId,
+            expiredAt: null,
+            priceAmount: serviceNetPrice,
+            priceCurrencyCode: defaultCurrency,
+          },
+          client,
+        );
+      resultRecommendationId = createdRecommendation.id;
+
+      for (const part of workParts) {
+        await this.recommendationService.createRecommendationPart(
+          ctx,
+          {
+            recommendationId: resultRecommendationId,
+            partId: part.partId,
+            quantity: part.quantity,
+            priceAmount: this.toNetAmount(
+              part.priceAmount ?? null,
+              part.discountAmount ?? null,
+            ),
+            priceCurrencyCode: defaultCurrency,
+          },
+          client,
+        );
+      }
+    }
+
+    if (deleteOrderItem) {
+      await this.orderItemService.delete(ctx, orderItemServiceId, true, {
+        tx: client,
+        skipValidation: true,
+      });
+    }
+
+    if (publishUpdates) {
+      await this.publishOrderUpdated(ctx, order.id);
+      if (order.carId) {
+        await this.publishCarRecommendationsUpdated(ctx, order.carId);
+      }
     }
 
     return {
       orderId: order.id,
+      recommendationId: resultRecommendationId,
+      carId: order.carId ?? null,
+    };
+  }
+
+  async returnWorkToRecommendation(
+    ctx: AuthContext,
+    input: ReturnWorkToRecommendationInput,
+  ): Promise<ReturnWorkToRecommendationPayload> {
+    const result = await this.syncWorkToRecommendation(ctx, {
       orderItemServiceId: input.orderItemServiceId,
-      recommendationId: resolvedRecommendationId,
+      deleteOrderItem: true,
+      validateOrderEditable: true,
+      publishUpdates: true,
+    });
+
+    return {
+      orderId: result.orderId,
+      orderItemServiceId: input.orderItemServiceId,
+      recommendationId: result.recommendationId,
     };
   }
 }

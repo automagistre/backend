@@ -2,6 +2,8 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { OrderModel } from './models/order.model';
@@ -11,6 +13,7 @@ import { CreateOrderInput } from './inputs/create-order.input';
 import { CreateOrderPrepayInput } from './inputs/create-order-prepay.input';
 import { RefundOrderPrepayInput } from './inputs/refund-order-prepay.input';
 import { CloseOrderInput } from './inputs/close-order.input';
+import { CancelOrderInput } from './inputs/cancel-order.input';
 import { Prisma } from 'src/generated/prisma/client';
 import { WalletTransactionService } from 'src/modules/wallet/wallet-transaction.service';
 import { WalletTransactionSource } from 'src/modules/wallet/enums/wallet-transaction-source.enum';
@@ -21,13 +24,17 @@ import { SettingsService } from 'src/modules/settings/settings.service';
 import { WarehouseService } from 'src/modules/warehouse/warehouse.service';
 import { OrganizationService } from 'src/modules/organization/organization.service';
 import { TasksService } from 'src/modules/tasks/tasks.service';
+import { NoteType } from 'src/modules/note/enums/note-type.enum';
+import { RecommendationWorkMigrationService } from 'src/modules/recommendation-migration/recommendation-work-migration.service';
 import { applyDefaultCurrency } from 'src/common/money';
 import type { AuthContext } from 'src/common/user-id.store';
 import { v6 as uuidv6 } from 'uuid';
+import { getOrderCancelReasonLabel } from './constants/order-cancel-reasons';
 
 const DELETE_COOLING_HOURS = 3;
 /** Совместимость со старой CRM: DiscriminatorMap OrderClose — 1 = OrderDeal, 2 = OrderCancel */
 const ORDER_CLOSE_TYPE_DEAL = '1';
+const ORDER_CLOSE_TYPE_CANCEL = '2';
 
 @Injectable()
 export class OrderService {
@@ -40,6 +47,8 @@ export class OrderService {
     private readonly warehouseService: WarehouseService,
     private readonly organizationService: OrganizationService,
     private readonly tasksService: TasksService,
+    @Inject(forwardRef(() => RecommendationWorkMigrationService))
+    private readonly recommendationWorkMigrationService: RecommendationWorkMigrationService,
   ) {}
 
   async findOne(ctx: AuthContext, id: string): Promise<OrderModel | null> {
@@ -233,7 +242,10 @@ export class OrderService {
       carId?: string;
     },
   ): Promise<{ items: OrderModel[]; total: number }> {
-    const orgIdsForSearch = await this.organizationService.findIdsBySearch(ctx, search ?? '');
+    const orgIdsForSearch = await this.organizationService.findIdsBySearch(
+      ctx,
+      search ?? '',
+    );
     const where = this.buildOrdersWhere(
       ctx.tenantId,
       search,
@@ -300,7 +312,10 @@ export class OrderService {
       ],
     };
 
-    const orgIdsForSearch = await this.organizationService.findIdsBySearch(ctx, search ?? '');
+    const orgIdsForSearch = await this.organizationService.findIdsBySearch(
+      ctx,
+      search ?? '',
+    );
     const where = this.buildOrdersWhere(
       tenantId,
       search,
@@ -342,14 +357,34 @@ export class OrderService {
       const searchOr = [
         ...(Number.isInteger(num) ? [{ number: num }] : []),
         { car: { gosnomer: { contains: term, mode: 'insensitive' } } },
-        { car: { vehicle: { manufacturer: { name: { contains: term, mode: 'insensitive' } } } } },
-        { car: { vehicle: { manufacturer: { localizedName: { contains: term, mode: 'insensitive' } } } } },
+        {
+          car: {
+            vehicle: {
+              manufacturer: { name: { contains: term, mode: 'insensitive' } },
+            },
+          },
+        },
+        {
+          car: {
+            vehicle: {
+              manufacturer: {
+                localizedName: { contains: term, mode: 'insensitive' },
+              },
+            },
+          },
+        },
         { car: { vehicle: { name: { contains: term, mode: 'insensitive' } } } },
-        { car: { vehicle: { localizedName: { contains: term, mode: 'insensitive' } } } },
+        {
+          car: {
+            vehicle: { localizedName: { contains: term, mode: 'insensitive' } },
+          },
+        },
         { customer: { firstname: { contains: term, mode: 'insensitive' } } },
         { customer: { lastname: { contains: term, mode: 'insensitive' } } },
         { customer: { telephone: { contains: term, mode: 'insensitive' } } },
-        ...(orgIdsForSearch.length > 0 ? [{ customerId: { in: orgIdsForSearch } }] : []),
+        ...(orgIdsForSearch.length > 0
+          ? [{ customerId: { in: orgIdsForSearch } }]
+          : []),
       ].filter(Boolean);
       if (searchOr.length) {
         and.push({ OR: searchOr });
@@ -451,7 +486,10 @@ export class OrderService {
     return close.orderDeal?.createdBy ?? close.orderCancel?.createdBy ?? null;
   }
 
-  async getScheduledAt(ctx: AuthContext, orderId: string): Promise<Date | null> {
+  async getScheduledAt(
+    ctx: AuthContext,
+    orderId: string,
+  ): Promise<Date | null> {
     const link = await this.prisma.calendarEntryOrder.findFirst({
       where: {
         orderId,
@@ -490,6 +528,17 @@ export class OrderService {
     return { start, end };
   }
 
+  private buildCancelReasonText(
+    reasonCode: string,
+    reasonComment?: string | null,
+  ): string {
+    const reasonLabel = getOrderCancelReasonLabel(reasonCode);
+    const comment = reasonComment?.trim();
+    return comment
+      ? `${reasonLabel}. ${comment}`
+      : reasonLabel;
+  }
+
   async create(ctx: AuthContext, input: CreateOrderInput): Promise<OrderModel> {
     const { tenantId, userId } = ctx;
     const entryId = input.entryId ?? undefined;
@@ -522,7 +571,9 @@ export class OrderService {
         select: { id: true },
       });
       if (!entry) {
-        throw new NotFoundException(`Запись календаря с ID ${entryId} не найдена`);
+        throw new NotFoundException(
+          `Запись календаря с ID ${entryId} не найдена`,
+        );
       }
 
       // Блокируем строку записи, чтобы параллельные запросы не создали дубль заказа.
@@ -779,6 +830,124 @@ export class OrderService {
       where: { id: input.id },
       data,
     }) as Promise<OrderModel>;
+  }
+
+  async cancelOrder(
+    ctx: AuthContext,
+    input: CancelOrderInput,
+  ): Promise<OrderModel> {
+    const { tenantId, userId } = ctx;
+    await this.validateOrderEditable(ctx, input.orderId);
+
+    const order = await this.prisma.order.findFirst({
+      where: { id: input.orderId, tenantId },
+      select: {
+        id: true,
+        number: true,
+        customerId: true,
+      },
+    });
+    if (!order) {
+      throw new NotFoundException(`Заказ с ID ${input.orderId} не найден`);
+    }
+
+    const reasonText = this.buildCancelReasonText(
+      input.reasonCode,
+      input.reasonComment,
+    );
+    const saveToRecommendations = Boolean(input.saveToRecommendations);
+    const createClientNote = Boolean(input.createClientNote);
+
+    await this.prisma.$transaction(async (tx) => {
+      const orderClose = await tx.orderClose.create({
+        data: {
+          orderId: input.orderId,
+          tenantId,
+          type: ORDER_CLOSE_TYPE_CANCEL,
+        },
+      });
+
+      await tx.orderCancel.create({
+        data: {
+          id: orderClose.id,
+          createdBy: userId,
+        },
+      });
+
+      await tx.order.update({
+        where: { id: input.orderId },
+        data: { status: OrderStatus.CANCELLED },
+      });
+
+      const orderPartItems = await tx.orderItemPart.findMany({
+        where: {
+          orderItem: { orderId: input.orderId },
+        },
+        select: { id: true },
+      });
+
+      if (orderPartItems.length > 0) {
+        await tx.reservation.deleteMany({
+          where: {
+            tenantId,
+            orderItemPartId: { in: orderPartItems.map((item) => item.id) },
+          },
+        });
+      }
+
+      if (saveToRecommendations) {
+        const serviceItems = await tx.orderItem.findMany({
+          where: {
+            orderId: input.orderId,
+            type: '1',
+          },
+          select: { id: true },
+        });
+
+        for (const serviceItem of serviceItems) {
+          await this.recommendationWorkMigrationService.syncWorkToRecommendation(
+            ctx,
+            {
+              orderItemServiceId: serviceItem.id,
+              deleteOrderItem: false,
+              validateOrderEditable: false,
+              tx,
+              publishUpdates: false,
+            },
+          );
+        }
+      }
+
+      const orderNoteText =
+        `Отмена заказа: ${reasonText}. ` +
+        `Работы сохранены в рекомендации: ${saveToRecommendations ? 'Да' : 'Нет'}.`;
+
+      await tx.note.create({
+        data: {
+          subject: input.orderId,
+          type: NoteType.WARNING,
+          text: orderNoteText,
+          isPublic: false,
+          tenantId,
+          createdBy: userId,
+        },
+      });
+
+      if (createClientNote && order.customerId) {
+        await tx.note.create({
+          data: {
+            subject: order.customerId,
+            type: NoteType.WARNING,
+            text: `Отменил заказ №${order.number}: ${reasonText}.`,
+            isPublic: false,
+            tenantId,
+            createdBy: userId,
+          },
+        });
+      }
+    });
+
+    return this.findOne(ctx, input.orderId) as Promise<OrderModel>;
   }
 
   /**

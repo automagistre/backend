@@ -273,6 +273,23 @@ enum CallStatus {
   RINGING
 }
 
+input CancelOrderInput {
+  """Создать заметку клиенту"""
+  createClientNote: Boolean = false
+
+  """ID заказа"""
+  orderId: String!
+
+  """Код причины отмены"""
+  reasonCode: String!
+
+  """Комментарий причины отмены"""
+  reasonComment: String
+
+  """Сохранить работы и запчасти в рекомендации"""
+  saveToRecommendations: Boolean = false
+}
+
 input CancelPartSupplyInput {
   partId: ID!
   quantity: Int!
@@ -1385,6 +1402,9 @@ type Mutation {
   """
   backfillQualityControlTasks(input: BackfillQualityControlTasksInput): Int!
   cancelEmployeeSalary(salaryId: ID!): Boolean!
+
+  """Отменить заказ"""
+  cancelOrder(input: CancelOrderInput!): OrderModel!
 
   """Отменить поставку (удалить из ожидаемых)"""
   cancelPartSupply(input: CancelPartSupplyInput!): Boolean!

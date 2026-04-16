@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException, forwardRef } from '@nestjs/common';
 import { Prisma } from 'src/generated/prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { v6 as uuidv6 } from 'uuid';
@@ -17,6 +17,7 @@ import type { AuthContext } from 'src/common/user-id.store';
 export class RecommendationService {
   constructor(
     private readonly prisma: PrismaService,
+    @Inject(forwardRef(() => ReservationService))
     private readonly reservationService: ReservationService,
     private readonly settingsService: SettingsService,
   ) {}

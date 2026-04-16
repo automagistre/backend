@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException, forwardRef } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { OrderService } from './order.service';
 import { OrderItemModel } from './models/order-item.model';
@@ -27,7 +27,9 @@ import type { AuthContext } from 'src/common/user-id.store';
 export class OrderItemService {
   constructor(
     private readonly prisma: PrismaService,
+    @Inject(forwardRef(() => OrderService))
     private readonly orderService: OrderService,
+    @Inject(forwardRef(() => ReservationService))
     private readonly reservationService: ReservationService,
     private readonly settingsService: SettingsService,
   ) {}
@@ -480,7 +482,8 @@ export class OrderItemService {
     const isPartChanged =
       input.partId !== undefined && input.partId !== orderItem.part.partId;
     const isQuantityChanged =
-      input.quantity !== undefined && input.quantity !== orderItem.part.quantity;
+      input.quantity !== undefined &&
+      input.quantity !== orderItem.part.quantity;
 
     // При замене запчасти или изменении количества пересобираем резерв:
     // сначала снимаем старый, затем после апдейта пытаемся поставить новый.

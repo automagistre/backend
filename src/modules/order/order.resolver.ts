@@ -34,6 +34,7 @@ import { CreateOrderInput } from './inputs/create-order.input';
 import { CreateOrderPrepayInput } from './inputs/create-order-prepay.input';
 import { RefundOrderPrepayInput } from './inputs/refund-order-prepay.input';
 import { CloseOrderInput } from './inputs/close-order.input';
+import { CancelOrderInput } from './inputs/cancel-order.input';
 import { PaginationArgs } from 'src/common/pagination.args';
 import { PaginatedOrders } from './inputs/paginatedOrders.type';
 import { OrderStatus } from './enums/order-status.enum';
@@ -91,7 +92,14 @@ export class OrderResolver {
       pagination = { take: undefined, skip: undefined };
     }
     const { take = 25, skip = 0 } = pagination;
-    return this.orderService.findMany(ctx, { take, skip, search, status, customerId, carId });
+    return this.orderService.findMany(ctx, {
+      take,
+      skip,
+      search,
+      status,
+      customerId,
+      carId,
+    });
   }
 
   @Query(() => [OrderModel], {
@@ -151,6 +159,17 @@ export class OrderResolver {
     @Args('input') input: CloseOrderInput,
   ): Promise<OrderModel> {
     return this.orderService.closeOrder(ctx, input);
+  }
+
+  @Mutation(() => OrderModel, {
+    name: 'cancelOrder',
+    description: 'Отменить заказ',
+  })
+  async cancelOrder(
+    @AuthContext() ctx: AuthContextType,
+    @Args('input') input: CancelOrderInput,
+  ): Promise<OrderModel> {
+    return this.orderService.cancelOrder(ctx, input);
   }
 
   @Mutation(() => Boolean, {
@@ -322,7 +341,6 @@ export class OrderResolver {
   ): Promise<boolean> {
     return this.orderService.deleteOrder(ctx, id);
   }
-
 }
 
 @Resolver(() => OrderModel)
