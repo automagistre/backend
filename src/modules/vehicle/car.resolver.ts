@@ -1,6 +1,4 @@
-import {
-  BadRequestException,
-} from '@nestjs/common';
+import { BadRequestException } from '@nestjs/common';
 import {
   Args,
   Int,
@@ -135,9 +133,7 @@ export class CarResolver {
     const hasGosnomer =
       parsed.gosnomer != null && String(parsed.gosnomer).trim() !== '';
     if (!hasIdentifier && !hasGosnomer) {
-      throw new BadRequestException(
-        'Укажите VIN, номер кузова или госномер',
-      );
+      throw new BadRequestException('Укажите VIN, номер кузова или госномер');
     }
     return (await this.carService.create(ctx, parsed)) as CarModel;
   }

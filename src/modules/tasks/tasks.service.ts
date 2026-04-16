@@ -161,7 +161,11 @@ export class TasksService {
     const data: Prisma.TaskUpdateInput = {};
 
     if (input.status !== undefined) {
-      this.validateStatusTransition(task.status as TaskStatusEnum, input.status, input);
+      this.validateStatusTransition(
+        task.status as TaskStatusEnum,
+        input.status,
+        input,
+      );
       data.status = input.status;
 
       if (input.status === TaskStatusEnum.DONE) {
@@ -228,10 +232,7 @@ export class TasksService {
     input: UpdateTaskInput,
   ): void {
     const allowed: Record<TaskStatusEnum, TaskStatusEnum[]> = {
-      [TaskStatusEnum.TODO]: [
-        TaskStatusEnum.IN_PROGRESS,
-        TaskStatusEnum.DONE,
-      ],
+      [TaskStatusEnum.TODO]: [TaskStatusEnum.IN_PROGRESS, TaskStatusEnum.DONE],
       [TaskStatusEnum.IN_PROGRESS]: [TaskStatusEnum.DONE],
       [TaskStatusEnum.DONE]: [
         TaskStatusEnum.IN_PROGRESS,
@@ -511,14 +512,11 @@ export class TasksService {
     });
     const [y, m, d] = localDateStr.split('-').map(Number);
 
-    const naive = new Date(
-      Date.UTC(y, m - 1, d + normalizedDays, startHour),
-    );
+    const naive = new Date(Date.UTC(y, m - 1, d + normalizedDays, startHour));
 
     const utcStr = naive.toLocaleString('en-US', { timeZone: 'UTC' });
     const tzStr = naive.toLocaleString('en-US', { timeZone: timezone });
-    const offsetMs =
-      new Date(tzStr).getTime() - new Date(utcStr).getTime();
+    const offsetMs = new Date(tzStr).getTime() - new Date(utcStr).getTime();
 
     return new Date(naive.getTime() - offsetMs);
   }

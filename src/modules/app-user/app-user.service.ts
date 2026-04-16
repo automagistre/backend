@@ -21,11 +21,7 @@ export class AppUserService {
     private readonly configService: ConfigService,
   ) {}
 
-  async upsert(
-    id: string,
-    displayName: string,
-    personId?: string | null,
-  ) {
+  async upsert(id: string, displayName: string, personId?: string | null) {
     const data: Record<string, unknown> = { displayName };
     if (personId !== undefined) data.personId = personId;
 
@@ -89,8 +85,7 @@ export class AppUserService {
           kcUser.email ||
           id;
 
-        const personId =
-          kcUser.attributes?.personId?.[0] ?? null;
+        const personId = kcUser.attributes?.personId?.[0] ?? null;
 
         const saved = await this.upsert(id, displayName, personId);
         const full = await this.prisma.appUser.findUnique({

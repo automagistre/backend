@@ -1,6 +1,12 @@
 import { Field, ID, InputType } from '@nestjs/graphql';
 import { Type } from 'class-transformer';
-import { IsOptional, IsString, IsUUID, MaxLength, ValidateNested } from 'class-validator';
+import {
+  IsOptional,
+  IsString,
+  IsUUID,
+  MaxLength,
+  ValidateNested,
+} from 'class-validator';
 import { MoneyInput } from 'src/common/inputs/money.input';
 
 @InputType()

@@ -1,4 +1,11 @@
-import { Args, Mutation, Parent, Query, ResolveField, Resolver } from '@nestjs/graphql';
+import {
+  Args,
+  Mutation,
+  Parent,
+  Query,
+  ResolveField,
+  Resolver,
+} from '@nestjs/graphql';
 import { VehicleModelService } from './vehicle-model.service';
 import { VehicleModel } from './models/vahicle.model';
 import { CreateVehicleInput, UpdateVehicleInput } from './inputs/vehicle.input';

@@ -1,4 +1,11 @@
-import { Args, Mutation, Parent, Query, ResolveField, Resolver } from '@nestjs/graphql';
+import {
+  Args,
+  Mutation,
+  Parent,
+  Query,
+  ResolveField,
+  Resolver,
+} from '@nestjs/graphql';
 import { CreateManufacturerInput } from './inputs/create.input';
 import { UpdateManufacturerInput } from './inputs/update.input';
 import { ManufacturerModel } from './models/manufacturer.model';

@@ -94,7 +94,10 @@ export class McEquipmentService {
         equipmentEngineType: data.equipmentEngineType ?? 0,
         equipmentEngineAirIntake: data.equipmentEngineAirIntake ?? 0,
         equipmentEngineInjection: data.equipmentEngineInjection ?? 0,
-        equipmentEngineCapacity: normalizeEngineCapacity(data.equipmentEngineCapacity) ?? data.equipmentEngineCapacity ?? '',
+        equipmentEngineCapacity:
+          normalizeEngineCapacity(data.equipmentEngineCapacity) ??
+          data.equipmentEngineCapacity ??
+          '',
         tenantId,
         createdBy: userId,
       },
@@ -125,7 +128,9 @@ export class McEquipmentService {
       if (input.equipmentEngineInjection !== undefined)
         baseData.equipmentEngineInjection = input.equipmentEngineInjection;
       if (input.equipmentEngineCapacity !== undefined)
-        baseData.equipmentEngineCapacity = normalizeEngineCapacity(input.equipmentEngineCapacity) ?? input.equipmentEngineCapacity;
+        baseData.equipmentEngineCapacity =
+          normalizeEngineCapacity(input.equipmentEngineCapacity) ??
+          input.equipmentEngineCapacity;
 
       if (Object.keys(baseData).length > 0) {
         await tx.mcEquipment.update({
@@ -219,11 +224,29 @@ export class McEquipmentService {
     const capacity = normalizeEngineCapacity(car.equipmentEngineCapacity) ?? '';
 
     const and: Prisma.McEquipmentWhereInput[] = [];
-    if (tr !== 0) and.push({ OR: [{ equipmentTransmission: 0 }, { equipmentTransmission: tr }] });
-    if (wd !== 0) and.push({ OR: [{ equipmentWheelDrive: 0 }, { equipmentWheelDrive: wd }] });
-    if (et !== 0) and.push({ OR: [{ equipmentEngineType: 0 }, { equipmentEngineType: et }] });
-    if (ai !== 0) and.push({ OR: [{ equipmentEngineAirIntake: 0 }, { equipmentEngineAirIntake: ai }] });
-    if (inj !== 0) and.push({ OR: [{ equipmentEngineInjection: 0 }, { equipmentEngineInjection: inj }] });
+    if (tr !== 0)
+      and.push({
+        OR: [{ equipmentTransmission: 0 }, { equipmentTransmission: tr }],
+      });
+    if (wd !== 0)
+      and.push({
+        OR: [{ equipmentWheelDrive: 0 }, { equipmentWheelDrive: wd }],
+      });
+    if (et !== 0)
+      and.push({
+        OR: [{ equipmentEngineType: 0 }, { equipmentEngineType: et }],
+      });
+    if (ai !== 0)
+      and.push({
+        OR: [{ equipmentEngineAirIntake: 0 }, { equipmentEngineAirIntake: ai }],
+      });
+    if (inj !== 0)
+      and.push({
+        OR: [
+          { equipmentEngineInjection: 0 },
+          { equipmentEngineInjection: inj },
+        ],
+      });
     // if (engineName !== '') and.push({ OR: [{ equipmentEngineName: null }, { equipmentEngineName: engineName }] });
     if (capacity !== '') and.push({ equipmentEngineCapacity: capacity });
 
@@ -238,7 +261,10 @@ export class McEquipmentService {
    * Все комплектации, подходящие автомобилю (vehicleId + фильтр по ненулевым полям: КПП, привод, двигатель и т.д.).
    * Для выбора шаблона ТО в модалке.
    */
-  async findAllByCar(ctx: AuthContext, carId: string): Promise<
+  async findAllByCar(
+    ctx: AuthContext,
+    carId: string,
+  ): Promise<
     Array<{
       id: string;
       period: number;
@@ -319,7 +345,11 @@ export class McEquipmentService {
     Array<{
       period: number;
       recommended: boolean;
-      work: { name: string; priceAmount: bigint | null; priceCurrencyCode: string | null };
+      work: {
+        name: string;
+        priceAmount: bigint | null;
+        priceCurrencyCode: string | null;
+      };
       parts: Array<{
         partId: string;
         partName: string | null;
@@ -389,7 +419,11 @@ export class McEquipmentService {
     mileage: number,
   ): Promise<
     Array<{
-      work: { name: string; priceAmount: bigint | null; priceCurrencyCode: string | null };
+      work: {
+        name: string;
+        priceAmount: bigint | null;
+        priceCurrencyCode: string | null;
+      };
       parts: Array<{
         partId: string;
         quantity: number;

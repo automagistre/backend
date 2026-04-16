@@ -19,10 +19,7 @@ export class ServiceService {
    * Слова через пробел — каждое должно входить в название (AND).
    * Сортировка по популярности (частоте), затем по названию.
    */
-  async searchServices(
-    ctx: AuthContext,
-    search?: string,
-  ): Promise<string[]> {
+  async searchServices(ctx: AuthContext, search?: string): Promise<string[]> {
     const searchTerms = search
       ?.trim()
       .split(/\s+/)
@@ -34,7 +31,11 @@ export class ServiceService {
         order: { status: OrderStatus.CLOSED },
       },
       ...(searchTerms?.length
-        ? { AND: searchTerms.map((term) => ({ service: { contains: term, mode: 'insensitive' as const } })) }
+        ? {
+            AND: searchTerms.map((term) => ({
+              service: { contains: term, mode: 'insensitive' as const },
+            })),
+          }
         : {}),
     };
 
@@ -42,10 +43,7 @@ export class ServiceService {
       by: ['service'],
       where,
       _count: { service: true },
-      orderBy: [
-        { _count: { service: 'desc' } },
-        { service: 'asc' },
-      ],
+      orderBy: [{ _count: { service: 'desc' } }, { service: 'asc' }],
       take: 50,
     });
 
@@ -142,18 +140,34 @@ export class ServiceService {
       return { items: [], total };
     }
 
-    const workerIds = [...new Set(services.map((i) => i.workerId).filter(Boolean))] as string[];
+    const workerIds = [
+      ...new Set(services.map((i) => i.workerId).filter(Boolean)),
+    ] as string[];
     const workerNamesMap = new Map<string, string>();
     for (const wid of workerIds) {
-      const emp = await this.employeeService.resolveEmployeeByWorkerId(ctx, wid);
+      const emp = await this.employeeService.resolveEmployeeByWorkerId(
+        ctx,
+        wid,
+      );
       if (emp?.person) {
-        const name = [emp.person.lastname, emp.person.firstname].filter(Boolean).join(' ');
+        const name = [emp.person.lastname, emp.person.firstname]
+          .filter(Boolean)
+          .join(' ');
         workerNamesMap.set(wid, name || '—');
       }
     }
 
-    type OrderInfo = { id: string; number: number; status: OrderStatus; mileage: number | null; createdAt: Date | null };
-    const servicesByOrder = new Map<string, { order: OrderInfo; items: CarServiceHistoryItemModel[] }>();
+    type OrderInfo = {
+      id: string;
+      number: number;
+      status: OrderStatus;
+      mileage: number | null;
+      createdAt: Date | null;
+    };
+    const servicesByOrder = new Map<
+      string,
+      { order: OrderInfo; items: CarServiceHistoryItemModel[] }
+    >();
     for (const item of services) {
       const order = item.orderItem.order!;
       const orderId = order.id;
@@ -170,7 +184,9 @@ export class ServiceService {
                 currencyCode: item.priceCurrencyCode ?? 'RUB',
               }
             : null,
-        executorName: item.workerId ? workerNamesMap.get(item.workerId) ?? null : null,
+        executorName: item.workerId
+          ? (workerNamesMap.get(item.workerId) ?? null)
+          : null,
       };
       const entry = servicesByOrder.get(orderId);
       if (entry) {
@@ -189,14 +205,18 @@ export class ServiceService {
       }
     }
 
-    const items: OrderServicesGroupModel[] = [...servicesByOrder.values()].map((entry) => ({
-      orderId: entry.order.id,
-      orderNumber: entry.order.number,
-      orderStatus: entry.order.status,
-      orderMileage: entry.order.mileage,
-      orderDate: entry.order.createdAt ? entry.order.createdAt.toISOString() : null,
-      services: entry.items,
-    }));
+    const items: OrderServicesGroupModel[] = [...servicesByOrder.values()].map(
+      (entry) => ({
+        orderId: entry.order.id,
+        orderNumber: entry.order.number,
+        orderStatus: entry.order.status,
+        orderMileage: entry.order.mileage,
+        orderDate: entry.order.createdAt
+          ? entry.order.createdAt.toISOString()
+          : null,
+        services: entry.items,
+      }),
+    );
 
     return { items, total };
   }

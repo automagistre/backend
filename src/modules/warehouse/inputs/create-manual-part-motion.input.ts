@@ -1,7 +1,9 @@
 import { Field, ID, InputType, Int } from '@nestjs/graphql';
 import { IsUUID } from 'class-validator';
 
-@InputType({ description: 'Ручная корректировка количества запчасти на складе' })
+@InputType({
+  description: 'Ручная корректировка количества запчасти на складе',
+})
 export class CreateManualPartMotionInput {
   @IsUUID()
   @Field(() => ID, { description: 'ID запчасти' })

@@ -26,13 +26,17 @@ function buildMaintenanceTemplateLabel(equipment: {
     engineParts.push(equipment.equipmentEngineCapacity.trim() + 'л');
   }
   if (equipment.equipmentEngineType !== 0) {
-    engineParts.push(CarEngineTypeShortLabel[equipment.equipmentEngineType] ?? '?');
+    engineParts.push(
+      CarEngineTypeShortLabel[equipment.equipmentEngineType] ?? '?',
+    );
   }
   if (engineParts.length > 0) {
     parts.push(engineParts.join(' '));
   }
   if (equipment.equipmentTransmission !== 0) {
-    parts.push(CarTransmissionShortLabel[equipment.equipmentTransmission] ?? '?');
+    parts.push(
+      CarTransmissionShortLabel[equipment.equipmentTransmission] ?? '?',
+    );
   }
   if (equipment.equipmentWheelDrive !== 0) {
     parts.push(CarWheelDriveShortLabel[equipment.equipmentWheelDrive] ?? '?');
@@ -104,7 +108,10 @@ export class TemplateService {
     input: {
       orderId: string;
       items: Array<{
-        work: { name: string; price?: { amountMinor: bigint; currencyCode?: string | null } | null };
+        work: {
+          name: string;
+          price?: { amountMinor: bigint; currencyCode?: string | null } | null;
+        };
         parts: Array<{
           partId: string;
           quantity: number;
@@ -131,19 +138,17 @@ export class TemplateService {
             : undefined,
       });
       if (item.parts.length > 0) {
-        await this.orderItemService.createPartsForService(
-          ctx,
-          {
-            orderId,
-            parentId: serviceItem.id!,
-            parts: item.parts.map((p) => ({
-              partId: p.partId,
-              quantity: p.quantity,
-              priceAmount: p.price != null ? BigInt(p.price.amountMinor) : undefined,
-            })),
-            validateOrderEditable: false,
-          },
-        );
+        await this.orderItemService.createPartsForService(ctx, {
+          orderId,
+          parentId: serviceItem.id,
+          parts: item.parts.map((p) => ({
+            partId: p.partId,
+            quantity: p.quantity,
+            priceAmount:
+              p.price != null ? BigInt(p.price.amountMinor) : undefined,
+          })),
+          validateOrderEditable: false,
+        });
       }
     }
     const order = await this.orderService.findOne(ctx, orderId);

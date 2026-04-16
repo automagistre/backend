@@ -12,10 +12,18 @@ import type { AuthContext } from 'src/common/user-id.store';
 export class CarService {
   constructor(private readonly prisma: PrismaService) {}
 
-  private static prepareCarData<T extends { equipmentEngineCapacity?: string | null }>(data: T): T {
-    if (data.equipmentEngineCapacity !== undefined && data.equipmentEngineCapacity !== null) {
+  private static prepareCarData<
+    T extends { equipmentEngineCapacity?: string | null },
+  >(data: T): T {
+    if (
+      data.equipmentEngineCapacity !== undefined &&
+      data.equipmentEngineCapacity !== null
+    ) {
       const normalized = normalizeEngineCapacity(data.equipmentEngineCapacity);
-      return { ...data, equipmentEngineCapacity: normalized ?? data.equipmentEngineCapacity };
+      return {
+        ...data,
+        equipmentEngineCapacity: normalized ?? data.equipmentEngineCapacity,
+      };
     }
     return data;
   }

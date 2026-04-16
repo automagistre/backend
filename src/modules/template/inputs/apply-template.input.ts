@@ -10,7 +10,9 @@ export class ApplyTemplateWorkInput {
   price?: MoneyInput | null;
 }
 
-@InputType({ description: 'Запчасть в применении шаблона (в рамках одной работы)' })
+@InputType({
+  description: 'Запчасть в применении шаблона (в рамках одной работы)',
+})
 export class ApplyTemplatePartInput {
   @Field(() => ID)
   partId: string;
@@ -31,7 +33,9 @@ export class ApplyTemplateItemInput {
   parts: ApplyTemplatePartInput[];
 }
 
-@InputType({ description: 'Применить шаблон к заказу: дерево работ и запчастей' })
+@InputType({
+  description: 'Применить шаблон к заказу: дерево работ и запчастей',
+})
 export class ApplyTemplateInput {
   @Field(() => ID)
   orderId: string;

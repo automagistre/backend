@@ -41,16 +41,36 @@ export class CustomerCarRelationService {
         ...(search
           ? {
               OR: [
-                { identifier: { contains: search, mode: 'insensitive' as const } },
-                { gosnomer: { contains: search, mode: 'insensitive' as const } },
-                { description: { contains: search, mode: 'insensitive' as const } },
+                {
+                  identifier: {
+                    contains: search,
+                    mode: 'insensitive' as const,
+                  },
+                },
+                {
+                  gosnomer: { contains: search, mode: 'insensitive' as const },
+                },
+                {
+                  description: {
+                    contains: search,
+                    mode: 'insensitive' as const,
+                  },
+                },
                 {
                   vehicle: {
                     OR: [
-                      { name: { contains: search, mode: 'insensitive' as const } },
+                      {
+                        name: {
+                          contains: search,
+                          mode: 'insensitive' as const,
+                        },
+                      },
                       {
                         manufacturer: {
-                          name: { contains: search, mode: 'insensitive' as const },
+                          name: {
+                            contains: search,
+                            mode: 'insensitive' as const,
+                          },
                         },
                       },
                     ],
@@ -120,10 +140,30 @@ export class CustomerCarRelationService {
                 .filter((term) => term.length > 0)
                 .map((term) => ({
                   OR: [
-                    { firstname: { contains: term, mode: 'insensitive' as const } },
-                    { lastname: { contains: term, mode: 'insensitive' as const } },
-                    { telephone: { contains: term, mode: 'insensitive' as const } },
-                    { officePhone: { contains: term, mode: 'insensitive' as const } },
+                    {
+                      firstname: {
+                        contains: term,
+                        mode: 'insensitive' as const,
+                      },
+                    },
+                    {
+                      lastname: {
+                        contains: term,
+                        mode: 'insensitive' as const,
+                      },
+                    },
+                    {
+                      telephone: {
+                        contains: term,
+                        mode: 'insensitive' as const,
+                      },
+                    },
+                    {
+                      officePhone: {
+                        contains: term,
+                        mode: 'insensitive' as const,
+                      },
+                    },
                     { email: { contains: term, mode: 'insensitive' as const } },
                   ],
                 })),

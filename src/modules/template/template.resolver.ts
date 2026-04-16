@@ -1,4 +1,12 @@
-import { Args, ID, Mutation, Parent, Query, ResolveField, Resolver } from '@nestjs/graphql';
+import {
+  Args,
+  ID,
+  Mutation,
+  Parent,
+  Query,
+  ResolveField,
+  Resolver,
+} from '@nestjs/graphql';
 import type { AuthContext as AuthContextType } from 'src/common/user-id.store';
 import { AuthContext } from 'src/common/decorators/auth-context.decorator';
 import { RequireTenant } from 'src/common/decorators/skip-tenant.decorator';
@@ -14,7 +22,8 @@ export class TemplateResolver {
 
   @Query(() => TemplatesModel, {
     name: 'templates',
-    description: 'Шаблоны для автомобиля, сгруппированные по типам (заполняются через field resolvers)',
+    description:
+      'Шаблоны для автомобиля, сгруппированные по типам (заполняются через field resolvers)',
   })
   async templates(
     @AuthContext() _ctx: AuthContextType,
@@ -33,7 +42,8 @@ export class TemplateResolver {
 
   @Mutation(() => Boolean, {
     name: 'applyTemplate',
-    description: 'Применить шаблон к заказу: добавить переданные работы и запчасти.',
+    description:
+      'Применить шаблон к заказу: добавить переданные работы и запчасти.',
   })
   async applyTemplate(
     @AuthContext() ctx: AuthContextType,
