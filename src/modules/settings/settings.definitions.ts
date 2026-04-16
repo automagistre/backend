@@ -6,6 +6,7 @@ export const SETTINGS_KEYS = {
   supplyExpiryDays: 'supplyExpiryDays',
   qualityControlDelayDays: 'qualityControlDelayDays',
   qualityControlStartHour: 'qualityControlStartHour',
+  timezone: 'timezone',
 } as const;
 
 export type SettingKey = (typeof SETTINGS_KEYS)[keyof typeof SETTINGS_KEYS];
@@ -18,6 +19,7 @@ export type SettingsValueByKey = {
   [SETTINGS_KEYS.supplyExpiryDays]: number;
   [SETTINGS_KEYS.qualityControlDelayDays]: number;
   [SETTINGS_KEYS.qualityControlStartHour]: number;
+  [SETTINGS_KEYS.timezone]: string;
 };
 
 type SettingDefinition<K extends SettingKey> = {
@@ -85,6 +87,11 @@ export const SETTINGS_DEFINITIONS: {
       }
       return value;
     },
+  },
+  [SETTINGS_KEYS.timezone]: {
+    key: SETTINGS_KEYS.timezone,
+    defaultValue: 'Europe/Moscow',
+    parse: (raw) => parseString(raw),
   },
 };
 

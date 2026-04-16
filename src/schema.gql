@@ -2505,6 +2505,9 @@ type SettingsModel {
 
   """Реквизиты Автосервиса"""
   tenantRequisites: TenantRequisitesModel
+
+  """Часовой пояс тенанта (например Europe/Moscow)"""
+  timezone: String!
 }
 
 """Направление сортировки"""
@@ -3068,6 +3071,9 @@ input UpdateSettingsInput {
 
   """Порог задержки поставки в днях"""
   supplyExpiryDays: Int
+
+  """Часовой пояс тенанта (например Europe/Moscow)"""
+  timezone: String
 }
 
 input UpdateTaskInput {

@@ -62,4 +62,13 @@ export class UpdateSettingsInput {
   @Min(0)
   @Max(23)
   qualityControlStartHour?: number;
+
+  @Field(() => String, {
+    nullable: true,
+    description: 'Часовой пояс тенанта (например Europe/Moscow)',
+  })
+  @IsOptional()
+  @IsString()
+  @Length(1, 64)
+  timezone?: string;
 }

@@ -44,6 +44,10 @@ export class SettingsService {
         SETTINGS_KEYS.qualityControlStartHour,
         settingsMap.get(SETTINGS_KEYS.qualityControlStartHour),
       ),
+      timezone: this.resolveSettingValue(
+        SETTINGS_KEYS.timezone,
+        settingsMap.get(SETTINGS_KEYS.timezone),
+      ),
     };
   }
 
@@ -105,6 +109,13 @@ export class SettingsService {
       SETTINGS_KEYS.qualityControlStartHour,
       tx,
     );
+  }
+
+  async getTimezone(
+    tenantId: string,
+    tx?: Prisma.TransactionClient,
+  ): Promise<string> {
+    return this.getSettingValue(tenantId, SETTINGS_KEYS.timezone, tx);
   }
 
   async updateSettings(
@@ -246,6 +257,9 @@ export class SettingsService {
     if (input.qualityControlStartHour !== undefined) {
       patch[SETTINGS_KEYS.qualityControlStartHour] =
         input.qualityControlStartHour;
+    }
+    if (input.timezone !== undefined) {
+      patch[SETTINGS_KEYS.timezone] = input.timezone.trim();
     }
 
     return patch;

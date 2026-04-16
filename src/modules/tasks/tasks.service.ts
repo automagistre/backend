@@ -276,14 +276,16 @@ export class TasksService {
       return;
     }
 
-    const [delayDays, startHour] = await Promise.all([
+    const [delayDays, startHour, timezone] = await Promise.all([
       this.settingsService.getQualityControlDelayDays(ctx.tenantId, tx),
       this.settingsService.getQualityControlStartHour(ctx.tenantId, tx),
+      this.settingsService.getTimezone(ctx.tenantId, tx),
     ]);
     const scheduledAt = this.scheduleAtBusinessDay(
       new Date(),
       delayDays,
       startHour,
+      timezone,
     );
     const customerId = await this.resolveExistingCustomerId(
       input.customerId,
@@ -386,9 +388,10 @@ export class TasksService {
         .filter((orderId): orderId is string => Boolean(orderId)),
     );
 
-    const [delayDays, startHour] = await Promise.all([
+    const [delayDays, startHour, timezone] = await Promise.all([
       this.settingsService.getQualityControlDelayDays(ctx.tenantId),
       this.settingsService.getQualityControlStartHour(ctx.tenantId),
+      this.settingsService.getTimezone(ctx.tenantId),
     ]);
     const existingCustomerIds = await this.getExistingCustomerIds(
       orders.map((order) => order.customerId),
@@ -414,6 +417,7 @@ export class TasksService {
         closedAt,
         delayDays,
         startHour,
+        timezone,
       );
 
       await this.prisma.task.create({
@@ -498,13 +502,25 @@ export class TasksService {
     date: Date,
     days: number,
     startHour: number,
+    timezone: string,
   ): Date {
-    const result = new Date(date);
-    result.setHours(0, 0, 0, 0);
     const normalizedDays = Number.isFinite(days) ? Math.trunc(days) : 0;
-    result.setDate(result.getDate() + normalizedDays);
-    result.setHours(startHour, 0, 0, 0);
-    return result;
+
+    const localDateStr = date.toLocaleDateString('en-CA', {
+      timeZone: timezone,
+    });
+    const [y, m, d] = localDateStr.split('-').map(Number);
+
+    const naive = new Date(
+      Date.UTC(y, m - 1, d + normalizedDays, startHour),
+    );
+
+    const utcStr = naive.toLocaleString('en-US', { timeZone: 'UTC' });
+    const tzStr = naive.toLocaleString('en-US', { timeZone: timezone });
+    const offsetMs =
+      new Date(tzStr).getTime() - new Date(utcStr).getTime();
+
+    return new Date(naive.getTime() - offsetMs);
   }
 
   private addDays(date: Date, days: number): Date {

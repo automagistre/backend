@@ -30,6 +30,11 @@ export class SettingsModel {
   })
   qualityControlStartHour: number;
 
+  @Field(() => String, {
+    description: 'Часовой пояс тенанта (например Europe/Moscow)',
+  })
+  timezone: string;
+
   @Field(() => TenantRequisitesModel, {
     nullable: true,
     description: 'Реквизиты Автосервиса',
