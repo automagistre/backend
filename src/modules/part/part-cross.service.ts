@@ -13,51 +13,50 @@ export class PartCrossService {
     }
 
     await this.prisma.$transaction(async (tx) => {
-      // Найти группы обеих запчастей
-      const leftGroup = await tx.partCrossPart.findFirst({
-        where: { partId },
+      // Все группы, в которых уже состоит хотя бы одна из запчастей.
+      // Из-за исторических данных одна и та же запчасть может оказаться
+      // в нескольких группах, поэтому собираем их все.
+      const memberships = await tx.partCrossPart.findMany({
+        where: { partId: { in: [partId, crossPartId] } },
+        select: { partCrossId: true },
       });
 
-      const rightGroup = await tx.partCrossPart.findFirst({
-        where: { partId: crossPartId },
-      });
+      const affectedGroupIds = [
+        ...new Set(memberships.map((m) => m.partCrossId)),
+      ];
 
-      if (!leftGroup && !rightGroup) {
-        // Если обе не в группах - создать новую группу
-        const newGroupId = uuidv6();
-        await tx.partCrossPart.createMany({
-          data: [
-            { partCrossId: newGroupId, partId },
-            { partCrossId: newGroupId, partId: crossPartId },
-          ],
-        });
-      } else if (!leftGroup && rightGroup) {
-        // Если одна в группе - добавить вторую в эту группу
-        await tx.partCrossPart.create({
-          data: {
-            partCrossId: rightGroup.partCrossId,
-            partId,
-          },
-        });
-      } else if (leftGroup && !rightGroup) {
-        // Если вторая не в группе - добавить её в группу первой
-        await tx.partCrossPart.create({
-          data: {
-            partCrossId: leftGroup.partCrossId,
-            partId: crossPartId,
-          },
-        });
-      } else if (
-        leftGroup &&
-        rightGroup &&
-        leftGroup.partCrossId !== rightGroup.partCrossId
-      ) {
-        // Если обе в разных группах - объединить группы
-        await tx.partCrossPart.updateMany({
-          where: { partCrossId: rightGroup.partCrossId },
-          data: { partCrossId: leftGroup.partCrossId },
+      const existingMembers = affectedGroupIds.length
+        ? await tx.partCrossPart.findMany({
+            where: { partCrossId: { in: affectedGroupIds } },
+            select: { partId: true },
+          })
+        : [];
+
+      const mergedPartIds = [
+        ...new Set([
+          ...existingMembers.map((m) => m.partId),
+          partId,
+          crossPartId,
+        ]),
+      ];
+
+      // Удаляем все затронутые группы целиком и пересоздаём как одну новую,
+      // чтобы исключить конфликт уникальности (partCrossId, partId)
+      // при «слиянии» через update.
+      if (affectedGroupIds.length) {
+        await tx.partCrossPart.deleteMany({
+          where: { partCrossId: { in: affectedGroupIds } },
         });
       }
+
+      const newGroupId = uuidv6();
+      await tx.partCrossPart.createMany({
+        data: mergedPartIds.map((id) => ({
+          partCrossId: newGroupId,
+          partId: id,
+        })),
+        skipDuplicates: true,
+      });
     });
   }
 
