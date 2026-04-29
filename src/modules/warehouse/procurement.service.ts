@@ -143,12 +143,12 @@ export class ProcurementService {
       const availableToUse = stockQuantity + supplyQuantity;
       const needForOrders = Math.max(0, orderedQuantity - availableToUse);
       let needForStock = 0;
-      if (availability != null && availability.orderFrom > 0) {
+      if (availability != null && availability.orderUpTo > 0) {
         const availableForReplenishment =
           stockQuantity - orderedQuantity + supplyQuantity;
         if (
           availableForReplenishment <= availability.orderFrom &&
-          availableForReplenishment <= availability.orderUpTo
+          availableForReplenishment < availability.orderUpTo
         ) {
           needForStock = Math.max(
             0,
