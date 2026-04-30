@@ -62,4 +62,37 @@ export class TenantService {
     });
     return tenant?.group_id ?? null;
   }
+
+  /**
+   * Резолв tenant по публичному 5-значному идентификатору (tenant.public_id).
+   * Используется в публичных интеграциях (www, UIS) — чтобы не светить UUID в URL.
+   */
+  async findByPublicId(
+    publicId: number,
+  ): Promise<{ id: string; groupId: string } | null> {
+    if (!Number.isInteger(publicId) || publicId < 10000 || publicId > 99999) {
+      return null;
+    }
+    const tenant = await this.prisma.tenant.findFirst({
+      where: { public_id: publicId },
+      select: { id: true, group_id: true },
+    });
+    return tenant ? { id: tenant.id, groupId: tenant.group_id } : null;
+  }
+
+  /**
+   * Возвращает свободный 5-значный public_id (10000-99999).
+   * Нужен при создании нового тенанта, чтобы не дублировать существующие.
+   */
+  async generateUniquePublicId(): Promise<number> {
+    for (let attempt = 0; attempt < 50; attempt++) {
+      const candidate = 10000 + Math.floor(Math.random() * 90000);
+      const exists = await this.prisma.tenant.findFirst({
+        where: { public_id: candidate },
+        select: { id: true },
+      });
+      if (!exists) return candidate;
+    }
+    throw new Error('Не удалось сгенерировать свободный public_id за 50 попыток');
+  }
 }

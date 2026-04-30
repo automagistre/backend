@@ -1569,6 +1569,12 @@ type Mutation {
 
   """Вернуть работу в рекомендацию"""
   returnWorkToRecommendation(input: ReturnWorkToRecommendationInput!): ReturnWorkToRecommendationPayload!
+  siteCreateAppealCalculator(input: SiteCreateAppealCalculatorInput!): SiteCreateAppealOutput!
+  siteCreateAppealCall(input: SiteCreateAppealCallInput!): SiteCreateAppealOutput!
+  siteCreateAppealCooperation(input: SiteCreateAppealCooperationInput!): SiteCreateAppealOutput!
+  siteCreateAppealQuestion(input: SiteCreateAppealQuestionInput!): SiteCreateAppealOutput!
+  siteCreateAppealSchedule(input: SiteCreateAppealScheduleInput!): SiteCreateAppealOutput!
+  siteCreateAppealTireFitting(input: SiteCreateAppealTireFittingInput!): SiteCreateAppealOutput!
 
   """Отложить заказ (перевести в сон)"""
   suspendOrder(input: SuspendOrderInput!): OrderModel!
@@ -2359,6 +2365,11 @@ type Query {
 
   """Настройки приложения"""
   settings: SettingsModel!
+  siteMaintenances(vehicleId: ID!): [SiteMaintenance!]!
+  siteReviews(after: String, first: Int = 10): SiteReviewConnection!
+  siteStats: SiteStats!
+  siteVehicle(id: ID!): SiteVehicle!
+  siteVehicles(manufacturerId: ID!): [SiteVehicle!]!
 
   """Список поставщиков; опциональный поиск по имени/телефону/email."""
   suppliers(search: String, take: Float): [Counterparty!]!
@@ -2558,6 +2569,208 @@ type SettingsModel {
 
   """Часовой пояс тенанта (например Europe/Moscow)"""
   timezone: String!
+}
+
+input SiteCalculatorWorkInput {
+  id: ID!
+  isSelected: Boolean!
+  name: String!
+  parts: [SiteCalculatorWorkPartInput!]
+  price: SiteMoneyInput!
+
+  """
+  Тип работы: "work" или "recommendation"
+  """
+  type: String!
+}
+
+input SiteCalculatorWorkPartInput {
+  count: Int!
+  id: ID!
+  isSelected: Boolean!
+  name: String!
+  price: SiteMoneyInput!
+}
+
+input SiteCreateAppealCalculatorInput {
+  date: DateTime
+  equipmentId: ID!
+  mileage: Int!
+  name: String!
+  note: String
+  phone: String!
+  total: SiteMoneyInput!
+  works: [SiteCalculatorWorkInput!]!
+}
+
+input SiteCreateAppealCallInput {
+  phone: String!
+}
+
+input SiteCreateAppealCooperationInput {
+  name: String!
+  phone: String!
+}
+
+type SiteCreateAppealOutput {
+  appealId: ID!
+}
+
+input SiteCreateAppealQuestionInput {
+  email: String!
+  name: String!
+  question: String!
+}
+
+input SiteCreateAppealScheduleInput {
+  date: DateTime!
+  name: String!
+  phone: String!
+}
+
+input SiteCreateAppealTireFittingInput {
+  category: SiteTireFittingCategory!
+  diameter: Int
+  name: String!
+  phone: String!
+  total: SiteMoneyInput!
+  vehicleId: ID
+  works: [SiteTireFittingWorkInput!]!
+}
+
+type SiteMaintenance {
+  engine: SiteMaintenanceEngine!
+  id: ID!
+  transmission: String
+  wheelDrive: String
+  works: [SiteMaintenanceWork!]!
+}
+
+type SiteMaintenanceEngine {
+  airIntake: String
+  capacity: String
+  injection: String
+  name: String
+  type: String
+}
+
+type SiteMaintenancePart {
+  id: ID!
+  manufacturer: SitePartManufacturerLite!
+  name: String!
+  number: String
+  price: SiteMoney!
+  unit: String
+}
+
+type SiteMaintenanceWork {
+  description: String
+  id: ID!
+  name: String!
+  parts: [SiteMaintenanceWorkPart!]!
+
+  """Период ТО в км"""
+  period: Int!
+
+  """Позиция в карте ТО"""
+  position: Int!
+  price: SiteMoney!
+
+  """Рекомендуемая работа"""
+  recommended: Boolean!
+}
+
+type SiteMaintenanceWorkPart {
+  part: SiteMaintenancePart!
+
+  """Количество (×100 в БД, отдаём как есть)"""
+  quantity: Int!
+}
+
+type SiteMoney {
+  """Сумма в минимальных единицах (копейках)"""
+  amount: Int!
+
+  """ISO-код валюты, обычно RUB"""
+  currency: String!
+}
+
+"""
+Money как "CURRENCY AMOUNT_MINOR", например "RUB 100500" (= 1005.00 ₽).
+"""
+scalar SiteMoneyInput
+
+type SitePageInfo {
+  endCursor: String
+  hasNextPage: Boolean!
+}
+
+type SitePartManufacturerLite {
+  id: ID!
+  localizedName: String
+  name: String!
+}
+
+type SiteReview {
+  author: String!
+  id: ID!
+  publishAt: DateTime!
+
+  """Источник: club | yandex | google | two_gis | yell"""
+  source: String!
+  text: String!
+}
+
+type SiteReviewConnection {
+  nodes: [SiteReview!]!
+  pageInfo: SitePageInfo!
+  totalCount: Int!
+}
+
+type SiteStats {
+  customers: SiteStatsCustomers!
+  orders: Int!
+  reviews: Int!
+  vehicles: Int!
+}
+
+type SiteStatsCustomers {
+  organizations: Int!
+  persons: Int!
+}
+
+"""Категория шиномонтажа"""
+enum SiteTireFittingCategory {
+  car
+  crossover
+  minivan
+  suv
+  unknown
+}
+
+input SiteTireFittingWorkInput {
+  name: String!
+  price: SiteMoneyInput!
+}
+
+type SiteVehicle {
+  caseName: String
+  id: ID!
+  localizedName: String
+  manufacturer: SiteVehicleManufacturer!
+  name: String!
+  production: SiteVehicleProduction!
+}
+
+type SiteVehicleManufacturer {
+  id: ID!
+  localizedName: String
+  name: String!
+}
+
+type SiteVehicleProduction {
+  from: Int
+  till: Int
 }
 
 """Направление сортировки"""

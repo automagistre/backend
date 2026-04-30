@@ -15,6 +15,7 @@ import {
 
 const X_TENANT_ID = 'x-tenant-id';
 const X_TENANT_ID_COOKIE = 'X-Tenant-Id';
+const X_TENANT_PUBLIC_ID = 'x-tenant-public-id';
 
 @Injectable()
 export class TenantGuard implements CanActivate {
@@ -31,6 +32,7 @@ export class TenantGuard implements CanActivate {
       tenantId?: string;
       tenantGroupId?: string;
       user?: { sub?: string };
+      headers?: Record<string, string | string[] | undefined>;
     };
     const tenantId = this.getTenantId(req);
 
@@ -39,6 +41,10 @@ export class TenantGuard implements CanActivate {
       cls,
     ]);
     if (isPublic) {
+      // Для публичных www-эндпоинтов (path /api/www/:publicId или header
+      // X-Tenant-Public-Id) — резолвим tenant из publicId и кладём в req,
+      // чтобы декоратор @WwwTenant() мог его достать.
+      await this.resolveTenantFromPublicId(req);
       return true;
     }
 
@@ -110,6 +116,30 @@ export class TenantGuard implements CanActivate {
       // Not GraphQL context
     }
     return context.switchToHttp().getRequest();
+  }
+
+  /**
+   * Если в запросе есть header `X-Tenant-Public-Id` (5-значный publicId),
+   * резолвит его в tenantId/tenantGroupId через TenantService и кладёт в req.
+   * Используется для публичных www-операций (`@Public()` резолверов),
+   * у которых нет JWT и обычного X-Tenant-Id.
+   */
+  private async resolveTenantFromPublicId(req: {
+    tenantId?: string;
+    tenantGroupId?: string;
+    headers?: Record<string, string | string[] | undefined>;
+  }): Promise<void> {
+    if (req.tenantId) return;
+    const headerVal = req.headers?.[X_TENANT_PUBLIC_ID];
+    const headerStr = Array.isArray(headerVal) ? headerVal[0] : headerVal;
+    if (!headerStr) return;
+    const publicId = Number.parseInt(String(headerStr), 10);
+    if (!Number.isFinite(publicId)) return;
+    const tenant = await this.tenantService.findByPublicId(publicId);
+    if (tenant) {
+      req.tenantId = tenant.id;
+      req.tenantGroupId = tenant.groupId;
+    }
   }
 
   private getTenantId(req: unknown): string | undefined {

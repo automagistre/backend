@@ -10,7 +10,6 @@ import { PrismaModule } from './prisma/prisma.module';
 import { getGraphQLConfig } from './config/graphql.config';
 import { UserIdMiddleware } from './middlewares/user-id.middleware';
 import { UserIdInterceptor } from './interceptors/user-id.interceptor';
-import { BigIntScalar } from './common/scalars/bigint.scalar';
 import { CommonModule } from './common/common.module';
 import { PersonModule } from './modules/person/person.module';
 import { CarModule } from './modules/vehicle/car.module';
@@ -39,6 +38,7 @@ import { TemplateModule } from './modules/template/template.module';
 import { AppUserModule } from './modules/app-user/app-user.module';
 import { CallsModule } from './modules/calls/calls.module';
 import { TasksModule } from './modules/tasks/tasks.module';
+import { WwwModule } from './modules/www/www.module';
 import { DevAuthGuard } from './modules/auth/guards/dev-auth.guard';
 import { TenantGuard } from './common/guards/tenant.guard';
 import { Reflector } from '@nestjs/core';
@@ -88,6 +88,7 @@ import authConfig from './config/auth.config';
     TemplateModule,
     CallsModule,
     TasksModule,
+    WwwModule,
   ],
   providers: [
     {
@@ -106,7 +107,6 @@ import authConfig from './config/auth.config';
       useClass: UserIdInterceptor,
     },
     UserIdMiddleware,
-    BigIntScalar,
   ],
 })
 export class AppModule implements NestModule {
