@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { SalaryService } from './salary.service';
 import { PrismaService } from 'src/prisma/prisma.service';
@@ -6,6 +6,8 @@ import { SYSTEM_USER_ID } from 'src/common/user-id.store';
 
 @Injectable()
 export class SalaryScheduler {
+  private readonly logger = new Logger(SalaryScheduler.name);
+
   constructor(
     private readonly salaryService: SalaryService,
     private readonly prisma: PrismaService,
@@ -17,6 +19,9 @@ export class SalaryScheduler {
     const tenants = await this.prisma.tenant.findMany({
       select: { id: true, group_id: true },
     });
+    this.logger.log(
+      `handleMonthlySalaries: payday=${payday} tenants=${tenants.length}`,
+    );
 
     for (const tenant of tenants) {
       const ctx = {
@@ -24,7 +29,14 @@ export class SalaryScheduler {
         tenantId: tenant.id,
         tenantGroupId: tenant.group_id,
       };
-      await this.salaryService.chargeMonthlySalaries(ctx, payday);
+      try {
+        await this.salaryService.chargeMonthlySalaries(ctx, payday);
+      } catch (err) {
+        this.logger.error(
+          `handleMonthlySalaries: tenantId=${tenant.id} failed`,
+          err instanceof Error ? err.stack : String(err),
+        );
+      }
     }
   }
 }

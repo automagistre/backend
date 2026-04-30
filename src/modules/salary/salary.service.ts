@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { EmployeeService } from 'src/modules/employee/employee.service';
 import { CustomerTransactionService } from 'src/modules/customer-transaction/customer-transaction.service';
@@ -9,6 +9,8 @@ import type { AuthContext } from 'src/common/user-id.store';
 
 @Injectable()
 export class SalaryService {
+  private readonly logger = new Logger(SalaryService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly employeeService: EmployeeService,
@@ -101,38 +103,55 @@ export class SalaryService {
       include: { employee: true },
     });
 
-    const toCreate: CreateCustomerTransactionInput[] = [];
+    let charged = 0;
+    let skipped = 0;
+    let failed = 0;
 
     for (const s of salaries) {
-      const exists = await this.prisma.customerTransaction.findFirst({
-        where: {
+      try {
+        const exists = await this.prisma.customerTransaction.findFirst({
+          where: {
+            source: CustomerTransactionSource.MonthlySalary,
+            sourceId: s.id,
+            tenantId: ctx.tenantId,
+          },
+        });
+        if (exists) {
+          skipped++;
+          continue;
+        }
+        if (s.amount <= 0n) {
+          skipped++;
+          continue;
+        }
+
+        const data: CreateCustomerTransactionInput = {
+          operandId: s.employee.personId,
           source: CustomerTransactionSource.MonthlySalary,
           sourceId: s.id,
-          tenantId: ctx.tenantId,
-        },
-      });
-      if (exists) continue;
-      if (s.amount <= 0n) continue;
+          amount: { amountMinor: s.amount, currencyCode: defaultCurrency },
+        };
 
-      toCreate.push({
-        operandId: s.employee.personId,
-        source: CustomerTransactionSource.MonthlySalary,
-        sourceId: s.id,
-        amount: { amountMinor: s.amount, currencyCode: defaultCurrency },
-      });
-    }
-
-    if (toCreate.length === 0) return;
-
-    await this.prisma.$transaction(async (tx) => {
-      for (const data of toCreate) {
-        await this.customerTransactionService.createWithinTransaction(
-          tx,
-          data,
-          ctx.tenantId,
-          ctx.userId,
+        await this.prisma.$transaction(async (tx) => {
+          await this.customerTransactionService.createWithinTransaction(
+            tx,
+            data,
+            ctx.tenantId,
+            ctx.userId,
+          );
+        });
+        charged++;
+      } catch (err) {
+        failed++;
+        this.logger.error(
+          `chargeMonthlySalaries: salaryId=${s.id} employeeId=${s.employeeId} tenantId=${ctx.tenantId} failed`,
+          err instanceof Error ? err.stack : String(err),
         );
       }
-    });
+    }
+
+    this.logger.log(
+      `chargeMonthlySalaries: tenant=${ctx.tenantId} payday=${payday} charged=${charged} skipped=${skipped} failed=${failed} of ${salaries.length}`,
+    );
   }
 }
