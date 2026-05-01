@@ -998,20 +998,18 @@ type CustomerTransactionModel {
   tenantId: String!
 }
 
-type DashboardDailyAmount {
+type DashboardDailyRevenue {
   """День (00:00 локального времени тенанта)"""
   day: DateTime!
 
-  """Сумма расходов за день (положительное число)"""
-  expense: BigInt!
+  """Выручка по запчастям за день"""
+  parts: BigInt!
 
-  """Сумма приходов за день"""
-  income: BigInt!
-}
+  """works + parts"""
+  total: BigInt!
 
-type DashboardDateRange {
-  from: DateTime!
-  to: DateTime!
+  """Выручка по работам за день, accrued из закрытых заказов"""
+  works: BigInt!
 }
 
 type DashboardEmployeeDebt {
@@ -1036,6 +1034,33 @@ type DashboardEmployeeDebtSummary {
   totalOwedToEmployees: BigInt!
 }
 
+type DashboardIncomeLast7Days {
+  """7 дней (00:00 локального времени тенанта), от старого к новому"""
+  days: [DateTime!]!
+
+  """Серии по счетам (только showInLayout=true)"""
+  series: [DashboardWalletIncomeSeries!]!
+}
+
+type DashboardMonthlyRevenuePair {
+  """Выручка за этот месяц текущего года"""
+  current: DashboardRevenueBreakdown!
+
+  """Является ли месяц текущим (тогда current и previous посчитаны MTD)"""
+  isCurrent: Boolean!
+
+  """Месяц 1..12"""
+  month: Float!
+
+  """
+  Выручка за тот же месяц прошлого года (тот же интервал для текущего месяца)
+  """
+  previous: DashboardRevenueBreakdown!
+
+  """Год текущего слота (например 2026)"""
+  year: Float!
+}
+
 type DashboardOperationsKpi {
   """Активные заказы (не закрытые и не отменённые)"""
   activeOrders: Float!
@@ -1048,21 +1073,6 @@ type DashboardOperationsKpi {
 
   """Заказы готовые к выдаче (status = READY)"""
   readyOrders: Float!
-}
-
-type DashboardPeriodComparison {
-  """MTD vs прошлый месяц до того же дня"""
-  monthToDate: DashboardPeriodPair!
-
-  """WTD vs прошлая неделя со сдвигом 7 дней"""
-  weekToDate: DashboardPeriodPair!
-}
-
-type DashboardPeriodPair {
-  current: DashboardRevenueBreakdown!
-  currentRange: DashboardDateRange!
-  previous: DashboardRevenueBreakdown!
-  previousRange: DashboardDateRange!
 }
 
 type DashboardRevenueBreakdown {
@@ -1078,11 +1088,20 @@ type DashboardRevenueBreakdown {
 
 type DashboardSummary {
   employeeDebts: DashboardEmployeeDebtSummary!
+
+  """Приход по счетам за 7 дней с разбивкой по дням"""
+  incomeLast7Days: DashboardIncomeLast7Days!
+
+  """
+  Выручка по 6 последним месяцам (включая текущий), для каждого — пара current vs previous (тот же месяц прошлого года)
+  """
+  monthlyRevenue: [DashboardMonthlyRevenuePair!]!
   operations: DashboardOperationsKpi!
-  periodComparison: DashboardPeriodComparison!
-  revenueLast7Days: [DashboardDailyAmount!]!
-  todayIncomeByWallet: [DashboardWalletDailyAmount!]!
+  revenueLast7Days: [DashboardDailyRevenue!]!
   walletBalances: [DashboardWalletBalance!]!
+
+  """Заказы с гарантийными позициями за последние 30 дней"""
+  warrantyLast30Days: DashboardWarrantyLast30Days!
 }
 
 type DashboardWalletBalance {
@@ -1093,12 +1112,39 @@ type DashboardWalletBalance {
   walletName: String!
 }
 
-type DashboardWalletDailyAmount {
-  """Сумма прихода (положительные транзакции) за день"""
-  amountIncome: BigInt!
+type DashboardWalletIncomeSeries {
+  """Суммы прихода по дням (порядок соответствует days в IncomeLast7Days)"""
+  amounts: [BigInt!]!
   currencyCode: String
   walletId: ID!
   walletName: String!
+}
+
+type DashboardWarrantyLast30Days {
+  """Заказы с гарантийными позициями (отсортированы по убыванию суммы)"""
+  orders: [DashboardWarrantyOrder!]!
+
+  """Сумма всей гарантии за 30 дней"""
+  total: BigInt!
+  totalParts: BigInt!
+  totalWorks: BigInt!
+}
+
+type DashboardWarrantyOrder {
+  carName: String
+  closedAt: DateTime!
+  customerName: String
+  orderId: ID!
+  orderNumber: Float!
+
+  """Гарантийные запчасти в заказе"""
+  parts: BigInt!
+
+  """works + parts"""
+  total: BigInt!
+
+  """Гарантийные работы в заказе"""
+  works: BigInt!
 }
 
 """

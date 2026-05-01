@@ -9,17 +9,22 @@ import {
 import type { AuthContext } from 'src/common/user-id.store';
 import {
   DashboardSummaryModel,
-  DateRangeModel,
   EmployeeDebtModel,
   EmployeeDebtSummaryModel,
+  IncomeLast7DaysModel,
+  MonthlyRevenuePairModel,
   OperationsKpiModel,
-  PeriodComparisonModel,
-  PeriodPairModel,
   RevenueBreakdownModel,
   WalletBalanceModel,
-  WalletDailyAmountModel,
-  DailyAmountModel,
+  DailyRevenueModel,
+  WarrantyLast30DaysModel,
+  WarrantyOrderModel,
 } from './models/dashboard.models';
+
+interface DateRange {
+  from: Date;
+  to: Date;
+}
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -48,33 +53,38 @@ export class DashboardService {
       overrideTz ?? (await this.settingsService.getTimezone(ctx.tenantId));
     const now = new Date();
 
-    const wallets = await this.prisma.wallet.findMany({
-      where: { tenantId: ctx.tenantId, showInLayout: true },
-      orderBy: { name: 'asc' },
-      select: {
-        id: true,
-        name: true,
-        currencyCode: true,
-        balance: true,
-      },
-    });
-    const walletIds = wallets.map((w) => w.id);
+    // Балансы — только счета с showInLayout (как настроено в Settings).
+    // Приход за 7 дней — все счета тенанта (фильтрация по факту прихода — внутри метода).
+    const [walletsForBalances, allWallets] = await Promise.all([
+      this.prisma.wallet.findMany({
+        where: { tenantId: ctx.tenantId, showInLayout: true },
+        orderBy: { name: 'asc' },
+        select: { id: true, name: true, currencyCode: true, balance: true },
+      }),
+      this.prisma.wallet.findMany({
+        where: { tenantId: ctx.tenantId },
+        orderBy: { name: 'asc' },
+        select: { id: true, name: true, currencyCode: true },
+      }),
+    ]);
 
     const [
-      todayIncomeByWallet,
+      incomeLast7Days,
       revenueLast7Days,
       employeeDebts,
       operations,
-      periodComparison,
+      monthlyRevenue,
+      warrantyLast30Days,
     ] = await Promise.all([
-      this.getTodayIncomeByWallet(ctx, wallets, tz, now),
-      this.getRevenueLast7Days(ctx, walletIds, tz, now),
+      this.getIncomeLast7Days(ctx, allWallets, tz, now),
+      this.getRevenueLast7Days(ctx, tz, now),
       this.getEmployeeDebts(ctx),
       this.getOperationsKpi(ctx),
-      this.getPeriodComparison(ctx, tz, now),
+      this.getMonthlyRevenueLast6(ctx, tz, now),
+      this.getWarrantyLast30Days(ctx, now),
     ]);
 
-    const walletBalances: WalletBalanceModel[] = wallets.map((w) => ({
+    const walletBalances: WalletBalanceModel[] = walletsForBalances.map((w) => ({
       walletId: w.id,
       walletName: w.name,
       currencyCode: w.currencyCode,
@@ -83,85 +93,51 @@ export class DashboardService {
     }));
 
     return {
-      todayIncomeByWallet,
+      incomeLast7Days,
       revenueLast7Days,
       walletBalances,
       employeeDebts,
       operations,
-      periodComparison,
+      monthlyRevenue,
+      warrantyLast30Days,
     };
   }
 
-  // ---------- Today's income by wallet (bar) ----------
+  // ---------- Income by wallet за 7 дней ----------
 
-  private async getTodayIncomeByWallet(
+  private async getIncomeLast7Days(
     ctx: AuthContext,
     wallets: Array<{ id: string; name: string; currencyCode: string | null }>,
     tz: string,
     now: Date,
-  ): Promise<WalletDailyAmountModel[]> {
-    if (wallets.length === 0) return [];
-    const dayStart = this.startOfDay(now, tz);
-    const dayEnd = new Date(dayStart.getTime() + DAY_MS);
-
-    const grouped = await this.prisma.walletTransaction.groupBy({
-      by: ['walletId'],
-      where: {
-        tenantId: ctx.tenantId,
-        walletId: { in: wallets.map((w) => w.id) },
-        createdAt: { gte: dayStart, lt: dayEnd },
-        amountAmount: { gt: 0 },
-      },
-      _sum: { amountAmount: true },
-    });
-
-    const sumByWallet = new Map<string, bigint>(
-      grouped.map((g) => [g.walletId, g._sum.amountAmount ?? 0n]),
-    );
-
-    return wallets.map((w) => ({
-      walletId: w.id,
-      walletName: w.name,
-      currencyCode: w.currencyCode,
-      amountIncome: sumByWallet.get(w.id) ?? 0n,
-    }));
-  }
-
-  // ---------- Revenue last 7 days (line) ----------
-
-  private async getRevenueLast7Days(
-    ctx: AuthContext,
-    walletIds: string[],
-    tz: string,
-    now: Date,
-  ): Promise<DailyAmountModel[]> {
+  ): Promise<IncomeLast7DaysModel> {
     const days: Date[] = [];
     const todayStart = this.startOfDay(now, tz);
     for (let i = 6; i >= 0; i--) {
       days.push(new Date(todayStart.getTime() - i * DAY_MS));
     }
-    if (walletIds.length === 0) {
-      return days.map((d) => ({ day: d, income: 0n, expense: 0n }));
+
+    if (wallets.length === 0) {
+      return { days, series: [] };
     }
 
     const periodStart = days[0]!;
     const periodEnd = new Date(todayStart.getTime() + DAY_MS);
+    const walletIds = wallets.map((w) => w.id);
 
-    // Группировка по дню (в нужной TZ) — raw SQL.
     const rows = await this.prisma.$queryRawUnsafe<
-      Array<{ day_start: Date; income: bigint; expense: bigint }>
+      Array<{ day_start: Date; wallet_id: string; income: bigint }>
     >(
       `SELECT
          date_trunc('day', (created_at AT TIME ZONE $1))::timestamp AS day_start,
-         COALESCE(SUM(CASE WHEN amount_amount > 0 THEN amount_amount ELSE 0 END), 0)::bigint AS income,
-         COALESCE(SUM(CASE WHEN amount_amount < 0 THEN -amount_amount ELSE 0 END), 0)::bigint AS expense
+         wallet_id,
+         COALESCE(SUM(CASE WHEN amount_amount > 0 THEN amount_amount ELSE 0 END), 0)::bigint AS income
        FROM wallet_transaction
        WHERE tenant_id = $2::uuid
          AND wallet_id = ANY($3::uuid[])
          AND created_at >= $4
          AND created_at < $5
-       GROUP BY day_start
-       ORDER BY day_start`,
+       GROUP BY day_start, wallet_id`,
       tz,
       ctx.tenantId,
       walletIds,
@@ -169,23 +145,103 @@ export class DashboardService {
       periodEnd,
     );
 
-    // SQL вернул day_start как локальное (без TZ) — приведём обратно к UTC момент начала дня в TZ.
-    // Для маппинга используем строку YYYY-MM-DD как ключ.
-    const byKey = new Map<string, { income: bigint; expense: bigint }>();
+    // Матрица [walletId][dayKey] = income
+    const byWallet = new Map<string, Map<string, bigint>>();
+    for (const w of wallets) byWallet.set(w.id, new Map());
     for (const r of rows) {
-      // r.day_start — это уже локальная дата (без TZ), берём её Y-M-D
       const key = this.dayKey(r.day_start);
-      byKey.set(key, { income: BigInt(r.income), expense: BigInt(r.expense) });
+      const m = byWallet.get(r.wallet_id);
+      if (m) m.set(key, BigInt(r.income));
+    }
+
+    const series = wallets
+      .map((w) => {
+        const map = byWallet.get(w.id) ?? new Map<string, bigint>();
+        const amounts = days.map((d) => {
+          const parts = this.toZonedParts(d, tz);
+          const key = `${parts.year}-${String(parts.month).padStart(2, '0')}-${String(parts.day).padStart(2, '0')}`;
+          return map.get(key) ?? 0n;
+        });
+        const total = amounts.reduce<bigint>((a, b) => a + b, 0n);
+        return {
+          walletId: w.id,
+          walletName: w.name,
+          currencyCode: w.currencyCode,
+          amounts,
+          total,
+        };
+      })
+      .filter((s) => s.total > 0n)
+      .sort((a, b) => (a.total > b.total ? -1 : a.total < b.total ? 1 : 0))
+      .map(({ total: _t, ...rest }) => rest);
+
+    return { days, series };
+  }
+
+  // ---------- Revenue last 7 days (accrued, разбивка works/parts) ----------
+
+  private async getRevenueLast7Days(
+    ctx: AuthContext,
+    tz: string,
+    now: Date,
+  ): Promise<DailyRevenueModel[]> {
+    const days: Date[] = [];
+    const todayStart = this.startOfDay(now, tz);
+    for (let i = 6; i >= 0; i--) {
+      days.push(new Date(todayStart.getTime() - i * DAY_MS));
+    }
+
+    const periodStart = days[0]!;
+    const periodEnd = new Date(todayStart.getTime() + DAY_MS);
+
+    // Accrued выручка из закрытых сделкой заказов, агрегированная по дням локальной TZ.
+    const rows = await this.prisma.$queryRawUnsafe<
+      Array<{ day_start: Date; works: bigint; parts: bigint }>
+    >(
+      `SELECT
+         date_trunc('day', (od.created_at AT TIME ZONE $1))::timestamp AS day_start,
+         COALESCE(SUM(CASE
+           WHEN ois.id IS NOT NULL AND NOT ois.warranty
+           THEN COALESCE(ois.price_amount, 0) - COALESCE(ois.discount_amount, 0)
+         END), 0)::bigint AS works,
+         COALESCE(SUM(CASE
+           WHEN oip.id IS NOT NULL AND NOT oip.warranty
+           THEN ((COALESCE(oip.price_amount, 0) - COALESCE(oip.discount_amount, 0)) * oip.quantity) / 100
+         END), 0)::bigint AS parts
+       FROM orders o
+       JOIN order_close oc ON oc.order_id = o.id
+       JOIN order_deal od ON od.id = oc.id
+       JOIN order_item oi ON oi.order_id = o.id
+       LEFT JOIN order_item_service ois ON ois.id = oi.id
+       LEFT JOIN order_item_part oip ON oip.id = oi.id
+       WHERE o.tenant_id = $2::uuid
+         AND od.created_at >= $3
+         AND od.created_at < $4
+       GROUP BY day_start
+       ORDER BY day_start`,
+      tz,
+      ctx.tenantId,
+      periodStart,
+      periodEnd,
+    );
+
+    const byKey = new Map<string, { works: bigint; parts: bigint }>();
+    for (const r of rows) {
+      const key = this.dayKey(r.day_start);
+      byKey.set(key, { works: BigInt(r.works), parts: BigInt(r.parts) });
     }
 
     return days.map((d) => {
       const parts = this.toZonedParts(d, tz);
       const key = `${parts.year}-${String(parts.month).padStart(2, '0')}-${String(parts.day).padStart(2, '0')}`;
       const row = byKey.get(key);
+      const works = row?.works ?? 0n;
+      const partsAmount = row?.parts ?? 0n;
       return {
         day: d,
-        income: row?.income ?? 0n,
-        expense: row?.expense ?? 0n,
+        works,
+        parts: partsAmount,
+        total: works + partsAmount,
       };
     });
   }
@@ -269,42 +325,194 @@ export class DashboardService {
     return { activeOrders, readyOrders, qualityControlTasks, openTasks };
   }
 
-  // ---------- Period comparison (MTD / WTD vs прошлый эквивалент) ----------
+  // ---------- Warranty за 30 дней: список заказов + итоги ----------
 
-  private async getPeriodComparison(
+  private async getWarrantyLast30Days(
+    ctx: AuthContext,
+    now: Date,
+  ): Promise<WarrantyLast30DaysModel> {
+    const periodStart = new Date(now.getTime() - 30 * DAY_MS);
+
+    const rows = await this.prisma.$queryRawUnsafe<
+      Array<{
+        order_id: string;
+        order_number: number;
+        closed_at: Date;
+        customer_name: string | null;
+        car_name: string | null;
+        works: bigint;
+        parts: bigint;
+      }>
+    >(
+      `SELECT
+         o.id AS order_id,
+         o.number AS order_number,
+         od.created_at AS closed_at,
+         NULLIF(TRIM(BOTH ' ' FROM (COALESCE(p.lastname, '') || ' ' || COALESCE(p.firstname, ''))), '') AS customer_name,
+         NULLIF(TRIM(BOTH ' ' FROM CONCAT_WS(' ',
+           m.name, v.name,
+           CASE WHEN c.gosnomer IS NOT NULL AND c.gosnomer <> '' THEN '· ' || c.gosnomer END
+         )), '') AS car_name,
+         COALESCE(SUM(CASE
+           WHEN ois.id IS NOT NULL AND ois.warranty
+           THEN COALESCE(ois.price_amount, 0) - COALESCE(ois.discount_amount, 0)
+         END), 0)::bigint AS works,
+         COALESCE(SUM(CASE
+           WHEN oip.id IS NOT NULL AND oip.warranty
+           THEN ((COALESCE(oip.price_amount, 0) - COALESCE(oip.discount_amount, 0)) * oip.quantity) / 100
+         END), 0)::bigint AS parts
+       FROM orders o
+       JOIN order_close oc ON oc.order_id = o.id
+       JOIN order_deal od ON od.id = oc.id
+       JOIN order_item oi ON oi.order_id = o.id
+       LEFT JOIN order_item_service ois ON ois.id = oi.id
+       LEFT JOIN order_item_part oip ON oip.id = oi.id
+       LEFT JOIN person p ON p.id = o.customer_id
+       LEFT JOIN car c ON c.id = o.car_id
+       LEFT JOIN vehicle_model v ON v.id = c.vehicle_id
+       LEFT JOIN manufacturer m ON m.id = v.manufacturer_id
+       WHERE o.tenant_id = $1::uuid
+         AND od.created_at >= $2
+         AND od.created_at <= $3
+       GROUP BY o.id, o.number, od.created_at, p.lastname, p.firstname,
+                m.name, v.name, c.gosnomer
+       HAVING (
+         COALESCE(SUM(CASE WHEN ois.id IS NOT NULL AND ois.warranty
+                           THEN COALESCE(ois.price_amount, 0) - COALESCE(ois.discount_amount, 0)
+                      END), 0)
+         + COALESCE(SUM(CASE WHEN oip.id IS NOT NULL AND oip.warranty
+                             THEN ((COALESCE(oip.price_amount, 0) - COALESCE(oip.discount_amount, 0)) * oip.quantity) / 100
+                        END), 0)
+       ) > 0
+       ORDER BY od.created_at DESC`,
+      ctx.tenantId,
+      periodStart,
+      now,
+    );
+
+    const orders: WarrantyOrderModel[] = rows.map((r) => {
+      const works = BigInt(r.works);
+      const parts = BigInt(r.parts);
+      return {
+        orderId: r.order_id,
+        orderNumber: r.order_number,
+        closedAt: r.closed_at,
+        customerName: r.customer_name,
+        carName: r.car_name,
+        works,
+        parts,
+        total: works + parts,
+      };
+    });
+
+    let totalWorks = 0n;
+    let totalParts = 0n;
+    for (const o of orders) {
+      totalWorks += o.works;
+      totalParts += o.parts;
+    }
+    return {
+      total: totalWorks + totalParts,
+      totalWorks,
+      totalParts,
+      orders,
+    };
+  }
+
+  // ---------- Monthly revenue: 6 последних месяцев, год к году ----------
+
+  private async getMonthlyRevenueLast6(
     ctx: AuthContext,
     tz: string,
     now: Date,
-  ): Promise<PeriodComparisonModel> {
-    const monthRanges = this.calcMonthRanges(now, tz);
-    const weekRanges = this.calcWeekRanges(now, tz);
+  ): Promise<MonthlyRevenuePairModel[]> {
+    const z = this.toZonedParts(now, tz);
+    const slots: Array<{ year: number; month: number; isCurrent: boolean }> = [];
+    for (let i = 5; i >= 0; i--) {
+      const monthZeroBased = z.month - 1 - i; // может быть отрицательным
+      const year = z.year + Math.floor(monthZeroBased / 12);
+      const month = ((monthZeroBased % 12) + 12) % 12 + 1;
+      slots.push({ year, month, isCurrent: i === 0 });
+    }
 
-    const [monthCur, monthPrev, weekCur, weekPrev] = await Promise.all([
-      this.calcRevenue(ctx, monthRanges.current),
-      this.calcRevenue(ctx, monthRanges.previous),
-      this.calcRevenue(ctx, weekRanges.current),
-      this.calcRevenue(ctx, weekRanges.previous),
-    ]);
+    const ranges = slots.map((s) =>
+      this.calcMonthYoyRanges(s.year, s.month, s.isCurrent, now, tz),
+    );
 
-    const monthToDate: PeriodPairModel = {
-      current: monthCur,
-      previous: monthPrev,
-      currentRange: monthRanges.current,
-      previousRange: monthRanges.previous,
+    const flat = ranges.flatMap((r) => [r.current, r.previous]);
+    const revenues = await Promise.all(flat.map((r) => this.calcRevenue(ctx, r)));
+
+    return slots.map((slot, idx) => ({
+      year: slot.year,
+      month: slot.month,
+      isCurrent: slot.isCurrent,
+      current: revenues[idx * 2]!,
+      previous: revenues[idx * 2 + 1]!,
+    }));
+  }
+
+  /**
+   * Для месяца (year, month) возвращает диапазоны:
+   * - current: полный месяц этого года, для текущего месяца — обрезается на now
+   * - previous: тот же месяц прошлого года; для текущего — обрезается на (now - 1 год) с учётом длины месяца
+   */
+  private calcMonthYoyRanges(
+    year: number,
+    month: number,
+    isCurrent: boolean,
+    now: Date,
+    tz: string,
+  ): { current: DateRange; previous: DateRange } {
+    const startCur = this.zonedToUtc(year, month, 1, 0, 0, 0, tz);
+    const startPrevYear = this.zonedToUtc(year - 1, month, 1, 0, 0, 0, tz);
+
+    const daysInCur = this.daysInMonth(year, month);
+    const daysInPrev = this.daysInMonth(year - 1, month);
+
+    const endCurFull = this.zonedToUtc(year, month, daysInCur, 23, 59, 59, tz);
+    const endPrevFull = this.zonedToUtc(
+      year - 1,
+      month,
+      daysInPrev,
+      23,
+      59,
+      59,
+      tz,
+    );
+
+    if (!isCurrent) {
+      return {
+        current: { from: startCur, to: this.addMs(endCurFull, 1000) },
+        previous: { from: startPrevYear, to: this.addMs(endPrevFull, 1000) },
+      };
+    }
+
+    // Текущий месяц: current до now, previous — тот же кусок прошлого года.
+    const z = this.toZonedParts(now, tz);
+    const currentEnd = now;
+    const targetDay = Math.min(z.day, daysInPrev);
+    const previousEnd = this.zonedToUtc(
+      year - 1,
+      month,
+      targetDay,
+      z.hours,
+      z.minutes,
+      z.seconds,
+      tz,
+    );
+    return {
+      current: { from: startCur, to: currentEnd },
+      previous: { from: startPrevYear, to: previousEnd },
     };
-    const weekToDate: PeriodPairModel = {
-      current: weekCur,
-      previous: weekPrev,
-      currentRange: weekRanges.current,
-      previousRange: weekRanges.previous,
-    };
+  }
 
-    return { monthToDate, weekToDate };
+  private addMs(d: Date, ms: number): Date {
+    return new Date(d.getTime() + ms);
   }
 
   private async calcRevenue(
     ctx: AuthContext,
-    range: DateRangeModel,
+    range: DateRange,
   ): Promise<RevenueBreakdownModel> {
     const rows = await this.prisma.$queryRawUnsafe<
       Array<{ works: bigint; parts: bigint }>
@@ -335,64 +543,6 @@ export class DashboardService {
     const works = BigInt(row.works);
     const parts = BigInt(row.parts);
     return { works, parts, total: works + parts };
-  }
-
-  private calcMonthRanges(
-    now: Date,
-    tz: string,
-  ): { current: DateRangeModel; previous: DateRangeModel } {
-    const z = this.toZonedParts(now, tz);
-    const curStart = this.zonedToUtc(z.year, z.month, 1, 0, 0, 0, tz);
-    const curEnd = now;
-
-    const prevYear = z.month === 1 ? z.year - 1 : z.year;
-    const prevMonth = z.month === 1 ? 12 : z.month - 1;
-    const daysInCur = this.daysInMonth(z.year, z.month);
-    const daysInPrev = this.daysInMonth(prevYear, prevMonth);
-
-    const prevStart = this.zonedToUtc(prevYear, prevMonth, 1, 0, 0, 0, tz);
-    let prevEnd: Date;
-    if (z.day === daysInCur) {
-      // Сегодня — последний день текущего месяца → берём полный прошлый месяц.
-      prevEnd = this.zonedToUtc(z.year, z.month, 1, 0, 0, 0, tz); // начало текущего = end exclusive прошлого
-    } else {
-      const targetDay = Math.min(z.day, daysInPrev);
-      prevEnd = this.zonedToUtc(
-        prevYear,
-        prevMonth,
-        targetDay,
-        z.hours,
-        z.minutes,
-        z.seconds,
-        tz,
-      );
-    }
-
-    return {
-      current: { from: curStart, to: curEnd },
-      previous: { from: prevStart, to: prevEnd },
-    };
-  }
-
-  private calcWeekRanges(
-    now: Date,
-    tz: string,
-  ): { current: DateRangeModel; previous: DateRangeModel } {
-    const z = this.toZonedParts(now, tz);
-    // Понедельник текущей недели (z.weekday: 1=Пн ... 7=Вс)
-    const dayOffset = z.weekday - 1;
-    const monday = this.addDays(
-      this.zonedToUtc(z.year, z.month, z.day, 0, 0, 0, tz),
-      -dayOffset,
-    );
-    const curStart = monday;
-    const curEnd = now;
-    const prevStart = new Date(curStart.getTime() - 7 * DAY_MS);
-    const prevEnd = new Date(curEnd.getTime() - 7 * DAY_MS);
-    return {
-      current: { from: curStart, to: curEnd },
-      previous: { from: prevStart, to: prevEnd },
-    };
   }
 
   // ---------- Helpers ----------

@@ -1,7 +1,7 @@
 import { Field, ID, ObjectType } from '@nestjs/graphql';
 
-@ObjectType('DashboardWalletDailyAmount')
-export class WalletDailyAmountModel {
+@ObjectType('DashboardWalletIncomeSeries')
+export class WalletIncomeSeriesModel {
   @Field(() => ID)
   walletId: string;
 
@@ -11,28 +11,44 @@ export class WalletDailyAmountModel {
   @Field(() => String, { nullable: true })
   currencyCode: string | null;
 
-  @Field(() => BigInt, {
-    description: 'Сумма прихода (положительные транзакции) за день',
+  @Field(() => [BigInt], {
+    description: 'Суммы прихода по дням (порядок соответствует days в IncomeLast7Days)',
   })
-  amountIncome: bigint;
+  amounts: bigint[];
 }
 
-@ObjectType('DashboardDailyAmount')
-export class DailyAmountModel {
+@ObjectType('DashboardIncomeLast7Days')
+export class IncomeLast7DaysModel {
+  @Field(() => [Date], {
+    description: '7 дней (00:00 локального времени тенанта), от старого к новому',
+  })
+  days: Date[];
+
+  @Field(() => [WalletIncomeSeriesModel], {
+    description: 'Серии по счетам (только showInLayout=true)',
+  })
+  series: WalletIncomeSeriesModel[];
+}
+
+@ObjectType('DashboardDailyRevenue')
+export class DailyRevenueModel {
   @Field(() => Date, {
     description: 'День (00:00 локального времени тенанта)',
   })
   day: Date;
 
   @Field(() => BigInt, {
-    description: 'Сумма приходов за день',
+    description: 'Выручка по работам за день, accrued из закрытых заказов',
   })
-  income: bigint;
+  works: bigint;
 
   @Field(() => BigInt, {
-    description: 'Сумма расходов за день (положительное число)',
+    description: 'Выручка по запчастям за день',
   })
-  expense: bigint;
+  parts: bigint;
+
+  @Field(() => BigInt, { description: 'works + parts' })
+  total: bigint;
 }
 
 @ObjectType('DashboardWalletBalance')
@@ -95,15 +111,6 @@ export class OperationsKpiModel {
   openTasks: number;
 }
 
-@ObjectType('DashboardDateRange')
-export class DateRangeModel {
-  @Field(() => Date)
-  from: Date;
-
-  @Field(() => Date)
-  to: Date;
-}
-
 @ObjectType('DashboardRevenueBreakdown')
 export class RevenueBreakdownModel {
   @Field(() => BigInt, { description: 'Выручка по работам (без warranty), accrued из закрытых заказов' })
@@ -116,37 +123,84 @@ export class RevenueBreakdownModel {
   total: bigint;
 }
 
-@ObjectType('DashboardPeriodPair')
-export class PeriodPairModel {
-  @Field(() => RevenueBreakdownModel)
+@ObjectType('DashboardMonthlyRevenuePair')
+export class MonthlyRevenuePairModel {
+  @Field(() => Number, { description: 'Год текущего слота (например 2026)' })
+  year: number;
+
+  @Field(() => Number, { description: 'Месяц 1..12' })
+  month: number;
+
+  @Field(() => Boolean, {
+    description:
+      'Является ли месяц текущим (тогда current и previous посчитаны MTD)',
+  })
+  isCurrent: boolean;
+
+  @Field(() => RevenueBreakdownModel, {
+    description: 'Выручка за этот месяц текущего года',
+  })
   current: RevenueBreakdownModel;
 
-  @Field(() => RevenueBreakdownModel)
+  @Field(() => RevenueBreakdownModel, {
+    description: 'Выручка за тот же месяц прошлого года (тот же интервал для текущего месяца)',
+  })
   previous: RevenueBreakdownModel;
-
-  @Field(() => DateRangeModel)
-  currentRange: DateRangeModel;
-
-  @Field(() => DateRangeModel)
-  previousRange: DateRangeModel;
 }
 
-@ObjectType('DashboardPeriodComparison')
-export class PeriodComparisonModel {
-  @Field(() => PeriodPairModel, { description: 'MTD vs прошлый месяц до того же дня' })
-  monthToDate: PeriodPairModel;
+@ObjectType('DashboardWarrantyOrder')
+export class WarrantyOrderModel {
+  @Field(() => ID)
+  orderId: string;
 
-  @Field(() => PeriodPairModel, { description: 'WTD vs прошлая неделя со сдвигом 7 дней' })
-  weekToDate: PeriodPairModel;
+  @Field(() => Number)
+  orderNumber: number;
+
+  @Field(() => Date)
+  closedAt: Date;
+
+  @Field(() => String, { nullable: true })
+  customerName: string | null;
+
+  @Field(() => String, { nullable: true })
+  carName: string | null;
+
+  @Field(() => BigInt, { description: 'Гарантийные работы в заказе' })
+  works: bigint;
+
+  @Field(() => BigInt, { description: 'Гарантийные запчасти в заказе' })
+  parts: bigint;
+
+  @Field(() => BigInt, { description: 'works + parts' })
+  total: bigint;
+}
+
+@ObjectType('DashboardWarrantyLast30Days')
+export class WarrantyLast30DaysModel {
+  @Field(() => BigInt, { description: 'Сумма всей гарантии за 30 дней' })
+  total: bigint;
+
+  @Field(() => BigInt)
+  totalWorks: bigint;
+
+  @Field(() => BigInt)
+  totalParts: bigint;
+
+  @Field(() => [WarrantyOrderModel], {
+    description: 'Заказы с гарантийными позициями (отсортированы по убыванию суммы)',
+  })
+  orders: WarrantyOrderModel[];
 }
 
 @ObjectType('DashboardSummary')
 export class DashboardSummaryModel {
-  @Field(() => [WalletDailyAmountModel])
-  todayIncomeByWallet: WalletDailyAmountModel[];
+  @Field(() => IncomeLast7DaysModel, {
+    description: 'Приход по счетам за 7 дней с разбивкой по дням',
+  })
+  incomeLast7Days: IncomeLast7DaysModel;
 
-  @Field(() => [DailyAmountModel])
-  revenueLast7Days: DailyAmountModel[];
+  @Field(() => [DailyRevenueModel])
+  revenueLast7Days: DailyRevenueModel[];
 
   @Field(() => [WalletBalanceModel])
   walletBalances: WalletBalanceModel[];
@@ -154,8 +208,16 @@ export class DashboardSummaryModel {
   @Field(() => EmployeeDebtSummaryModel)
   employeeDebts: EmployeeDebtSummaryModel;
 
-  @Field(() => PeriodComparisonModel)
-  periodComparison: PeriodComparisonModel;
+  @Field(() => [MonthlyRevenuePairModel], {
+    description:
+      'Выручка по 6 последним месяцам (включая текущий), для каждого — пара current vs previous (тот же месяц прошлого года)',
+  })
+  monthlyRevenue: MonthlyRevenuePairModel[];
+
+  @Field(() => WarrantyLast30DaysModel, {
+    description: 'Заказы с гарантийными позициями за последние 30 дней',
+  })
+  warrantyLast30Days: WarrantyLast30DaysModel;
 
   @Field(() => OperationsKpiModel)
   operations: OperationsKpiModel;
