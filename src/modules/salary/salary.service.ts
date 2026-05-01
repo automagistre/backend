@@ -103,6 +103,12 @@ export class SalaryService {
       include: { employee: true },
     });
 
+    // Защита от двойного начисления — В ТЕКУЩЕМ МЕСЯЦЕ. Sourceid = salary.id
+    // одинаковый из месяца в месяц (legacy-схема: каждый месяц новая транзакция
+    // на ту же EmployeeSalary), поэтому фильтровать без даты — заблокирует
+    // начисление за май транзакцией от апреля.
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
     let charged = 0;
     let skipped = 0;
     let failed = 0;
@@ -114,6 +120,7 @@ export class SalaryService {
             source: CustomerTransactionSource.MonthlySalary,
             sourceId: s.id,
             tenantId: ctx.tenantId,
+            createdAt: { gte: startOfMonth },
           },
         });
         if (exists) {

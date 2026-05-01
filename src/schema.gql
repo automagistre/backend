@@ -1581,6 +1581,7 @@ type Mutation {
 
   """Перенести резерв между позициями заказов (сценарий "занять")"""
   transferReservation(input: TransferReservationInput!): Boolean!
+  triggerMonthlySalaries(payday: Int!): Boolean!
   updateAppealStatus(input: UpdateAppealStatusInput!): Boolean!
 
   """Обновить запись календаря"""

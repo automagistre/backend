@@ -14,13 +14,17 @@ export class SalaryScheduler {
   ) {}
 
   @Cron('5 0 * * *')
-  async handleMonthlySalaries() {
+  async handleMonthlySalaries(): Promise<void> {
     const payday = new Date().getDate();
+    await this.runForAllTenants(payday);
+  }
+
+  async runForAllTenants(payday: number): Promise<void> {
     const tenants = await this.prisma.tenant.findMany({
       select: { id: true, group_id: true },
     });
     this.logger.log(
-      `handleMonthlySalaries: payday=${payday} tenants=${tenants.length}`,
+      `runForAllTenants: payday=${payday} tenants=${tenants.length}`,
     );
 
     for (const tenant of tenants) {

@@ -1,5 +1,6 @@
-import { Args, ID, Mutation, Query, Resolver } from '@nestjs/graphql';
+import { Args, ID, Int, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { EmployeeSalaryService } from './employee-salary.service';
+import { SalaryService } from './salary.service';
 import { EmployeeSalaryModel } from './models/employee-salary.model';
 import { CreateEmployeeSalaryInput } from './inputs/create-employee-salary.input';
 import { AuthContext } from 'src/common/decorators/auth-context.decorator';
@@ -9,7 +10,10 @@ import type { AuthContext as AuthContextType } from 'src/common/user-id.store';
 @Resolver(() => EmployeeSalaryModel)
 @RequireTenant()
 export class EmployeeSalaryResolver {
-  constructor(private readonly employeeSalaryService: EmployeeSalaryService) {}
+  constructor(
+    private readonly employeeSalaryService: EmployeeSalaryService,
+    private readonly salaryService: SalaryService,
+  ) {}
 
   @Query(() => [EmployeeSalaryModel], {
     name: 'employeeSalaries',
@@ -44,6 +48,20 @@ export class EmployeeSalaryResolver {
     @Args('salaryId', { type: () => ID }) salaryId: string,
   ) {
     await this.employeeSalaryService.cancel(ctx, salaryId);
+    return true;
+  }
+
+  /**
+   * Ручной запуск ежемесячного начисления ЗП по текущему тенанту.
+   * Идемпотентен: повторный вызов в рамках текущего месяца ничего не создаст.
+   * Используется как страховка, если по какой-то причине cron не отработал.
+   */
+  @Mutation(() => Boolean, { name: 'triggerMonthlySalaries' })
+  async triggerMonthlySalaries(
+    @AuthContext() ctx: AuthContextType,
+    @Args('payday', { type: () => Int }) payday: number,
+  ): Promise<boolean> {
+    await this.salaryService.chargeMonthlySalaries(ctx, payday);
     return true;
   }
 }
