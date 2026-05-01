@@ -39,6 +39,7 @@ import { AppUserModule } from './modules/app-user/app-user.module';
 import { CallsModule } from './modules/calls/calls.module';
 import { TasksModule } from './modules/tasks/tasks.module';
 import { WwwModule } from './modules/www/www.module';
+import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { DevAuthGuard } from './modules/auth/guards/dev-auth.guard';
 import { TenantGuard } from './common/guards/tenant.guard';
 import { Reflector } from '@nestjs/core';
@@ -89,6 +90,7 @@ import authConfig from './config/auth.config';
     CallsModule,
     TasksModule,
     WwwModule,
+    DashboardModule,
   ],
   providers: [
     {

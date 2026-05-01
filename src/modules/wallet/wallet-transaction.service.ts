@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { randomUUID } from 'crypto';
 import { Prisma } from 'src/generated/prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateWalletTransactionInput } from './inputs/create-wallet-transaction.input';
@@ -43,7 +44,7 @@ export class WalletTransactionService {
       data: {
         walletId: data.walletId,
         source: data.source,
-        sourceId: data.sourceId,
+        sourceId: data.sourceId ?? randomUUID(),
         description: data.description ?? null,
         amountAmount,
         amountCurrencyCode,
@@ -74,7 +75,7 @@ export class WalletTransactionService {
       data: {
         walletId: data.walletId,
         source: data.source,
-        sourceId: data.sourceId,
+        sourceId: data.sourceId ?? randomUUID(),
         description: data.description ?? null,
         amountAmount,
         amountCurrencyCode,
@@ -175,6 +176,8 @@ export class WalletTransactionService {
         return '';
       case WalletTransactionSource.Expense:
         return this.displayContextService.getExpenseName(ctx, sourceId);
+      case WalletTransactionSource.ManualIncome:
+        return '';
       case WalletTransactionSource.Legacy:
       case WalletTransactionSource.Initial:
       default:

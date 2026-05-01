@@ -961,8 +961,10 @@ input CreateWalletTransactionInput {
   """Источник проводки (enum)"""
   source: Int!
 
-  """ID источника (заказ, приход и т.д.)"""
-  sourceId: String!
+  """
+  ID источника (заказ, приход, статья расхода и т.д.). Опциональный — для ручных проводок без основания будет сгенерирован случайный UUID.
+  """
+  sourceId: String
 
   """ID кошелька"""
   walletId: ID!
@@ -994,6 +996,109 @@ type CustomerTransactionModel {
   """ID источника (заказ, счет и т.д.)"""
   sourceId: String!
   tenantId: String!
+}
+
+type DashboardDailyAmount {
+  """День (00:00 локального времени тенанта)"""
+  day: DateTime!
+
+  """Сумма расходов за день (положительное число)"""
+  expense: BigInt!
+
+  """Сумма приходов за день"""
+  income: BigInt!
+}
+
+type DashboardDateRange {
+  from: DateTime!
+  to: DateTime!
+}
+
+type DashboardEmployeeDebt {
+  """
+  Баланс сотрудника. Положительный — компания должна сотруднику, отрицательный — сотрудник должен компании.
+  """
+  balance: BigInt!
+  employeeId: ID!
+  fullName: String!
+  personId: ID!
+}
+
+type DashboardEmployeeDebtSummary {
+  items: [DashboardEmployeeDebt!]!
+
+  """
+  Сумма отрицательных балансов (как положительное число) — сотрудники должны нам
+  """
+  totalOwedByEmployees: BigInt!
+
+  """Сумма положительных балансов — мы должны сотрудникам"""
+  totalOwedToEmployees: BigInt!
+}
+
+type DashboardOperationsKpi {
+  """Активные заказы (не закрытые и не отменённые)"""
+  activeOrders: Float!
+
+  """Все открытые задачи (TODO + IN_PROGRESS)"""
+  openTasks: Float!
+
+  """Открытые задачи QUALITY_CONTROL (TODO + IN_PROGRESS)"""
+  qualityControlTasks: Float!
+
+  """Заказы готовые к выдаче (status = READY)"""
+  readyOrders: Float!
+}
+
+type DashboardPeriodComparison {
+  """MTD vs прошлый месяц до того же дня"""
+  monthToDate: DashboardPeriodPair!
+
+  """WTD vs прошлая неделя со сдвигом 7 дней"""
+  weekToDate: DashboardPeriodPair!
+}
+
+type DashboardPeriodPair {
+  current: DashboardRevenueBreakdown!
+  currentRange: DashboardDateRange!
+  previous: DashboardRevenueBreakdown!
+  previousRange: DashboardDateRange!
+}
+
+type DashboardRevenueBreakdown {
+  """Выручка по запчастям (без warranty)"""
+  parts: BigInt!
+
+  """works + parts"""
+  total: BigInt!
+
+  """Выручка по работам (без warranty), accrued из закрытых заказов"""
+  works: BigInt!
+}
+
+type DashboardSummary {
+  employeeDebts: DashboardEmployeeDebtSummary!
+  operations: DashboardOperationsKpi!
+  periodComparison: DashboardPeriodComparison!
+  revenueLast7Days: [DashboardDailyAmount!]!
+  todayIncomeByWallet: [DashboardWalletDailyAmount!]!
+  walletBalances: [DashboardWalletBalance!]!
+}
+
+type DashboardWalletBalance {
+  """Баланс в минорных единицах"""
+  balance: BigInt!
+  currencyCode: String
+  walletId: ID!
+  walletName: String!
+}
+
+type DashboardWalletDailyAmount {
+  """Сумма прихода (положительные транзакции) за день"""
+  amountIncome: BigInt!
+  currencyCode: String
+  walletId: ID!
+  walletName: String!
 }
 
 """
@@ -2263,6 +2368,11 @@ type Query {
   """Баланс операнда (сумма проводок)"""
   customerBalance(operandId: String!): BigInt!
   customerTransactions(dateFrom: DateTime, dateTo: DateTime, operandId: String!, skip: Int = 0, take: Int = 25): PaginatedCustomerTransactions!
+
+  """
+  Сводные данные для главной страницы (Dashboard). Один запрос на всю страницу.
+  """
+  dashboardSummary(tz: String): DashboardSummary!
   employee(id: String!): EmployeeModel
 
   """Ежемесячные начисления сотрудника"""

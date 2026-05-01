@@ -18,9 +18,14 @@ export class CreateWalletTransactionInput {
   @Field(() => Int, { description: 'Источник проводки (enum)' })
   source: number;
 
+  @IsOptional()
   @IsUUID()
-  @Field(() => String, { description: 'ID источника (заказ, приход и т.д.)' })
-  sourceId: string;
+  @Field(() => String, {
+    nullable: true,
+    description:
+      'ID источника (заказ, приход, статья расхода и т.д.). Опциональный — для ручных проводок без основания будет сгенерирован случайный UUID.',
+  })
+  sourceId?: string | null;
 
   @IsOptional()
   @IsString()
