@@ -168,8 +168,20 @@ export class WalletTransactionService {
       case WalletTransactionSource.OrderDebit:
       case WalletTransactionSource.OrderPrepayRefund:
         return this.displayContextService.getOrderContext(ctx, sourceId);
-      case WalletTransactionSource.Payroll:
-        return '';
+      case WalletTransactionSource.Payroll: {
+        // source_id указывает на customer_transaction.id; получатель ЗП —
+        // operand_id связанной проводки по клиенту (person сотрудника).
+        const ct = await this.prisma.customerTransaction.findFirst({
+          where: { id: sourceId, tenantId: ctx.tenantId },
+          select: { operandId: true },
+        });
+        if (!ct) return '';
+        return (
+          (await this.displayContextService.getOperandDisplayName(
+            ct.operandId,
+          )) ?? ''
+        );
+      }
       case WalletTransactionSource.OperandManual:
         return this.displayContextService.getPersonDisplay(sourceId);
       case WalletTransactionSource.IncomePayment:
