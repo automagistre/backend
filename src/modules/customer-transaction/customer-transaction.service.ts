@@ -182,12 +182,8 @@ export class CustomerTransactionService {
         sourceId,
       );
     }
-    if (source === CustomerTransactionSource.ManualWithoutWallet) {
-      return 'Ручная проводка (без счёта)';
-    }
-    if (source === CustomerTransactionSource.Penalty) {
-      return '';
-    }
+    // Для ManualWithoutWallet и Penalty контекстной строки нет — клиент
+    // отображает только базовую метку источника, чтобы не дублировать её.
     return '';
   }
 
