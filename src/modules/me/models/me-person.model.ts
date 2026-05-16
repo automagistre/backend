@@ -19,5 +19,8 @@ export class MePerson {
   telephone!: string | null;
 
   @Field(() => String, { nullable: true })
+  officePhone!: string | null;
+
+  @Field(() => String, { nullable: true })
   email!: string | null;
 }

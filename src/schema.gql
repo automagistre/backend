@@ -1465,6 +1465,7 @@ type MePerson {
   firstname: String
   id: ID!
   lastname: String
+  officePhone: String
   telephone: String
 }
 

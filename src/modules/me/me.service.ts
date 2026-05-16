@@ -32,6 +32,7 @@ export class MeService {
         firstname: true,
         lastname: true,
         telephone: true,
+        officePhone: true,
         email: true,
       },
     });
