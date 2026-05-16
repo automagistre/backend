@@ -1469,6 +1469,13 @@ type MePerson {
   telephone: String
 }
 
+input MeProfileUpdateInput {
+  email: String
+  firstname: String
+  lastname: String
+  officePhone: String
+}
+
 type MeTenantModel {
   id: ID!
   name: String
@@ -1709,6 +1716,11 @@ type Mutation {
   login(input: LoginDto!): Tokens!
   logout(input: RefreshDto!): Boolean!
   markCallCallback(input: MarkCallCallbackInput!): CallModel!
+
+  """
+  Partial-update профиля текущего клиента. Основной телефон (identity) править нельзя — обращение в автосервис.
+  """
+  meProfileUpdate(input: MeProfileUpdateInput!): MePerson!
   passwordLogin(input: PasswordLoginDto!): Tokens!
 
   """Реализовать рекомендацию в заказе"""
@@ -2468,15 +2480,15 @@ type Query {
 
   """Текущий пользователь и доступные tenant"""
   me: MeModel!
+
+  """
+  Профиль текущего клиента. Идентификация через X-Me-Customer-Phone (mock; позже — JWT клиента).
+  """
+  meProfile: MePerson!
   missedCallsCount: Int!
 
   """Движения запчастей с фильтрацией и пагинацией"""
   motions(filter: MotionFilterInput, skip: Int, take: Int): PaginatedMotions!
-
-  """
-  Профиль текущего клиента. Идентификация через X-My-Customer-Phone (mock; позже — JWT клиента).
-  """
-  myProfile: MePerson!
 
   """Заметки по subject (Order, Car или Person)"""
   notes(isPublic: Boolean, subjectId: ID!): [NoteModel!]!
