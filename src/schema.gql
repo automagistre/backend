@@ -1460,6 +1460,14 @@ type MeModel {
   tenants: [MeTenantModel!]!
 }
 
+type MePerson {
+  email: String
+  firstname: String
+  id: ID!
+  lastname: String
+  telephone: String
+}
+
 type MeTenantModel {
   id: ID!
   name: String
@@ -2463,6 +2471,11 @@ type Query {
 
   """Движения запчастей с фильтрацией и пагинацией"""
   motions(filter: MotionFilterInput, skip: Int, take: Int): PaginatedMotions!
+
+  """
+  Профиль текущего клиента. Идентификация через X-My-Customer-Phone (mock; позже — JWT клиента).
+  """
+  myProfile: MePerson!
 
   """Заметки по subject (Order, Car или Person)"""
   notes(isPublic: Boolean, subjectId: ID!): [NoteModel!]!
