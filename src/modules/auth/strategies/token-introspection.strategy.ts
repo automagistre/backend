@@ -51,7 +51,16 @@ export class TokenIntrospectionStrategy extends PassportStrategy(
       if (!result.active) {
         throw new UnauthorizedException('Token is not active');
       }
-      if (!result.sub || !result.email) {
+      if (!result.sub) {
+        throw new UnauthorizedException(
+          'Токен не содержит необходимых данных. Войдите снова.',
+        );
+      }
+
+      // Service-account токены (client_credentials) не имеют email.
+      // Обычные пользовательские токены email обязан содержать.
+      const isServiceAccount = !result.email && !!result.preferred_username?.startsWith('service-account-');
+      if (!result.email && !isServiceAccount) {
         throw new UnauthorizedException(
           'Токен не содержит необходимых данных. Войдите снова.',
         );
@@ -62,7 +71,7 @@ export class TokenIntrospectionStrategy extends PassportStrategy(
 
       return {
         sub: result.sub,
-        email: result.email,
+        email: result.email ?? result.preferred_username ?? result.sub,
         name: result.name,
         preferred_username: result.preferred_username,
         roles: apiRoles.length > 0 ? apiRoles : undefined,
