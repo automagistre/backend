@@ -12,7 +12,9 @@ export async function getGraphQLConfig(
     autoSchemaFile: join(process.cwd(), 'src/schema.gql'),
     path: '/api/v1/graphql',
     sortSchema: true,
-    playground: isDev(configService),
+    // GraphiQL вместо устаревшего Playground (баг с «залипающими» подсказками в Chrome 127+)
+    graphiql: isDev(configService),
+    playground: false,
     subscriptions: {
       'graphql-ws': {
         path: '/api/v1/graphql',
