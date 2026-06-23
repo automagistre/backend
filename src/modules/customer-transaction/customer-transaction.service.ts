@@ -24,6 +24,7 @@ const ORDER_SOURCES = [
   CustomerTransactionSource.OrderDebit,
   CustomerTransactionSource.OrderPayment,
   CustomerTransactionSource.OrderPrepayRefund,
+  CustomerTransactionSource.OrderSalary,
 ];
 
 @Injectable()
