@@ -22,6 +22,22 @@ export class RecommendationService {
     private readonly settingsService: SettingsService,
   ) {}
 
+  /**
+   * Read-only без ReservationService и parts: используется клиентским API
+   * (LK) — рекомендации актуальные на сейчас. «Активные» = `expiredAt is
+   * null OR expiredAt > now()`.
+   */
+  async findActiveByCarIdInTenantGroup(tenantGroupId: string, carId: string) {
+    return this.prisma.carRecommendation.findMany({
+      where: {
+        carId,
+        tenantGroupId,
+        OR: [{ expiredAt: null }, { expiredAt: { gt: new Date() } }],
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
   async findByCarId(ctx: AuthContext, carId: string) {
     const recommendations = await this.prisma.carRecommendation.findMany({
       where: { carId, tenantGroupId: ctx.tenantGroupId, expiredAt: null },

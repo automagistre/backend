@@ -6,19 +6,38 @@ import {
 import {
   Args,
   Context,
+  ID,
   Mutation,
+  Parent,
   Query,
+  ResolveField,
   Resolver,
 } from '@nestjs/graphql';
 import type { AuthContext } from 'src/common/user-id.store';
-import { Public } from 'src/modules/auth/decorators/public.decorator';
+// TODO(lk-auth): временно отключён публичный доступ к me*-эндпоинтам.
+// Вернуть @Public() (или ввести LkTenantGuard с service-account JWT) при
+// возобновлении задачи LK. См. agent-core-lk-auth-hardening.
+// import { Public } from 'src/modules/auth/decorators/public.decorator';
+import { CustomerCarRelationService } from 'src/modules/customer-car-relation/customer-car-relation.service';
+import { OrderService } from 'src/modules/order/order.service';
 import { PersonService } from 'src/modules/person/person.service';
+import { RecommendationService } from 'src/modules/recommendation/recommendation.service';
 import {
   WwwTenant,
   WwwTenantContext,
 } from 'src/modules/www/decorators/www-tenant.decorator';
 import { MeProfileUpdateInput } from './inputs/me-profile-update.input';
+import { MeCar, toMeCar } from './models/me-car.model';
+import {
+  MeOrderList,
+  MeOrdersArgs,
+  toMeOrder,
+} from './models/me-order.model';
 import { MePerson, toMePerson } from './models/me-person.model';
+import {
+  MeRecommendation,
+  toMeRecommendation,
+} from './models/me-recommendation.model';
 
 interface ReqWithHeaders {
   headers?: Record<string, string | string[] | undefined>;
@@ -33,18 +52,24 @@ const ME_PHONE_HEADER = 'x-me-customer-phone';
  * Когда появится auth-flow клиента (Keycloak realm LK), header заменится на
  * связку `keycloakUserId ↔ Person.id`, идентификация будет через JWT клиента.
  *
- * Tenant определяется по `X-Tenant-Public-Id` (как в WwwResolver).
+ * Tenant определяется по `X-Tenant-Public-Id` (как в WwwResolver). Person/Car/Order
+ * фильтруются по `tenantGroupId` — клиент видит свои данные во всей tenant group.
  *
  * NB: query называется `meProfile`, а не `me`, потому что `me` уже занят
  * админским резолвером (`auth/me.resolver.ts`) в той же схеме `/api/v1/graphql`.
  *
- * Все CRUD-операции делегируются в `PersonService` — отдельного сервиса под
- * клиентский слой не вводим, чтобы не дублировать бизнес-логику Person.
+ * Все CRUD-операции делегируются в существующие сервисы (PersonService, OrderService,
+ * CustomerCarRelationService) — отдельных «клиентских» сервисов не вводим.
  */
-@Public()
-@Resolver()
+// @Public() — временно отключён (см. TODO(lk-auth) выше)
+@Resolver(() => MePerson)
 export class MeResolver {
-  constructor(private readonly personService: PersonService) {}
+  constructor(
+    private readonly personService: PersonService,
+    private readonly carRelations: CustomerCarRelationService,
+    private readonly orderService: OrderService,
+    private readonly recommendationService: RecommendationService,
+  ) {}
 
   @Query(() => MePerson, {
     name: 'meProfile',
@@ -90,6 +115,91 @@ export class MeResolver {
       },
     );
     return toMePerson(updated);
+  }
+
+  /**
+   * Машины клиента — все уникальные авто из его Order'ов в рамках tenant group.
+   */
+  @ResolveField(() => [MeCar], {
+    description: 'Автомобили клиента (по истории заказов в tenant group)',
+  })
+  async cars(
+    @Parent() person: MePerson,
+    @WwwTenant() tenant: WwwTenantContext,
+  ): Promise<MeCar[]> {
+    const cars = await this.carRelations.findCarsByCustomerInTenantGroup(
+      tenant.tenantGroupId,
+      person.id,
+    );
+    return cars.map(toMeCar);
+  }
+
+  @Query(() => MeOrderList, {
+    name: 'meOrders',
+    description:
+      'Заказы клиента по конкретной машине, с пагинацией и фильтром «closed».',
+  })
+  async meOrders(
+    @WwwTenant() tenant: WwwTenantContext,
+    @Context('req') req: ReqWithHeaders,
+    @Args() args: MeOrdersArgs,
+  ): Promise<MeOrderList> {
+    const personId = await this.identifyPersonId(tenant, req);
+    await this.assertCarOwned(tenant.tenantGroupId, personId, args.carId);
+
+    const { items, total } =
+      await this.orderService.findManyByCustomerInTenantGroup(
+        tenant.tenantGroupId,
+        personId,
+        {
+          take: args.take,
+          skip: args.skip,
+          closed: args.closed ?? undefined,
+          carId: args.carId,
+        },
+      );
+    return { items: items.map(toMeOrder), total };
+  }
+
+  @Query(() => [MeRecommendation], {
+    name: 'meRecommendations',
+    description:
+      'Активные рекомендации по конкретной машине клиента (expiredAt is null OR > now()).',
+  })
+  async meRecommendations(
+    @WwwTenant() tenant: WwwTenantContext,
+    @Context('req') req: ReqWithHeaders,
+    @Args('carId', { type: () => ID }) carId: string,
+  ): Promise<MeRecommendation[]> {
+    const personId = await this.identifyPersonId(tenant, req);
+    await this.assertCarOwned(tenant.tenantGroupId, personId, carId);
+
+    const rows =
+      await this.recommendationService.findActiveByCarIdInTenantGroup(
+        tenant.tenantGroupId,
+        carId,
+      );
+    return rows.map(toMeRecommendation);
+  }
+
+  /**
+   * Проверка ownership: машина принадлежит клиенту, если есть хотя бы один
+   * заказ клиента с этим `carId` в tenant group. Иначе выдадим 404 (а не
+   * 403, чтобы не палить существование чужих машин).
+   */
+  private async assertCarOwned(
+    tenantGroupId: string,
+    personId: string,
+    carId: string,
+  ): Promise<void> {
+    const cars = await this.carRelations.findCarsByCustomerInTenantGroup(
+      tenantGroupId,
+      personId,
+    );
+    const owned = cars.some((c) => c.id === carId);
+    if (!owned) {
+      throw new NotFoundException('Машина не найдена');
+    }
   }
 
   /**

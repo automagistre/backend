@@ -1452,6 +1452,24 @@ type McWorkModel {
   tenantId: String!
 }
 
+type MeCar {
+  """Гос. номер"""
+  gosnomer: String
+  id: ID!
+
+  """VIN или номер кузова"""
+  identifier: String
+
+  """Пробег, км"""
+  mileage: Int!
+
+  """Производитель и модель (например, "BMW X5 E70")"""
+  vehicleName: String!
+
+  """Год выпуска"""
+  year: Int
+}
+
 type MeModel {
   """Профиль пользователя"""
   profile: AppUserModel
@@ -1460,7 +1478,31 @@ type MeModel {
   tenants: [MeTenantModel!]!
 }
 
+type MeOrder {
+  """Автомобиль заказа"""
+  car: MeCar
+
+  """Дата создания заказа"""
+  createdAt: DateTime
+  description: String
+  id: ID!
+
+  """Пробег на момент заказа"""
+  mileage: Int
+
+  """Номер заказа в рамках tenant"""
+  number: Int!
+  status: OrderStatus!
+}
+
+type MeOrderList {
+  items: [MeOrder!]!
+  total: Int!
+}
+
 type MePerson {
+  """Автомобили клиента (по истории заказов в tenant group)"""
+  cars: [MeCar!]!
   email: String
   firstname: String
   id: ID!
@@ -1474,6 +1516,23 @@ input MeProfileUpdateInput {
   firstname: String
   lastname: String
   officePhone: String
+}
+
+type MeRecommendation {
+  createdAt: DateTime
+
+  """Просрочена ли (expiredAt < now())"""
+  expired: Boolean!
+
+  """Когда рекомендация теряет актуальность"""
+  expiredAt: DateTime
+  id: ID!
+
+  """Стоимость работы (без запчастей)"""
+  price: MoneyModel
+
+  """Название работы / услуги"""
+  service: String!
 }
 
 type MeTenantModel {
@@ -2481,10 +2540,18 @@ type Query {
   """Текущий пользователь и доступные tenant"""
   me: MeModel!
 
+  """Заказы клиента по конкретной машине, с пагинацией и фильтром «closed»."""
+  meOrders(carId: ID!, closed: Boolean, skip: Int = 0, take: Int = 25): MeOrderList!
+
   """
   Профиль текущего клиента. Идентификация через X-Me-Customer-Phone (mock; позже — JWT клиента).
   """
   meProfile: MePerson!
+
+  """
+  Активные рекомендации по конкретной машине клиента (expiredAt is null OR > now()).
+  """
+  meRecommendations(carId: ID!): [MeRecommendation!]!
   missedCallsCount: Int!
 
   """Движения запчастей с фильтрацией и пагинацией"""

@@ -59,6 +59,75 @@ export class OrderService {
   }
 
   /**
+   * Read-only: список заказов клиента в рамках tenant group (используется LK).
+   * Возвращает Prisma-модель с include car+vehicle+manufacturer для маппинга
+   * в `MeOrder`. Tenant-привязка — через `tenant.group_id`, чтобы клиент
+   * видел заказы во всех тенантах своей группы.
+   *
+   * Опциональный фильтр `closed`:
+   * - true  → только закрытые/отменённые (завершённые с точки зрения клиента)
+   * - false → активные (не закрытые)
+   * - undefined → все
+   */
+  async findManyByCustomerInTenantGroup(
+    tenantGroupId: string,
+    customerId: string,
+    options?: {
+      take?: number;
+      skip?: number;
+      closed?: boolean;
+      carId?: string;
+    },
+  ) {
+    const closedStatuses = [OrderStatus.CLOSED, OrderStatus.CANCELLED];
+    const statusWhere =
+      options?.closed === true
+        ? { status: { in: closedStatuses } }
+        : options?.closed === false
+          ? { status: { notIn: closedStatuses } }
+          : {};
+
+    /* Order.tenantId не описан как Prisma relation, поэтому фильтрацию по
+     * tenant group делаем через предварительный список tenantId (двухшаговый
+     * запрос). Это безопаснее, чем полагаться на инвариант
+     * Person.tenantGroupId == Order.tenant.group_id. */
+    const tenants = await this.prisma.tenant.findMany({
+      where: { group_id: tenantGroupId },
+      select: { id: true },
+    });
+    const tenantIds = tenants.map((t) => t.id);
+    if (tenantIds.length === 0) {
+      return { items: [], total: 0 };
+    }
+
+    const where: Prisma.OrderWhereInput = {
+      customerId,
+      tenantId: { in: tenantIds },
+      ...(options?.carId ? { carId: options.carId } : {}),
+      ...statusWhere,
+    };
+
+    const [items, total] = await Promise.all([
+      this.prisma.order.findMany({
+        where,
+        include: {
+          car: {
+            include: {
+              vehicle: { include: { manufacturer: true } },
+            },
+          },
+        },
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        take: options?.take,
+        skip: options?.skip,
+      }),
+      this.prisma.order.count({ where }),
+    ]);
+
+    return { items, total };
+  }
+
+  /**
    * Создание предоплаты по заказу: order_payment + wallet_transaction в одной транзакции.
    * Возвращает созданную проводку по кошельку (для списка предоплат).
    */

@@ -101,6 +101,63 @@ export class CustomerCarRelationService {
     return ordered;
   }
 
+  /**
+   * Машины клиента в рамках tenant group (а не одного tenant).
+   * Используется клиентским API (LK BFF), где клиент видит свои машины
+   * в рамках всей tenant group.
+   *
+   * Уникальные `Car` собираются по `Order.customerId = personId`,
+   * Tenant-привязка — через `Order.tenant.group_id = tenantGroupId`.
+   */
+  async findCarsByCustomerInTenantGroup(
+    tenantGroupId: string,
+    customerId: string,
+    options?: { take?: number },
+  ) {
+    const links = await this.prisma.order.findMany({
+      where: {
+        customerId,
+        carId: { not: null },
+      },
+      select: { carId: true },
+      distinct: ['carId'],
+      orderBy: { id: 'desc' },
+    });
+
+    const allCarIds = links
+      .map((item) => item.carId)
+      .filter((carId): carId is string => Boolean(carId));
+
+    if (allCarIds.length === 0) {
+      return [];
+    }
+
+    const rows = await this.prisma.car.findMany({
+      where: {
+        tenantGroupId,
+        id: { in: allCarIds },
+      },
+      include: {
+        vehicle: {
+          include: {
+            manufacturer: true,
+          },
+        },
+      },
+    });
+
+    const byId = new Map(rows.map((item) => [item.id, item]));
+    const ordered = allCarIds
+      .map((id) => byId.get(id))
+      .filter((item): item is NonNullable<typeof item> => Boolean(item));
+
+    if (options?.take && options.take > 0) {
+      return ordered.slice(0, options.take);
+    }
+
+    return ordered;
+  }
+
   async findCustomersByCarId(
     ctx: AuthContext,
     carId: string,
