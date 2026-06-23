@@ -277,6 +277,22 @@ export class TasksService {
       return;
     }
 
+    // Контроль качества нужен только если есть кому звонить: должен быть
+    // привязанный клиент с телефоном (мобильным или рабочим).
+    const customer = await this.resolveCustomerWithContact(
+      input.customerId,
+      tx,
+    );
+    if (!customer) {
+      return;
+    }
+
+    // Один контакт — одна открытая карточка КК: при нескольких заказах одного
+    // клиента не плодим дубли.
+    if (await this.hasOpenQualityControlTask(ctx.tenantId, customer.id, tx)) {
+      return;
+    }
+
     const [delayDays, startHour, timezone] = await Promise.all([
       this.settingsService.getQualityControlDelayDays(ctx.tenantId, tx),
       this.settingsService.getQualityControlStartHour(ctx.tenantId, tx),
@@ -288,10 +304,6 @@ export class TasksService {
       startHour,
       timezone,
     );
-    const customerId = await this.resolveExistingCustomerId(
-      input.customerId,
-      tx,
-    );
 
     await tx.task.create({
       data: {
@@ -302,7 +314,7 @@ export class TasksService {
         description:
           'Позвонить клиенту и уточнить, всё ли в порядке после выдачи автомобиля.',
         orderId: input.orderId,
-        customerId,
+        customerId: customer.id,
         scheduledAt,
         createdBy: ctx.userId,
         tags: [],
@@ -394,8 +406,15 @@ export class TasksService {
       this.settingsService.getQualityControlStartHour(ctx.tenantId),
       this.settingsService.getTimezone(ctx.tenantId),
     ]);
-    const existingCustomerIds = await this.getExistingCustomerIds(
+    // Клиенты с реальным контактом (телефоном) — только им создаём КК.
+    const customersWithContact = await this.getCustomersWithContact(
       orders.map((order) => order.customerId),
+    );
+    // Контакты, у которых уже есть открытая карточка КК — чтобы не плодить дубли
+    // (учитываем и существующие задачи, и создаваемые в этом же прогоне).
+    const customersWithOpenQc = await this.getCustomersWithOpenQualityControl(
+      ctx.tenantId,
+      Array.from(customersWithContact),
     );
 
     let createdCount = 0;
@@ -409,10 +428,14 @@ export class TasksService {
         continue;
       }
 
-      const customerId =
-        order.customerId && existingCustomerIds.has(order.customerId)
-          ? order.customerId
-          : null;
+      const customerId = order.customerId;
+      if (!customerId || !customersWithContact.has(customerId)) {
+        continue;
+      }
+      if (customersWithOpenQc.has(customerId)) {
+        continue;
+      }
+
       const closedAt = order.close?.orderDeal?.createdAt ?? new Date();
       const scheduledAt = this.scheduleAtBusinessDay(
         closedAt,
@@ -436,6 +459,7 @@ export class TasksService {
           tags: [],
         },
       });
+      customersWithOpenQc.add(customerId);
       createdCount += 1;
     }
 
@@ -573,22 +597,54 @@ export class TasksService {
     };
   }
 
-  private async resolveExistingCustomerId(
+  private hasContact(person: {
+    telephone: string | null;
+    officePhone: string | null;
+  }): boolean {
+    return (
+      Boolean(person.telephone?.trim()) || Boolean(person.officePhone?.trim())
+    );
+  }
+
+  /** Клиент существует и у него есть телефон (мобильный или рабочий). */
+  private async resolveCustomerWithContact(
     customerId: string | null | undefined,
     tx?: Prisma.TransactionClient,
-  ): Promise<string | null> {
+  ): Promise<{ id: string } | null> {
     if (!customerId) {
       return null;
     }
     const client = tx ?? this.prisma;
     const customer = await client.person.findUnique({
       where: { id: customerId },
-      select: { id: true },
+      select: { id: true, telephone: true, officePhone: true },
     });
-    return customer?.id ?? null;
+    if (!customer || !this.hasContact(customer)) {
+      return null;
+    }
+    return { id: customer.id };
   }
 
-  private async getExistingCustomerIds(
+  /** Есть ли у клиента незакрытая (TODO/IN_PROGRESS) карточка контроля качества. */
+  private async hasOpenQualityControlTask(
+    tenantId: string,
+    customerId: string,
+    tx?: Prisma.TransactionClient,
+  ): Promise<boolean> {
+    const client = tx ?? this.prisma;
+    const existing = await client.task.findFirst({
+      where: {
+        tenantId,
+        customerId,
+        type: TaskTypeEnum.QUALITY_CONTROL,
+        status: { in: [TaskStatusEnum.TODO, TaskStatusEnum.IN_PROGRESS] },
+      },
+      select: { id: true },
+    });
+    return Boolean(existing);
+  }
+
+  private async getCustomersWithContact(
     customerIds: Array<string | null | undefined>,
   ): Promise<Set<string>> {
     const uniqueCustomerIds = Array.from(
@@ -599,8 +655,35 @@ export class TasksService {
     }
     const customers = await this.prisma.person.findMany({
       where: { id: { in: uniqueCustomerIds } },
-      select: { id: true },
+      select: { id: true, telephone: true, officePhone: true },
     });
-    return new Set(customers.map((customer) => customer.id));
+    return new Set(
+      customers
+        .filter((customer) => this.hasContact(customer))
+        .map((customer) => customer.id),
+    );
+  }
+
+  private async getCustomersWithOpenQualityControl(
+    tenantId: string,
+    customerIds: string[],
+  ): Promise<Set<string>> {
+    if (!customerIds.length) {
+      return new Set<string>();
+    }
+    const tasks = await this.prisma.task.findMany({
+      where: {
+        tenantId,
+        type: TaskTypeEnum.QUALITY_CONTROL,
+        status: { in: [TaskStatusEnum.TODO, TaskStatusEnum.IN_PROGRESS] },
+        customerId: { in: customerIds },
+      },
+      select: { customerId: true },
+    });
+    return new Set(
+      tasks
+        .map((task) => task.customerId)
+        .filter((id): id is string => Boolean(id)),
+    );
   }
 }
