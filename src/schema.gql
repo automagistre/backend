@@ -1061,6 +1061,20 @@ type DashboardMonthlyRevenuePair {
   year: Float!
 }
 
+type DashboardOpenOrdersTotals {
+  """Количество открытых заказов"""
+  ordersCount: Float!
+
+  """Сумма запчастей (без warranty) в открытых заказах"""
+  parts: BigInt!
+
+  """works + parts"""
+  total: BigInt!
+
+  """Сумма работ (без warranty) в открытых заказах"""
+  works: BigInt!
+}
+
 type DashboardOperationsKpi {
   """Активные заказы (не закрытые и не отменённые)"""
   activeOrders: Float!
@@ -1096,6 +1110,9 @@ type DashboardSummary {
   Выручка по 6 последним месяцам (включая текущий), для каждого — пара current vs previous (тот же месяц прошлого года)
   """
   monthlyRevenue: [DashboardMonthlyRevenuePair!]!
+
+  """Сумма работ/запчастей по открытым (не закрытым/отменённым) заказам"""
+  openOrdersTotals: DashboardOpenOrdersTotals!
   operations: DashboardOperationsKpi!
   revenueLast7Days: [DashboardDailyRevenue!]!
   walletBalances: [DashboardWalletBalance!]!

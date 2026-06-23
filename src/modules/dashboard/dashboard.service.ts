@@ -13,6 +13,7 @@ import {
   EmployeeDebtSummaryModel,
   IncomeLast7DaysModel,
   MonthlyRevenuePairModel,
+  OpenOrdersTotalsModel,
   OperationsKpiModel,
   RevenueBreakdownModel,
   WalletBalanceModel,
@@ -75,6 +76,7 @@ export class DashboardService {
       operations,
       monthlyRevenue,
       warrantyLast30Days,
+      openOrdersTotals,
     ] = await Promise.all([
       this.getIncomeLast7Days(ctx, allWallets, tz, now),
       this.getRevenueLast7Days(ctx, tz, now),
@@ -82,6 +84,7 @@ export class DashboardService {
       this.getOperationsKpi(ctx),
       this.getMonthlyRevenueLast6(ctx, tz, now),
       this.getWarrantyLast30Days(ctx, now),
+      this.getOpenOrdersTotals(ctx),
     ]);
 
     const walletBalances: WalletBalanceModel[] = walletsForBalances.map((w) => ({
@@ -100,6 +103,46 @@ export class DashboardService {
       operations,
       monthlyRevenue,
       warrantyLast30Days,
+      openOrdersTotals,
+    };
+  }
+
+  // ---------- Сумма работ/запчастей по открытым заказам ----------
+
+  private async getOpenOrdersTotals(
+    ctx: AuthContext,
+  ): Promise<OpenOrdersTotalsModel> {
+    const rows = await this.prisma.$queryRawUnsafe<
+      Array<{ works: bigint; parts: bigint; orders_count: bigint }>
+    >(
+      `SELECT
+         COALESCE(SUM(CASE
+           WHEN ois.id IS NOT NULL AND NOT ois.warranty
+           THEN COALESCE(ois.price_amount, 0) - COALESCE(ois.discount_amount, 0)
+         END), 0)::bigint AS works,
+         COALESCE(SUM(CASE
+           WHEN oip.id IS NOT NULL AND NOT oip.warranty
+           THEN ((COALESCE(oip.price_amount, 0) - COALESCE(oip.discount_amount, 0)) * oip.quantity) / 100
+         END), 0)::bigint AS parts,
+         COUNT(DISTINCT o.id)::bigint AS orders_count
+       FROM orders o
+       JOIN order_item oi ON oi.order_id = o.id
+       LEFT JOIN order_item_service ois ON ois.id = oi.id
+       LEFT JOIN order_item_part oip ON oip.id = oi.id
+       WHERE o.tenant_id = $1::uuid
+         AND o.status NOT IN ($2, $3)`,
+      ctx.tenantId,
+      OrderStatus.CLOSED,
+      OrderStatus.CANCELLED,
+    );
+    const row = rows[0] ?? { works: 0n, parts: 0n, orders_count: 0n };
+    const works = BigInt(row.works);
+    const parts = BigInt(row.parts);
+    return {
+      works,
+      parts,
+      total: works + parts,
+      ordersCount: Number(row.orders_count),
     };
   }
 

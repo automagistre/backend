@@ -192,6 +192,25 @@ export class WarrantyLast30DaysModel {
   orders: WarrantyOrderModel[];
 }
 
+@ObjectType('DashboardOpenOrdersTotals')
+export class OpenOrdersTotalsModel {
+  @Field(() => BigInt, {
+    description: 'Сумма работ (без warranty) в открытых заказах',
+  })
+  works: bigint;
+
+  @Field(() => BigInt, {
+    description: 'Сумма запчастей (без warranty) в открытых заказах',
+  })
+  parts: bigint;
+
+  @Field(() => BigInt, { description: 'works + parts' })
+  total: bigint;
+
+  @Field(() => Number, { description: 'Количество открытых заказов' })
+  ordersCount: number;
+}
+
 @ObjectType('DashboardSummary')
 export class DashboardSummaryModel {
   @Field(() => IncomeLast7DaysModel, {
@@ -221,4 +240,9 @@ export class DashboardSummaryModel {
 
   @Field(() => OperationsKpiModel)
   operations: OperationsKpiModel;
+
+  @Field(() => OpenOrdersTotalsModel, {
+    description: 'Сумма работ/запчастей по открытым (не закрытым/отменённым) заказам',
+  })
+  openOrdersTotals: OpenOrdersTotalsModel;
 }
