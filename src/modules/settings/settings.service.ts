@@ -10,7 +10,9 @@ import {
   SETTING_KEYS_LIST,
   type SettingKey,
   type SettingsValueByKey,
+  computeWorkDayHours,
   isSettingKey,
+  timeToMinutes,
 } from './settings.definitions';
 import { TENANT_REQUISITES_BY_IDENTIFIER } from './tenant-requisites.data';
 
@@ -43,6 +45,24 @@ export class SettingsService {
       qualityControlStartHour: this.resolveSettingValue(
         SETTINGS_KEYS.qualityControlStartHour,
         settingsMap.get(SETTINGS_KEYS.qualityControlStartHour),
+      ),
+      workDayStart: this.resolveSettingValue(
+        SETTINGS_KEYS.workDayStart,
+        settingsMap.get(SETTINGS_KEYS.workDayStart),
+      ),
+      workDayEnd: this.resolveSettingValue(
+        SETTINGS_KEYS.workDayEnd,
+        settingsMap.get(SETTINGS_KEYS.workDayEnd),
+      ),
+      workDayHours: computeWorkDayHours(
+        this.resolveSettingValue(
+          SETTINGS_KEYS.workDayStart,
+          settingsMap.get(SETTINGS_KEYS.workDayStart),
+        ),
+        this.resolveSettingValue(
+          SETTINGS_KEYS.workDayEnd,
+          settingsMap.get(SETTINGS_KEYS.workDayEnd),
+        ),
       ),
       timezone: this.resolveSettingValue(
         SETTINGS_KEYS.timezone,
@@ -109,6 +129,38 @@ export class SettingsService {
       SETTINGS_KEYS.qualityControlStartHour,
       tx,
     );
+  }
+
+  async getWorkDayStart(
+    tenantId: string,
+    tx?: Prisma.TransactionClient,
+  ): Promise<string> {
+    return this.getSettingValue(tenantId, SETTINGS_KEYS.workDayStart, tx);
+  }
+
+  async getWorkDayEnd(
+    tenantId: string,
+    tx?: Prisma.TransactionClient,
+  ): Promise<string> {
+    return this.getSettingValue(tenantId, SETTINGS_KEYS.workDayEnd, tx);
+  }
+
+  /** Длительность рабочего дня в минутах (вычисляется из start/end). */
+  async getWorkDayMinutes(
+    tenantId?: string,
+    tx?: Prisma.TransactionClient,
+  ): Promise<number> {
+    if (!tenantId) {
+      return (
+        timeToMinutes(SETTINGS_DEFINITIONS[SETTINGS_KEYS.workDayEnd].defaultValue) -
+        timeToMinutes(SETTINGS_DEFINITIONS[SETTINGS_KEYS.workDayStart].defaultValue)
+      );
+    }
+    const [start, end] = await Promise.all([
+      this.getWorkDayStart(tenantId, tx),
+      this.getWorkDayEnd(tenantId, tx),
+    ]);
+    return Math.max(0, timeToMinutes(end) - timeToMinutes(start));
   }
 
   async getTimezone(
@@ -257,6 +309,12 @@ export class SettingsService {
     if (input.qualityControlStartHour !== undefined) {
       patch[SETTINGS_KEYS.qualityControlStartHour] =
         input.qualityControlStartHour;
+    }
+    if (input.workDayStart !== undefined) {
+      patch[SETTINGS_KEYS.workDayStart] = input.workDayStart.trim();
+    }
+    if (input.workDayEnd !== undefined) {
+      patch[SETTINGS_KEYS.workDayEnd] = input.workDayEnd.trim();
     }
     if (input.timezone !== undefined) {
       patch[SETTINGS_KEYS.timezone] = input.timezone.trim();

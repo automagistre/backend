@@ -5,9 +5,12 @@ import {
   IsOptional,
   IsString,
   Length,
+  Matches,
   Max,
   Min,
 } from 'class-validator';
+
+const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 @InputType()
 export class UpdateSettingsInput {
@@ -62,6 +65,24 @@ export class UpdateSettingsInput {
   @Min(0)
   @Max(23)
   qualityControlStartHour?: number;
+
+  @Field(() => String, {
+    nullable: true,
+    description: 'Начало рабочего дня (HH:MM)',
+  })
+  @IsOptional()
+  @IsString()
+  @Matches(TIME_PATTERN, { message: 'workDayStart должен быть в формате HH:MM' })
+  workDayStart?: string;
+
+  @Field(() => String, {
+    nullable: true,
+    description: 'Конец рабочего дня (HH:MM)',
+  })
+  @IsOptional()
+  @IsString()
+  @Matches(TIME_PATTERN, { message: 'workDayEnd должен быть в формате HH:MM' })
+  workDayEnd?: string;
 
   @Field(() => String, {
     nullable: true,

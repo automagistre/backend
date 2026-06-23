@@ -31,6 +31,21 @@ export class SettingsModel {
   qualityControlStartHour: number;
 
   @Field(() => String, {
+    description: 'Начало рабочего дня (HH:MM)',
+  })
+  workDayStart: string;
+
+  @Field(() => String, {
+    description: 'Конец рабочего дня (HH:MM)',
+  })
+  workDayEnd: string;
+
+  @Field(() => Float, {
+    description: 'Длина рабочего дня в часах — вычисляется из workDayStart/workDayEnd',
+  })
+  workDayHours: number;
+
+  @Field(() => String, {
     description: 'Часовой пояс тенанта (например Europe/Moscow)',
   })
   timezone: string;

@@ -998,25 +998,55 @@ type CustomerTransactionModel {
   tenantId: String!
 }
 
+type DashboardAvgCheck {
+  """Текущий месяц (MTD)"""
+  current: DashboardAvgCheckValue!
+
+  """Предыдущий месяц (тот же день)"""
+  momPrevious: DashboardAvgCheckValue!
+
+  """Тот же месяц прошлого года (тот же день)"""
+  yoyPrevious: DashboardAvgCheckValue!
+}
+
+type DashboardAvgCheckValue {
+  """Средний чек (выручка / число закрытых заказов)"""
+  avgCheck: MoneyModel!
+
+  """Число закрытых заказов за период"""
+  ordersCount: Int!
+
+  """Суммарная выручка периода (works + parts, без warranty)"""
+  revenueTotal: MoneyModel!
+}
+
+type DashboardClientsMixValue {
+  """Новые клиенты (первый закрытый заказ в периоде)"""
+  newCount: Int!
+
+  """Повторные клиенты (закрывали заказ ранее)"""
+  returningCount: Int!
+}
+
 type DashboardDailyRevenue {
   """День (00:00 локального времени тенанта)"""
   day: DateTime!
 
   """Выручка по запчастям за день"""
-  parts: BigInt!
+  parts: MoneyModel!
 
   """works + parts"""
-  total: BigInt!
+  total: MoneyModel!
 
   """Выручка по работам за день, accrued из закрытых заказов"""
-  works: BigInt!
+  works: MoneyModel!
 }
 
 type DashboardEmployeeDebt {
   """
   Баланс сотрудника. Положительный — компания должна сотруднику, отрицательный — сотрудник должен компании.
   """
-  balance: BigInt!
+  balance: MoneyModel!
   employeeId: ID!
   fullName: String!
   personId: ID!
@@ -1028,10 +1058,10 @@ type DashboardEmployeeDebtSummary {
   """
   Сумма отрицательных балансов (как положительное число) — сотрудники должны нам
   """
-  totalOwedByEmployees: BigInt!
+  totalOwedByEmployees: MoneyModel!
 
   """Сумма положительных балансов — мы должны сотрудникам"""
-  totalOwedToEmployees: BigInt!
+  totalOwedToEmployees: MoneyModel!
 }
 
 type DashboardIncomeLast7Days {
@@ -1040,6 +1070,45 @@ type DashboardIncomeLast7Days {
 
   """Серии по счетам (только showInLayout=true)"""
   series: [DashboardWalletIncomeSeries!]!
+}
+
+type DashboardMechanicHourRevenue {
+  """Среднее revenuePerHour за последние 7 дней"""
+  avgCurrent: MoneyModel!
+
+  """Среднее revenuePerHour за предыдущие 7 дней"""
+  avgPrev7d: MoneyModel!
+
+  """7 дней (00:00 локального времени тенанта), от старого к новому"""
+  days: [DateTime!]!
+
+  """Число механиков в смене по дням (DISTINCT из календаря)"""
+  mechanicsInShift: [Int!]!
+
+  """Выручка на нормо-час по дням"""
+  revenuePerHour: [MoneyModel!]!
+
+  """Длина рабочего дня в часах (вычислено из настроек start/end)"""
+  workHoursPerDay: Float!
+}
+
+type DashboardMonthlyClientsPair {
+  """Клиенты за месяц текущего года"""
+  current: DashboardClientsMixValue!
+
+  """Является ли месяц текущим (current/previous посчитаны MTD)"""
+  isCurrent: Boolean!
+
+  """Месяц 1..12"""
+  month: Float!
+
+  """
+  Клиенты за тот же месяц прошлого года (тот же интервал для текущего месяца)
+  """
+  previous: DashboardClientsMixValue!
+
+  """Год слота (например 2026)"""
+  year: Float!
 }
 
 type DashboardMonthlyRevenuePair {
@@ -1066,13 +1135,13 @@ type DashboardOpenOrdersTotals {
   ordersCount: Float!
 
   """Сумма запчастей (без warranty) в открытых заказах"""
-  parts: BigInt!
+  parts: MoneyModel!
 
   """works + parts"""
-  total: BigInt!
+  total: MoneyModel!
 
   """Сумма работ (без warranty) в открытых заказах"""
-  works: BigInt!
+  works: MoneyModel!
 }
 
 type DashboardOperationsKpi {
@@ -1089,22 +1158,76 @@ type DashboardOperationsKpi {
   readyOrders: Float!
 }
 
+type DashboardPartsMargin {
+  current: DashboardPartsMarginValue!
+  momPrevious: DashboardPartsMarginValue!
+  yoyPrevious: DashboardPartsMarginValue!
+}
+
+type DashboardPartsMarginValue {
+  """
+  Себестоимость проданных запчастей (последняя закупка не новее закрытия заказа)
+  """
+  cogs: MoneyModel!
+
+  """salesAmount - cogs"""
+  margin: MoneyModel!
+
+  """margin / salesAmount * 100"""
+  marginPercent: Float!
+
+  """salesAmount - purchasesAmount (грубая маржа за период)"""
+  periodDiff: MoneyModel!
+
+  """Сумма закупок (income_part) за период"""
+  purchasesAmount: MoneyModel!
+
+  """Выручка по проданным запчастям (без warranty)"""
+  salesAmount: MoneyModel!
+}
+
+type DashboardRecommendations {
+  """Конверсия рекомендаций за последние 3 месяца"""
+  current: DashboardRecommendationsValue!
+}
+
+type DashboardRecommendationsValue {
+  """realized / created * 100"""
+  conversionPercent: Float!
+
+  """Создано рекомендаций за период"""
+  created: Int!
+
+  """Из них реализовано в заказ"""
+  realized: Int!
+}
+
 type DashboardRevenueBreakdown {
   """Выручка по запчастям (без warranty)"""
-  parts: BigInt!
+  parts: MoneyModel!
 
   """works + parts"""
-  total: BigInt!
+  total: MoneyModel!
 
   """Выручка по работам (без warranty), accrued из закрытых заказов"""
-  works: BigInt!
+  works: MoneyModel!
 }
 
 type DashboardSummary {
+  """Средний чек: текущий месяц vs MoM/YoY"""
+  avgCheck: DashboardAvgCheck!
   employeeDebts: DashboardEmployeeDebtSummary!
 
   """Приход по счетам за 7 дней с разбивкой по дням"""
   incomeLast7Days: DashboardIncomeLast7Days!
+
+  """Выручка на нормо-час механика: тренд 7 дней + дельта к прошлым 7 дням"""
+  mechanicHourRevenue: DashboardMechanicHourRevenue!
+
+  """
+  Новые/постоянные клиенты по 6 последним месяцам (включая текущий), пара current vs previous (тот же месяц прошлого года)
+  """
+  monthlyClients: [DashboardMonthlyClientsPair!]!
 
   """
   Выручка по 6 последним месяцам (включая текущий), для каждого — пара current vs previous (тот же месяц прошлого года)
@@ -1114,6 +1237,12 @@ type DashboardSummary {
   """Сумма работ/запчастей по открытым (не закрытым/отменённым) заказам"""
   openOrdersTotals: DashboardOpenOrdersTotals!
   operations: DashboardOperationsKpi!
+
+  """Маржа запчастей: текущий месяц vs MoM/YoY"""
+  partsMargin: DashboardPartsMargin!
+
+  """Конверсия рекомендаций: текущий месяц vs MoM/YoY + активные открытые"""
+  recommendations: DashboardRecommendations!
   revenueLast7Days: [DashboardDailyRevenue!]!
   walletBalances: [DashboardWalletBalance!]!
 
@@ -1122,17 +1251,15 @@ type DashboardSummary {
 }
 
 type DashboardWalletBalance {
-  """Баланс в минорных единицах"""
-  balance: BigInt!
-  currencyCode: String
+  """Баланс счёта (сумма + валюта)"""
+  balance: MoneyModel!
   walletId: ID!
   walletName: String!
 }
 
 type DashboardWalletIncomeSeries {
   """Суммы прихода по дням (порядок соответствует days в IncomeLast7Days)"""
-  amounts: [BigInt!]!
-  currencyCode: String
+  amounts: [MoneyModel!]!
   walletId: ID!
   walletName: String!
 }
@@ -1142,9 +1269,9 @@ type DashboardWarrantyLast30Days {
   orders: [DashboardWarrantyOrder!]!
 
   """Сумма всей гарантии за 30 дней"""
-  total: BigInt!
-  totalParts: BigInt!
-  totalWorks: BigInt!
+  total: MoneyModel!
+  totalParts: MoneyModel!
+  totalWorks: MoneyModel!
 }
 
 type DashboardWarrantyOrder {
@@ -1155,13 +1282,13 @@ type DashboardWarrantyOrder {
   orderNumber: Float!
 
   """Гарантийные запчасти в заказе"""
-  parts: BigInt!
+  parts: MoneyModel!
 
   """works + parts"""
-  total: BigInt!
+  total: MoneyModel!
 
   """Гарантийные работы в заказе"""
-  works: BigInt!
+  works: MoneyModel!
 }
 
 """
@@ -2836,6 +2963,15 @@ type SettingsModel {
 
   """Часовой пояс тенанта (например Europe/Moscow)"""
   timezone: String!
+
+  """Конец рабочего дня (HH:MM)"""
+  workDayEnd: String!
+
+  """Длина рабочего дня в часах — вычисляется из workDayStart/workDayEnd"""
+  workDayHours: Float!
+
+  """Начало рабочего дня (HH:MM)"""
+  workDayStart: String!
 }
 
 input SiteCalculatorWorkInput {
@@ -3615,6 +3751,12 @@ input UpdateSettingsInput {
 
   """Часовой пояс тенанта (например Europe/Moscow)"""
   timezone: String
+
+  """Конец рабочего дня (HH:MM)"""
+  workDayEnd: String
+
+  """Начало рабочего дня (HH:MM)"""
+  workDayStart: String
 }
 
 input UpdateTaskInput {

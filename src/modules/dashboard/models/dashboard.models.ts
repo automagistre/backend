@@ -1,4 +1,5 @@
-import { Field, ID, ObjectType } from '@nestjs/graphql';
+import { Field, Float, ID, Int, ObjectType } from '@nestjs/graphql';
+import { MoneyModel } from 'src/common/models/money.model';
 
 @ObjectType('DashboardWalletIncomeSeries')
 export class WalletIncomeSeriesModel {
@@ -8,13 +9,10 @@ export class WalletIncomeSeriesModel {
   @Field(() => String)
   walletName: string;
 
-  @Field(() => String, { nullable: true })
-  currencyCode: string | null;
-
-  @Field(() => [BigInt], {
+  @Field(() => [MoneyModel], {
     description: 'Суммы прихода по дням (порядок соответствует days в IncomeLast7Days)',
   })
-  amounts: bigint[];
+  amounts: MoneyModel[];
 }
 
 @ObjectType('DashboardIncomeLast7Days')
@@ -37,18 +35,18 @@ export class DailyRevenueModel {
   })
   day: Date;
 
-  @Field(() => BigInt, {
+  @Field(() => MoneyModel, {
     description: 'Выручка по работам за день, accrued из закрытых заказов',
   })
-  works: bigint;
+  works: MoneyModel;
 
-  @Field(() => BigInt, {
+  @Field(() => MoneyModel, {
     description: 'Выручка по запчастям за день',
   })
-  parts: bigint;
+  parts: MoneyModel;
 
-  @Field(() => BigInt, { description: 'works + parts' })
-  total: bigint;
+  @Field(() => MoneyModel, { description: 'works + parts' })
+  total: MoneyModel;
 }
 
 @ObjectType('DashboardWalletBalance')
@@ -59,11 +57,8 @@ export class WalletBalanceModel {
   @Field(() => String)
   walletName: string;
 
-  @Field(() => String, { nullable: true })
-  currencyCode: string | null;
-
-  @Field(() => BigInt, { description: 'Баланс в минорных единицах' })
-  balance: bigint;
+  @Field(() => MoneyModel, { description: 'Баланс счёта (сумма + валюта)' })
+  balance: MoneyModel;
 }
 
 @ObjectType('DashboardEmployeeDebt')
@@ -77,11 +72,11 @@ export class EmployeeDebtModel {
   @Field(() => String)
   fullName: string;
 
-  @Field(() => BigInt, {
+  @Field(() => MoneyModel, {
     description:
       'Баланс сотрудника. Положительный — компания должна сотруднику, отрицательный — сотрудник должен компании.',
   })
-  balance: bigint;
+  balance: MoneyModel;
 }
 
 @ObjectType('DashboardEmployeeDebtSummary')
@@ -89,11 +84,11 @@ export class EmployeeDebtSummaryModel {
   @Field(() => [EmployeeDebtModel])
   items: EmployeeDebtModel[];
 
-  @Field(() => BigInt, { description: 'Сумма положительных балансов — мы должны сотрудникам' })
-  totalOwedToEmployees: bigint;
+  @Field(() => MoneyModel, { description: 'Сумма положительных балансов — мы должны сотрудникам' })
+  totalOwedToEmployees: MoneyModel;
 
-  @Field(() => BigInt, { description: 'Сумма отрицательных балансов (как положительное число) — сотрудники должны нам' })
-  totalOwedByEmployees: bigint;
+  @Field(() => MoneyModel, { description: 'Сумма отрицательных балансов (как положительное число) — сотрудники должны нам' })
+  totalOwedByEmployees: MoneyModel;
 }
 
 @ObjectType('DashboardOperationsKpi')
@@ -113,14 +108,14 @@ export class OperationsKpiModel {
 
 @ObjectType('DashboardRevenueBreakdown')
 export class RevenueBreakdownModel {
-  @Field(() => BigInt, { description: 'Выручка по работам (без warranty), accrued из закрытых заказов' })
-  works: bigint;
+  @Field(() => MoneyModel, { description: 'Выручка по работам (без warranty), accrued из закрытых заказов' })
+  works: MoneyModel;
 
-  @Field(() => BigInt, { description: 'Выручка по запчастям (без warranty)' })
-  parts: bigint;
+  @Field(() => MoneyModel, { description: 'Выручка по запчастям (без warranty)' })
+  parts: MoneyModel;
 
-  @Field(() => BigInt, { description: 'works + parts' })
-  total: bigint;
+  @Field(() => MoneyModel, { description: 'works + parts' })
+  total: MoneyModel;
 }
 
 @ObjectType('DashboardMonthlyRevenuePair')
@@ -165,26 +160,26 @@ export class WarrantyOrderModel {
   @Field(() => String, { nullable: true })
   carName: string | null;
 
-  @Field(() => BigInt, { description: 'Гарантийные работы в заказе' })
-  works: bigint;
+  @Field(() => MoneyModel, { description: 'Гарантийные работы в заказе' })
+  works: MoneyModel;
 
-  @Field(() => BigInt, { description: 'Гарантийные запчасти в заказе' })
-  parts: bigint;
+  @Field(() => MoneyModel, { description: 'Гарантийные запчасти в заказе' })
+  parts: MoneyModel;
 
-  @Field(() => BigInt, { description: 'works + parts' })
-  total: bigint;
+  @Field(() => MoneyModel, { description: 'works + parts' })
+  total: MoneyModel;
 }
 
 @ObjectType('DashboardWarrantyLast30Days')
 export class WarrantyLast30DaysModel {
-  @Field(() => BigInt, { description: 'Сумма всей гарантии за 30 дней' })
-  total: bigint;
+  @Field(() => MoneyModel, { description: 'Сумма всей гарантии за 30 дней' })
+  total: MoneyModel;
 
-  @Field(() => BigInt)
-  totalWorks: bigint;
+  @Field(() => MoneyModel)
+  totalWorks: MoneyModel;
 
-  @Field(() => BigInt)
-  totalParts: bigint;
+  @Field(() => MoneyModel)
+  totalParts: MoneyModel;
 
   @Field(() => [WarrantyOrderModel], {
     description: 'Заказы с гарантийными позициями (отсортированы по убыванию суммы)',
@@ -194,21 +189,162 @@ export class WarrantyLast30DaysModel {
 
 @ObjectType('DashboardOpenOrdersTotals')
 export class OpenOrdersTotalsModel {
-  @Field(() => BigInt, {
+  @Field(() => MoneyModel, {
     description: 'Сумма работ (без warranty) в открытых заказах',
   })
-  works: bigint;
+  works: MoneyModel;
 
-  @Field(() => BigInt, {
+  @Field(() => MoneyModel, {
     description: 'Сумма запчастей (без warranty) в открытых заказах',
   })
-  parts: bigint;
+  parts: MoneyModel;
 
-  @Field(() => BigInt, { description: 'works + parts' })
-  total: bigint;
+  @Field(() => MoneyModel, { description: 'works + parts' })
+  total: MoneyModel;
 
   @Field(() => Number, { description: 'Количество открытых заказов' })
   ordersCount: number;
+}
+
+// ---------- Средний чек (AOV) ----------
+
+@ObjectType('DashboardAvgCheckValue')
+export class AvgCheckValueModel {
+  @Field(() => MoneyModel, { description: 'Средний чек (выручка / число закрытых заказов)' })
+  avgCheck: MoneyModel;
+
+  @Field(() => MoneyModel, { description: 'Суммарная выручка периода (works + parts, без warranty)' })
+  revenueTotal: MoneyModel;
+
+  @Field(() => Int, { description: 'Число закрытых заказов за период' })
+  ordersCount: number;
+}
+
+@ObjectType('DashboardAvgCheck')
+export class AvgCheckModel {
+  @Field(() => AvgCheckValueModel, { description: 'Текущий месяц (MTD)' })
+  current: AvgCheckValueModel;
+
+  @Field(() => AvgCheckValueModel, { description: 'Предыдущий месяц (тот же день)' })
+  momPrevious: AvgCheckValueModel;
+
+  @Field(() => AvgCheckValueModel, { description: 'Тот же месяц прошлого года (тот же день)' })
+  yoyPrevious: AvgCheckValueModel;
+}
+
+// ---------- Маржа запчастей ----------
+
+@ObjectType('DashboardPartsMarginValue')
+export class PartsMarginValueModel {
+  @Field(() => MoneyModel, { description: 'Выручка по проданным запчастям (без warranty)' })
+  salesAmount: MoneyModel;
+
+  @Field(() => MoneyModel, { description: 'Сумма закупок (income_part) за период' })
+  purchasesAmount: MoneyModel;
+
+  @Field(() => MoneyModel, { description: 'salesAmount - purchasesAmount (грубая маржа за период)' })
+  periodDiff: MoneyModel;
+
+  @Field(() => MoneyModel, {
+    description: 'Себестоимость проданных запчастей (последняя закупка не новее закрытия заказа)',
+  })
+  cogs: MoneyModel;
+
+  @Field(() => MoneyModel, { description: 'salesAmount - cogs' })
+  margin: MoneyModel;
+
+  @Field(() => Float, { description: 'margin / salesAmount * 100' })
+  marginPercent: number;
+}
+
+@ObjectType('DashboardPartsMargin')
+export class PartsMarginModel {
+  @Field(() => PartsMarginValueModel)
+  current: PartsMarginValueModel;
+
+  @Field(() => PartsMarginValueModel)
+  momPrevious: PartsMarginValueModel;
+
+  @Field(() => PartsMarginValueModel)
+  yoyPrevious: PartsMarginValueModel;
+}
+
+// ---------- Конверсия рекомендаций ----------
+
+@ObjectType('DashboardRecommendationsValue')
+export class RecommendationsValueModel {
+  @Field(() => Int, { description: 'Создано рекомендаций за период' })
+  created: number;
+
+  @Field(() => Int, { description: 'Из них реализовано в заказ' })
+  realized: number;
+
+  @Field(() => Float, { description: 'realized / created * 100' })
+  conversionPercent: number;
+}
+
+@ObjectType('DashboardRecommendations')
+export class RecommendationsModel {
+  @Field(() => RecommendationsValueModel, {
+    description: 'Конверсия рекомендаций за последние 3 месяца',
+  })
+  current: RecommendationsValueModel;
+}
+
+// ---------- Новые vs постоянные клиенты ----------
+
+@ObjectType('DashboardClientsMixValue')
+export class ClientsMixValueModel {
+  @Field(() => Int, { description: 'Новые клиенты (первый закрытый заказ в периоде)' })
+  newCount: number;
+
+  @Field(() => Int, { description: 'Повторные клиенты (закрывали заказ ранее)' })
+  returningCount: number;
+}
+
+@ObjectType('DashboardMonthlyClientsPair')
+export class MonthlyClientsPairModel {
+  @Field(() => Number, { description: 'Год слота (например 2026)' })
+  year: number;
+
+  @Field(() => Number, { description: 'Месяц 1..12' })
+  month: number;
+
+  @Field(() => Boolean, {
+    description: 'Является ли месяц текущим (current/previous посчитаны MTD)',
+  })
+  isCurrent: boolean;
+
+  @Field(() => ClientsMixValueModel, { description: 'Клиенты за месяц текущего года' })
+  current: ClientsMixValueModel;
+
+  @Field(() => ClientsMixValueModel, {
+    description: 'Клиенты за тот же месяц прошлого года (тот же интервал для текущего месяца)',
+  })
+  previous: ClientsMixValueModel;
+}
+
+// ---------- Выручка на нормо-час механика ----------
+
+@ObjectType('DashboardMechanicHourRevenue')
+export class MechanicHourRevenueModel {
+  @Field(() => [Date], { description: '7 дней (00:00 локального времени тенанта), от старого к новому' })
+  days: Date[];
+
+  @Field(() => [MoneyModel], { description: 'Выручка на нормо-час по дням' })
+  revenuePerHour: MoneyModel[];
+
+  @Field(() => [Int], { description: 'Число механиков в смене по дням (DISTINCT из календаря)' })
+  mechanicsInShift: number[];
+
+  @Field(() => Float, { description: 'Длина рабочего дня в часах (вычислено из настроек start/end)' })
+  workHoursPerDay: number;
+
+  @Field(() => MoneyModel, { description: 'Среднее revenuePerHour за последние 7 дней' })
+  avgCurrent: MoneyModel;
+
+  @Field(() => MoneyModel, { description: 'Среднее revenuePerHour за предыдущие 7 дней' })
+  avgPrev7d: MoneyModel;
 }
 
 @ObjectType('DashboardSummary')
@@ -245,4 +381,26 @@ export class DashboardSummaryModel {
     description: 'Сумма работ/запчастей по открытым (не закрытым/отменённым) заказам',
   })
   openOrdersTotals: OpenOrdersTotalsModel;
+
+  @Field(() => AvgCheckModel, { description: 'Средний чек: текущий месяц vs MoM/YoY' })
+  avgCheck: AvgCheckModel;
+
+  @Field(() => PartsMarginModel, { description: 'Маржа запчастей: текущий месяц vs MoM/YoY' })
+  partsMargin: PartsMarginModel;
+
+  @Field(() => RecommendationsModel, {
+    description: 'Конверсия рекомендаций: текущий месяц vs MoM/YoY + активные открытые',
+  })
+  recommendations: RecommendationsModel;
+
+  @Field(() => [MonthlyClientsPairModel], {
+    description:
+      'Новые/постоянные клиенты по 6 последним месяцам (включая текущий), пара current vs previous (тот же месяц прошлого года)',
+  })
+  monthlyClients: MonthlyClientsPairModel[];
+
+  @Field(() => MechanicHourRevenueModel, {
+    description: 'Выручка на нормо-час механика: тренд 7 дней + дельта к прошлым 7 дням',
+  })
+  mechanicHourRevenue: MechanicHourRevenueModel;
 }

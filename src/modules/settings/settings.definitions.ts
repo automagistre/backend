@@ -6,6 +6,8 @@ export const SETTINGS_KEYS = {
   supplyExpiryDays: 'supplyExpiryDays',
   qualityControlDelayDays: 'qualityControlDelayDays',
   qualityControlStartHour: 'qualityControlStartHour',
+  workDayStart: 'workDayStart',
+  workDayEnd: 'workDayEnd',
   timezone: 'timezone',
 } as const;
 
@@ -19,6 +21,8 @@ export type SettingsValueByKey = {
   [SETTINGS_KEYS.supplyExpiryDays]: number;
   [SETTINGS_KEYS.qualityControlDelayDays]: number;
   [SETTINGS_KEYS.qualityControlStartHour]: number;
+  [SETTINGS_KEYS.workDayStart]: string;
+  [SETTINGS_KEYS.workDayEnd]: string;
   [SETTINGS_KEYS.timezone]: string;
 };
 
@@ -54,6 +58,28 @@ const parseIntNumber = (raw: Prisma.JsonValue): number => {
   return parsed;
 };
 
+const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+const parseTime = (raw: Prisma.JsonValue): string => {
+  const value = parseString(raw);
+  if (!TIME_RE.test(value)) {
+    throw new Error('Expected time in HH:MM format');
+  }
+  return value;
+};
+
+/** 'HH:MM' → минуты от полуночи. */
+export function timeToMinutes(value: string): number {
+  const [h, m] = value.split(':').map(Number);
+  return (h ?? 0) * 60 + (m ?? 0);
+}
+
+/** Длительность рабочего дня в часах (может быть дробной), вычисляется из start/end. */
+export function computeWorkDayHours(start: string, end: string): number {
+  const minutes = Math.max(0, timeToMinutes(end) - timeToMinutes(start));
+  return minutes / 60;
+}
+
 export const SETTINGS_DEFINITIONS: {
   [K in SettingKey]: SettingDefinition<K>;
 } = {
@@ -87,6 +113,16 @@ export const SETTINGS_DEFINITIONS: {
       }
       return value;
     },
+  },
+  [SETTINGS_KEYS.workDayStart]: {
+    key: SETTINGS_KEYS.workDayStart,
+    defaultValue: '10:00',
+    parse: parseTime,
+  },
+  [SETTINGS_KEYS.workDayEnd]: {
+    key: SETTINGS_KEYS.workDayEnd,
+    defaultValue: '21:00',
+    parse: parseTime,
   },
   [SETTINGS_KEYS.timezone]: {
     key: SETTINGS_KEYS.timezone,
