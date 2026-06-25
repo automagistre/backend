@@ -102,6 +102,78 @@ export class DisplayContextService {
     return org?.name ?? null;
   }
 
+  /** Название запчасти по id. */
+  async getPartName(partId: string): Promise<string | null> {
+    const part = await this.prisma.part.findUnique({
+      where: { id: partId },
+      select: { name: true },
+    });
+    return part?.name ?? null;
+  }
+
+  /** Название организации по id. */
+  async getOrganizationName(organizationId: string): Promise<string | null> {
+    const org = await this.prisma.organization.findUnique({
+      where: { id: organizationId },
+      select: { name: true },
+    });
+    return org?.name ?? null;
+  }
+
+  /** Подпись исполнителя: workerId — это personId, с откатом на employee.id. */
+  async getWorkerDisplay(workerId: string): Promise<string | null> {
+    const byPerson = await this.getPersonDisplay(workerId);
+    if (byPerson) return byPerson;
+    const employee = await this.prisma.employee.findUnique({
+      where: { id: workerId },
+      select: { person: { select: { lastname: true, firstname: true } } },
+    });
+    if (!employee) return null;
+    return (
+      [employee.person.lastname, employee.person.firstname]
+        .filter(Boolean)
+        .join(' ')
+        .trim() || null
+    );
+  }
+
+  /** Подпись автомобиля: «Марка Модель Госномер». */
+  async getCarDisplay(carId: string): Promise<string | null> {
+    const car = await this.prisma.car.findUnique({
+      where: { id: carId },
+      select: {
+        gosnomer: true,
+        vehicle: {
+          select: { name: true, manufacturer: { select: { name: true } } },
+        },
+      },
+    });
+    if (!car) return null;
+    const label = [car.vehicle?.manufacturer?.name, car.vehicle?.name]
+      .filter(Boolean)
+      .join(' ');
+    const gosnomer = car.gosnomer?.trim();
+    return [label, gosnomer].filter(Boolean).join(' ') || null;
+  }
+
+  /** Подпись элемента заказа: название группы / работы / запчасти. */
+  async getOrderItemDisplay(orderItemId: string): Promise<string | null> {
+    const item = await this.prisma.orderItem.findUnique({
+      where: { id: orderItemId },
+      select: {
+        group: { select: { name: true } },
+        service: { select: { service: true } },
+        part: { select: { part: { select: { name: true } } } },
+      },
+    });
+    return (
+      item?.group?.name ??
+      item?.service?.service ??
+      item?.part?.part?.name ??
+      null
+    );
+  }
+
   /** ФИО персоны по id. */
   async getPersonDisplay(personId: string): Promise<string> {
     const person = await this.prisma.person.findUnique({

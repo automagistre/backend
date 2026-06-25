@@ -1345,3 +1345,24 @@ model WarehouseParent {
   @@index([warehouseParentId], map: "idx_warehouse_parent_parent_id")
   @@map("warehouse_parent")
 }
+
+model AuditLogEvent {
+  id                String    @id @db.Uuid
+  scope             String    @db.VarChar(16)
+  tenantId          String?   @map("tenant_id") @db.Uuid
+  tenantGroupId     String?   @map("tenant_group_id") @db.Uuid
+  rootEntityType    String    @map("root_entity_type") @db.VarChar(64)
+  rootEntityId      String    @map("root_entity_id") @db.Uuid
+  entityType        String    @map("entity_type") @db.VarChar(64)
+  entityId          String    @map("entity_id") @db.Uuid
+  action            String    @db.VarChar(32)
+  actorId           String?   @map("actor_id") @db.Uuid
+  entityDisplayName String?   @map("entity_display_name") @db.VarChar(255)
+  changes           Json?
+  metadata          Json?
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([rootEntityType, rootEntityId, id], map: "idx_audit_root")
+  @@index([entityType, entityId, id], map: "idx_audit_entity")
+  @@map("audit_log_event")
+}

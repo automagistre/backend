@@ -86,6 +86,96 @@ input ApplyTemplateWorkInput {
   price: MoneyInput
 }
 
+"""Действие в журнале аудита"""
+enum AuditAction {
+  CANCEL
+  CLOSE
+  CREATE
+  DEBIT
+  DELETE
+  PREPAY
+  REFUND
+  RELEASE
+  RESERVE
+  SALARY_ACCRUE
+  STATUS_CHANGE
+  SUSPEND
+  UPDATE
+  WAKE
+}
+
+"""Вид значения изменения для форматирования"""
+enum AuditChangeKind {
+  BOOL
+  MONEY
+  QUANTITY
+  TEXT
+}
+
+"""Изменение одного поля в событии аудита"""
+type AuditChangeModel {
+  """Техническое имя поля"""
+  field: String!
+
+  """Вид значения для форматирования"""
+  kind: AuditChangeKind!
+
+  """Человекочитаемое название поля"""
+  label: String!
+
+  """Значение после"""
+  newValue: JSON
+
+  """Значение до"""
+  oldValue: JSON
+}
+
+"""Тип сущности в журнале аудита"""
+enum AuditEntityType {
+  ORDER
+  ORDER_ITEM_GROUP
+  ORDER_ITEM_PART
+  ORDER_ITEM_SERVICE
+  RESERVATION
+  SALARY
+  WALLET_TRANSACTION
+}
+
+"""Событие журнала аудита"""
+type AuditLogEventModel {
+  action: AuditAction!
+  actor: AppUserModel
+
+  """Автор (null = система)"""
+  actorId: ID
+
+  """Изменённые поля"""
+  changes: [AuditChangeModel!]!
+  createdAt: DateTime!
+
+  """Подпись сущности на момент события"""
+  entityDisplayName: String
+
+  """ID изменённой сущности"""
+  entityId: ID!
+
+  """Тип изменённой сущности"""
+  entityType: AuditEntityType!
+  id: ID!
+
+  """Доп. контекст"""
+  metadata: JSON
+
+  """Подпись агрегата, напр. «Заказ №123»"""
+  rootDisplayName: String
+
+  """ID агрегата (root)"""
+  rootEntityId: ID!
+
+  """Тип агрегата (root)"""
+  rootEntityType: AuditEntityType!
+}
+
 input BackfillQualityControlTasksInput {
   """Глубина поиска закрытых заказов в днях"""
   days: Int = 30
@@ -2317,6 +2407,12 @@ type PaginatedAppeals {
   total: Int!
 }
 
+"""Страница журнала аудита"""
+type PaginatedAuditLog {
+  items: [AuditLogEventModel!]!
+  total: Int!
+}
+
 type PaginatedCallRoutingBindings {
   items: [CallRoutingBindingModel!]!
   total: Int!
@@ -2609,9 +2705,15 @@ type ProcurementTableResult {
 type Query {
   """Список активных заказов"""
   activeOrders(includeSuspended: Boolean = false, search: String, status: [OrderStatus!]): [OrderModel!]!
+
+  """Общий журнал активности (все сущности tenant/group)"""
+  activityLog(actorId: ID, entityTypes: [AuditEntityType!], skip: Int = 0, take: Int = 25): PaginatedAuditLog!
   appealDetail(input: GetAppealDetailInput!): AppealDetailModel!
   appealOpenCount: Float!
   appeals(skip: Int = 0, take: Int = 25): PaginatedAppeals!
+
+  """Журнал аудита по агрегату (и его дочерним сущностям)"""
+  auditLog(entityTypes: [AuditEntityType!], rootEntityId: ID!, rootEntityType: AuditEntityType!, skip: Int = 0, take: Int = 25): PaginatedAuditLog!
 
   """Список записей календаря за день"""
   calendarEntriesByDate(date: DateTime!): [CalendarEntryModel!]!

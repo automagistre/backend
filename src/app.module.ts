@@ -36,6 +36,7 @@ import { ReviewModule } from './modules/review/review.module';
 import { McModule } from './modules/mc/mc.module';
 import { TemplateModule } from './modules/template/template.module';
 import { AppUserModule } from './modules/app-user/app-user.module';
+import { AuditLogModule } from './modules/audit-log/audit-log.module';
 import { CallsModule } from './modules/calls/calls.module';
 import { TasksModule } from './modules/tasks/tasks.module';
 import { WwwModule } from './modules/www/www.module';
@@ -62,6 +63,7 @@ import authConfig from './config/auth.config';
     PrismaModule,
     CommonModule,
     AppUserModule,
+    AuditLogModule,
     ManufacturerModule,
     WarehouseModule,
     PartModule,

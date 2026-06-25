@@ -5,6 +5,11 @@ import { Reservation } from 'src/generated/prisma/client';
 import { OrderStatus } from '../order/enums/order-status.enum';
 import { OrderService } from '../order/order.service';
 import type { AuthContext } from 'src/common/user-id.store';
+import { AuditLogService } from 'src/modules/audit-log/audit-log.service';
+import {
+  AuditAction,
+  AuditEntityType,
+} from 'src/modules/audit-log/enums/audit.enums';
 
 export interface ReservePartInput {
   orderItemPartId: string;
@@ -29,6 +34,7 @@ export class ReservationService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly orderService: OrderService,
+    private readonly auditLog: AuditLogService,
   ) {}
 
   private async getStockQuantity(
@@ -408,7 +414,7 @@ export class ReservationService {
     }
 
     // Создаем резервацию
-    return this.prisma.reservation.create({
+    const reservation = await this.prisma.reservation.create({
       data: {
         orderItemPartId,
         quantity,
@@ -416,6 +422,20 @@ export class ReservationService {
         createdBy: ctx.userId,
       },
     });
+
+    if (orderId) {
+      await this.auditLog.record(this.prisma, ctx, {
+        rootEntityType: AuditEntityType.ORDER,
+        rootEntityId: orderId,
+        entityType: AuditEntityType.RESERVATION,
+        entityId: reservation.id,
+        action: AuditAction.RESERVE,
+        changes: [{ field: 'quantity', oldValue: null, newValue: quantity }],
+        entityDisplayName: orderItemPart.part?.name ?? null,
+      });
+    }
+
+    return reservation;
   }
 
   /**
@@ -551,14 +571,39 @@ export class ReservationService {
         });
       }
 
-      return quantity - remainingToRelease;
+      const released = quantity - remainingToRelease;
+      await this.logRelease(ctx, orderId, orderItemPartId, released);
+      return released;
     } else {
       // Полное снятие резерва
       const result = await this.prisma.reservation.deleteMany({
         where: { orderItemPartId },
       });
+      await this.logRelease(ctx, orderId, orderItemPartId, result.count);
       return result.count;
     }
+  }
+
+  private async logRelease(
+    ctx: AuthContext,
+    orderId: string | null,
+    orderItemPartId: string,
+    released: number,
+  ): Promise<void> {
+    if (!orderId || released <= 0) return;
+    const orderItemPart = await this.prisma.orderItemPart.findUnique({
+      where: { id: orderItemPartId },
+      select: { part: { select: { name: true } } },
+    });
+    await this.auditLog.record(this.prisma, ctx, {
+      rootEntityType: AuditEntityType.ORDER,
+      rootEntityId: orderId,
+      entityType: AuditEntityType.RESERVATION,
+      entityId: orderItemPartId,
+      action: AuditAction.RELEASE,
+      changes: [{ field: 'quantity', oldValue: released, newValue: null }],
+      entityDisplayName: orderItemPart?.part?.name ?? null,
+    });
   }
 
   /**

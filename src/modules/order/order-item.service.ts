@@ -22,6 +22,11 @@ import { applyDefaultCurrency } from 'src/common/money';
 import { normalizeMoneyAmount } from 'src/common/utils/money.util';
 import { SettingsService } from 'src/modules/settings/settings.service';
 import type { AuthContext } from 'src/common/user-id.store';
+import { AuditLogService } from 'src/modules/audit-log/audit-log.service';
+import {
+  AuditAction,
+  AuditEntityType,
+} from 'src/modules/audit-log/enums/audit.enums';
 
 @Injectable()
 export class OrderItemService {
@@ -32,6 +37,7 @@ export class OrderItemService {
     @Inject(forwardRef(() => ReservationService))
     private readonly reservationService: ReservationService,
     private readonly settingsService: SettingsService,
+    private readonly auditLog: AuditLogService,
   ) {}
 
   async findTreeByOrderId(orderId: string): Promise<OrderItemModel[]> {
@@ -185,6 +191,16 @@ export class OrderItemService {
       include: { group: true },
     });
 
+    await this.auditLog.record(this.prisma, ctx, {
+      rootEntityType: AuditEntityType.ORDER,
+      rootEntityId: input.orderId,
+      entityType: AuditEntityType.ORDER_ITEM_GROUP,
+      entityId: orderItem.id,
+      action: AuditAction.CREATE,
+      after: { ...orderItem.group, parentId: orderItem.parentId },
+      entityDisplayName: orderItem.group?.name ?? null,
+    });
+
     return this.toModel(orderItem as any);
   }
 
@@ -217,6 +233,16 @@ export class OrderItemService {
       await this.prisma.orderItemGroup.update({
         where: { id: input.id },
         data: updateData,
+      });
+      await this.auditLog.record(this.prisma, ctx, {
+        rootEntityType: AuditEntityType.ORDER,
+        rootEntityId: orderItem.orderId!,
+        entityType: AuditEntityType.ORDER_ITEM_GROUP,
+        entityId: input.id,
+        action: AuditAction.UPDATE,
+        before: { ...orderItem.group, parentId: orderItem.parentId },
+        after: { ...orderItem.group, ...updateData, parentId: orderItem.parentId },
+        entityDisplayName: updateData.name ?? orderItem.group?.name ?? null,
       });
     }
 
@@ -276,6 +302,16 @@ export class OrderItemService {
         },
       },
       include: { service: true },
+    });
+
+    await this.auditLog.record(this.prisma, ctx, {
+      rootEntityType: AuditEntityType.ORDER,
+      rootEntityId: input.orderId,
+      entityType: AuditEntityType.ORDER_ITEM_SERVICE,
+      entityId: orderItem.id,
+      action: AuditAction.CREATE,
+      after: { ...orderItem.service, parentId: orderItem.parentId },
+      entityDisplayName: orderItem.service?.service ?? null,
     });
 
     return this.toModel(orderItem as any);
@@ -347,6 +383,16 @@ export class OrderItemService {
           },
         },
       },
+    });
+
+    await this.auditLog.record(this.prisma, ctx, {
+      rootEntityType: AuditEntityType.ORDER,
+      rootEntityId: input.orderId,
+      entityType: AuditEntityType.ORDER_ITEM_PART,
+      entityId: orderItem.id,
+      action: AuditAction.CREATE,
+      after: { ...orderItem.part, parentId: orderItem.parentId },
+      entityDisplayName: orderItem.part?.part?.name ?? null,
     });
 
     if (orderItem.part && input.quantity > 0) {
@@ -577,6 +623,17 @@ export class OrderItemService {
       },
     });
 
+    await this.auditLog.record(this.prisma, ctx, {
+      rootEntityType: AuditEntityType.ORDER,
+      rootEntityId: orderItem.orderId!,
+      entityType: AuditEntityType.ORDER_ITEM_PART,
+      entityId: input.id,
+      action: AuditAction.UPDATE,
+      before: { ...orderItem.part, parentId: orderItem.parentId },
+      after: { ...updated?.part, parentId: updated?.parentId },
+      entityDisplayName: updated?.part?.part?.name ?? null,
+    });
+
     return this.toModel(updated as any);
   }
 
@@ -637,6 +694,19 @@ export class OrderItemService {
       await this.prisma.orderItemService.update({
         where: { id: orderItem.service.id },
         data: updateData,
+      });
+      await this.auditLog.record(this.prisma, ctx, {
+        rootEntityType: AuditEntityType.ORDER,
+        rootEntityId: orderItem.orderId!,
+        entityType: AuditEntityType.ORDER_ITEM_SERVICE,
+        entityId: input.id,
+        action: AuditAction.UPDATE,
+        before: { ...orderItem.service, parentId: orderItem.parentId },
+        after: { ...orderItem.service, ...updateData, parentId: orderItem.parentId },
+        entityDisplayName:
+          (updateData as { service?: string }).service ??
+          orderItem.service.service ??
+          null,
       });
     }
 
@@ -735,6 +805,33 @@ export class OrderItemService {
         },
       },
     });
+
+    if (orderItem.orderId) {
+      const entityType = orderItem.group
+        ? AuditEntityType.ORDER_ITEM_GROUP
+        : orderItem.service
+          ? AuditEntityType.ORDER_ITEM_SERVICE
+          : AuditEntityType.ORDER_ITEM_PART;
+      const before = orderItem.group
+        ? { ...orderItem.group, parentId: orderItem.parentId }
+        : orderItem.service
+          ? { ...orderItem.service, parentId: orderItem.parentId }
+          : { ...orderItem.part, parentId: orderItem.parentId };
+      const displayName =
+        orderItem.group?.name ??
+        orderItem.service?.service ??
+        (deleted as any)?.part?.part?.name ??
+        null;
+      await this.auditLog.record(client, ctx, {
+        rootEntityType: AuditEntityType.ORDER,
+        rootEntityId: orderItem.orderId,
+        entityType,
+        entityId: id,
+        action: AuditAction.DELETE,
+        before,
+        entityDisplayName: displayName,
+      });
+    }
 
     return this.toModel(deleted as any);
   }

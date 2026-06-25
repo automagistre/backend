@@ -6,6 +6,13 @@ import { CustomerTransactionSource } from 'src/modules/customer-transaction/enum
 import { CreateCustomerTransactionInput } from 'src/modules/customer-transaction/inputs/create-customer-transaction.input';
 import { SettingsService } from 'src/modules/settings/settings.service';
 import type { AuthContext } from 'src/common/user-id.store';
+import { applyDefaultCurrency, sum } from 'src/common/money';
+import { AuditLogService } from 'src/modules/audit-log/audit-log.service';
+import { DisplayContextService } from 'src/modules/display-context/display-context.service';
+import {
+  AuditAction,
+  AuditEntityType,
+} from 'src/modules/audit-log/enums/audit.enums';
 
 @Injectable()
 export class SalaryService {
@@ -16,6 +23,8 @@ export class SalaryService {
     private readonly employeeService: EmployeeService,
     private readonly customerTransactionService: CustomerTransactionService,
     private readonly settingsService: SettingsService,
+    private readonly auditLog: AuditLogService,
+    private readonly displayContext: DisplayContextService,
   ) {}
 
   async chargeByOrder(ctx: AuthContext, orderId: string): Promise<void> {
@@ -66,6 +75,21 @@ export class SalaryService {
 
     if (toCreate.length === 0) return;
 
+    const total = sum(
+      toCreate.map((d) => applyDefaultCurrency(d.amount ?? {}, defaultCurrency)),
+      defaultCurrency,
+    );
+
+    const recipientIds = Array.from(new Set(toCreate.map((d) => d.operandId)));
+    const recipientNames =
+      (
+        await Promise.all(
+          recipientIds.map((id) => this.displayContext.getPersonDisplay(id)),
+        )
+      )
+        .filter(Boolean)
+        .join(', ') || null;
+
     await this.prisma.$transaction(async (tx) => {
       for (const data of toCreate) {
         await this.customerTransactionService.createWithinTransaction(
@@ -75,6 +99,26 @@ export class SalaryService {
           ctx.userId,
         );
       }
+
+      await this.auditLog.record(tx, ctx, {
+        rootEntityType: AuditEntityType.ORDER,
+        rootEntityId: orderId,
+        entityType: AuditEntityType.SALARY,
+        entityId: orderId,
+        action: AuditAction.SALARY_ACCRUE,
+        changes: [
+          {
+            field: 'amount',
+            oldValue: null,
+            newValue: {
+              amountMinor: String(total.amountMinor),
+              currencyCode: total.currencyCode,
+            },
+          },
+        ],
+        entityDisplayName: recipientNames,
+        metadata: { count: toCreate.length },
+      });
     });
   }
 

@@ -28,9 +28,15 @@ import { TasksService } from 'src/modules/tasks/tasks.service';
 import { NoteType } from 'src/modules/note/enums/note-type.enum';
 import { RecommendationWorkMigrationService } from 'src/modules/recommendation-migration/recommendation-work-migration.service';
 import { applyDefaultCurrency } from 'src/common/money';
+import { orderTitle } from 'src/common/utils/entity-title.util';
 import type { AuthContext } from 'src/common/user-id.store';
 import { v6 as uuidv6 } from 'uuid';
 import { getOrderCancelReasonLabel } from './constants/order-cancel-reasons';
+import { AuditLogService } from 'src/modules/audit-log/audit-log.service';
+import {
+  AuditAction,
+  AuditEntityType,
+} from 'src/modules/audit-log/enums/audit.enums';
 
 const DELETE_COOLING_HOURS = 3;
 /** Совместимость со старой CRM: DiscriminatorMap OrderClose — 1 = OrderDeal, 2 = OrderCancel */
@@ -50,6 +56,7 @@ export class OrderService {
     private readonly tasksService: TasksService,
     @Inject(forwardRef(() => RecommendationWorkMigrationService))
     private readonly recommendationWorkMigrationService: RecommendationWorkMigrationService,
+    private readonly auditLog: AuditLogService,
   ) {}
 
   async findOne(ctx: AuthContext, id: string): Promise<OrderModel | null> {
@@ -648,7 +655,7 @@ export class OrderService {
         _max: { number: true },
       });
       const nextNumber = (agg._max?.number ?? 0) + 1;
-      return this.prisma.order.create({
+      const created = await this.prisma.order.create({
         data: {
           tenantId,
           number: nextNumber,
@@ -658,7 +665,17 @@ export class OrderService {
           workerId: input.workerId ?? null,
           createdBy: userId,
         },
-      }) as Promise<OrderModel>;
+      });
+      await this.auditLog.record(this.prisma, ctx, {
+        rootEntityType: AuditEntityType.ORDER,
+        rootEntityId: created.id,
+        entityType: AuditEntityType.ORDER,
+        entityId: created.id,
+        action: AuditAction.CREATE,
+        after: created,
+        entityDisplayName: orderTitle(created.number),
+      });
+      return created as OrderModel;
     }
 
     return this.prisma.$transaction(async (tx) => {
@@ -715,6 +732,17 @@ export class OrderService {
           tenantId,
           createdBy: userId,
         },
+      });
+
+      await this.auditLog.record(tx, ctx, {
+        rootEntityType: AuditEntityType.ORDER,
+        rootEntityId: order.id,
+        entityType: AuditEntityType.ORDER,
+        entityId: order.id,
+        action: AuditAction.CREATE,
+        after: order,
+        entityDisplayName: orderTitle(order.number),
+        metadata: { entryId },
       });
 
       return order as OrderModel;
@@ -930,10 +958,26 @@ export class OrderService {
       await this.wakeIfSuspended(ctx, input.id);
     }
 
-    return this.prisma.order.update({
+    const before = await this.prisma.order.findUnique({
       where: { id: input.id },
-      data,
-    }) as Promise<OrderModel>;
+    });
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const result = await tx.order.update({ where: { id: input.id }, data });
+      await this.auditLog.record(tx, ctx, {
+        rootEntityType: AuditEntityType.ORDER,
+        rootEntityId: input.id,
+        entityType: AuditEntityType.ORDER,
+        entityId: input.id,
+        action: AuditAction.UPDATE,
+        before,
+        after: result,
+        entityDisplayName: orderTitle(result.number),
+      });
+      return result;
+    });
+
+    return updated as OrderModel;
   }
 
   async cancelOrder(
@@ -982,6 +1026,16 @@ export class OrderService {
       await tx.order.update({
         where: { id: input.orderId },
         data: { status: OrderStatus.CANCELLED },
+      });
+
+      await this.auditLog.record(tx, ctx, {
+        rootEntityType: AuditEntityType.ORDER,
+        rootEntityId: input.orderId,
+        entityType: AuditEntityType.ORDER,
+        entityId: input.orderId,
+        action: AuditAction.CANCEL,
+        entityDisplayName: orderTitle(order.number),
+        metadata: { reason: reasonText, saveToRecommendations },
       });
 
       const orderPartItems = await tx.orderItemPart.findMany({
@@ -1221,6 +1275,19 @@ export class OrderService {
         data: { status: OrderStatus.CLOSED },
       });
 
+      await this.auditLog.record(tx, ctx, {
+        rootEntityType: AuditEntityType.ORDER,
+        rootEntityId: input.orderId,
+        entityType: AuditEntityType.ORDER,
+        entityId: input.orderId,
+        action: AuditAction.CLOSE,
+        entityDisplayName: orderTitle(order.number),
+        metadata: {
+          satisfaction,
+          totalMinor: orderTotal.toString(),
+        },
+      });
+
       await this.tasksService.createQualityControlTaskOnOrderClose(tx, ctx, {
         orderId: input.orderId,
         orderNumber: order.number,
@@ -1364,6 +1431,15 @@ export class OrderService {
       },
     });
 
+    await this.auditLog.record(this.prisma, ctx, {
+      rootEntityType: AuditEntityType.ORDER,
+      rootEntityId: input.orderId,
+      entityType: AuditEntityType.ORDER,
+      entityId: input.orderId,
+      action: AuditAction.SUSPEND,
+      metadata: { till: till.toISOString(), reason: input.reason },
+    });
+
     return this.findOne(ctx, input.orderId) as Promise<OrderModel>;
   }
 
@@ -1376,6 +1452,14 @@ export class OrderService {
     await this.prisma.orderSuspend.update({
       where: { id: activeSuspend.id },
       data: { till: this.startOfTodayUTC() },
+    });
+
+    await this.auditLog.record(this.prisma, ctx, {
+      rootEntityType: AuditEntityType.ORDER,
+      rootEntityId: orderId,
+      entityType: AuditEntityType.ORDER,
+      entityId: orderId,
+      action: AuditAction.WAKE,
     });
 
     return this.findOne(ctx, orderId) as Promise<OrderModel>;

@@ -63,6 +63,17 @@ export function subtract(a: Money, b: Money): Money {
 }
 
 /**
+ * Сумма списка денег. Для пустого списка возвращает 0 в указанной валюте.
+ * Валюты всех элементов должны совпадать.
+ */
+export function sum(items: Money[], currencyCode = ''): Money {
+  if (items.length === 0) {
+    return { amountMinor: 0n, currencyCode };
+  }
+  return items.reduce((acc, m) => add(acc, m));
+}
+
+/**
  * Умножить сумму на процент (в сотых долях: 100 = 100%).
  */
 export function multiplyByPercent(m: Money, percentHundredths: number): Money {

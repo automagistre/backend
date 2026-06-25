@@ -6,12 +6,32 @@ import { CreateWalletTransactionInput } from './inputs/create-wallet-transaction
 import { WalletService } from './wallet.service';
 import { DisplayContextService } from 'src/modules/display-context/display-context.service';
 import { WalletTransactionSource } from './enums/wallet-transaction-source.enum';
-import { applyDefaultCurrency } from 'src/common/money';
+import { applyDefaultCurrency, type Money } from 'src/common/money';
 import { SettingsService } from 'src/modules/settings/settings.service';
 import type { AuthContext } from 'src/common/user-id.store';
+import { AuditLogService } from 'src/modules/audit-log/audit-log.service';
+import {
+  AuditAction,
+  AuditEntityType,
+} from 'src/modules/audit-log/enums/audit.enums';
 
 const DEFAULT_TAKE = 25;
 const DEFAULT_SKIP = 0;
+
+/**
+ * Действие аудита по проводке заказа. OrderPrepay и OrderPrepayRefund имеют
+ * одинаковое числовое значение (=1, совместимость со старой CRM), различаем по знаку суммы.
+ */
+function resolveOrderWalletAction(
+  source: number,
+  amountAmount: bigint,
+): AuditAction | null {
+  if (source === WalletTransactionSource.OrderDebit) return AuditAction.DEBIT;
+  if (source === WalletTransactionSource.OrderPrepay) {
+    return amountAmount < 0n ? AuditAction.REFUND : AuditAction.PREPAY;
+  }
+  return null;
+}
 
 @Injectable()
 export class WalletTransactionService {
@@ -20,14 +40,55 @@ export class WalletTransactionService {
     private readonly walletService: WalletService,
     private readonly displayContextService: DisplayContextService,
     private readonly settingsService: SettingsService,
+    private readonly auditLog: AuditLogService,
   ) {}
 
-  private async normalizeAmountFields(
+  /** Лог движения по кошельку в журнал заказа (если источник связан с заказом). */
+  private async auditOrderWalletMovement(
+    client: Prisma.TransactionClient,
+    actor: { userId: string; tenantId: string },
+    txn: { id: string; source: number; sourceId: string },
+    amount: Money,
+  ): Promise<void> {
+    const action = resolveOrderWalletAction(txn.source, amount.amountMinor);
+    if (!action) return;
+    await this.auditLog.record(client, actor, {
+      rootEntityType: AuditEntityType.ORDER,
+      rootEntityId: txn.sourceId,
+      entityType: AuditEntityType.WALLET_TRANSACTION,
+      entityId: txn.id,
+      action,
+      changes: [
+        {
+          field: 'amount',
+          oldValue: null,
+          newValue: {
+            amountMinor: String(amount.amountMinor),
+            currencyCode: amount.currencyCode,
+          },
+        },
+      ],
+      entityDisplayName: await this.resolveOrderCounterparty(txn.sourceId),
+    });
+  }
+
+  /** Контрагент проводки заказа: ФИО заказчика или название организации. */
+  private async resolveOrderCounterparty(
+    orderId: string,
+  ): Promise<string | null> {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: { customerId: true },
+    });
+    if (!order?.customerId) return null;
+    return this.displayContextService.getOperandDisplayName(order.customerId);
+  }
+
+  private async normalizeAmount(
     input: CreateWalletTransactionInput,
-  ): Promise<{ amountAmount: bigint; amountCurrencyCode: string }> {
+  ): Promise<Money> {
     const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
-    const m = applyDefaultCurrency(input.amount, defaultCurrency);
-    return { amountAmount: m.amountMinor, amountCurrencyCode: m.currencyCode };
+    return applyDefaultCurrency(input.amount, defaultCurrency);
   }
 
   async findOne(ctx: AuthContext, walletId: string) {
@@ -38,21 +99,27 @@ export class WalletTransactionService {
     const { tenantId, userId } = ctx;
     const wallet = await this.findOne(ctx, data.walletId);
     if (!wallet) throw new NotFoundException('Счёт не найден');
-    const { amountAmount, amountCurrencyCode } =
-      await this.normalizeAmountFields(data);
-    return this.prisma.walletTransaction.create({
+    const amount = await this.normalizeAmount(data);
+    const created = await this.prisma.walletTransaction.create({
       data: {
         walletId: data.walletId,
         source: data.source,
         sourceId: data.sourceId ?? randomUUID(),
         description: data.description ?? null,
-        amountAmount,
-        amountCurrencyCode,
+        amountAmount: amount.amountMinor,
+        amountCurrencyCode: amount.currencyCode,
         tenantId,
         createdBy: userId,
       },
       include: { wallet: true },
     });
+    await this.auditOrderWalletMovement(
+      this.prisma,
+      { userId, tenantId },
+      { id: created.id, source: created.source, sourceId: created.sourceId },
+      amount,
+    );
+    return created;
   }
 
   /**
@@ -69,21 +136,27 @@ export class WalletTransactionService {
     tenantId: string,
     createdBy: string,
   ) {
-    const { amountAmount, amountCurrencyCode } =
-      await this.normalizeAmountFields(data);
-    return tx.walletTransaction.create({
+    const amount = await this.normalizeAmount(data);
+    const created = await tx.walletTransaction.create({
       data: {
         walletId: data.walletId,
         source: data.source,
         sourceId: data.sourceId ?? randomUUID(),
         description: data.description ?? null,
-        amountAmount,
-        amountCurrencyCode,
+        amountAmount: amount.amountMinor,
+        amountCurrencyCode: amount.currencyCode,
         tenantId,
         createdBy,
       },
       include: { wallet: true },
     });
+    await this.auditOrderWalletMovement(
+      tx,
+      { userId: createdBy, tenantId },
+      { id: created.id, source: created.source, sourceId: created.sourceId },
+      amount,
+    );
+    return created;
   }
 
   async findMany(
