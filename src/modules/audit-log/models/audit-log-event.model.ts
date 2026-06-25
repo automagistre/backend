@@ -16,9 +16,16 @@ export class AuditLogEventModel {
 
   @Field(() => String, {
     nullable: true,
-    description: 'Подпись агрегата, напр. «Заказ №123»',
+    description:
+      'Контекст объекта для списка: «Заказ №123 · Авто», «Авто» и т.п.',
   })
-  rootDisplayName: string | null;
+  contextLabel: string | null;
+
+  @Field(() => String, {
+    nullable: true,
+    description: 'Ссылка на агрегат для контекста (напр. /orders/{id})',
+  })
+  contextLink: string | null;
 
   @Field(() => AuditEntityType, { description: 'Тип изменённой сущности' })
   entityType: AuditEntityType;

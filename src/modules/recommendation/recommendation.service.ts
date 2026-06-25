@@ -12,6 +12,9 @@ import type {
   UpdateCarRecommendationServiceInput,
 } from './dto/recommendation-service-inputs';
 import type { AuthContext } from 'src/common/user-id.store';
+import { AuditLogService } from 'src/modules/audit-log/audit-log.service';
+import { AuditEntityType } from 'src/modules/audit-log/enums/audit.enums';
+import { DisplayContextService } from 'src/modules/display-context/display-context.service';
 
 @Injectable()
 export class RecommendationService {
@@ -20,7 +23,55 @@ export class RecommendationService {
     @Inject(forwardRef(() => ReservationService))
     private readonly reservationService: ReservationService,
     private readonly settingsService: SettingsService,
+    private readonly auditLog: AuditLogService,
+    private readonly displayContext: DisplayContextService,
   ) {}
+
+  /** Аудит рекомендации с маршрутизацией в root=CAR (если carId известен). */
+  private async auditRecommendation(
+    client: Prisma.TransactionClient | PrismaService,
+    ctx: AuthContext,
+    carId: string | null,
+    recommendationId: string,
+    before: Record<string, any> | null,
+    after: Record<string, any> | null,
+    serviceName: string | null,
+  ): Promise<void> {
+    if (!carId) return;
+    await this.auditLog.record(client, ctx, {
+      rootEntityType: AuditEntityType.CAR,
+      rootEntityId: carId,
+      entityType: AuditEntityType.CAR_RECOMMENDATION,
+      entityId: recommendationId,
+      before,
+      after,
+      entityDisplayName: serviceName,
+    });
+  }
+
+  /** Аудит запчасти рекомендации с маршрутизацией в root=CAR. */
+  private async auditRecommendationPart(
+    client: Prisma.TransactionClient | PrismaService,
+    ctx: AuthContext,
+    carId: string | null,
+    partRowId: string,
+    partId: string | null,
+    before: Record<string, any> | null,
+    after: Record<string, any> | null,
+  ): Promise<void> {
+    if (!carId) return;
+    await this.auditLog.record(client, ctx, {
+      rootEntityType: AuditEntityType.CAR,
+      rootEntityId: carId,
+      entityType: AuditEntityType.CAR_RECOMMENDATION_PART,
+      entityId: partRowId,
+      before,
+      after,
+      entityDisplayName: partId
+        ? await this.displayContext.getPartName(partId)
+        : null,
+    });
+  }
 
   /**
    * Read-only без ReservationService и parts: используется клиентским API
@@ -113,6 +164,7 @@ export class RecommendationService {
     ctx: AuthContext,
     input: CreateCarRecommendationServiceInput,
     tx?: Prisma.TransactionClient,
+    audit = true,
   ) {
     const client = tx ?? this.prisma;
     const car = await client.car.findFirst({
@@ -122,7 +174,7 @@ export class RecommendationService {
       throw new NotFoundException(`Автомобиль с ID ${input.carId} не найден`);
     }
 
-    return client.carRecommendation.create({
+    const created = await client.carRecommendation.create({
       data: {
         id: uuidv6(),
         carId: input.carId,
@@ -144,6 +196,20 @@ export class RecommendationService {
         },
       },
     });
+
+    if (audit) {
+      await this.auditRecommendation(
+        client,
+        ctx,
+        created.carId,
+        created.id,
+        null,
+        created,
+        created.service,
+      );
+    }
+
+    return created;
   }
 
   async updateRecommendation(
@@ -152,6 +218,7 @@ export class RecommendationService {
       realization?: string | null;
     },
     tx?: Prisma.TransactionClient,
+    audit = true,
   ) {
     const client = tx ?? this.prisma;
     const exists = await client.carRecommendation.findFirst({
@@ -163,7 +230,7 @@ export class RecommendationService {
 
     const { id, ...data } = input;
 
-    return client.carRecommendation.update({
+    const updated = await client.carRecommendation.update({
       where: { id },
       data,
       include: {
@@ -174,12 +241,27 @@ export class RecommendationService {
         },
       },
     });
+
+    if (audit) {
+      await this.auditRecommendation(
+        client,
+        ctx,
+        updated.carId,
+        updated.id,
+        exists,
+        updated,
+        updated.service,
+      );
+    }
+
+    return updated;
   }
 
   async deleteRecommendation(
     ctx: AuthContext,
     id: string,
     tx?: Prisma.TransactionClient,
+    audit = true,
   ) {
     const client = tx ?? this.prisma;
     const exists = await client.carRecommendation.findFirst({
@@ -203,6 +285,18 @@ export class RecommendationService {
       ]);
     }
 
+    if (audit) {
+      await this.auditRecommendation(
+        client,
+        ctx,
+        exists.carId,
+        id,
+        exists,
+        null,
+        exists.service,
+      );
+    }
+
     return true;
   }
 
@@ -210,6 +304,7 @@ export class RecommendationService {
     ctx: AuthContext,
     input: CreateCarRecommendationPartServiceInput,
     tx?: Prisma.TransactionClient,
+    audit = true,
   ) {
     const client = tx ?? this.prisma;
     const rec = await client.carRecommendation.findFirst({
@@ -226,7 +321,7 @@ export class RecommendationService {
       throw new NotFoundException(`Запчасть с ID ${input.partId} не найдена`);
     }
 
-    return client.carRecommendationPart.create({
+    const created = await client.carRecommendationPart.create({
       data: {
         id: uuidv6(),
         recommendationId: input.recommendationId,
@@ -243,12 +338,27 @@ export class RecommendationService {
         part: { include: { manufacturer: true } },
       },
     });
+
+    if (audit) {
+      await this.auditRecommendationPart(
+        client,
+        ctx,
+        rec.carId,
+        created.id,
+        created.partId,
+        null,
+        created,
+      );
+    }
+
+    return created;
   }
 
   async updateRecommendationPart(
     ctx: AuthContext,
     input: UpdateCarRecommendationPartServiceInput,
     tx?: Prisma.TransactionClient,
+    audit = true,
   ) {
     const client = tx ?? this.prisma;
     const exists = await client.carRecommendationPart.findFirst({
@@ -272,13 +382,31 @@ export class RecommendationService {
 
     const { id, ...data } = input;
 
-    return client.carRecommendationPart.update({
+    const updated = await client.carRecommendationPart.update({
       where: { id },
       data,
       include: {
         part: { include: { manufacturer: true } },
       },
     });
+
+    if (audit) {
+      const carId = await this.resolveRecommendationCarId(
+        client,
+        exists.recommendationId,
+      );
+      await this.auditRecommendationPart(
+        client,
+        ctx,
+        carId,
+        updated.id,
+        updated.partId,
+        exists,
+        updated,
+      );
+    }
+
+    return updated;
   }
 
   async deleteRecommendationPart(ctx: AuthContext, id: string) {
@@ -291,7 +419,33 @@ export class RecommendationService {
       );
     }
 
+    const carId = await this.resolveRecommendationCarId(
+      this.prisma,
+      exists.recommendationId,
+    );
     await this.prisma.carRecommendationPart.delete({ where: { id } });
+
+    await this.auditRecommendationPart(
+      this.prisma,
+      ctx,
+      carId,
+      exists.id,
+      exists.partId,
+      exists,
+      null,
+    );
+
     return true;
+  }
+
+  private async resolveRecommendationCarId(
+    client: Prisma.TransactionClient | PrismaService,
+    recommendationId: string,
+  ): Promise<string | null> {
+    const rec = await client.carRecommendation.findUnique({
+      where: { id: recommendationId },
+      select: { carId: true },
+    });
+    return rec?.carId ?? null;
   }
 }

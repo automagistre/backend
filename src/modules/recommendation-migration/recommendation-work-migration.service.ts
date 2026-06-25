@@ -20,6 +20,12 @@ import { SettingsService } from 'src/modules/settings/settings.service';
 import { v6 as uuidv6 } from 'uuid';
 import type { Prisma } from 'src/generated/prisma/client';
 import type { AuthContext } from 'src/common/user-id.store';
+import { AuditLogService } from 'src/modules/audit-log/audit-log.service';
+import {
+  AuditAction,
+  AuditEntityType,
+} from 'src/modules/audit-log/enums/audit.enums';
+import { orderTitle } from 'src/common/utils/entity-title.util';
 
 @Injectable()
 export class RecommendationWorkMigrationService {
@@ -31,6 +37,7 @@ export class RecommendationWorkMigrationService {
     private readonly employeeService: EmployeeService,
     private readonly recommendationService: RecommendationService,
     private readonly settingsService: SettingsService,
+    private readonly auditLog: AuditLogService,
     @Inject('PUB_SUB') private readonly pubSub: PubSub,
   ) {}
 
@@ -217,6 +224,35 @@ export class RecommendationWorkMigrationService {
             throw new BadRequestException('Рекомендация уже реализована');
           }
 
+          // Реализация — отдельное действие в двух таймлайнах: заказ и машина.
+          await this.auditLog.record(tx, ctx, {
+            rootEntityType: AuditEntityType.ORDER,
+            rootEntityId: input.orderId,
+            entityType: AuditEntityType.ORDER_ITEM_SERVICE,
+            entityId: serviceItemId,
+            action: AuditAction.REALIZE,
+            entityDisplayName: recommendation.service,
+            metadata: {
+              recommendationId,
+              carId: recommendation.carId,
+            },
+          });
+
+          if (recommendation.carId) {
+            await this.auditLog.record(tx, ctx, {
+              rootEntityType: AuditEntityType.CAR,
+              rootEntityId: recommendation.carId,
+              entityType: AuditEntityType.CAR_RECOMMENDATION,
+              entityId: recommendationId,
+              action: AuditAction.REALIZE,
+              entityDisplayName: `${recommendation.service} → ${orderTitle(order.number)}`,
+              metadata: {
+                orderId: input.orderId,
+                orderItemServiceId: serviceItemId,
+              },
+            });
+          }
+
           return parts;
         });
 
@@ -261,6 +297,8 @@ export class RecommendationWorkMigrationService {
       validateOrderEditable?: boolean;
       tx?: Prisma.TransactionClient;
       publishUpdates?: boolean;
+      /** Логировать как явный «Возврат в рекомендации» (одно событие на сторону). */
+      auditAsReturn?: boolean;
     },
   ): Promise<{ orderId: string; recommendationId: string; carId: string | null }> {
     const {
@@ -269,8 +307,12 @@ export class RecommendationWorkMigrationService {
       validateOrderEditable = true,
       tx,
       publishUpdates = tx == null,
+      auditAsReturn = false,
     } = params;
     const client = tx ?? this.prisma;
+    // В режиме явного возврата вложенные create/update/delete не логируем —
+    // вместо них пишем по одному событию RETURN_TO_RECOMMENDATION на сторону.
+    const auditNested = !auditAsReturn;
 
     const orderItem = await client.orderItem.findUnique({
       where: { id: orderItemServiceId },
@@ -376,6 +418,7 @@ export class RecommendationWorkMigrationService {
           realization: null,
         },
         client,
+        auditNested,
       );
 
       for (const recPart of recommendation.parts) {
@@ -392,6 +435,7 @@ export class RecommendationWorkMigrationService {
             priceCurrencyCode: defaultCurrency,
           },
           client,
+          auditNested,
         );
       }
     } else if (
@@ -411,6 +455,7 @@ export class RecommendationWorkMigrationService {
           realization: null,
         },
         client,
+        auditNested,
       );
     } else {
       if (!carId) {
@@ -425,6 +470,7 @@ export class RecommendationWorkMigrationService {
           ctx,
           recommendation.id,
           client,
+          auditNested,
         );
       }
 
@@ -440,6 +486,7 @@ export class RecommendationWorkMigrationService {
             priceCurrencyCode: defaultCurrency,
           },
           client,
+          auditNested,
         );
       resultRecommendationId = createdRecommendation.id;
 
@@ -457,7 +504,32 @@ export class RecommendationWorkMigrationService {
             priceCurrencyCode: defaultCurrency,
           },
           client,
+          auditNested,
         );
+      }
+    }
+
+    if (auditAsReturn) {
+      await this.auditLog.record(client, ctx, {
+        rootEntityType: AuditEntityType.ORDER,
+        rootEntityId: order.id,
+        entityType: AuditEntityType.ORDER_ITEM_SERVICE,
+        entityId: orderItemServiceId,
+        action: AuditAction.RETURN_TO_RECOMMENDATION,
+        entityDisplayName: orderItem.service.service,
+        metadata: { recommendationId: resultRecommendationId, carId },
+      });
+
+      if (carId) {
+        await this.auditLog.record(client, ctx, {
+          rootEntityType: AuditEntityType.CAR,
+          rootEntityId: carId,
+          entityType: AuditEntityType.CAR_RECOMMENDATION,
+          entityId: resultRecommendationId,
+          action: AuditAction.RETURN_TO_RECOMMENDATION,
+          entityDisplayName: `${orderItem.service.service} ← ${orderTitle(order.number)}`,
+          metadata: { orderId: order.id, orderItemServiceId },
+        });
       }
     }
 
@@ -465,6 +537,7 @@ export class RecommendationWorkMigrationService {
       await this.orderItemService.delete(ctx, orderItemServiceId, true, {
         tx: client,
         skipValidation: true,
+        skipAudit: auditAsReturn,
       });
     }
 
@@ -491,6 +564,7 @@ export class RecommendationWorkMigrationService {
       deleteOrderItem: true,
       validateOrderEditable: true,
       publishUpdates: true,
+      auditAsReturn: true,
     });
 
     return {

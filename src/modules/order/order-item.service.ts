@@ -738,6 +738,7 @@ export class OrderItemService {
     options?: {
       tx?: Prisma.TransactionClient;
       skipValidation?: boolean;
+      skipAudit?: boolean;
     },
   ): Promise<OrderItemModel> {
     const client = options?.tx ?? this.prisma;
@@ -806,7 +807,7 @@ export class OrderItemService {
       },
     });
 
-    if (orderItem.orderId) {
+    if (orderItem.orderId && !options?.skipAudit) {
       const entityType = orderItem.group
         ? AuditEntityType.ORDER_ITEM_GROUP
         : orderItem.service

@@ -137,6 +137,19 @@ export class DisplayContextService {
     );
   }
 
+  /** Название модели (vehicle): «Марка Модель». */
+  async getVehicleName(vehicleId: string): Promise<string | null> {
+    const vehicle = await this.prisma.vehicle.findUnique({
+      where: { id: vehicleId },
+      select: { name: true, manufacturer: { select: { name: true } } },
+    });
+    if (!vehicle) return null;
+    return (
+      [vehicle.manufacturer?.name, vehicle.name].filter(Boolean).join(' ') ||
+      null
+    );
+  }
+
   /** Подпись автомобиля: «Марка Модель Госномер». */
   async getCarDisplay(carId: string): Promise<string | null> {
     const car = await this.prisma.car.findUnique({

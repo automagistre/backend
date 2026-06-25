@@ -146,7 +146,7 @@ export class AuditLogService {
     ]);
 
     const items = rows.map((row) => this.toModel(row));
-    await this.enrichRootDisplays(items);
+    await this.enrichContext(items);
     return { items, total };
   }
 
@@ -185,32 +185,93 @@ export class AuditLogService {
     ]);
 
     const items = rows.map((row) => this.toModel(row));
-    await this.enrichRootDisplays(items);
+    await this.enrichContext(items);
     return { items, total };
   }
 
-  /** Заполняет rootDisplayName (напр. «Заказ №123») батчем для root = ORDER. */
-  private async enrichRootDisplays(items: AuditLogEventModel[]): Promise<void> {
-    const orderIds = Array.from(
-      new Set(
-        items
-          .filter((i) => i.rootEntityType === AuditEntityType.ORDER)
-          .map((i) => i.rootEntityId),
-      ),
+  /** Типы, для которых в списке показываем контекст «Заказ №X · Авто». */
+  private static readonly ORDER_CONTEXT_TYPES: AuditEntityType[] = [
+    AuditEntityType.ORDER_ITEM_GROUP,
+    AuditEntityType.ORDER_ITEM_SERVICE,
+    AuditEntityType.ORDER_ITEM_PART,
+    AuditEntityType.RESERVATION,
+  ];
+
+  /** Типы, для которых контекст — автомобиль (root = CAR). */
+  private static readonly CAR_CONTEXT_TYPES: AuditEntityType[] = [
+    AuditEntityType.CAR_RECOMMENDATION,
+    AuditEntityType.CAR_RECOMMENDATION_PART,
+  ];
+
+  /**
+   * Заполняет contextLabel/contextLink батчем по типу сущности:
+   * элементы заказа/резерв → «Заказ №X · Авто» (ссылка на заказ),
+   * рекомендации → «Авто». Проводка/зарплата контекст не требуют —
+   * person/org уже в entityDisplayName.
+   */
+  private async enrichContext(items: AuditLogEventModel[]): Promise<void> {
+    await Promise.all([
+      this.enrichOrderContext(items),
+      this.enrichCarContext(items),
+    ]);
+  }
+
+  private async enrichOrderContext(
+    items: AuditLogEventModel[],
+  ): Promise<void> {
+    const orderItems = items.filter((i) =>
+      AuditLogService.ORDER_CONTEXT_TYPES.includes(i.entityType),
     );
+    const orderIds = Array.from(new Set(orderItems.map((i) => i.rootEntityId)));
     if (orderIds.length === 0) return;
 
     const orders = await this.prisma.order.findMany({
       where: { id: { in: orderIds } },
-      select: { id: true, number: true },
+      select: { id: true, number: true, carId: true },
     });
-    const numberById = new Map(orders.map((o) => [o.id, o.number]));
+    const orderById = new Map(orders.map((o) => [o.id, o]));
 
-    for (const item of items) {
-      if (item.rootEntityType !== AuditEntityType.ORDER) continue;
-      const number = numberById.get(item.rootEntityId);
-      if (number != null) item.rootDisplayName = orderTitle(number);
+    const carIds = Array.from(
+      new Set(orders.map((o) => o.carId).filter((id): id is string => !!id)),
+    );
+    const carDisplayById = await this.loadCarDisplays(carIds);
+
+    for (const item of orderItems) {
+      const order = orderById.get(item.rootEntityId);
+      if (!order) continue;
+      const carDisplay = order.carId ? carDisplayById.get(order.carId) : null;
+      item.contextLabel = carDisplay
+        ? `${orderTitle(order.number)} · ${carDisplay}`
+        : orderTitle(order.number);
+      item.contextLink = `/orders/${order.id}`;
     }
+  }
+
+  private async enrichCarContext(items: AuditLogEventModel[]): Promise<void> {
+    const carItems = items.filter((i) =>
+      AuditLogService.CAR_CONTEXT_TYPES.includes(i.entityType),
+    );
+    const carIds = Array.from(new Set(carItems.map((i) => i.rootEntityId)));
+    if (carIds.length === 0) return;
+
+    const carDisplayById = await this.loadCarDisplays(carIds);
+    for (const item of carItems) {
+      item.contextLabel = carDisplayById.get(item.rootEntityId) ?? null;
+    }
+  }
+
+  private async loadCarDisplays(
+    carIds: string[],
+  ): Promise<Map<string, string | null>> {
+    if (carIds.length === 0) return new Map();
+    return new Map(
+      await Promise.all(
+        carIds.map(
+          async (id) =>
+            [id, await this.displayContext.getCarDisplay(id)] as const,
+        ),
+      ),
+    );
   }
 
   private toModel(row: {
@@ -232,7 +293,8 @@ export class AuditLogService {
       id: row.id,
       rootEntityType: row.rootEntityType as AuditEntityType,
       rootEntityId: row.rootEntityId,
-      rootDisplayName: null,
+      contextLabel: null,
+      contextLink: null,
       entityType,
       entityId: row.entityId,
       action: row.action as AuditAction,
@@ -279,6 +341,8 @@ export class AuditLogService {
         return this.displayContext.getWorkerDisplay(id);
       case 'car':
         return this.displayContext.getCarDisplay(id);
+      case 'vehicle':
+        return this.displayContext.getVehicleName(id);
       case 'orderItem':
         return this.displayContext.getOrderItemDisplay(id);
       default:
@@ -340,6 +404,8 @@ export class AuditLogService {
       }
       case 'bool':
         return Boolean(value);
+      case 'date':
+        return value instanceof Date ? value.toISOString() : String(value);
       case 'quantity':
       case 'status':
         return typeof value === 'bigint' ? Number(value) : (value as number);
@@ -392,6 +458,12 @@ export class AuditLogService {
       case 'quantityX100':
         return [
           AuditChangeKind.QUANTITY,
+          change.oldValue ?? null,
+          change.newValue ?? null,
+        ];
+      case 'date':
+        return [
+          AuditChangeKind.DATE,
           change.oldValue ?? null,
           change.newValue ?? null,
         ];

@@ -7,10 +7,17 @@ import { normalizeEngineCapacity } from 'src/common/utils/engine-capacity.util';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateCarInput, UpdateCarInputPrisma } from './inputs/car.input';
 import type { AuthContext } from 'src/common/user-id.store';
+import { AuditLogService } from 'src/modules/audit-log/audit-log.service';
+import { AuditEntityType } from 'src/modules/audit-log/enums/audit.enums';
+import { DisplayContextService } from 'src/modules/display-context/display-context.service';
 
 @Injectable()
 export class CarService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auditLog: AuditLogService,
+    private readonly displayContext: DisplayContextService,
+  ) {}
 
   private static prepareCarData<
     T extends { equipmentEngineCapacity?: string | null },
@@ -30,7 +37,7 @@ export class CarService {
 
   async create(ctx: AuthContext, data: CreateCarInput) {
     const prepared = CarService.prepareCarData(data);
-    return this.prisma.car.create({
+    const created = await this.prisma.car.create({
       include: {
         vehicle: {
           include: {
@@ -45,6 +52,18 @@ export class CarService {
         createdBy: ctx.userId,
       },
     });
+
+    await this.auditLog.record(this.prisma, ctx, {
+      rootEntityType: AuditEntityType.CAR,
+      rootEntityId: created.id,
+      entityType: AuditEntityType.CAR,
+      entityId: created.id,
+      before: null,
+      after: created,
+      entityDisplayName: await this.displayContext.getCarDisplay(created.id),
+    });
+
+    return created;
   }
 
   async update(ctx: AuthContext, { id, ...data }: UpdateCarInputPrisma) {
@@ -56,7 +75,7 @@ export class CarService {
     }
 
     const prepared = CarService.prepareCarData(data);
-    return this.prisma.car.update({
+    const updated = await this.prisma.car.update({
       include: {
         vehicle: {
           include: {
@@ -67,6 +86,18 @@ export class CarService {
       where: { id },
       data: prepared,
     });
+
+    await this.auditLog.record(this.prisma, ctx, {
+      rootEntityType: AuditEntityType.CAR,
+      rootEntityId: id,
+      entityType: AuditEntityType.CAR,
+      entityId: id,
+      before: existing,
+      after: updated,
+      entityDisplayName: await this.displayContext.getCarDisplay(id),
+    });
+
+    return updated;
   }
 
   async findMany(
@@ -186,6 +217,19 @@ export class CarService {
       );
     }
 
-    return this.prisma.car.delete({ where: { id } });
+    const displayName = await this.displayContext.getCarDisplay(id);
+    const deleted = await this.prisma.car.delete({ where: { id } });
+
+    await this.auditLog.record(this.prisma, ctx, {
+      rootEntityType: AuditEntityType.CAR,
+      rootEntityId: id,
+      entityType: AuditEntityType.CAR,
+      entityId: id,
+      before: existing,
+      after: null,
+      entityDisplayName: displayName,
+    });
+
+    return deleted;
   }
 }

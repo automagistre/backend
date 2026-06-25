@@ -1,5 +1,8 @@
 import { AuditEntityType, AuditScope } from './enums/audit.enums';
 import { OrderStatusLabel } from '../order/enums/order-status.enum';
+import { CarTransmissionLabel } from '../vehicle/enums/car-transmission.enum';
+import { CarWheelDriveLabel } from '../vehicle/enums/car-wheel-drive.enum';
+import { CarEngineTypeLabel } from '../vehicle/enums/car-engine-type.enum';
 
 /** Денежное значение в журнале: minor-строкой (BigInt не сериализуется в JSON). */
 export type AuditMoney = { amountMinor: string; currencyCode: string };
@@ -23,12 +26,14 @@ export type AuditRelationRef =
   | 'worker'
   | 'operand'
   | 'car'
+  | 'vehicle'
   | 'orderItem';
 
 /** Тип поля — определяет сравнение при diff и формат при чтении. */
 export type AuditFieldKind =
   | { kind: 'scalar' }
   | { kind: 'bool' }
+  | { kind: 'date' }
   | { kind: 'money'; currencyField?: string }
   | { kind: 'quantity' }
   | { kind: 'quantityX100' }
@@ -110,6 +115,48 @@ export const AUDIT_REGISTRY: Record<AuditEntityType, AuditEntityDef> = {
     scope: AuditScope.TENANT,
     fields: {
       amount: { label: 'Начислено', kind: money() },
+    },
+  },
+  [AuditEntityType.CAR]: {
+    scope: AuditScope.GROUP,
+    fields: {
+      vehicleId: { label: 'Модель', kind: { kind: 'relation', ref: 'vehicle' } },
+      identifier: { label: 'VIN', kind: { kind: 'scalar' } },
+      gosnomer: { label: 'Госномер', kind: { kind: 'scalar' } },
+      year: { label: 'Год', kind: { kind: 'scalar' } },
+      mileage: { label: 'Пробег', kind: { kind: 'scalar' } },
+      description: { label: 'Примечание', kind: { kind: 'scalar' } },
+      equipmentEngineName: { label: 'Двигатель', kind: { kind: 'scalar' } },
+      equipmentEngineCapacity: { label: 'Объём двигателя', kind: { kind: 'scalar' } },
+      equipmentTransmission: {
+        label: 'КПП',
+        kind: { kind: 'status', labels: CarTransmissionLabel },
+      },
+      equipmentWheelDrive: {
+        label: 'Привод',
+        kind: { kind: 'status', labels: CarWheelDriveLabel },
+      },
+      equipmentEngineType: {
+        label: 'Тип двигателя',
+        kind: { kind: 'status', labels: CarEngineTypeLabel },
+      },
+    },
+  },
+  [AuditEntityType.CAR_RECOMMENDATION]: {
+    scope: AuditScope.GROUP,
+    fields: {
+      service: { label: 'Работа', kind: { kind: 'scalar' } },
+      workerId: { label: 'Исполнитель', kind: { kind: 'relation', ref: 'worker' } },
+      priceAmount: { label: 'Цена', kind: money('priceCurrencyCode') },
+      expiredAt: { label: 'Действует до', kind: { kind: 'date' } },
+    },
+  },
+  [AuditEntityType.CAR_RECOMMENDATION_PART]: {
+    scope: AuditScope.GROUP,
+    fields: {
+      partId: { label: 'Запчасть', kind: { kind: 'relation', ref: 'part' } },
+      quantity: { label: 'Количество', kind: { kind: 'quantityX100' } },
+      priceAmount: { label: 'Цена', kind: money('priceCurrencyCode') },
     },
   },
 };

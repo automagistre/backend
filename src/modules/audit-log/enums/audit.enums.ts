@@ -16,6 +16,9 @@ export enum AuditEntityType {
   RESERVATION = 'RESERVATION',
   WALLET_TRANSACTION = 'WALLET_TRANSACTION',
   SALARY = 'SALARY',
+  CAR = 'CAR',
+  CAR_RECOMMENDATION = 'CAR_RECOMMENDATION',
+  CAR_RECOMMENDATION_PART = 'CAR_RECOMMENDATION_PART',
 }
 
 /** Вид значения изменения — определяет форматирование на фронте. */
@@ -23,6 +26,7 @@ export enum AuditChangeKind {
   MONEY = 'MONEY',
   QUANTITY = 'QUANTITY',
   BOOL = 'BOOL',
+  DATE = 'DATE',
   TEXT = 'TEXT',
 }
 
@@ -42,6 +46,8 @@ export enum AuditAction {
   RESERVE = 'RESERVE',
   RELEASE = 'RELEASE',
   SALARY_ACCRUE = 'SALARY_ACCRUE',
+  REALIZE = 'REALIZE',
+  RETURN_TO_RECOMMENDATION = 'RETURN_TO_RECOMMENDATION',
 }
 
 registerEnumType(AuditScope, {

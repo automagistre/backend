@@ -11,6 +11,7 @@ import { CarModule } from 'src/modules/vehicle/car.module';
 import { CommonModule } from 'src/common/common.module';
 import { ReservationModule } from 'src/modules/reservation/reservation.module';
 import { OrderModule } from 'src/modules/order/order.module';
+import { DisplayContextModule } from 'src/modules/display-context/display-context.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { OrderModule } from 'src/modules/order/order.module';
     CarModule,
     forwardRef(() => ReservationModule),
     forwardRef(() => OrderModule),
+    DisplayContextModule,
   ],
   providers: [
     RecommendationService,
