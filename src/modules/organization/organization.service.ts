@@ -10,6 +10,8 @@ import {
   UpdateOrganizationInput,
 } from './inputs/organization.input';
 import type { AuthContext } from 'src/common/user-id.store';
+import { AuditLogService } from 'src/modules/audit-log/audit-log.service';
+import { AuditEntityType } from 'src/modules/audit-log/enums/audit.enums';
 
 export type OrganizationLookupRow = {
   id: string;
@@ -21,12 +23,33 @@ const DEFAULT_SKIP = 0;
 
 @Injectable()
 export class OrganizationService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auditLog: AuditLogService,
+  ) {}
+
+  private async auditOrganization(
+    ctx: AuthContext,
+    id: string,
+    before: Record<string, any> | null,
+    after: Record<string, any> | null,
+  ): Promise<void> {
+    const row = after ?? before;
+    await this.auditLog.record(this.prisma, ctx, {
+      rootEntityType: AuditEntityType.ORGANIZATION,
+      rootEntityId: id,
+      entityType: AuditEntityType.ORGANIZATION,
+      entityId: id,
+      before,
+      after,
+      entityDisplayName: row?.name ?? null,
+    });
+  }
 
   async create(ctx: AuthContext, data: CreateOrganizationInput) {
     const { requisite, ...mainData } = data;
 
-    return this.prisma.organization.create({
+    const created = await this.prisma.organization.create({
       data: {
         ...mainData,
         tenantGroupId: ctx.tenantGroupId,
@@ -43,6 +66,10 @@ export class OrganizationService {
         }),
       },
     });
+
+    await this.auditOrganization(ctx, created.id, null, created);
+
+    return created;
   }
 
   async update(
@@ -60,7 +87,7 @@ export class OrganizationService {
       throw new NotFoundException('Организация не найдена или недоступна');
     }
 
-    return this.prisma.organization.update({
+    const updated = await this.prisma.organization.update({
       where: { id },
       data: {
         ...mainData,
@@ -76,6 +103,10 @@ export class OrganizationService {
         }),
       },
     });
+
+    await this.auditOrganization(ctx, id, existing, updated);
+
+    return updated;
   }
 
   async findMany(
@@ -216,8 +247,12 @@ export class OrganizationService {
       );
     }
 
-    return this.prisma.organization.delete({
+    const deleted = await this.prisma.organization.delete({
       where: { id },
     });
+
+    await this.auditOrganization(ctx, id, existing, null);
+
+    return deleted;
   }
 }

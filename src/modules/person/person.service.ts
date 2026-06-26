@@ -8,6 +8,8 @@ import { CreatePersonInput } from './inputs/create.input';
 import { UpdatePersonInput } from './inputs/update.input';
 import { Person } from 'src/generated/prisma/client';
 import type { AuthContext } from 'src/common/user-id.store';
+import { AuditLogService } from 'src/modules/audit-log/audit-log.service';
+import { AuditEntityType } from 'src/modules/audit-log/enums/audit.enums';
 
 export type PersonLookupRow = {
   id: string;
@@ -20,19 +22,46 @@ const DEFAULT_SKIP = 0;
 
 @Injectable()
 export class PersonService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auditLog: AuditLogService,
+  ) {}
+
+  private async auditPerson(
+    ctx: AuthContext,
+    id: string,
+    before: Record<string, any> | null,
+    after: Record<string, any> | null,
+  ): Promise<void> {
+    const row = after ?? before;
+    const displayName =
+      [row?.lastname, row?.firstname].filter(Boolean).join(' ') || null;
+    await this.auditLog.record(this.prisma, ctx, {
+      rootEntityType: AuditEntityType.PERSON,
+      rootEntityId: id,
+      entityType: AuditEntityType.PERSON,
+      entityId: id,
+      before,
+      after,
+      entityDisplayName: displayName,
+    });
+  }
 
   async create(
     ctx: AuthContext,
     createPersonInput: CreatePersonInput,
   ): Promise<Person> {
-    return this.prisma.person.create({
+    const created = await this.prisma.person.create({
       data: {
         ...createPersonInput,
         tenantGroupId: ctx.tenantGroupId,
         createdBy: ctx.userId,
       },
     });
+
+    await this.auditPerson(ctx, created.id, null, created);
+
+    return created;
   }
 
   async findMany(
@@ -160,10 +189,14 @@ export class PersonService {
       throw new NotFoundException(`Клиент не найден или недоступен`);
     }
 
-    return this.prisma.person.update({
+    const updated = await this.prisma.person.update({
       where: { id },
       data,
     });
+
+    await this.auditPerson(ctx, id, existing, updated);
+
+    return updated;
   }
 
   // TODO: После применения миграции с onDelete: Restrict можно убрать ручные проверки
@@ -216,8 +249,12 @@ export class PersonService {
       );
     }
 
-    return this.prisma.person.delete({
+    const deleted = await this.prisma.person.delete({
       where: { id },
     });
+
+    await this.auditPerson(ctx, id, existing, null);
+
+    return deleted;
   }
 }

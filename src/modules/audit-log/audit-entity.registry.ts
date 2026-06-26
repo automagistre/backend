@@ -159,6 +159,38 @@ export const AUDIT_REGISTRY: Record<AuditEntityType, AuditEntityDef> = {
       priceAmount: { label: 'Цена', kind: money('priceCurrencyCode') },
     },
   },
+  [AuditEntityType.PERSON]: {
+    scope: AuditScope.GROUP,
+    fields: {
+      lastname: { label: 'Фамилия', kind: { kind: 'scalar' } },
+      firstname: { label: 'Имя', kind: { kind: 'scalar' } },
+      telephone: { label: 'Телефон', kind: { kind: 'scalar' } },
+      officePhone: { label: 'Рабочий телефон', kind: { kind: 'scalar' } },
+      email: { label: 'Email', kind: { kind: 'scalar' } },
+      contractor: { label: 'Заказчик', kind: { kind: 'bool' } },
+      seller: { label: 'Поставщик', kind: { kind: 'bool' } },
+    },
+  },
+  [AuditEntityType.ORGANIZATION]: {
+    scope: AuditScope.GROUP,
+    fields: {
+      name: { label: 'Название', kind: { kind: 'scalar' } },
+      address: { label: 'Адрес', kind: { kind: 'scalar' } },
+      telephone: { label: 'Телефон', kind: { kind: 'scalar' } },
+      officePhone: { label: 'Рабочий телефон', kind: { kind: 'scalar' } },
+      email: { label: 'Email', kind: { kind: 'scalar' } },
+      contractor: { label: 'Заказчик', kind: { kind: 'bool' } },
+      seller: { label: 'Поставщик', kind: { kind: 'bool' } },
+      requisiteBank: { label: 'Банк', kind: { kind: 'scalar' } },
+      requisiteLegalAddress: { label: 'Юр. адрес', kind: { kind: 'scalar' } },
+      requisiteOgrn: { label: 'ОГРН', kind: { kind: 'scalar' } },
+      requisiteInn: { label: 'ИНН', kind: { kind: 'scalar' } },
+      requisiteKpp: { label: 'КПП', kind: { kind: 'scalar' } },
+      requisiteRs: { label: 'Р/с', kind: { kind: 'scalar' } },
+      requisiteKs: { label: 'К/с', kind: { kind: 'scalar' } },
+      requisiteBik: { label: 'БИК', kind: { kind: 'scalar' } },
+    },
+  },
 };
 
 export function getAuditEntityDef(entityType: AuditEntityType): AuditEntityDef {

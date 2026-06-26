@@ -19,6 +19,8 @@ export enum AuditEntityType {
   CAR = 'CAR',
   CAR_RECOMMENDATION = 'CAR_RECOMMENDATION',
   CAR_RECOMMENDATION_PART = 'CAR_RECOMMENDATION_PART',
+  PERSON = 'PERSON',
+  ORGANIZATION = 'ORGANIZATION',
 }
 
 /** Вид значения изменения — определяет форматирование на фронте. */
