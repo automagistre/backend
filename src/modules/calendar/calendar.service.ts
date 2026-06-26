@@ -9,6 +9,12 @@ import {
   UpdateCalendarEntryInput,
 } from './inputs/calendarEntry.input';
 import type { AuthContext } from 'src/common/user-id.store';
+import { AuditLogService } from 'src/modules/audit-log/audit-log.service';
+import {
+  AuditAction,
+  AuditEntityType,
+} from 'src/modules/audit-log/enums/audit.enums';
+import { DisplayContextService } from 'src/modules/display-context/display-context.service';
 
 const deletionReasonToDbValue: Record<DeletionReason, number> = {
   [DeletionReason.NO_REASON]: 1,
@@ -98,9 +104,48 @@ const normalizeLatestScheduleDuration = <
   return entry;
 };
 
+type CalendarSnapshot = {
+  date: Date | null;
+  duration: string | null;
+  customerId: string | null;
+  carId: string | null;
+  workerId: string | null;
+  description: string | null;
+};
+
 @Injectable()
 export class CalendarService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private readonly auditLog: AuditLogService,
+    private readonly displayContext: DisplayContextService,
+  ) {}
+
+  /** Аудит записи календаря (root = сама запись, scope TENANT). */
+  private async auditCalendarEntry(
+    ctx: AuthContext,
+    entryId: string,
+    before: CalendarSnapshot | null,
+    after: CalendarSnapshot | null,
+    action?: AuditAction,
+    metadata?: Record<string, unknown>,
+  ): Promise<void> {
+    const snapshot = after ?? before;
+    const displayName = snapshot?.customerId
+      ? await this.displayContext.getOperandDisplayName(snapshot.customerId)
+      : (snapshot?.description ?? null);
+    await this.auditLog.record(this.prisma, ctx, {
+      rootEntityType: AuditEntityType.CALENDAR_ENTRY,
+      rootEntityId: entryId,
+      entityType: AuditEntityType.CALENDAR_ENTRY,
+      entityId: entryId,
+      action,
+      before,
+      after,
+      entityDisplayName: displayName,
+      metadata,
+    });
+  }
 
   private async findEntryById(
     ctx: AuthContext,
@@ -171,6 +216,15 @@ export class CalendarService {
             }
           : {}),
       },
+    });
+
+    await this.auditCalendarEntry(ctx, id, null, {
+      date: data.date,
+      duration: data.duration,
+      customerId: data.customerId ?? null,
+      carId: data.carId ?? null,
+      workerId: data.workerId ?? null,
+      description: data.description ?? null,
     });
 
     return this.getEntry(ctx, id) as Promise<CalendarEntry>;
@@ -253,6 +307,27 @@ export class CalendarService {
       await this.prisma.$transaction(tx);
     }
 
+    await this.auditCalendarEntry(
+      ctx,
+      entryId,
+      {
+        date: currentSchedule?.date ?? null,
+        duration: currentSchedule?.duration ?? null,
+        customerId: currentOrderInfo?.customerId ?? null,
+        carId: currentOrderInfo?.carId ?? null,
+        workerId: currentOrderInfo?.workerId ?? null,
+        description: currentOrderInfo?.description ?? null,
+      },
+      {
+        date: nextDate ?? null,
+        duration: nextDuration ?? null,
+        customerId: currentOrderInfo?.customerId ?? null,
+        carId: currentOrderInfo?.carId ?? null,
+        workerId: nextWorkerId,
+        description: nextDescription,
+      },
+    );
+
     return this.getEntry(ctx, entryId);
   }
 
@@ -261,6 +336,8 @@ export class CalendarService {
     data: DeleteCalendarEntryInput,
   ): Promise<void> {
     const { tenantId, userId } = ctx;
+
+    const existing = await this.findEntryById(ctx, data.id);
 
     await this.prisma.calendarEntryDeletion.create({
       data: {
@@ -273,6 +350,26 @@ export class CalendarService {
         description: data.description,
       },
     });
+
+    if (existing) {
+      const schedule = existing.calendarEntrySchedule[0];
+      const orderInfo = existing.calendarEntryOrderInfo[0];
+      await this.auditCalendarEntry(
+        ctx,
+        data.id,
+        {
+          date: schedule?.date ?? null,
+          duration: schedule?.duration ?? null,
+          customerId: orderInfo?.customerId ?? null,
+          carId: orderInfo?.carId ?? null,
+          workerId: orderInfo?.workerId ?? null,
+          description: orderInfo?.description ?? null,
+        },
+        null,
+        AuditAction.DELETE,
+        { reason: data.reason, description: data.description },
+      );
+    }
   }
 
   async getEntriesByDate(ctx: AuthContext, date: Date) {

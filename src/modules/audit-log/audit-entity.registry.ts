@@ -34,6 +34,7 @@ export type AuditFieldKind =
   | { kind: 'scalar' }
   | { kind: 'bool' }
   | { kind: 'date' }
+  | { kind: 'datetime' }
   | { kind: 'money'; currencyField?: string }
   | { kind: 'quantity' }
   | { kind: 'quantityX100' }
@@ -189,6 +190,17 @@ export const AUDIT_REGISTRY: Record<AuditEntityType, AuditEntityDef> = {
       requisiteRs: { label: 'Р/с', kind: { kind: 'scalar' } },
       requisiteKs: { label: 'К/с', kind: { kind: 'scalar' } },
       requisiteBik: { label: 'БИК', kind: { kind: 'scalar' } },
+    },
+  },
+  [AuditEntityType.CALENDAR_ENTRY]: {
+    scope: AuditScope.TENANT,
+    fields: {
+      date: { label: 'Дата и время', kind: { kind: 'datetime' } },
+      duration: { label: 'Длительность', kind: { kind: 'scalar' } },
+      workerId: { label: 'Сотрудник', kind: { kind: 'relation', ref: 'worker' } },
+      customerId: { label: 'Клиент', kind: { kind: 'relation', ref: 'operand' } },
+      carId: { label: 'Автомобиль', kind: { kind: 'relation', ref: 'car' } },
+      description: { label: 'Комментарий', kind: { kind: 'scalar' } },
     },
   },
 };

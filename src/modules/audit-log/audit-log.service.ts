@@ -405,6 +405,7 @@ export class AuditLogService {
       case 'bool':
         return Boolean(value);
       case 'date':
+      case 'datetime':
         return value instanceof Date ? value.toISOString() : String(value);
       case 'quantity':
       case 'status':
@@ -464,6 +465,12 @@ export class AuditLogService {
       case 'date':
         return [
           AuditChangeKind.DATE,
+          change.oldValue ?? null,
+          change.newValue ?? null,
+        ];
+      case 'datetime':
+        return [
+          AuditChangeKind.DATETIME,
           change.oldValue ?? null,
           change.newValue ?? null,
         ];

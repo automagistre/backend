@@ -21,6 +21,7 @@ export enum AuditEntityType {
   CAR_RECOMMENDATION_PART = 'CAR_RECOMMENDATION_PART',
   PERSON = 'PERSON',
   ORGANIZATION = 'ORGANIZATION',
+  CALENDAR_ENTRY = 'CALENDAR_ENTRY',
 }
 
 /** Вид значения изменения — определяет форматирование на фронте. */
@@ -29,6 +30,7 @@ export enum AuditChangeKind {
   QUANTITY = 'QUANTITY',
   BOOL = 'BOOL',
   DATE = 'DATE',
+  DATETIME = 'DATETIME',
   TEXT = 'TEXT',
 }
 

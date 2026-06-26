@@ -9,6 +9,7 @@ import { EmployeeModule } from '../employee/employee.module';
 import { PersonModule } from '../person/person.module';
 import { CarModule } from '../vehicle/car.module';
 import { OrderModule } from '../order/order.module';
+import { DisplayContextModule } from '../display-context/display-context.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { OrderModule } from '../order/order.module';
     PersonModule,
     CarModule,
     forwardRef(() => OrderModule),
+    DisplayContextModule,
   ],
   providers: [
     CalendarService,

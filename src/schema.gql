@@ -110,6 +110,7 @@ enum AuditAction {
 enum AuditChangeKind {
   BOOL
   DATE
+  DATETIME
   MONEY
   QUANTITY
   TEXT
@@ -135,6 +136,7 @@ type AuditChangeModel {
 
 """Тип сущности в журнале аудита"""
 enum AuditEntityType {
+  CALENDAR_ENTRY
   CAR
   CAR_RECOMMENDATION
   CAR_RECOMMENDATION_PART
