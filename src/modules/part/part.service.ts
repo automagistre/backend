@@ -8,6 +8,9 @@ import { cleanUpcaseString } from 'src/common/utils/clean-upcase.util';
 import type { AuthContext } from 'src/common/user-id.store';
 import { Prisma } from 'src/generated/prisma/client';
 import { PartSmartAutocompleteItemModel } from './models/part-smart-autocomplete-item.model';
+import { AuditLogService } from 'src/modules/audit-log/audit-log.service';
+import { AuditEntityType } from 'src/modules/audit-log/enums/audit.enums';
+import { DisplayContextService } from 'src/modules/display-context/display-context.service';
 
 const DEFAULT_TAKE = 25;
 const DEFAULT_SKIP = 0;
@@ -20,7 +23,24 @@ type PartWithManufacturer = Prisma.PartGetPayload<{
 
 @Injectable()
 export class PartService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auditLog: AuditLogService,
+    private readonly displayContext: DisplayContextService,
+  ) {}
+
+  /** Имя запчасти для истории: «Производитель Название (Артикул)». */
+  private async partDisplayName(part: {
+    name: string;
+    number: string;
+    manufacturerId: string;
+  }): Promise<string> {
+    const manufacturer = await this.displayContext.getManufacturerName(
+      part.manufacturerId,
+    );
+    const head = [manufacturer, part.name].filter(Boolean).join(' ');
+    return part.number ? `${head} (${part.number})` : head;
+  }
 
   private buildOrderBy(
     sortBy?: string,
@@ -556,6 +576,16 @@ export class PartService {
       },
     });
 
+    await this.auditLog.record(this.prisma, ctx, {
+      rootEntityType: AuditEntityType.PART,
+      rootEntityId: part.id,
+      entityType: AuditEntityType.PART,
+      entityId: part.id,
+      before: null,
+      after: part,
+      entityDisplayName: await this.partDisplayName(part),
+    });
+
     return part;
   }
 
@@ -565,6 +595,22 @@ export class PartService {
     if (data?.number) {
       data.number = cleanUpcaseString(data.number);
     }
+
+    const before = await this.prisma.part.findUnique({
+      where: { id },
+      include: { manufacturer: true },
+    });
+    const willChangeAvailability =
+      orderFromQuantity !== undefined &&
+      orderFromQuantity !== null &&
+      orderUpToQuantity !== undefined &&
+      orderUpToQuantity !== null;
+    const beforeAvailability = willChangeAvailability
+      ? await this.prisma.partRequiredAvailability.findFirst({
+          where: { partId: id, tenantId },
+          orderBy: { createdAt: 'desc' },
+        })
+      : null;
 
     const part = await this.prisma.$transaction(async (tx) => {
       const updatedPart = await tx.part.update({
@@ -611,12 +657,41 @@ export class PartService {
       return updatedPart;
     });
 
+    if (before) {
+      await this.auditLog.record(this.prisma, ctx, {
+        rootEntityType: AuditEntityType.PART,
+        rootEntityId: id,
+        entityType: AuditEntityType.PART,
+        entityId: id,
+        before,
+        after: part,
+        entityDisplayName: await this.partDisplayName(part),
+      });
+    }
+
+    if (willChangeAvailability) {
+      await this.auditLog.record(this.prisma, ctx, {
+        rootEntityType: AuditEntityType.PART,
+        rootEntityId: id,
+        entityType: AuditEntityType.PART_REQUIRED_AVAILABILITY,
+        entityId: id,
+        before: beforeAvailability
+          ? {
+              orderFromQuantity: beforeAvailability.orderFromQuantity,
+              orderUpToQuantity: beforeAvailability.orderUpToQuantity,
+            }
+          : null,
+        after: { orderFromQuantity, orderUpToQuantity },
+        entityDisplayName: await this.partDisplayName(part),
+      });
+    }
+
     return part;
   }
 
   // TODO: Проверить миграцию — в схеме onDelete: Restrict, но в БД может быть NO ACTION.
   // После применения миграции можно убрать ручные проверки и полагаться на constraint БД.
-  async delete(id: string): Promise<PartModel> {
+  async delete(ctx: AuthContext, id: string): Promise<PartModel> {
     const [
       orderItemPartCount,
       incomePartCount,
@@ -647,11 +722,23 @@ export class PartService {
       );
     }
 
-    return await this.prisma.part.delete({
+    const deleted = await this.prisma.part.delete({
       where: { id },
       include: {
         manufacturer: true,
       },
     });
+
+    await this.auditLog.record(this.prisma, ctx, {
+      rootEntityType: AuditEntityType.PART,
+      rootEntityId: id,
+      entityType: AuditEntityType.PART,
+      entityId: id,
+      before: deleted,
+      after: null,
+      entityDisplayName: await this.partDisplayName(deleted),
+    });
+
+    return deleted;
   }
 }

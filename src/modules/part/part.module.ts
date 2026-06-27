@@ -10,9 +10,15 @@ import { WarehouseModule } from '../warehouse/warehouse.module';
 import { PartRequiredAvailabilityService } from './part-required-availability.service';
 import { ReservationModule } from '../reservation/reservation.module';
 import { SettingsModule } from '../settings/settings.module';
+import { DisplayContextModule } from '../display-context/display-context.module';
 
 @Module({
-  imports: [WarehouseModule, ReservationModule, SettingsModule],
+  imports: [
+    WarehouseModule,
+    ReservationModule,
+    SettingsModule,
+    DisplayContextModule,
+  ],
   providers: [
     PartService,
     PartResolver,

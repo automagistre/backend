@@ -111,6 +111,15 @@ export class DisplayContextService {
     return part?.name ?? null;
   }
 
+  /** Название производителя по id. */
+  async getManufacturerName(manufacturerId: string): Promise<string | null> {
+    const manufacturer = await this.prisma.manufacturer.findUnique({
+      where: { id: manufacturerId },
+      select: { name: true },
+    });
+    return manufacturer?.name ?? null;
+  }
+
   /** Название организации по id. */
   async getOrganizationName(organizationId: string): Promise<string | null> {
     const org = await this.prisma.organization.findUnique({

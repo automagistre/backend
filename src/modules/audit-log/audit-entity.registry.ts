@@ -3,6 +3,7 @@ import { OrderStatusLabel } from '../order/enums/order-status.enum';
 import { CarTransmissionLabel } from '../vehicle/enums/car-transmission.enum';
 import { CarWheelDriveLabel } from '../vehicle/enums/car-wheel-drive.enum';
 import { CarEngineTypeLabel } from '../vehicle/enums/car-engine-type.enum';
+import { UnitLabel } from '../part/enums/unit.enum';
 
 /** Денежное значение в журнале: minor-строкой (BigInt не сериализуется в JSON). */
 export type AuditMoney = { amountMinor: string; currencyCode: string };
@@ -27,7 +28,8 @@ export type AuditRelationRef =
   | 'operand'
   | 'car'
   | 'vehicle'
-  | 'orderItem';
+  | 'orderItem'
+  | 'manufacturer';
 
 /** Тип поля — определяет сравнение при diff и формат при чтении. */
 export type AuditFieldKind =
@@ -191,6 +193,41 @@ export const AUDIT_REGISTRY: Record<AuditEntityType, AuditEntityDef> = {
       requisiteRs: { label: 'Р/с', kind: { kind: 'scalar' } },
       requisiteKs: { label: 'К/с', kind: { kind: 'scalar' } },
       requisiteBik: { label: 'БИК', kind: { kind: 'scalar' } },
+    },
+  },
+  [AuditEntityType.PART]: {
+    scope: AuditScope.GROUP,
+    fields: {
+      name: { label: 'Название', kind: { kind: 'scalar' } },
+      number: { label: 'Артикул', kind: { kind: 'scalar' } },
+      manufacturerId: {
+        label: 'Производитель',
+        kind: { kind: 'relation', ref: 'manufacturer' },
+      },
+      universal: { label: 'Универсальная', kind: { kind: 'bool' } },
+      unit: { label: 'Ед. измерения', kind: { kind: 'status', labels: UnitLabel } },
+    },
+  },
+  [AuditEntityType.PART_PRICE]: {
+    scope: AuditScope.TENANT,
+    fields: {
+      priceAmount: { label: 'Цена', kind: money('priceCurrencyCode') },
+    },
+  },
+  [AuditEntityType.PART_DISCOUNT]: {
+    scope: AuditScope.TENANT,
+    fields: {
+      discountAmount: { label: 'Скидка', kind: money('discountCurrencyCode') },
+    },
+  },
+  [AuditEntityType.PART_REQUIRED_AVAILABILITY]: {
+    scope: AuditScope.TENANT,
+    fields: {
+      orderFromQuantity: {
+        label: 'Неснижаемый остаток',
+        kind: { kind: 'quantityX100' },
+      },
+      orderUpToQuantity: { label: 'Заказывать до', kind: { kind: 'quantityX100' } },
     },
   },
   [AuditEntityType.CALENDAR_ENTRY]: {

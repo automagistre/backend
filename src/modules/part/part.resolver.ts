@@ -34,6 +34,9 @@ import {
   SkipTenant,
 } from 'src/common/decorators/skip-tenant.decorator';
 import type { AuthContext as AuthContextType } from 'src/common/user-id.store';
+import { AuditLogService } from '../audit-log/audit-log.service';
+import { AuditEntityType } from '../audit-log/enums/audit.enums';
+import { PrismaService } from 'src/prisma/prisma.service';
 
 @Resolver(() => PartModel)
 @SkipTenant()
@@ -47,6 +50,8 @@ export class PartResolver {
     private readonly partRequiredAvailabilityService: PartRequiredAvailabilityService,
     private readonly reservationService: ReservationService,
     private readonly settingsService: SettingsService,
+    private readonly auditLog: AuditLogService,
+    private readonly prisma: PrismaService,
   ) {}
 
   @Mutation(() => PartModel)
@@ -62,24 +67,48 @@ export class PartResolver {
       const defaultCurrency =
         await this.settingsService.getDefaultCurrencyCode();
       const priceData = applyDefaultCurrency(price, defaultCurrency);
-      await this.partPriceService.create({
+      const created = await this.partPriceService.create({
         partId: part.id,
         priceAmount: priceData.amountMinor,
         since: new Date(),
         tenantId: ctx.tenantId,
         createdBy: ctx.userId,
       });
+      await this.auditLog.record(this.prisma, ctx, {
+        rootEntityType: AuditEntityType.PART,
+        rootEntityId: part.id,
+        entityType: AuditEntityType.PART_PRICE,
+        entityId: created.id,
+        before: null,
+        after: {
+          priceAmount: priceData.amountMinor,
+          priceCurrencyCode: defaultCurrency,
+        },
+        entityDisplayName: part.name,
+      });
     }
     if (discount != null) {
       const defaultCurrency =
         await this.settingsService.getDefaultCurrencyCode();
       const discountData = applyDefaultCurrency(discount, defaultCurrency);
-      await this.partDiscountService.create({
+      const created = await this.partDiscountService.create({
         partId: part.id,
         discountAmount: discountData.amountMinor,
         since: new Date(),
         tenantId: ctx.tenantId,
         createdBy: ctx.userId,
+      });
+      await this.auditLog.record(this.prisma, ctx, {
+        rootEntityType: AuditEntityType.PART,
+        rootEntityId: part.id,
+        entityType: AuditEntityType.PART_DISCOUNT,
+        entityId: created.id,
+        before: null,
+        after: {
+          discountAmount: discountData.amountMinor,
+          discountCurrencyCode: defaultCurrency,
+        },
+        entityDisplayName: part.name,
       });
     }
     return part;
@@ -108,12 +137,29 @@ export class PartResolver {
     if (price != null) {
       const priceData = applyDefaultCurrency(price, defaultCurrency);
       if (currentPrice?.priceAmount !== priceData.amountMinor) {
-        await this.partPriceService.create({
+        const created = await this.partPriceService.create({
           partId: part.id,
           priceAmount: priceData.amountMinor,
           since: new Date(),
           tenantId: ctx.tenantId,
           createdBy: ctx.userId,
+        });
+        await this.auditLog.record(this.prisma, ctx, {
+          rootEntityType: AuditEntityType.PART,
+          rootEntityId: part.id,
+          entityType: AuditEntityType.PART_PRICE,
+          entityId: created.id,
+          before: currentPrice
+            ? {
+                priceAmount: currentPrice.priceAmount,
+                priceCurrencyCode: currentPrice.priceCurrencyCode,
+              }
+            : null,
+          after: {
+            priceAmount: priceData.amountMinor,
+            priceCurrencyCode: defaultCurrency,
+          },
+          entityDisplayName: part.name,
         });
       }
     }
@@ -121,12 +167,29 @@ export class PartResolver {
     if (discount != null) {
       const discountData = applyDefaultCurrency(discount, defaultCurrency);
       if (currentDiscount?.discountAmount !== discountData.amountMinor) {
-        await this.partDiscountService.create({
+        const created = await this.partDiscountService.create({
           partId: part.id,
           discountAmount: discountData.amountMinor,
           since: new Date(),
           tenantId: ctx.tenantId,
           createdBy: ctx.userId,
+        });
+        await this.auditLog.record(this.prisma, ctx, {
+          rootEntityType: AuditEntityType.PART,
+          rootEntityId: part.id,
+          entityType: AuditEntityType.PART_DISCOUNT,
+          entityId: created.id,
+          before: currentDiscount
+            ? {
+                discountAmount: currentDiscount.discountAmount,
+                discountCurrencyCode: currentDiscount.discountCurrencyCode,
+              }
+            : null,
+          after: {
+            discountAmount: discountData.amountMinor,
+            discountCurrencyCode: defaultCurrency,
+          },
+          entityDisplayName: part.name,
         });
       }
     }
@@ -137,9 +200,10 @@ export class PartResolver {
   @Mutation(() => PartModel)
   @RequireTenant()
   async deleteOnePart(
+    @AuthContext() ctx: AuthContextType,
     @Args('id', { type: () => ID }) id: string,
   ): Promise<PartModel> {
-    return this.partService.delete(id);
+    return this.partService.delete(ctx, id);
   }
 
   @Query(() => PaginatedParts, {

@@ -22,6 +22,10 @@ export enum AuditEntityType {
   PERSON = 'PERSON',
   ORGANIZATION = 'ORGANIZATION',
   CALENDAR_ENTRY = 'CALENDAR_ENTRY',
+  PART = 'PART',
+  PART_PRICE = 'PART_PRICE',
+  PART_DISCOUNT = 'PART_DISCOUNT',
+  PART_REQUIRED_AVAILABILITY = 'PART_REQUIRED_AVAILABILITY',
 }
 
 /** Вид значения изменения — определяет форматирование на фронте. */
