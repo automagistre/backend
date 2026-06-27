@@ -3,10 +3,37 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import type { AuthContext } from 'src/common/user-id.store';
 import { CreateNoteInput } from './inputs/create-note.input';
 import { UpdateNoteInput } from './inputs/update-note.input';
+import { AuditLogService } from 'src/modules/audit-log/audit-log.service';
+import {
+  AuditAction,
+  AuditEntityType,
+  AuditScope,
+} from 'src/modules/audit-log/enums/audit.enums';
+import { DisplayContextService } from 'src/modules/display-context/display-context.service';
+import { NoteTypeLabel } from './enums/note-type.enum';
+import { orderTitle } from 'src/common/utils/entity-title.util';
+
+type NoteRoot = {
+  rootEntityType: AuditEntityType;
+  scope: AuditScope;
+  subjectDisplay: string;
+};
+
+type NoteRow = {
+  id: string;
+  subject: string;
+  type: number;
+  text: string;
+  isPublic: boolean | null;
+};
 
 @Injectable()
 export class NoteService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auditLog: AuditLogService,
+    private readonly displayContext: DisplayContextService,
+  ) {}
 
   private async validateSubject(subjectId: string): Promise<void> {
     const [order, car, person, part] = await Promise.all([
@@ -32,6 +59,83 @@ export class NoteService {
     }
   }
 
+  /** Домен субъекта заметки: root, scope и читаемая подпись «к чему относится». */
+  private async resolveNoteRoot(subjectId: string): Promise<NoteRoot | null> {
+    const order = await this.prisma.order.findFirst({
+      where: { id: subjectId },
+      select: { number: true },
+    });
+    if (order) {
+      return {
+        rootEntityType: AuditEntityType.ORDER,
+        scope: AuditScope.TENANT,
+        subjectDisplay: orderTitle(order.number),
+      };
+    }
+    const car = await this.prisma.car.findFirst({
+      where: { id: subjectId },
+      select: { id: true },
+    });
+    if (car) {
+      return {
+        rootEntityType: AuditEntityType.CAR,
+        scope: AuditScope.GROUP,
+        subjectDisplay: (await this.displayContext.getCarDisplay(subjectId)) ?? '',
+      };
+    }
+    const person = await this.prisma.person.findFirst({
+      where: { id: subjectId },
+      select: { id: true },
+    });
+    if (person) {
+      return {
+        rootEntityType: AuditEntityType.PERSON,
+        scope: AuditScope.GROUP,
+        subjectDisplay:
+          (await this.displayContext.getPersonDisplay(subjectId)) ?? '',
+      };
+    }
+    const part = await this.prisma.part.findFirst({
+      where: { id: subjectId },
+      select: { id: true },
+    });
+    if (part) {
+      return {
+        rootEntityType: AuditEntityType.PART,
+        scope: AuditScope.GROUP,
+        subjectDisplay: (await this.displayContext.getPartName(subjectId)) ?? '',
+      };
+    }
+    return null;
+  }
+
+  /** Запись события по заметке в историю агрегата-субъекта. */
+  private async auditNote(
+    ctx: AuthContext,
+    note: NoteRow,
+    before: Partial<NoteRow> | null,
+    after: Partial<NoteRow> | null,
+    action?: AuditAction,
+  ): Promise<void> {
+    const root = await this.resolveNoteRoot(note.subject);
+    if (!root) return;
+    const typeLabel = NoteTypeLabel[note.type] ?? 'Заметка';
+    const displayName = [typeLabel, root.subjectDisplay]
+      .filter(Boolean)
+      .join(': ');
+    await this.auditLog.record(this.prisma, ctx, {
+      rootEntityType: root.rootEntityType,
+      rootEntityId: note.subject,
+      entityType: AuditEntityType.NOTE,
+      entityId: note.id,
+      scope: root.scope,
+      action,
+      before,
+      after,
+      entityDisplayName: displayName,
+    });
+  }
+
   async findBySubject(
     ctx: AuthContext,
     subjectId: string,
@@ -53,7 +157,7 @@ export class NoteService {
   async create(ctx: AuthContext, input: CreateNoteInput) {
     const { tenantId, userId } = ctx;
     await this.validateSubject(input.subjectId);
-    return this.prisma.note.create({
+    const note = await this.prisma.note.create({
       data: {
         subject: input.subjectId,
         type: input.type,
@@ -63,6 +167,14 @@ export class NoteService {
         createdBy: userId,
       },
     });
+
+    await this.auditNote(ctx, note, null, {
+      text: note.text,
+      type: note.type,
+      isPublic: note.isPublic,
+    });
+
+    return note;
   }
 
   async update(ctx: AuthContext, input: UpdateNoteInput) {
@@ -78,10 +190,27 @@ export class NoteService {
     if (input.type !== undefined) data.type = input.type;
     if (input.text !== undefined) data.text = input.text;
     if (input.isPublic !== undefined) data.isPublic = input.isPublic;
-    return this.prisma.note.update({
+    const updated = await this.prisma.note.update({
       where: { id: input.id },
       data,
     });
+
+    await this.auditNote(
+      ctx,
+      updated,
+      {
+        text: existing.text,
+        type: existing.type,
+        isPublic: existing.isPublic,
+      },
+      {
+        text: updated.text,
+        type: updated.type,
+        isPublic: updated.isPublic,
+      },
+    );
+
+    return updated;
   }
 
   async softDelete(ctx: AuthContext, noteId: string, description?: string) {
@@ -92,7 +221,7 @@ export class NoteService {
     if (!note) {
       throw new NotFoundException('Note not found');
     }
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       await tx.noteDelete.create({
         data: {
           noteId,
@@ -103,5 +232,15 @@ export class NoteService {
       });
       return note;
     });
+
+    await this.auditNote(
+      ctx,
+      note,
+      { text: note.text, type: note.type, isPublic: note.isPublic },
+      null,
+      AuditAction.DELETE,
+    );
+
+    return result;
   }
 }

@@ -7,6 +7,13 @@ export enum NoteType {
   DANGER = 4,
 }
 
+export const NoteTypeLabel: Record<number, string> = {
+  [NoteType.SUCCESS]: 'Успех',
+  [NoteType.INFO]: 'Информация',
+  [NoteType.WARNING]: 'Предупреждение',
+  [NoteType.DANGER]: 'Опасность',
+};
+
 registerEnumType(NoteType, {
   name: 'NoteType',
   description: 'Тип заметки',

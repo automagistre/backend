@@ -45,6 +45,8 @@ export interface AuditRecordParams {
   displays?: Record<string, { old?: string | null; new?: string | null }>;
   entityDisplayName?: string | null;
   metadata?: Record<string, unknown> | null;
+  /** Переопределяет scope из реестра (для сквозных сущностей, напр. NOTE). */
+  scope?: AuditScope;
 }
 
 const DERIVED_ACTIONS: AuditAction[] = [
@@ -85,7 +87,7 @@ export class AuditLogService {
     // Денормализуем читаемые имена связей на момент события (id → название).
     await this.enrichRelationDisplays(params.entityType, changes);
 
-    const scope = def.scope;
+    const scope = params.scope ?? def.scope;
     const tenantId = scope === AuditScope.TENANT ? (actor.tenantId ?? null) : null;
     const tenantGroupId =
       scope === AuditScope.GROUP ? (actor.tenantGroupId ?? null) : null;

@@ -4,6 +4,7 @@ import { CarTransmissionLabel } from '../vehicle/enums/car-transmission.enum';
 import { CarWheelDriveLabel } from '../vehicle/enums/car-wheel-drive.enum';
 import { CarEngineTypeLabel } from '../vehicle/enums/car-engine-type.enum';
 import { UnitLabel } from '../part/enums/unit.enum';
+import { NoteTypeLabel } from '../note/enums/note-type.enum';
 
 /** Денежное значение в журнале: minor-строкой (BigInt не сериализуется в JSON). */
 export type AuditMoney = { amountMinor: string; currencyCode: string };
@@ -228,6 +229,16 @@ export const AUDIT_REGISTRY: Record<AuditEntityType, AuditEntityDef> = {
         kind: { kind: 'quantityX100' },
       },
       orderUpToQuantity: { label: 'Заказывать до', kind: { kind: 'quantityX100' } },
+    },
+  },
+  // NOTE — сквозная сущность: root и scope наследуются от субъекта
+  // (см. NoteService); scope здесь номинальный, переопределяется при записи.
+  [AuditEntityType.NOTE]: {
+    scope: AuditScope.TENANT,
+    fields: {
+      text: { label: 'Текст', kind: { kind: 'scalar' } },
+      type: { label: 'Тип', kind: { kind: 'status', labels: NoteTypeLabel } },
+      isPublic: { label: 'Публичная', kind: { kind: 'bool' } },
     },
   },
   [AuditEntityType.CALENDAR_ENTRY]: {
