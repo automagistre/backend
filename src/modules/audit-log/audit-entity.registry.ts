@@ -35,6 +35,7 @@ export type AuditFieldKind =
   | { kind: 'bool' }
   | { kind: 'date' }
   | { kind: 'datetime' }
+  | { kind: 'duration' }
   | { kind: 'money'; currencyField?: string }
   | { kind: 'quantity' }
   | { kind: 'quantityX100' }
@@ -196,7 +197,7 @@ export const AUDIT_REGISTRY: Record<AuditEntityType, AuditEntityDef> = {
     scope: AuditScope.TENANT,
     fields: {
       date: { label: 'Дата и время', kind: { kind: 'datetime' } },
-      duration: { label: 'Длительность', kind: { kind: 'scalar' } },
+      duration: { label: 'Длительность', kind: { kind: 'duration' } },
       workerId: { label: 'Сотрудник', kind: { kind: 'relation', ref: 'worker' } },
       customerId: { label: 'Клиент', kind: { kind: 'relation', ref: 'operand' } },
       carId: { label: 'Автомобиль', kind: { kind: 'relation', ref: 'car' } },

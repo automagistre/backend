@@ -31,6 +31,7 @@ export enum AuditChangeKind {
   BOOL = 'BOOL',
   DATE = 'DATE',
   DATETIME = 'DATETIME',
+  DURATION = 'DURATION',
   TEXT = 'TEXT',
 }
 

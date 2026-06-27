@@ -474,6 +474,12 @@ export class AuditLogService {
           change.oldValue ?? null,
           change.newValue ?? null,
         ];
+      case 'duration':
+        return [
+          AuditChangeKind.DURATION,
+          change.oldValue ?? null,
+          change.newValue ?? null,
+        ];
       case 'bool':
         return [
           AuditChangeKind.BOOL,

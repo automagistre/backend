@@ -111,6 +111,7 @@ enum AuditChangeKind {
   BOOL
   DATE
   DATETIME
+  DURATION
   MONEY
   QUANTITY
   TEXT
