@@ -240,16 +240,16 @@ export class CalendarEntryOrderInfoResolver {
   }
 
   @ResolveField(() => EmployeeModel, { nullable: true })
-  async worker(
+  async assignee(
     @AuthContext() ctx: AuthContextType,
     @Parent() orderInfo: CalendarEntryOrderInfoModel,
   ): Promise<EmployeeModel | null> {
-    if (!orderInfo.workerId) {
+    if (!orderInfo.assigneeId) {
       return null;
     }
-    return (await this.employeeService.resolveEmployeeByWorkerId(
+    return (await this.employeeService.findByPersonId(
       ctx,
-      orderInfo.workerId,
+      orderInfo.assigneeId,
     )) as EmployeeModel | null;
   }
 }

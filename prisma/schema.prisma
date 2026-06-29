@@ -210,6 +210,7 @@ model Person {
   workerCalendarEntryOrderInfo   CalendarEntryOrderInfo[] @relation("Worker")
   Employee                       Employee[]
   CustomerOrder                  Order[]                  @relation("CustomerOrder")
+  AssigneeOrder                  Order[]                  @relation("AssigneeOrder")
   taskCustomer                   Task[]                   @relation("TaskCustomer")
   appUser                        AppUser?
   calls                          Call[]
@@ -281,7 +282,8 @@ model CarRecommendation {
   carId             String?                 @map("car_id") @db.Uuid
   car               Car?                    @relation(fields: [carId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   service           String                  @db.VarChar(255)
-  workerId          String                  @map("worker_id") @db.Uuid
+  executorKind      String?                 @map("executor_kind") @db.VarChar(16)
+  executorId        String?                 @map("executor_id") @db.Uuid
   expiredAt         DateTime?               @map("expired_at") @db.Timestamp(0)
   realization       String?                 @db.Uuid
   tenantGroupId     String                  @map("tenant_group_id") @db.Uuid
@@ -360,8 +362,8 @@ model CalendarEntryOrderInfo {
   carId         String?        @map("car_id") @db.Uuid
   car           Car?           @relation(fields: [carId], references: [id], onDelete: Restrict, onUpdate: NoAction)
   description   String?
-  workerId      String?        @map("worker_id") @db.Uuid
-  worker        Person?        @relation("Worker", fields: [workerId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  assigneeId    String?        @map("assignee_id") @db.Uuid
+  assignee      Person?        @relation("Worker", fields: [assigneeId], references: [id], onDelete: Restrict, onUpdate: NoAction)
   createdAt     DateTime?      @default(now()) @map("created_at") @db.Timestamptz(0)
   createdBy     String?        @map("created_by") @db.Uuid
 
@@ -608,7 +610,6 @@ model Employee {
   tenantId         String           @map("tenant_id") @db.Uuid
   createdAt        DateTime?        @default(now()) @map("created_at") @db.Timestamptz(0)
   createdBy        String?          @map("created_by") @db.Uuid
-  Order             Order[]
   employeeSalaries  EmployeeSalary[]
 
   @@unique([personId, firedAt], map: "uniq_person_fired")
@@ -913,7 +914,8 @@ model OrderItemService {
   id                   String    @id @default(uuid()) @db.Uuid
   orderItem            OrderItem @relation(fields: [id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   service              String    @db.VarChar(255)
-  workerId             String?   @map("worker_id") @db.Uuid
+  executorKind         String?   @map("executor_kind") @db.VarChar(16)
+  executorId           String?   @map("executor_id") @db.Uuid
   warranty             Boolean
   priceAmount          BigInt?   @map("price_amount")
   priceCurrencyCode    String?   @map("price_currency_code") @db.VarChar(3)
@@ -984,8 +986,8 @@ model Order {
   carId       String?        @map("car_id") @db.Uuid
   customer    Person?        @relation("CustomerOrder", fields: [customerId], references: [id], onDelete: SetNull, onUpdate: NoAction)
   customerId  String?        @map("customer_id") @db.Uuid
-  worker      Employee?      @relation(fields: [workerId], references: [id], onDelete: SetNull, onUpdate: NoAction)
-  workerId    String?        @map("worker_id") @db.Uuid
+  assignee    Person?        @relation("AssigneeOrder", fields: [assigneeId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  assigneeId  String?        @map("assignee_id") @db.Uuid
   mileage     Int?
   description String?
   tenantId    String         @map("tenant_id") @db.Uuid
@@ -998,7 +1000,7 @@ model Order {
   tasks       Task[]
 
   @@unique([number, tenantId], map: "uniq_e52ffdee96901f549033212a")
-  @@index([workerId], map: "idx_e52ffdee6b20ba36")
+  @@index([assigneeId], map: "idx_e52ffdee6b20ba36")
   @@index([carId])
   @@index([customerId])
   @@map("orders")

@@ -5,13 +5,13 @@ import { OrderStatus } from '../order/enums/order-status.enum';
 import { CarServiceHistoryItemModel } from './models/car-service-history-item.model';
 import { OrderServicesGroupModel } from './models/order-services-group.model';
 import { PaginatedCarServices } from './types/paginated-car-services.type';
-import { EmployeeService } from '../employee/employee.service';
+import { DisplayContextService } from '../display-context/display-context.service';
 
 @Injectable()
 export class ServiceService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly employeeService: EmployeeService,
+    private readonly displayContext: DisplayContextService,
   ) {}
 
   /**
@@ -140,21 +140,14 @@ export class ServiceService {
       return { items: [], total };
     }
 
-    const workerIds = [
-      ...new Set(services.map((i) => i.workerId).filter(Boolean)),
-    ] as string[];
-    const workerNamesMap = new Map<string, string>();
-    for (const wid of workerIds) {
-      const emp = await this.employeeService.resolveEmployeeByWorkerId(
-        ctx,
-        wid,
+    const executorNamesMap = new Map<string, string>();
+    for (const i of services) {
+      if (!i.executorId || executorNamesMap.has(i.executorId)) continue;
+      const name = await this.displayContext.getPartyDisplay(
+        i.executorKind ?? 'PERSON',
+        i.executorId,
       );
-      if (emp?.person) {
-        const name = [emp.person.lastname, emp.person.firstname]
-          .filter(Boolean)
-          .join(' ');
-        workerNamesMap.set(wid, name || '—');
-      }
+      if (name) executorNamesMap.set(i.executorId, name);
     }
 
     type OrderInfo = {
@@ -184,8 +177,8 @@ export class ServiceService {
                 currencyCode: item.priceCurrencyCode ?? 'RUB',
               }
             : null,
-        executorName: item.workerId
-          ? (workerNamesMap.get(item.workerId) ?? null)
+        executorName: item.executorId
+          ? (executorNamesMap.get(item.executorId) ?? null)
           : null,
       };
       const entry = servicesByOrder.get(orderId);

@@ -27,7 +27,7 @@ export class OrderModel {
   customerId: string | null;
 
   @Field(() => ID, { nullable: true })
-  workerId: string | null;
+  assigneeId: string | null;
 
   @Field(() => Int, { nullable: true })
   mileage: number | null;
@@ -72,7 +72,7 @@ export class OrderModel {
   customer?: PersonModel | OrganizationModel | null;
 
   @Field(() => EmployeeModel, { nullable: true })
-  worker?: EmployeeModel | null;
+  assignee?: EmployeeModel | null;
 
   @Field(() => [OrderPaymentModel], {
     description: 'Предоплаты по заказу',

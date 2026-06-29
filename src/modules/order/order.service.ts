@@ -662,7 +662,7 @@ export class OrderService {
           status: OrderStatus.WORKING,
           customerId: input.customerId ?? null,
           carId: input.carId ?? null,
-          workerId: input.workerId ?? null,
+          assigneeId: input.assigneeId ?? null,
           createdBy: userId,
         },
       });
@@ -719,7 +719,7 @@ export class OrderService {
           status: OrderStatus.WORKING,
           customerId: input.customerId ?? null,
           carId: input.carId ?? null,
-          workerId: input.workerId ?? null,
+          assigneeId: input.assigneeId ?? null,
           createdBy: userId,
         },
       });
@@ -780,15 +780,15 @@ export class OrderService {
         items: {
           select: {
             type: true,
-            service: { select: { workerId: true } },
+            service: { select: { executorId: true } },
             children: {
               select: {
                 type: true,
-                service: { select: { workerId: true } },
+                service: { select: { executorId: true } },
                 children: {
                   select: {
                     type: true,
-                    service: { select: { workerId: true } },
+                    service: { select: { executorId: true } },
                   },
                 },
               },
@@ -814,11 +814,11 @@ export class OrderService {
 
     type ItemWithService = {
       type: string;
-      service?: { workerId: string | null } | null;
+      service?: { executorId: string | null } | null;
       children?: ItemWithService[];
     };
     const hasServiceWithoutWorker = (item: ItemWithService): boolean => {
-      if (item.type === '1' && item.service && item.service.workerId == null) {
+      if (item.type === '1' && item.service && item.service.executorId == null) {
         return true;
       }
       return item.children?.some(hasServiceWithoutWorker) ?? false;
@@ -938,8 +938,8 @@ export class OrderService {
       data.customerId = input.customerId ?? null;
     }
 
-    if ('workerId' in input) {
-      data.workerId = input.workerId ?? null;
+    if ('assigneeId' in input) {
+      data.assigneeId = input.assigneeId ?? null;
     }
 
     if ('mileage' in input) {

@@ -1,6 +1,7 @@
 import { Field, ID, InputType } from '@nestjs/graphql';
 import { IsOptional, IsUUID, Length } from 'class-validator';
 import { MoneyInput } from 'src/common/inputs/money.input';
+import { ExecutorInput } from 'src/common/party';
 
 @InputType()
 export class CreateCarRecommendationInput {
@@ -12,12 +13,10 @@ export class CreateCarRecommendationInput {
   @Length(1, 255)
   service: string;
 
-  @Field(() => ID, {
-    description:
-      'ID сотрудника (employeeId) — диагност/исполнитель рекомендации',
+  @Field(() => ExecutorInput, {
+    description: 'Диагност/исполнитель рекомендации (персона или организация)',
   })
-  @IsUUID()
-  workerId: string;
+  executor: ExecutorInput;
 
   @Field(() => Date, { nullable: true })
   @IsOptional()

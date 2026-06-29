@@ -1,6 +1,7 @@
 import { Field, ID, InputType } from '@nestjs/graphql';
 import { IsOptional } from 'class-validator';
 import { MoneyInput } from 'src/common/inputs/money.input';
+import { ExecutorInput } from 'src/common/party';
 
 @InputType()
 export class CreateOrderItemServiceInput {
@@ -16,8 +17,9 @@ export class CreateOrderItemServiceInput {
   @Field(() => String)
   service: string;
 
-  @Field(() => ID, { nullable: true })
-  workerId?: string;
+  @Field(() => ExecutorInput, { nullable: true })
+  @IsOptional()
+  executor?: ExecutorInput | null;
 
   @Field(() => Boolean, { defaultValue: false, nullable: true })
   warranty?: boolean;

@@ -1,10 +1,10 @@
 import { Module } from '@nestjs/common';
 import { ServiceResolver } from './service.resolver';
 import { ServiceService } from './service.service';
-import { EmployeeModule } from '../employee/employee.module';
+import { DisplayContextModule } from '../display-context/display-context.module';
 
 @Module({
-  imports: [EmployeeModule],
+  imports: [DisplayContextModule],
   providers: [ServiceService, ServiceResolver],
   exports: [ServiceService],
 })

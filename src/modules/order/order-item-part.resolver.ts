@@ -5,6 +5,8 @@ import { AppUserModel } from '../app-user/models/app-user.model';
 import { AppUserLoader } from '../app-user/app-user.loader';
 import { OrderItemServiceModel } from './models/order-item-service.model';
 import { OrderItemGroupModel } from './models/order-item-group.model';
+import { CounterpartyUnion } from '../supplier/supplier.union';
+import { DisplayContextService } from '../display-context/display-context.service';
 
 @Resolver(() => OrderItemPartModel)
 export class OrderItemPartResolver {
@@ -27,12 +29,23 @@ export class OrderItemPartResolver {
 
 @Resolver(() => OrderItemServiceModel)
 export class OrderItemServiceResolver {
-  constructor(private readonly appUserLoader: AppUserLoader) {}
+  constructor(
+    private readonly appUserLoader: AppUserLoader,
+    private readonly displayContext: DisplayContextService,
+  ) {}
 
   @ResolveField(() => AppUserModel, { nullable: true })
   async createdByUser(@Parent() service: OrderItemServiceModel) {
     if (!service.createdBy) return null;
     return this.appUserLoader.load(service.createdBy);
+  }
+
+  @ResolveField(() => CounterpartyUnion, { nullable: true })
+  async executor(@Parent() service: OrderItemServiceModel) {
+    return this.displayContext.resolveCounterparty(
+      service.executorKind,
+      service.executorId,
+    );
   }
 }
 

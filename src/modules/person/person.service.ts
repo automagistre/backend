@@ -219,7 +219,7 @@ export class PersonService {
     ] = await Promise.all([
       this.prisma.employee.count({ where: { personId: id } }),
       this.prisma.calendarEntryOrderInfo.count({ where: { customerId: id } }),
-      this.prisma.calendarEntryOrderInfo.count({ where: { workerId: id } }),
+      this.prisma.calendarEntryOrderInfo.count({ where: { assigneeId: id } }),
       this.prisma.order.count({ where: { customerId: id } }),
       this.prisma.income.count({ where: { supplierId: id } }),
     ]);

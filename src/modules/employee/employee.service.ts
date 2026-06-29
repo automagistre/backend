@@ -156,22 +156,6 @@ export class EmployeeService {
     return employee?.id ?? null;
   }
 
-  async resolveEmployeeByWorkerId(ctx: AuthContext, workerId: string) {
-    const byPerson = await this.findByPersonId(ctx, workerId);
-    if (byPerson) return byPerson;
-    return this.findOne(ctx, workerId);
-  }
-
-  async resolvePersonIdByWorkerId(
-    ctx: AuthContext,
-    workerId: string | null,
-  ): Promise<string | null> {
-    if (!workerId) return null;
-    const byPerson = await this.findByPersonId(ctx, workerId);
-    if (byPerson) return byPerson.personId;
-    return this.resolvePersonIdByEmployeeId(ctx, workerId);
-  }
-
   async fire(ctx: AuthContext, id: string) {
     const existing = await this.prisma.employee.findFirst({
       where: { id, tenantId: ctx.tenantId },
@@ -205,7 +189,7 @@ export class EmployeeService {
     }
 
     const [orderCount, salaryCount] = await Promise.all([
-      this.prisma.order.count({ where: { workerId: id } }),
+      this.prisma.order.count({ where: { assigneeId: existing.personId } }),
       this.prisma.employeeSalary.count({ where: { employeeId: id } }),
     ]);
 

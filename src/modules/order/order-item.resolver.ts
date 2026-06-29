@@ -16,8 +16,6 @@ import { CreateOrderItemServiceInput } from './inputs/create-order-item-service.
 import { CreateOrderItemPartInput } from './inputs/create-order-item-part.input';
 import { UpdateOrderItemPartInput } from './inputs/update-order-item-part.input';
 import { UpdateOrderItemServiceInput } from './inputs/update-order-item-service.input';
-import { EmployeeService } from '../employee/employee.service';
-import { EmployeeModel } from '../employee/models/employee.model';
 import { OrderService } from './order.service';
 import { PubSub } from 'graphql-subscriptions';
 import { AuthContext } from 'src/common/decorators/auth-context.decorator';
@@ -29,7 +27,6 @@ import type { AuthContext as AuthContextType } from 'src/common/user-id.store';
 export class OrderItemResolver {
   constructor(
     private readonly orderItemService: OrderItemService,
-    private readonly employeeService: EmployeeService,
     private readonly orderService: OrderService,
     @Inject('PUB_SUB') private readonly pubSub: PubSub,
   ) {}
@@ -57,21 +54,6 @@ export class OrderItemResolver {
   })
   async getOrderItems(@Args('orderId', { type: () => ID }) orderId: string) {
     return this.orderItemService.findTreeByOrderId(orderId);
-  }
-
-  @ResolveField(() => EmployeeModel, { nullable: true })
-  async serviceWorker(
-    @AuthContext() ctx: AuthContextType,
-    @Parent() item: OrderItemModel,
-  ): Promise<EmployeeModel | null> {
-    if (!item.service?.workerId) {
-      return null;
-    }
-    const employee = await this.employeeService.findByPersonId(
-      ctx,
-      item.service.workerId,
-    );
-    return employee as EmployeeModel | null;
   }
 
   @Mutation(() => OrderItemModel, {

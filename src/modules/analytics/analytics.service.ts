@@ -816,7 +816,7 @@ export class AnalyticsService {
   }
 
   /**
-   * Кол-во механиков с назначенными записями в календаре по дням (DISTINCT worker_id).
+   * Кол-во механиков с назначенными записями в календаре по дням (DISTINCT assignee_id).
    * Запись = последняя версия schedule/order_info, не удалённая.
    */
   private async getMechanicsPerDay(
@@ -837,20 +837,20 @@ export class AnalyticsService {
     >(
       `SELECT
          date_trunc('day', latest_schedule.date)::timestamp AS day_start,
-         COUNT(DISTINCT latest_info.worker_id)::bigint AS mechanics
+         COUNT(DISTINCT latest_info.assignee_id)::bigint AS mechanics
        FROM calendar_entry ce
        JOIN LATERAL (
          SELECT s.date FROM calendar_entry_schedule s
          WHERE s.entry_id = ce.id ORDER BY s.id DESC LIMIT 1
        ) latest_schedule ON TRUE
        JOIN LATERAL (
-         SELECT oi.worker_id FROM calendar_entry_order_info oi
+         SELECT oi.assignee_id FROM calendar_entry_order_info oi
          WHERE oi.entry_id = ce.id ORDER BY oi.id DESC LIMIT 1
        ) latest_info ON TRUE
        LEFT JOIN calendar_entry_deletion ced ON ced.entry_id = ce.id
        WHERE ce.tenant_id = $1::uuid
          AND ced.id IS NULL
-         AND latest_info.worker_id IS NOT NULL
+         AND latest_info.assignee_id IS NOT NULL
          AND latest_schedule.date >= $2
          AND latest_schedule.date < $3
        GROUP BY day_start`,

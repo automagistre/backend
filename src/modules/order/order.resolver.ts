@@ -242,16 +242,16 @@ export class OrderResolver {
   }
 
   @ResolveField(() => EmployeeModel, { nullable: true })
-  async worker(
+  async assignee(
     @AuthContext() ctx: AuthContextType,
     @Parent() order: OrderModel,
   ): Promise<EmployeeModel | null> {
-    if (!order.workerId) {
+    if (!order.assigneeId) {
       return null;
     }
-    return (await this.employeeService.findOne(
+    return (await this.employeeService.findByPersonId(
       ctx,
-      order.workerId,
+      order.assigneeId,
     )) as EmployeeModel | null;
   }
 

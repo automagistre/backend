@@ -75,10 +75,13 @@ export class CreateCalendarEntryInput {
   @IsUUID()
   customerId?: string;
 
-  @Field(() => ID, { nullable: true })
+  @Field(() => ID, {
+    nullable: true,
+    description: 'Ответственный механик (personId)',
+  })
   @IsOptional()
   @IsUUID()
-  workerId?: string;
+  assigneeId?: string;
 
   @Field(() => Date)
   @IsDate()

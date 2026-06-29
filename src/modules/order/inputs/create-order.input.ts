@@ -11,6 +11,9 @@ export class CreateOrderInput {
   @Field(() => ID, { nullable: true })
   carId?: string | null;
 
-  @Field(() => ID, { nullable: true })
-  workerId?: string | null;
+  @Field(() => ID, {
+    nullable: true,
+    description: 'Ответственный (personId сотрудника)',
+  })
+  assigneeId?: string | null;
 }

@@ -8,7 +8,8 @@
 
 export type CarRecommendationWriteFields = {
   service: string;
-  workerId: string;
+  executorKind: string | null;
+  executorId: string | null;
   expiredAt?: Date | null;
   realization?: string | null;
   priceAmount?: bigint | null;

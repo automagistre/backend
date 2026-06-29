@@ -339,8 +339,6 @@ export class AuditLogService {
         return this.displayContext.getOrganizationName(id);
       case 'operand':
         return this.displayContext.getOperandDisplayName(id);
-      case 'worker':
-        return this.displayContext.getWorkerDisplay(id);
       case 'car':
         return this.displayContext.getCarDisplay(id);
       case 'vehicle':

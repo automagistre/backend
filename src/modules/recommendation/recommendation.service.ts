@@ -179,7 +179,8 @@ export class RecommendationService {
         id: uuidv6(),
         carId: input.carId,
         service: input.service,
-        workerId: input.workerId,
+        executorKind: input.executorKind,
+        executorId: input.executorId,
         expiredAt: input.expiredAt ?? null,
         priceAmount: normalizeMoneyAmount(input.priceAmount),
         priceCurrencyCode:

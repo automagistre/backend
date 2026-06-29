@@ -92,21 +92,21 @@ export class SupplierService {
     return map;
   }
 
-  /** Популярность подрядчиков в рамках текущего тенанта — по числу работ (OrderItemService.workerId). */
+  /** Популярность подрядчиков в рамках текущего тенанта — по числу работ (OrderItemService.executorId). */
   private async getContractorUsageCounts(
     ids: string[],
     tenantId: string,
   ): Promise<Map<string, number>> {
     if (ids.length === 0) return new Map();
     const rows = await this.prisma.orderItemService.findMany({
-      where: { workerId: { in: ids }, orderItem: { tenantId } },
-      select: { workerId: true },
+      where: { executorId: { in: ids }, orderItem: { tenantId } },
+      select: { executorId: true },
     });
     const map = new Map<string, number>();
     for (const id of ids) map.set(id, 0);
     for (const row of rows) {
-      if (row.workerId != null)
-        map.set(row.workerId, (map.get(row.workerId) ?? 0) + 1);
+      if (row.executorId != null)
+        map.set(row.executorId, (map.get(row.executorId) ?? 0) + 1);
     }
     return map;
   }

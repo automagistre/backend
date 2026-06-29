@@ -1,5 +1,8 @@
 import { Field, ID, ObjectType } from '@nestjs/graphql';
-import { EmployeeModel } from 'src/modules/employee/models/employee.model';
+import { PartyKind } from 'src/common/party';
+import { CounterpartyUnion } from 'src/modules/supplier/supplier.union';
+import { PersonModel } from 'src/modules/person/models/person.model';
+import { OrganizationModel } from 'src/modules/organization/models/organization.model';
 import { CarModel } from 'src/modules/vehicle/models/car.model';
 import { CarRecommendationPartModel } from './car-recommendation-part.model';
 
@@ -19,11 +22,17 @@ export class CarRecommendationModel {
   @Field(() => String)
   service: string;
 
-  @Field(() => ID)
-  workerId: string;
+  @Field(() => PartyKind, { nullable: true, description: 'Тип исполнителя' })
+  executorKind: PartyKind | null;
 
-  @Field(() => EmployeeModel, { nullable: true })
-  worker?: EmployeeModel | null;
+  @Field(() => ID, { nullable: true, description: 'ID исполнителя (person|org)' })
+  executorId: string | null;
+
+  @Field(() => CounterpartyUnion, {
+    nullable: true,
+    description: 'Диагност/исполнитель рекомендации (персона или организация)',
+  })
+  executor?: PersonModel | OrganizationModel | null;
 
   @Field(() => Date, { nullable: true })
   expiredAt: Date | null;

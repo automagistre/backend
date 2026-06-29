@@ -270,6 +270,11 @@ type CalendarEntryModel {
 
 """Информация о заказе в записи календаря"""
 type CalendarEntryOrderInfoModel {
+  """Сотрудник-механик"""
+  assignee: EmployeeModel
+
+  """ID ответственного механика (personId)"""
+  assigneeId: ID
   car: CarModel
   carId: ID
   createdAt: DateTime
@@ -277,12 +282,6 @@ type CalendarEntryOrderInfoModel {
   customerId: ID
   description: String
   id: ID!
-
-  """Сотрудник-механик"""
-  worker: EmployeeModel
-
-  """ID механика/работника (employee_id)"""
-  workerId: ID
 }
 
 """Расписание записи в календаре"""
@@ -525,6 +524,15 @@ type CarRecommendationModel {
   createdAt: DateTime
   createdBy: ID
   createdByUser: AppUserModel
+
+  """Диагност/исполнитель рекомендации (персона или организация)"""
+  executor: Counterparty
+
+  """ID исполнителя (person|org)"""
+  executorId: ID
+
+  """Тип исполнителя"""
+  executorKind: PartyKind
   expiredAt: DateTime
   id: ID!
   parts: [CarRecommendationPartModel!]!
@@ -532,8 +540,6 @@ type CarRecommendationModel {
   priceCurrencyCode: String
   realization: ID
   service: String!
-  worker: EmployeeModel
-  workerId: ID!
 }
 
 """Запчасть в рекомендации по автомобилю"""
@@ -621,6 +627,8 @@ input CloseOrderPaymentItem {
 union Counterparty = OrganizationModel | PersonModel
 
 input CreateCalendarEntryInput {
+  """Ответственный механик (personId)"""
+  assigneeId: ID
   carId: ID
   customerId: ID
   date: DateTime!
@@ -628,7 +636,6 @@ input CreateCalendarEntryInput {
   duration: String!
   orderId: ID
   source: CalendarEntryCreateSource
-  workerId: ID
 }
 
 input CreateCallRoutingBindingInput {
@@ -689,12 +696,12 @@ input CreateCarInput {
 
 input CreateCarRecommendationInput {
   carId: ID!
+
+  """Диагност/исполнитель рекомендации (персона или организация)"""
+  executor: ExecutorInput!
   expiredAt: DateTime
   price: MoneyInput
   service: String!
-
-  """ID сотрудника (employeeId) — диагност/исполнитель рекомендации"""
-  workerId: ID!
 }
 
 input CreateCarRecommendationPartInput {
@@ -859,10 +866,11 @@ input CreateNoteInput {
 }
 
 input CreateOrderInput {
+  """Ответственный (personId сотрудника)"""
+  assigneeId: ID
   carId: ID
   customerId: ID
   entryId: ID
-  workerId: ID
 }
 
 input CreateOrderItemGroupInput {
@@ -887,13 +895,13 @@ input CreateOrderItemPartInput {
 
 input CreateOrderItemServiceInput {
   discount: MoneyInput
+  executor: ExecutorInput
   orderId: ID!
   parentId: ID
   price: MoneyInput
   service: String!
   tenantId: ID
   warranty: Boolean = false
-  workerId: ID
 }
 
 input CreateOrderPrepayInput {
@@ -1457,6 +1465,11 @@ type EmployeeSalaryModel {
 
   """День месяца начисления (1-31)"""
   payday: Int!
+}
+
+input ExecutorInput {
+  id: ID!
+  kind: PartyKind!
 }
 
 """Статья расходов"""
@@ -2186,7 +2199,6 @@ type OrderItemModel {
   parentId: ID
   part: OrderItemPartModel
   service: OrderItemServiceModel
-  serviceWorker: EmployeeModel
   type: OrderItemType!
 }
 
@@ -2220,13 +2232,20 @@ type OrderItemServiceModel {
   createdByUser: AppUserModel
   discountAmount: BigInt
   discountCurrencyCode: String
+
+  """Исполнитель работы (персона или организация)"""
+  executor: Counterparty
+
+  """ID исполнителя (person|org)"""
+  executorId: ID
+
+  """Тип исполнителя"""
+  executorKind: PartyKind
   id: ID!
   priceAmount: BigInt
   priceCurrencyCode: String
   service: String!
   warranty: Boolean!
-  worker: EmployeeModel
-  workerId: ID
 }
 
 """Тип элемента заказа"""
@@ -2243,6 +2262,9 @@ enum OrderItemType {
 
 """Заказ"""
 type OrderModel {
+  assignee: EmployeeModel
+  assigneeId: ID
+
   """Можно удалить заказ (пустой, в течение периода охлаждения)"""
   canDelete: Boolean!
   car: CarModel
@@ -2286,8 +2308,6 @@ type OrderModel {
   """ID tenant"""
   tenantId: String!
   walletTransactions: [WalletTransactionModel!]!
-  worker: EmployeeModel
-  workerId: ID
 }
 
 """Предоплата по заказу (order_payment)"""
@@ -2649,6 +2669,12 @@ input PartsSmartAutocompleteInput {
   search: String!
   take: Int = 50
   vehicleId: ID
+}
+
+"""Вид субъекта: персона или организация"""
+enum PartyKind {
+  ORGANIZATION
+  PERSON
 }
 
 input PasswordLoginDto {
@@ -3509,11 +3535,12 @@ input UpdateAppealStatusInput {
 }
 
 input UpdateCalendarEntryInput {
+  """Ответственный механик (personId)"""
+  assigneeId: ID
   date: DateTime
   description: String
   duration: String
   id: ID!
-  workerId: ID
 }
 
 input UpdateCallRoutingBindingInput {
@@ -3577,13 +3604,11 @@ input UpdateCarInput {
 }
 
 input UpdateCarRecommendationInput {
+  executor: ExecutorInput
   expiredAt: DateTime
   id: ID!
   price: MoneyInput
   service: String
-
-  """ID сотрудника (employeeId)"""
-  workerId: ID
 }
 
 input UpdateCarRecommendationPartInput {
@@ -3703,12 +3728,13 @@ input UpdateNoteInput {
 }
 
 input UpdateOrderInput {
+  """Ответственный (personId сотрудника)"""
+  assigneeId: ID
   carId: ID
   customerId: ID
   id: ID!
   mileage: Int
   status: OrderStatus
-  workerId: ID
 }
 
 input UpdateOrderItemGroupInput {
@@ -3735,6 +3761,7 @@ input UpdateOrderItemPartInput {
 
 input UpdateOrderItemServiceInput {
   discount: MoneyInput
+  executor: ExecutorInput
   id: ID!
   orderId: ID
   parentId: ID
@@ -3742,7 +3769,6 @@ input UpdateOrderItemServiceInput {
   service: String
   tenantId: ID
   warranty: Boolean = false
-  workerId: ID
 }
 
 input UpdateOrganizationInput {

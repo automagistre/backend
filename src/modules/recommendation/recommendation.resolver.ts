@@ -16,8 +16,9 @@ import { CreateCarRecommendationInput } from './inputs/create-car-recommendation
 import { UpdateCarRecommendationInput } from './inputs/update-car-recommendation.input';
 import { CreateCarRecommendationPartInput } from './inputs/create-car-recommendation-part.input';
 import { UpdateCarRecommendationPartInput } from './inputs/update-car-recommendation-part.input';
-import { EmployeeService } from '../employee/employee.service';
-import { EmployeeModel } from '../employee/models/employee.model';
+import { CounterpartyUnion } from '../supplier/supplier.union';
+import { executorToDb } from 'src/common/party';
+import { DisplayContextService } from '../display-context/display-context.service';
 import { CarService } from '../vehicle/car.service';
 import { CarModel } from '../vehicle/models/car.model';
 import { CarRecommendationPartModel } from './models/car-recommendation-part.model';
@@ -34,7 +35,7 @@ import { AppUserLoader } from '../app-user/app-user.loader';
 export class RecommendationResolver {
   constructor(
     private readonly recommendationService: RecommendationService,
-    private readonly employeeService: EmployeeService,
+    private readonly displayContext: DisplayContextService,
     private readonly carService: CarService,
     private readonly settingsService: SettingsService,
     private readonly appUserLoader: AppUserLoader,
@@ -75,11 +76,6 @@ export class RecommendationResolver {
     @AuthContext() ctx: AuthContextType,
     @Args('input') input: CreateCarRecommendationInput,
   ) {
-    const workerId =
-      (await this.employeeService.resolvePersonIdByWorkerId(
-        ctx,
-        input.workerId,
-      )) ?? input.workerId;
     const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
     const priceData = input.price
       ? applyDefaultCurrency(input.price, defaultCurrency)
@@ -87,7 +83,7 @@ export class RecommendationResolver {
     const result = await this.recommendationService.createRecommendation(ctx, {
       carId: input.carId,
       service: input.service.trim(),
-      workerId,
+      ...executorToDb(input.executor),
       expiredAt: input.expiredAt ?? null,
       priceAmount: priceData.amountMinor,
       priceCurrencyCode: priceData.currencyCode,
@@ -108,12 +104,8 @@ export class RecommendationResolver {
     if (input.service !== undefined && input.service !== null) {
       data.service = input.service.trim();
     }
-    if (input.workerId !== undefined) {
-      data.workerId =
-        (await this.employeeService.resolvePersonIdByWorkerId(
-          ctx,
-          input.workerId,
-        )) ?? input.workerId;
+    if (input.executor !== undefined) {
+      Object.assign(data, executorToDb(input.executor));
     }
     if (input.expiredAt !== undefined) {
       data.expiredAt = input.expiredAt;
@@ -252,16 +244,12 @@ export class RecommendationResolver {
     return result;
   }
 
-  @ResolveField(() => EmployeeModel, { nullable: true })
-  async worker(
-    @AuthContext() ctx: AuthContextType,
-    @Parent() rec: CarRecommendationModel,
-  ): Promise<EmployeeModel | null> {
-    if (!rec.workerId) return null;
-    return (await this.employeeService.resolveEmployeeByWorkerId(
-      ctx,
-      rec.workerId,
-    )) as any;
+  @ResolveField(() => CounterpartyUnion, { nullable: true })
+  async executor(@Parent() rec: CarRecommendationModel) {
+    return this.displayContext.resolveCounterparty(
+      rec.executorKind,
+      rec.executorId,
+    );
   }
 
   @ResolveField(() => CarModel, { nullable: true })

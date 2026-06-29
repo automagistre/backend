@@ -16,6 +16,7 @@ import {
   Prisma,
 } from 'src/generated/prisma/client';
 import { OrderItemType } from './enums/order-item-type.enum';
+import { executorToDb } from 'src/common/party';
 import { v6 as uuidv6 } from 'uuid';
 import { ReservationService } from '../reservation/reservation.service';
 import { applyDefaultCurrency } from 'src/common/money';
@@ -123,7 +124,8 @@ export class OrderItemService {
         ? {
             id: service.id,
             service: service.service,
-            workerId: service.workerId,
+            executorKind: service.executorKind as any,
+            executorId: service.executorId,
             warranty: service.warranty,
             priceAmount: service.priceAmount,
             priceCurrencyCode: service.priceCurrencyCode,
@@ -291,7 +293,7 @@ export class OrderItemService {
         service: {
           create: {
             service: input.service,
-            workerId: input.workerId,
+            ...executorToDb(input.executor),
             warranty: input.warranty ?? false,
             priceAmount: priceData.amountMinor,
             priceCurrencyCode: priceData.currencyCode,
@@ -682,7 +684,9 @@ export class OrderItemService {
       updateData.discountCurrencyCode = discountData.currencyCode;
     }
     if (input.warranty !== undefined) updateData.warranty = input.warranty;
-    if (input.workerId !== undefined) updateData.workerId = input.workerId;
+    if (input.executor !== undefined) {
+      Object.assign(updateData, executorToDb(input.executor));
+    }
     if (input.parentId !== undefined) {
       await this.prisma.orderItem.update({
         where: { id: input.id },

@@ -7,6 +7,7 @@ import { CreateCustomerTransactionInput } from 'src/modules/customer-transaction
 import { SettingsService } from 'src/modules/settings/settings.service';
 import type { AuthContext } from 'src/common/user-id.store';
 import { applyDefaultCurrency, sum } from 'src/common/money';
+import { PartyKind } from 'src/common/party';
 import { AuditLogService } from 'src/modules/audit-log/audit-log.service';
 import { DisplayContextService } from 'src/modules/display-context/display-context.service';
 import {
@@ -49,16 +50,19 @@ export class SalaryService {
     for (const item of services) {
       const svc = item.service!;
       if (svc.warranty) continue;
-      if (!svc.workerId) continue;
+
+      // Зарплата начисляется только персонам (сотрудникам); организации-подрядчики — нет.
+      if (!svc.executorId || svc.executorKind !== PartyKind.PERSON) continue;
+      const executorPersonId = svc.executorId;
 
       const priceAmount = svc.priceAmount ?? 0n;
       const discountAmount = svc.discountAmount ?? 0n;
       const totalPrice = priceAmount - discountAmount;
       if (totalPrice <= 0n) continue;
 
-      const employee = await this.employeeService.resolveEmployeeByWorkerId(
+      const employee = await this.employeeService.findByPersonId(
         ctx,
-        svc.workerId,
+        executorPersonId,
       );
       if (!employee || employee.ratio == null || employee.firedAt) continue;
 

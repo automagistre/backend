@@ -1,5 +1,8 @@
 import { Field, ID, ObjectType } from '@nestjs/graphql';
-import { EmployeeModel } from '../../employee/models/employee.model';
+import { PartyKind } from 'src/common/party';
+import { CounterpartyUnion } from 'src/modules/supplier/supplier.union';
+import { PersonModel } from 'src/modules/person/models/person.model';
+import { OrganizationModel } from 'src/modules/organization/models/organization.model';
 
 @ObjectType({ description: 'Услуга в заказе' })
 export class OrderItemServiceModel {
@@ -9,11 +12,17 @@ export class OrderItemServiceModel {
   @Field(() => String)
   service: string;
 
-  @Field(() => ID, { nullable: true })
-  workerId: string | null;
+  @Field(() => PartyKind, { nullable: true, description: 'Тип исполнителя' })
+  executorKind: PartyKind | null;
 
-  @Field(() => EmployeeModel, { nullable: true })
-  worker?: EmployeeModel | null;
+  @Field(() => ID, { nullable: true, description: 'ID исполнителя (person|org)' })
+  executorId: string | null;
+
+  @Field(() => CounterpartyUnion, {
+    nullable: true,
+    description: 'Исполнитель работы (персона или организация)',
+  })
+  executor?: PersonModel | OrganizationModel | null;
 
   @Field(() => Boolean)
   warranty: boolean;

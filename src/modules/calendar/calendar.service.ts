@@ -109,7 +109,7 @@ type CalendarSnapshot = {
   duration: string | null;
   customerId: string | null;
   carId: string | null;
-  workerId: string | null;
+  assigneeId: string | null;
   description: string | null;
 };
 
@@ -188,7 +188,7 @@ export class CalendarService {
             duration: data.duration,
           },
         },
-        ...(data.customerId || data.carId || data.workerId || data.description
+        ...(data.customerId || data.carId || data.assigneeId || data.description
           ? {
               calendarEntryOrderInfo: {
                 create: {
@@ -197,7 +197,7 @@ export class CalendarService {
                   createdBy: userId,
                   customerId: data.customerId,
                   carId: data.carId,
-                  workerId: data.workerId,
+                  assigneeId: data.assigneeId,
                   description: data.description,
                 },
               },
@@ -223,7 +223,7 @@ export class CalendarService {
       duration: data.duration,
       customerId: data.customerId ?? null,
       carId: data.carId ?? null,
-      workerId: data.workerId ?? null,
+      assigneeId: data.assigneeId ?? null,
       description: data.description ?? null,
     });
 
@@ -242,10 +242,10 @@ export class CalendarService {
 
     const currentSchedule = existing.calendarEntrySchedule[0];
     const currentOrderInfo = existing.calendarEntryOrderInfo[0];
-    const nextWorkerId =
-      data.workerId !== undefined
-        ? data.workerId
-        : (currentOrderInfo?.workerId ?? null);
+    const nextAssigneeId =
+      data.assigneeId !== undefined
+        ? data.assigneeId
+        : (currentOrderInfo?.assigneeId ?? null);
     const nextDescription =
       data.description !== undefined
         ? data.description
@@ -254,8 +254,8 @@ export class CalendarService {
     const nextDuration = data.duration ?? currentSchedule?.duration;
 
     const shouldCreateOrderInfo =
-      (data.workerId !== undefined || data.description !== undefined) &&
-      (nextWorkerId !== (currentOrderInfo?.workerId ?? null) ||
+      (data.assigneeId !== undefined || data.description !== undefined) &&
+      (nextAssigneeId !== (currentOrderInfo?.assigneeId ?? null) ||
         nextDescription !== (currentOrderInfo?.description ?? null));
 
     const shouldCreateSchedule =
@@ -281,7 +281,7 @@ export class CalendarService {
             createdBy: userId,
             customerId: currentOrderInfo?.customerId ?? null,
             carId: currentOrderInfo?.carId ?? null,
-            workerId: nextWorkerId,
+            assigneeId: nextAssigneeId,
             description: nextDescription,
           },
         }),
@@ -315,7 +315,7 @@ export class CalendarService {
         duration: currentSchedule?.duration ?? null,
         customerId: currentOrderInfo?.customerId ?? null,
         carId: currentOrderInfo?.carId ?? null,
-        workerId: currentOrderInfo?.workerId ?? null,
+        assigneeId: currentOrderInfo?.assigneeId ?? null,
         description: currentOrderInfo?.description ?? null,
       },
       {
@@ -323,7 +323,7 @@ export class CalendarService {
         duration: nextDuration ?? null,
         customerId: currentOrderInfo?.customerId ?? null,
         carId: currentOrderInfo?.carId ?? null,
-        workerId: nextWorkerId,
+        assigneeId: nextAssigneeId,
         description: nextDescription,
       },
     );
@@ -362,7 +362,7 @@ export class CalendarService {
           duration: schedule?.duration ?? null,
           customerId: orderInfo?.customerId ?? null,
           carId: orderInfo?.carId ?? null,
-          workerId: orderInfo?.workerId ?? null,
+          assigneeId: orderInfo?.assigneeId ?? null,
           description: orderInfo?.description ?? null,
         },
         null,

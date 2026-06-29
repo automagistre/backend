@@ -25,6 +25,7 @@ import { SalaryModule } from '../salary/salary.module';
 import { CustomerTransactionModule } from '../customer-transaction/customer-transaction.module';
 import { TasksModule } from '../tasks/tasks.module';
 import { RecommendationMigrationModule } from '../recommendation-migration/recommendation-migration.module';
+import { DisplayContextModule } from '../display-context/display-context.module';
 import './enums/order-item-type.enum';
 import './enums/close-deficiency.enum';
 
@@ -41,6 +42,7 @@ import './enums/close-deficiency.enum';
     CustomerTransactionModule,
     TasksModule,
     forwardRef(() => RecommendationMigrationModule),
+    DisplayContextModule,
   ],
   providers: [
     OrderService,

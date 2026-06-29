@@ -22,15 +22,15 @@ export class CalendarEntryOrderInfoModel {
 
   @Field(() => ID, {
     nullable: true,
-    description: 'ID механика/работника (employee_id)',
+    description: 'ID ответственного механика (personId)',
   })
-  workerId: string | null;
+  assigneeId: string | null;
 
   @Field(() => EmployeeModel, {
     nullable: true,
     description: 'Сотрудник-механик',
   })
-  worker?: EmployeeModel | null;
+  assignee?: EmployeeModel | null;
 
   @Field(() => String, { nullable: true })
   description: string | null;

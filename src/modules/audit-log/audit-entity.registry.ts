@@ -25,7 +25,6 @@ export interface AuditRawChange {
 export type AuditRelationRef =
   | 'part'
   | 'organization'
-  | 'worker'
   | 'operand'
   | 'car'
   | 'vehicle'
@@ -71,7 +70,7 @@ export const AUDIT_REGISTRY: Record<AuditEntityType, AuditEntityDef> = {
       status: { label: 'Статус', kind: { kind: 'status', labels: OrderStatusLabel } },
       carId: { label: 'Автомобиль', kind: { kind: 'relation', ref: 'car' } },
       customerId: { label: 'Заказчик', kind: { kind: 'relation', ref: 'operand' } },
-      workerId: { label: 'Исполнитель', kind: { kind: 'relation', ref: 'worker' } },
+      assigneeId: { label: 'Ответственный', kind: { kind: 'relation', ref: 'operand' } },
       mileage: { label: 'Пробег', kind: { kind: 'scalar' } },
       description: { label: 'Описание', kind: { kind: 'scalar' } },
     },
@@ -87,7 +86,7 @@ export const AUDIT_REGISTRY: Record<AuditEntityType, AuditEntityDef> = {
     scope: AuditScope.TENANT,
     fields: {
       service: { label: 'Работа', kind: { kind: 'scalar' } },
-      workerId: { label: 'Исполнитель', kind: { kind: 'relation', ref: 'worker' } },
+      executorId: { label: 'Исполнитель', kind: { kind: 'relation', ref: 'operand' } },
       warranty: { label: 'Гарантия', kind: { kind: 'bool' } },
       priceAmount: { label: 'Цена', kind: money('priceCurrencyCode') },
       discountAmount: { label: 'Скидка', kind: money('discountCurrencyCode') },
@@ -151,7 +150,7 @@ export const AUDIT_REGISTRY: Record<AuditEntityType, AuditEntityDef> = {
     scope: AuditScope.GROUP,
     fields: {
       service: { label: 'Работа', kind: { kind: 'scalar' } },
-      workerId: { label: 'Исполнитель', kind: { kind: 'relation', ref: 'worker' } },
+      executorId: { label: 'Исполнитель', kind: { kind: 'relation', ref: 'operand' } },
       priceAmount: { label: 'Цена', kind: money('priceCurrencyCode') },
       expiredAt: { label: 'Действует до', kind: { kind: 'date' } },
     },
@@ -246,7 +245,7 @@ export const AUDIT_REGISTRY: Record<AuditEntityType, AuditEntityDef> = {
     fields: {
       date: { label: 'Дата и время', kind: { kind: 'datetime' } },
       duration: { label: 'Длительность', kind: { kind: 'duration' } },
-      workerId: { label: 'Сотрудник', kind: { kind: 'relation', ref: 'worker' } },
+      assigneeId: { label: 'Сотрудник', kind: { kind: 'relation', ref: 'operand' } },
       customerId: { label: 'Клиент', kind: { kind: 'relation', ref: 'operand' } },
       carId: { label: 'Автомобиль', kind: { kind: 'relation', ref: 'car' } },
       description: { label: 'Комментарий', kind: { kind: 'scalar' } },

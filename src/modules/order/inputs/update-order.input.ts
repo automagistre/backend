@@ -12,8 +12,11 @@ export class UpdateOrderInput {
   @Field(() => ID, { nullable: true })
   customerId?: string | null;
 
-  @Field(() => ID, { nullable: true })
-  workerId?: string | null;
+  @Field(() => ID, {
+    nullable: true,
+    description: 'Ответственный (personId сотрудника)',
+  })
+  assigneeId?: string | null;
 
   @Field(() => Int, { nullable: true })
   mileage?: number | null;

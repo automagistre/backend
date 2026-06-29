@@ -129,21 +129,35 @@ export class DisplayContextService {
     return org?.name ?? null;
   }
 
-  /** Подпись исполнителя: workerId — это personId, с откатом на employee.id. */
-  async getWorkerDisplay(workerId: string): Promise<string | null> {
-    const byPerson = await this.getPersonDisplay(workerId);
-    if (byPerson) return byPerson;
-    const employee = await this.prisma.employee.findUnique({
-      where: { id: workerId },
-      select: { person: { select: { lastname: true, firstname: true } } },
-    });
-    if (!employee) return null;
-    return (
-      [employee.person.lastname, employee.person.firstname]
-        .filter(Boolean)
-        .join(' ')
-        .trim() || null
-    );
+  /**
+   * Запись субъекта (персона|организация) по явному типу — для union Counterparty.
+   * Возвращает сырую запись Prisma (поля резолвятся лениво в GraphQL).
+   */
+  async findCounterparty(
+    kind: string,
+    id: string,
+  ): Promise<Record<string, any> | null> {
+    if (kind === 'ORGANIZATION') {
+      return this.prisma.organization.findUnique({ where: { id } });
+    }
+    return this.prisma.person.findUnique({ where: { id } });
+  }
+
+  /** Резолв union Counterparty по необязательной паре kind/id (null, если не задано). */
+  async resolveCounterparty(
+    kind?: string | null,
+    id?: string | null,
+  ): Promise<Record<string, any> | null> {
+    if (!kind || !id) return null;
+    return this.findCounterparty(kind, id);
+  }
+
+  /** Подпись субъекта person|org по явному типу. */
+  async getPartyDisplay(kind: string, id: string): Promise<string | null> {
+    if (kind === 'ORGANIZATION') {
+      return this.getOrganizationName(id);
+    }
+    return (await this.getPersonDisplay(id)) || null;
   }
 
   /** Название модели (vehicle): «Марка Модель». */

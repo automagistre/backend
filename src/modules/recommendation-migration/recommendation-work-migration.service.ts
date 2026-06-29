@@ -7,7 +7,6 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { OrderService } from 'src/modules/order/order.service';
-import { EmployeeService } from 'src/modules/employee/employee.service';
 import { PubSub } from 'graphql-subscriptions';
 import { RealizeCarRecommendationInput } from 'src/modules/recommendation-migration/inputs/realize-car-recommendation.input';
 import { RealizeCarRecommendationPayload } from 'src/modules/recommendation-migration/models/realize-car-recommendation.payload';
@@ -34,7 +33,6 @@ export class RecommendationWorkMigrationService {
     @Inject(forwardRef(() => OrderService))
     private readonly orderService: OrderService,
     private readonly orderItemService: OrderItemService,
-    private readonly employeeService: EmployeeService,
     private readonly recommendationService: RecommendationService,
     private readonly settingsService: SettingsService,
     private readonly auditLog: AuditLogService,
@@ -101,19 +99,12 @@ export class RecommendationWorkMigrationService {
     return true;
   }
 
-  private async resolveRecommendationWorkerPersonId(
-    ctx: AuthContext,
-    orderWorkerId: string | null,
+  private resolveRecommendationWorkerPersonId(
+    orderAssigneePersonId: string | null,
     serviceWorkerPersonId: string | null,
-  ): Promise<string | null> {
-    if (orderWorkerId) {
-      const personId = await this.employeeService.resolvePersonIdByEmployeeId(
-        ctx,
-        orderWorkerId,
-      );
-      return personId ?? serviceWorkerPersonId ?? null;
-    }
-    return serviceWorkerPersonId ?? null;
+  ): string | null {
+    // order.assigneeId уже personId ответственного — конвертация не нужна.
+    return orderAssigneePersonId ?? serviceWorkerPersonId ?? null;
   }
 
   async realizeCarRecommendation(
@@ -126,11 +117,7 @@ export class RecommendationWorkMigrationService {
       throw new NotFoundException(`Заказ с ID ${input.orderId} не найден`);
     }
 
-    const workerPersonId =
-      await this.employeeService.resolvePersonIdByEmployeeId(
-        ctx,
-        order.workerId ?? null,
-      );
+    const workerPersonId = order.assigneeId ?? null;
 
     const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
 
@@ -188,7 +175,8 @@ export class RecommendationWorkMigrationService {
               service: {
                 create: {
                   service: recommendation.service,
-                  workerId: workerPersonId,
+                  executorKind: workerPersonId ? 'PERSON' : null,
+                  executorId: workerPersonId,
                   warranty: false,
                   priceAmount: normalizeMoneyAmount(recommendation.priceAmount),
                   priceCurrencyCode: defaultCurrency,
@@ -392,10 +380,11 @@ export class RecommendationWorkMigrationService {
     );
 
     const carId = order.carId ?? recommendation?.carId;
-    const workerId = await this.resolveRecommendationWorkerPersonId(
-      ctx,
-      order.workerId ?? null,
-      orderItem.service.workerId ?? null,
+    const assigneePersonId = this.resolveRecommendationWorkerPersonId(
+      order.assigneeId ?? null,
+      orderItem.service.executorKind === 'PERSON'
+        ? (orderItem.service.executorId ?? null)
+        : null,
     );
 
     const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
@@ -461,7 +450,7 @@ export class RecommendationWorkMigrationService {
       if (!carId) {
         throw new BadRequestException('Не указан автомобиль для рекомендации');
       }
-      if (!workerId) {
+      if (!assigneePersonId) {
         throw new BadRequestException('Не удалось определить сотрудника');
       }
 
@@ -480,7 +469,8 @@ export class RecommendationWorkMigrationService {
           {
             carId,
             service: orderItem.service.service,
-            workerId,
+            executorKind: 'PERSON',
+            executorId: assigneePersonId,
             expiredAt: null,
             priceAmount: serviceNetPrice,
             priceCurrencyCode: defaultCurrency,
