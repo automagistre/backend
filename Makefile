@@ -2,7 +2,15 @@ HARBOR_REGISTRY ?= harbor.automagistre.ru
 TAG ?= latest
 IMAGE = $(HARBOR_REGISTRY)/automagistre/backend:$(TAG)
 
-.PHONY: build build-no-cache tag push deploy
+.PHONY: build build-no-cache tag push deploy test test-cov
+
+# Юнит-тесты (jest)
+test:
+	npm test
+
+# Юнит-тесты с покрытием
+test-cov:
+	npm run test:cov
 
 # Обычная сборка (кэш ускоряет повторные сборки)
 build:

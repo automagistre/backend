@@ -111,8 +111,29 @@
       "node_modules/(?!uuid)"
     ],
     "collectCoverageFrom": [
-      "**/*.(t|j)s"
+      "**/*.(t|j)s",
+      "!**/*.spec.ts",
+      "!**/common/testing/**",
+      "!main.ts",
+      "!**/*.module.ts",
+      "!generated/**"
     ],
+    "coveragePathIgnorePatterns": [
+      "/node_modules/",
+      "<rootDir>/common/testing/"
+    ],
+    "coverageReporters": [
+      "text-summary",
+      "lcov"
+    ],
+    "coverageThreshold": {
+      "global": {
+        "statements": 5,
+        "branches": 4,
+        "functions": 3,
+        "lines": 5
+      }
+    },
     "coverageDirectory": "../coverage",
     "testEnvironment": "node"
   }
