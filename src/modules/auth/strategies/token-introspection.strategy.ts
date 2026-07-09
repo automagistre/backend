@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtPayload } from '../dto/jwt.payload';
+import { fetchWithRetry } from '../utils/fetch-with-retry.util';
 
 @Injectable()
 export class TokenIntrospectionStrategy extends PassportStrategy(
@@ -34,7 +35,7 @@ export class TokenIntrospectionStrategy extends PassportStrategy(
     params.append('client_secret', clientSecret);
 
     try {
-      const response = await fetch(introspectionEndpoint, {
+      const response = await fetchWithRetry(introspectionEndpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',

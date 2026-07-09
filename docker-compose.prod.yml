@@ -7,6 +7,10 @@ services:
       - .env
     networks:
       - traefik-public
+    # Keycloak резолвится через AdGuard (rewrite на локальный IP);
+    # статическая запись убирает зависимость от DNS (EAI_AGAIN при сбоях AdGuard)
+    extra_hosts:
+      - "sso.automagistre.ru:192.168.55.30"
     volumes:
       - /srv/call-recordings:/call-recordings
     labels:

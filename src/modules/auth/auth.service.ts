@@ -7,6 +7,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { JwtPayload } from './dto/jwt.payload';
 import { TokensDto, PasswordLoginDto } from './dto/auth.dto';
+import { fetchWithRetry } from './utils/fetch-with-retry.util';
 
 @Injectable()
 export class AuthService {
@@ -86,7 +87,7 @@ export class AuthService {
     ) as string;
     const isRefreshGrant = params.get('grant_type') === 'refresh_token';
     try {
-      const response = await fetch(tokenEndpoint, {
+      const response = await fetchWithRetry(tokenEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: params,

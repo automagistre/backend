@@ -7,5 +7,9 @@ services:
       - "3000:3000"
     env_file:
       - .env
+    # sso резолвится через AdGuard rewrite; статическая запись
+    # защищает от EAI_AGAIN при сбоях DNS
+    extra_hosts:
+      - "sso.automagistre.ru:192.168.55.30"
     restart: always
   
