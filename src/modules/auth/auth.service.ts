@@ -1,4 +1,8 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  Injectable,
+  ServiceUnavailableException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { JwtPayload } from './dto/jwt.payload';
@@ -80,6 +84,7 @@ export class AuthService {
     const tokenEndpoint = this.configService.get<string>(
       'auth.keycloak.tokenEndpoint',
     ) as string;
+    const isRefreshGrant = params.get('grant_type') === 'refresh_token';
     try {
       const response = await fetch(tokenEndpoint, {
         method: 'POST',
@@ -94,6 +99,14 @@ export class AuthService {
           errorBody.slice(0, 500),
         );
 
+        // 5xx — временный сбой Keycloak/прокси, а не невалидные credentials.
+        // Отдаём 503, чтобы фронт не сбрасывал сессию пользователя.
+        if (response.status >= 500) {
+          throw new ServiceUnavailableException(
+            `Keycloak временно недоступен (${response.status}). Попробуйте позже.`,
+          );
+        }
+
         let message = `Keycloak error (${response.status})`;
         try {
           const errorJson = JSON.parse(errorBody) as {
@@ -105,8 +118,11 @@ export class AuthService {
             (errorJson.error_description &&
               /code|invalid|expired|used/i.test(errorJson.error_description))
           ) {
-            message =
-              'Код авторизации недействителен или уже использован. Попробуйте войти снова.';
+            // Маркер invalid_grant обязателен: фронт по нему отличает гонку
+            // ротации refresh-токена между вкладками от реальной потери сессии
+            message = isRefreshGrant
+              ? `Сессия недействительна (invalid_grant): ${errorJson.error_description ?? errorJson.error ?? ''}`
+              : 'Код авторизации недействителен или уже использован. Попробуйте войти снова.';
           } else if (errorJson.error === 'invalid_redirect_uri') {
             message =
               'redirect_uri не совпадает. Проверьте KEYCLOAK_REDIRECT_URI (backend) и NUXT_PUBLIC_KEYCLOAK_REDIRECT_URI (admin).';
@@ -121,8 +137,9 @@ export class AuthService {
             errorBody.includes('invalid_grant') ||
             errorBody.includes('Code')
           ) {
-            message =
-              'Код авторизации недействителен или уже использован. Попробуйте войти снова.';
+            message = isRefreshGrant
+              ? 'Сессия недействительна (invalid_grant). Войдите снова.'
+              : 'Код авторизации недействителен или уже использован. Попробуйте войти снова.';
           } else {
             message = 'Keycloak вернул ошибку. Проверьте логи бэкенда.';
           }
@@ -132,7 +149,8 @@ export class AuthService {
 
       const data = await response.json();
       if (!data?.access_token || !data?.refresh_token) {
-        throw new UnauthorizedException(
+        // Аномальный ответ Keycloak — не вина пользователя, сессию не сбрасываем
+        throw new ServiceUnavailableException(
           'Invalid token response from authentication provider',
         );
       }
@@ -143,7 +161,10 @@ export class AuthService {
         refreshExpiresIn: data.refresh_expires_in,
       };
     } catch (error) {
-      if (error instanceof UnauthorizedException) {
+      if (
+        error instanceof UnauthorizedException ||
+        error instanceof ServiceUnavailableException
+      ) {
         // Re-throw the specific error from Keycloak
         throw error;
       }
@@ -152,7 +173,9 @@ export class AuthService {
         'Network or other error communicating with Keycloak:',
         error,
       );
-      throw new UnauthorizedException(
+      // Сетевой сбой между backend и Keycloak — транзиентная ошибка (503),
+      // иначе фронт получает UNAUTHENTICATED и разлогинивает пользователя
+      throw new ServiceUnavailableException(
         'Failed to communicate with authentication provider. Check server logs for details.',
       );
     }

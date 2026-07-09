@@ -1,6 +1,10 @@
 import { PassportStrategy } from '@nestjs/passport';
 import { Strategy } from 'passport-http-bearer';
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  Injectable,
+  ServiceUnavailableException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtPayload } from '../dto/jwt.payload';
 
@@ -37,6 +41,19 @@ export class TokenIntrospectionStrategy extends PassportStrategy(
         },
         body: params,
       });
+
+      // 5xx/4xx от Keycloak или прокси — это не «токен неактивен».
+      // Без этой проверки временный сбой Keycloak разлогинивал пользователей.
+      if (!response.ok) {
+        const body = await response.text();
+        console.error(
+          `Token introspection HTTP ${response.status}:`,
+          body.slice(0, 300),
+        );
+        throw new ServiceUnavailableException(
+          'Auth provider temporarily unavailable',
+        );
+      }
 
       const result = (await response.json()) as {
         active?: boolean;
@@ -78,12 +95,16 @@ export class TokenIntrospectionStrategy extends PassportStrategy(
         realm_roles: realmRoles.length > 0 ? realmRoles : undefined,
       };
     } catch (error) {
-      if (error instanceof UnauthorizedException) {
+      if (
+        error instanceof UnauthorizedException ||
+        error instanceof ServiceUnavailableException
+      ) {
         throw error;
       }
       console.error('Token introspection failed:', error);
-      throw new UnauthorizedException(
-        'Failed to verify token with the provider',
+      // Сетевая ошибка/невалидный JSON — транзиентный сбой, не повод для разлогина
+      throw new ServiceUnavailableException(
+        'Auth provider temporarily unavailable',
       );
     }
   }
