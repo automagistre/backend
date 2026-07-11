@@ -282,8 +282,16 @@ model CarRecommendation {
   carId             String?                 @map("car_id") @db.Uuid
   car               Car?                    @relation(fields: [carId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   service           String                  @db.VarChar(255)
+  /// AUTOSERVICE | CONTRACTOR — вид будущей работы, переносится при реализации
+  kind              String                  @default("AUTOSERVICE") @db.VarChar(16)
+  /// Диагност — кто порекомендовал (всегда персона)
   executorKind      String?                 @map("executor_kind") @db.VarChar(16)
   executorId        String?                 @map("executor_id") @db.Uuid
+  /// Диагностика проведена не нами (сторонний сервис / со слов клиента) — диагност пуст
+  externalDiagnostic Boolean                @default(false) @map("external_diagnostic")
+  /// Будущий исполнитель-подрядчик (только для kind=CONTRACTOR)
+  contractorKind    String?                 @map("contractor_kind") @db.VarChar(16)
+  contractorId      String?                 @map("contractor_id") @db.Uuid
   expiredAt         DateTime?               @map("expired_at") @db.Timestamp(0)
   realization       String?                 @db.Uuid
   tenantGroupId     String                  @map("tenant_group_id") @db.Uuid

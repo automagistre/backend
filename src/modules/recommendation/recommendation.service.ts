@@ -1,4 +1,10 @@
-import { Inject, Injectable, NotFoundException, forwardRef } from '@nestjs/common';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  NotFoundException,
+  forwardRef,
+} from '@nestjs/common';
 import { Prisma } from 'src/generated/prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { v6 as uuidv6 } from 'uuid';
@@ -160,6 +166,38 @@ export class RecommendationService {
     });
   }
 
+  /**
+   * Диагност — всегда персона (реальный человек, который порекомендовал).
+   * При сторонней диагностике (не нами) диагност пуст.
+   * Подрядчик хранится отдельно и допустим только у подрядной рекомендации.
+   */
+  private validateRoles(fields: {
+    kind: string;
+    executorKind: string | null;
+    contractorKind: string | null;
+    contractorId: string | null;
+    externalDiagnostic: boolean;
+  }): void {
+    if (fields.executorKind === 'ORGANIZATION') {
+      throw new BadRequestException(
+        'Диагностом может быть только человек — сторонняя диагностика отмечается флагом',
+      );
+    }
+    if (fields.externalDiagnostic && fields.executorKind != null) {
+      throw new BadRequestException(
+        'При сторонней диагностике диагност не указывается',
+      );
+    }
+    if (
+      fields.kind !== 'CONTRACTOR' &&
+      (fields.contractorKind != null || fields.contractorId != null)
+    ) {
+      throw new BadRequestException(
+        'Подрядчик доступен только для подрядной рекомендации',
+      );
+    }
+  }
+
   async createRecommendation(
     ctx: AuthContext,
     input: CreateCarRecommendationServiceInput,
@@ -174,13 +212,30 @@ export class RecommendationService {
       throw new NotFoundException(`Автомобиль с ID ${input.carId} не найден`);
     }
 
+    const kind = input.kind ?? 'AUTOSERVICE';
+    const externalDiagnostic = input.externalDiagnostic ?? false;
+    // Сторонняя диагностика: диагност не хранится
+    const executorKind = externalDiagnostic ? null : input.executorKind;
+    const executorId = externalDiagnostic ? null : input.executorId;
+    this.validateRoles({
+      kind,
+      executorKind,
+      contractorKind: input.contractorKind ?? null,
+      contractorId: input.contractorId ?? null,
+      externalDiagnostic,
+    });
+
     const created = await client.carRecommendation.create({
       data: {
         id: uuidv6(),
         carId: input.carId,
         service: input.service,
-        executorKind: input.executorKind,
-        executorId: input.executorId,
+        kind,
+        executorKind,
+        executorId,
+        externalDiagnostic,
+        contractorKind: input.contractorKind ?? null,
+        contractorId: input.contractorId ?? null,
         expiredAt: input.expiredAt ?? null,
         priceAmount: normalizeMoneyAmount(input.priceAmount),
         priceCurrencyCode:
@@ -230,6 +285,39 @@ export class RecommendationService {
     }
 
     const { id, ...data } = input;
+
+    // Итоговое состояние после апдейта: перевод в свою работу очищает подрядчика
+    const effective = { ...exists, ...data };
+    if (effective.kind !== 'CONTRACTOR') {
+      if (effective.contractorKind != null || effective.contractorId != null) {
+        data.contractorKind = null;
+        data.contractorId = null;
+        effective.contractorKind = null;
+        effective.contractorId = null;
+      }
+    }
+    // Сторонняя диагностика и диагност взаимоисключающие:
+    // включение флага очищает диагноста, назначение диагноста снимает флаг.
+    if (data.externalDiagnostic === true) {
+      data.executorKind = null;
+      data.executorId = null;
+      effective.executorKind = null;
+      effective.executorId = null;
+    } else if (
+      data.externalDiagnostic == null &&
+      data.executorKind != null &&
+      effective.externalDiagnostic
+    ) {
+      data.externalDiagnostic = false;
+      effective.externalDiagnostic = false;
+    }
+    this.validateRoles({
+      kind: effective.kind,
+      executorKind: effective.executorKind,
+      contractorKind: effective.contractorKind,
+      contractorId: effective.contractorId,
+      externalDiagnostic: effective.externalDiagnostic,
+    });
 
     const updated = await client.carRecommendation.update({
       where: { id },

@@ -1,5 +1,5 @@
 import { mockDeep, type DeepMockProxy } from 'jest-mock-extended';
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { RecommendationService } from './recommendation.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { ReservationService } from 'src/modules/reservation/reservation.service';
@@ -55,20 +55,101 @@ describe('RecommendationService', () => {
       await service.createRecommendation(ctx, {
         carId: 'car-1',
         service: 'Диагностика',
-        executorKind: 'ORGANIZATION',
-        executorId: 'org-1',
+        executorKind: 'PERSON',
+        executorId: 'person-1',
         priceAmount: null,
       } as any);
 
       const data = prisma.carRecommendation.create.mock.calls[0][0].data;
       expect(data).toMatchObject({
-        executorKind: 'ORGANIZATION',
-        executorId: 'org-1',
+        executorKind: 'PERSON',
+        executorId: 'person-1',
         priceAmount: 0n,
         priceCurrencyCode: 'RUB',
         createdBy: ctx.userId,
       });
       expect(audit.record).toHaveBeenCalledTimes(1);
+    });
+
+    it('организация не может быть диагностом', async () => {
+      prisma.car.findFirst.mockResolvedValue({ id: 'car-1' } as any);
+
+      await expect(
+        service.createRecommendation(ctx, {
+          carId: 'car-1',
+          service: 'Диагностика',
+          executorKind: 'ORGANIZATION',
+          executorId: 'org-1',
+        } as any),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('подрядчик допустим только для kind=CONTRACTOR', async () => {
+      prisma.car.findFirst.mockResolvedValue({ id: 'car-1' } as any);
+
+      await expect(
+        service.createRecommendation(ctx, {
+          carId: 'car-1',
+          service: 'Диагностика',
+          kind: 'AUTOSERVICE',
+          executorKind: 'PERSON',
+          executorId: 'person-1',
+          contractorKind: 'ORGANIZATION',
+          contractorId: 'org-1',
+        } as any),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('подрядная рекомендация пишет contractorKind/contractorId', async () => {
+      prisma.car.findFirst.mockResolvedValue({ id: 'car-1' } as any);
+      prisma.carRecommendation.create.mockResolvedValue({
+        id: 'rec-1',
+        carId: 'car-1',
+        service: 'Ремонт генератора',
+      } as any);
+
+      await service.createRecommendation(ctx, {
+        carId: 'car-1',
+        service: 'Ремонт генератора',
+        kind: 'CONTRACTOR',
+        executorKind: 'PERSON',
+        executorId: 'person-1',
+        contractorKind: 'ORGANIZATION',
+        contractorId: 'org-1',
+      } as any);
+
+      const data = prisma.carRecommendation.create.mock.calls[0][0].data;
+      expect(data).toMatchObject({
+        kind: 'CONTRACTOR',
+        executorKind: 'PERSON',
+        executorId: 'person-1',
+        contractorKind: 'ORGANIZATION',
+        contractorId: 'org-1',
+      });
+    });
+
+    it('сторонняя диагностика очищает диагноста при создании', async () => {
+      prisma.car.findFirst.mockResolvedValue({ id: 'car-1' } as any);
+      prisma.carRecommendation.create.mockResolvedValue({
+        id: 'rec-1',
+        carId: 'car-1',
+        service: 'Диагностика',
+      } as any);
+
+      await service.createRecommendation(ctx, {
+        carId: 'car-1',
+        service: 'Диагностика',
+        executorKind: 'PERSON',
+        executorId: 'person-1',
+        externalDiagnostic: true,
+      } as any);
+
+      const data = prisma.carRecommendation.create.mock.calls[0][0].data;
+      expect(data).toMatchObject({
+        externalDiagnostic: true,
+        executorKind: null,
+        executorId: null,
+      });
     });
 
     it('audit=false не пишет журнал', async () => {
@@ -130,6 +211,95 @@ describe('RecommendationService', () => {
       });
       expect(audit.record).toHaveBeenCalledTimes(1);
     });
+
+    it('перевод в AUTOSERVICE очищает подрядчика', async () => {
+      prisma.carRecommendation.findFirst.mockResolvedValue({
+        id: 'rec-1',
+        carId: 'car-1',
+        service: 'S',
+        kind: 'CONTRACTOR',
+        executorKind: 'PERSON',
+        executorId: 'person-1',
+        contractorKind: 'ORGANIZATION',
+        contractorId: 'org-1',
+      } as any);
+      prisma.carRecommendation.update.mockResolvedValue({
+        id: 'rec-1',
+        carId: 'car-1',
+        service: 'S',
+      } as any);
+
+      await service.updateRecommendation(ctx, {
+        id: 'rec-1',
+        kind: 'AUTOSERVICE',
+      } as any);
+
+      const call = prisma.carRecommendation.update.mock.calls[0][0];
+      expect(call.data).toMatchObject({
+        kind: 'AUTOSERVICE',
+        contractorKind: null,
+        contractorId: null,
+      });
+    });
+
+    it('включение сторонней диагностики очищает диагноста', async () => {
+      prisma.carRecommendation.findFirst.mockResolvedValue({
+        id: 'rec-1',
+        carId: 'car-1',
+        service: 'S',
+        kind: 'AUTOSERVICE',
+        executorKind: 'PERSON',
+        executorId: 'person-1',
+        externalDiagnostic: false,
+      } as any);
+      prisma.carRecommendation.update.mockResolvedValue({
+        id: 'rec-1',
+        carId: 'car-1',
+        service: 'S',
+      } as any);
+
+      await service.updateRecommendation(ctx, {
+        id: 'rec-1',
+        externalDiagnostic: true,
+      } as any);
+
+      const call = prisma.carRecommendation.update.mock.calls[0][0];
+      expect(call.data).toMatchObject({
+        externalDiagnostic: true,
+        executorKind: null,
+        executorId: null,
+      });
+    });
+
+    it('назначение диагноста снимает флаг сторонней диагностики', async () => {
+      prisma.carRecommendation.findFirst.mockResolvedValue({
+        id: 'rec-1',
+        carId: 'car-1',
+        service: 'S',
+        kind: 'AUTOSERVICE',
+        executorKind: null,
+        executorId: null,
+        externalDiagnostic: true,
+      } as any);
+      prisma.carRecommendation.update.mockResolvedValue({
+        id: 'rec-1',
+        carId: 'car-1',
+        service: 'S',
+      } as any);
+
+      await service.updateRecommendation(ctx, {
+        id: 'rec-1',
+        executorKind: 'PERSON',
+        executorId: 'person-2',
+      } as any);
+
+      const call = prisma.carRecommendation.update.mock.calls[0][0];
+      expect(call.data).toMatchObject({
+        executorKind: 'PERSON',
+        executorId: 'person-2',
+        externalDiagnostic: false,
+      });
+    });
   });
 
   describe('deleteRecommendation', () => {
@@ -140,4 +310,5 @@ describe('RecommendationService', () => {
       ).rejects.toBeInstanceOf(NotFoundException);
     });
   });
+
 });

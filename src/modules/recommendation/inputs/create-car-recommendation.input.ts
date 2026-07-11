@@ -2,6 +2,7 @@ import { Field, ID, InputType } from '@nestjs/graphql';
 import { IsOptional, IsUUID, Length } from 'class-validator';
 import { MoneyInput } from 'src/common/inputs/money.input';
 import { ExecutorInput } from 'src/common/party';
+import { OrderItemServiceKind } from 'src/modules/order/enums/order-item-service-kind.enum';
 
 @InputType()
 export class CreateCarRecommendationInput {
@@ -13,10 +14,34 @@ export class CreateCarRecommendationInput {
   @Length(1, 255)
   service: string;
 
-  @Field(() => ExecutorInput, {
-    description: 'Диагност/исполнитель рекомендации (персона или организация)',
+  @Field(() => OrderItemServiceKind, {
+    nullable: true,
+    description: 'Вид будущей работы: автосервис (по умолчанию) или подрядчик',
   })
-  executor: ExecutorInput;
+  @IsOptional()
+  kind?: OrderItemServiceKind | null;
+
+  @Field(() => ExecutorInput, {
+    nullable: true,
+    description:
+      'Диагност — кто порекомендовал (всегда персона); пуст при сторонней диагностике',
+  })
+  @IsOptional()
+  executor?: ExecutorInput | null;
+
+  @Field(() => Boolean, {
+    nullable: true,
+    description: 'Диагностика проведена не нами — диагност очищается',
+  })
+  @IsOptional()
+  externalDiagnostic?: boolean | null;
+
+  @Field(() => ExecutorInput, {
+    nullable: true,
+    description: 'Будущий исполнитель-подрядчик (только для kind=CONTRACTOR)',
+  })
+  @IsOptional()
+  contractor?: ExecutorInput | null;
 
   @Field(() => Date, { nullable: true })
   @IsOptional()

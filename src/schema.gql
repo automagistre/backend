@@ -521,20 +521,37 @@ type CarNumber {
 type CarRecommendationModel {
   car: CarModel
   carId: ID
+
+  """Будущий исполнитель-подрядчик (только для kind=CONTRACTOR)"""
+  contractor: Counterparty
+
+  """ID будущего исполнителя-подрядчика (person|org)"""
+  contractorId: ID
+
+  """Тип будущего исполнителя-подрядчика"""
+  contractorKind: PartyKind
   createdAt: DateTime
   createdBy: ID
   createdByUser: AppUserModel
 
-  """Диагност/исполнитель рекомендации (персона или организация)"""
+  """Диагност — кто порекомендовал (всегда персона)"""
   executor: Counterparty
 
-  """ID исполнителя (person|org)"""
+  """ID диагноста (person)"""
   executorId: ID
 
-  """Тип исполнителя"""
+  """Тип диагноста"""
   executorKind: PartyKind
   expiredAt: DateTime
+
+  """
+  Диагностика проведена не нами (сторонний сервис / со слов клиента) — диагност пуст
+  """
+  externalDiagnostic: Boolean!
   id: ID!
+
+  """Вид будущей работы: автосервис или подрядчик"""
+  kind: OrderItemServiceKind!
   parts: [CarRecommendationPartModel!]!
   priceAmount: BigInt
   priceCurrencyCode: String
@@ -697,9 +714,20 @@ input CreateCarInput {
 input CreateCarRecommendationInput {
   carId: ID!
 
-  """Диагност/исполнитель рекомендации (персона или организация)"""
-  executor: ExecutorInput!
+  """Будущий исполнитель-подрядчик (только для kind=CONTRACTOR)"""
+  contractor: ExecutorInput
+
+  """
+  Диагност — кто порекомендовал (всегда персона); пуст при сторонней диагностике
+  """
+  executor: ExecutorInput
   expiredAt: DateTime
+
+  """Диагностика проведена не нами — диагност очищается"""
+  externalDiagnostic: Boolean
+
+  """Вид будущей работы: автосервис (по умолчанию) или подрядчик"""
+  kind: OrderItemServiceKind
   price: MoneyInput
   service: String!
 }
@@ -894,14 +922,25 @@ input CreateOrderItemPartInput {
 }
 
 input CreateOrderItemServiceInput {
+  """Себестоимость подрядной работы (только kind=CONTRACTOR)"""
+  cost: MoneyInput
+
+  """Счёт оплаты подрядчику (обязателен вместе с cost)"""
+  costWalletId: ID
   discount: MoneyInput
   executor: ExecutorInput
+
+  """Вид работы: автосервис (по умолчанию) или подрядчик"""
+  kind: OrderItemServiceKind
   orderId: ID!
   parentId: ID
   price: MoneyInput
   service: String!
   tenantId: ID
   warranty: Boolean = false
+
+  """Кто несёт стоимость гарантийной работы"""
+  warrantyPayer: WarrantyPayer
 }
 
 input CreateOrderPrepayInput {
@@ -2225,8 +2264,23 @@ type OrderItemPartModel {
   warranty: Boolean!
 }
 
+"""Вид работы: автосервис или подрядчик"""
+enum OrderItemServiceKind {
+  """Работа выполняется сотрудником автосервиса"""
+  AUTOSERVICE
+
+  """Работа выполняется подрядчиком"""
+  CONTRACTOR
+}
+
 """Услуга в заказе"""
 type OrderItemServiceModel {
+  """Себестоимость подрядной работы"""
+  costAmount: BigInt
+  costCurrencyCode: String
+
+  """Счёт оплаты подрядчику"""
+  costWalletId: ID
   createdAt: DateTime
   createdBy: ID
   createdByUser: AppUserModel
@@ -2242,10 +2296,16 @@ type OrderItemServiceModel {
   """Тип исполнителя"""
   executorKind: PartyKind
   id: ID!
+
+  """Вид работы: автосервис или подрядчик"""
+  kind: OrderItemServiceKind!
   priceAmount: BigInt
   priceCurrencyCode: String
   service: String!
   warranty: Boolean!
+
+  """Кто несёт стоимость гарантийной работы"""
+  warrantyPayer: WarrantyPayer
 }
 
 """Тип элемента заказа"""
@@ -3604,9 +3664,17 @@ input UpdateCarInput {
 }
 
 input UpdateCarRecommendationInput {
+  """Будущий исполнитель-подрядчик (только для kind=CONTRACTOR)"""
+  contractor: ExecutorInput
+
+  """Диагност — кто порекомендовал (всегда персона)"""
   executor: ExecutorInput
   expiredAt: DateTime
+
+  """Диагностика проведена не нами — диагност очищается"""
+  externalDiagnostic: Boolean
   id: ID!
+  kind: OrderItemServiceKind
   price: MoneyInput
   service: String
 }
@@ -3760,15 +3828,26 @@ input UpdateOrderItemPartInput {
 }
 
 input UpdateOrderItemServiceInput {
+  """Себестоимость подрядной работы (только kind=CONTRACTOR)"""
+  cost: MoneyInput
+
+  """Счёт оплаты подрядчику (обязателен вместе с cost)"""
+  costWalletId: ID
   discount: MoneyInput
   executor: ExecutorInput
   id: ID!
+
+  """Вид работы: автосервис (по умолчанию) или подрядчик"""
+  kind: OrderItemServiceKind
   orderId: ID
   parentId: ID
   price: MoneyInput
   service: String
   tenantId: ID
   warranty: Boolean = false
+
+  """Кто несёт стоимость гарантийной работы"""
+  warrantyPayer: WarrantyPayer
 }
 
 input UpdateOrganizationInput {
@@ -4057,4 +4136,13 @@ type WalletTransactionModel {
   tenantId: String!
   wallet: WalletModel
   walletId: String!
+}
+
+"""Плательщик по гарантийной работе"""
+enum WarrantyPayer {
+  """Стоимость несёт исполнитель (сотрудник/подрядчик)"""
+  EXECUTOR
+
+  """Стоимость несёт организация (автосервис)"""
+  ORGANIZATION
 }

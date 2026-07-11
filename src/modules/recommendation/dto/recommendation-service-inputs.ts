@@ -8,8 +8,16 @@
 
 export type CarRecommendationWriteFields = {
   service: string;
+  /** AUTOSERVICE | CONTRACTOR — переносится в работу при реализации */
+  kind?: string;
+  /** Диагност — кто порекомендовал (всегда персона) */
   executorKind: string | null;
   executorId: string | null;
+  /** Диагностика проведена не нами — диагност очищается */
+  externalDiagnostic?: boolean;
+  /** Будущий исполнитель-подрядчик (только для kind=CONTRACTOR) */
+  contractorKind?: string | null;
+  contractorId?: string | null;
   expiredAt?: Date | null;
   realization?: string | null;
   priceAmount?: bigint | null;

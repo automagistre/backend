@@ -155,7 +155,10 @@ export const AUDIT_REGISTRY: Record<AuditEntityType, AuditEntityDef> = {
     scope: AuditScope.GROUP,
     fields: {
       service: { label: 'Работа', kind: { kind: 'scalar' } },
-      executorId: { label: 'Исполнитель', kind: { kind: 'relation', ref: 'operand' } },
+      kind: { label: 'Вид работы', kind: { kind: 'scalar' } },
+      executorId: { label: 'Диагност', kind: { kind: 'relation', ref: 'operand' } },
+      externalDiagnostic: { label: 'Сторонняя диагностика', kind: { kind: 'bool' } },
+      contractorId: { label: 'Подрядчик', kind: { kind: 'relation', ref: 'operand' } },
       priceAmount: { label: 'Цена', kind: money('priceCurrencyCode') },
       expiredAt: { label: 'Действует до', kind: { kind: 'date' } },
     },

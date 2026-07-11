@@ -80,10 +80,15 @@ export class RecommendationResolver {
     const priceData = input.price
       ? applyDefaultCurrency(input.price, defaultCurrency)
       : { amountMinor: 0n, currencyCode: defaultCurrency };
+    const contractor = executorToDb(input.contractor);
     const result = await this.recommendationService.createRecommendation(ctx, {
       carId: input.carId,
       service: input.service.trim(),
+      kind: input.kind ?? undefined,
       ...executorToDb(input.executor),
+      externalDiagnostic: input.externalDiagnostic ?? false,
+      contractorKind: contractor.executorKind,
+      contractorId: contractor.executorId,
       expiredAt: input.expiredAt ?? null,
       priceAmount: priceData.amountMinor,
       priceCurrencyCode: priceData.currencyCode,
@@ -104,8 +109,19 @@ export class RecommendationResolver {
     if (input.service !== undefined && input.service !== null) {
       data.service = input.service.trim();
     }
+    if (input.kind != null) {
+      data.kind = input.kind;
+    }
     if (input.executor !== undefined) {
       Object.assign(data, executorToDb(input.executor));
+    }
+    if (input.externalDiagnostic != null) {
+      data.externalDiagnostic = input.externalDiagnostic;
+    }
+    if (input.contractor !== undefined) {
+      const contractor = executorToDb(input.contractor);
+      data.contractorKind = contractor.executorKind;
+      data.contractorId = contractor.executorId;
     }
     if (input.expiredAt !== undefined) {
       data.expiredAt = input.expiredAt;
@@ -249,6 +265,14 @@ export class RecommendationResolver {
     return this.displayContext.resolveCounterparty(
       rec.executorKind,
       rec.executorId,
+    );
+  }
+
+  @ResolveField(() => CounterpartyUnion, { nullable: true })
+  async contractor(@Parent() rec: CarRecommendationModel) {
+    return this.displayContext.resolveCounterparty(
+      rec.contractorKind,
+      rec.contractorId,
     );
   }
 

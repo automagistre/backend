@@ -164,6 +164,20 @@ export class RecommendationWorkMigrationService {
             : recommendation.parts.filter((part) =>
                 selectedPartIds.has(part.id),
               );
+        // Подрядная рекомендация реализуется в подрядную работу с исполнителем
+        // из поля contractor (executor — диагност, в работу не переносится);
+        // своя — на ответственного по заказу. Подрядчик может быть не указан —
+        // тогда его выбирают в заказе (закрытие без исполнителя заблокировано).
+        const isContractor = recommendation.kind === 'CONTRACTOR';
+        const executorKind = isContractor
+          ? recommendation.contractorKind
+          : workerPersonId
+            ? 'PERSON'
+            : null;
+        const executorId = isContractor
+          ? recommendation.contractorId
+          : workerPersonId;
+
         const createdParts = await this.prisma.$transaction(async (tx) => {
           await tx.orderItem.create({
             data: {
@@ -175,8 +189,9 @@ export class RecommendationWorkMigrationService {
               service: {
                 create: {
                   service: recommendation.service,
-                  executorKind: workerPersonId ? 'PERSON' : null,
-                  executorId: workerPersonId,
+                  kind: recommendation.kind,
+                  executorKind,
+                  executorId,
                   warranty: false,
                   priceAmount: normalizeMoneyAmount(recommendation.priceAmount),
                   priceCurrencyCode: defaultCurrency,
@@ -390,6 +405,15 @@ export class RecommendationWorkMigrationService {
     const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
     let resultRecommendationId: string;
 
+    // Подрядность и подрядчик синхронизируются из работы; диагност не трогается.
+    const isContractorWork = orderItem.service.kind === 'CONTRACTOR';
+    const contractorPatch = isContractorWork
+      ? {
+          contractorKind: orderItem.service.executorKind,
+          contractorId: orderItem.service.executorId,
+        }
+      : { contractorKind: null, contractorId: null };
+
     if (recommendation && sameComposition) {
       resultRecommendationId = recommendation.id;
       const workPartsByPartId = new Map<string, WorkPart>(
@@ -401,6 +425,8 @@ export class RecommendationWorkMigrationService {
         {
           id: recommendation.id,
           service: orderItem.service.service,
+          kind: orderItem.service.kind,
+          ...contractorPatch,
           priceAmount: serviceNetPrice,
           priceCurrencyCode: defaultCurrency,
           expiredAt: null,
@@ -438,6 +464,8 @@ export class RecommendationWorkMigrationService {
         {
           id: recommendation.id,
           service: orderItem.service.service,
+          kind: orderItem.service.kind,
+          ...contractorPatch,
           priceAmount: serviceNetPrice,
           priceCurrencyCode: defaultCurrency,
           expiredAt: null,
@@ -447,10 +475,12 @@ export class RecommendationWorkMigrationService {
         auditNested,
       );
     } else {
+      // Диагностом становится ответственный по заказу; исполнитель подрядной
+      // работы уходит в поле contractor.
       if (!carId) {
         throw new BadRequestException('Не указан автомобиль для рекомендации');
       }
-      if (!assigneePersonId) {
+      if (!isContractorWork && !assigneePersonId) {
         throw new BadRequestException('Не удалось определить сотрудника');
       }
 
@@ -469,8 +499,10 @@ export class RecommendationWorkMigrationService {
           {
             carId,
             service: orderItem.service.service,
-            executorKind: 'PERSON',
+            kind: orderItem.service.kind,
+            executorKind: assigneePersonId ? 'PERSON' : null,
             executorId: assigneePersonId,
+            ...contractorPatch,
             expiredAt: null,
             priceAmount: serviceNetPrice,
             priceCurrencyCode: defaultCurrency,
