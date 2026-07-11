@@ -780,15 +780,21 @@ export class OrderService {
         items: {
           select: {
             type: true,
-            service: { select: { executorId: true } },
+            service: {
+              select: { executorId: true, kind: true, costAmount: true },
+            },
             children: {
               select: {
                 type: true,
-                service: { select: { executorId: true } },
+                service: {
+                  select: { executorId: true, kind: true, costAmount: true },
+                },
                 children: {
                   select: {
                     type: true,
-                    service: { select: { executorId: true } },
+                    service: {
+                      select: { executorId: true, kind: true, costAmount: true },
+                    },
                   },
                 },
               },
@@ -814,7 +820,11 @@ export class OrderService {
 
     type ItemWithService = {
       type: string;
-      service?: { executorId: string | null } | null;
+      service?: {
+        executorId: string | null;
+        kind: string;
+        costAmount: bigint | null;
+      } | null;
       children?: ItemWithService[];
     };
     const hasServiceWithoutWorker = (item: ItemWithService): boolean => {
@@ -826,6 +836,22 @@ export class OrderService {
     const hasServicesWithoutWorker = order.items.some(hasServiceWithoutWorker);
     if (hasServicesWithoutWorker) {
       deficiencies.push('SERVICES_WITHOUT_WORKER');
+    }
+
+    // Подрядные работы без себестоимости блокируют закрытие:
+    // без неё нет проводки оплаты подрядчику и корректной прибыли.
+    const hasContractorWithoutCost = (item: ItemWithService): boolean => {
+      if (
+        item.type === '1' &&
+        item.service?.kind === 'CONTRACTOR' &&
+        (item.service.costAmount == null || item.service.costAmount <= 0n)
+      ) {
+        return true;
+      }
+      return item.children?.some(hasContractorWithoutCost) ?? false;
+    };
+    if (order.items.some(hasContractorWithoutCost)) {
+      deficiencies.push('CONTRACTOR_WITHOUT_COST');
     }
 
     return {

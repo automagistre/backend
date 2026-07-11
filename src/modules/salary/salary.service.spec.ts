@@ -92,6 +92,18 @@ describe('SalaryService.chargeByOrder', () => {
     expect(audit.record).toHaveBeenCalledTimes(1);
   });
 
+  it('пропускает подрядные работы (kind=CONTRACTOR) даже с исполнителем-персоной', async () => {
+    prisma.customerTransaction.findFirst.mockResolvedValue(null);
+    prisma.orderItem.findMany.mockResolvedValue([
+      svc({ kind: 'CONTRACTOR' }),
+    ] as any);
+
+    await service.chargeByOrder(ctx, 'order-1');
+
+    expect(employee.findByPersonId).not.toHaveBeenCalled();
+    expect(customerTx.createWithinTransaction).not.toHaveBeenCalled();
+  });
+
   it('пропускает исполнителя-организацию (ЗП только персонам)', async () => {
     prisma.customerTransaction.findFirst.mockResolvedValue(null);
     prisma.orderItem.findMany.mockResolvedValue([

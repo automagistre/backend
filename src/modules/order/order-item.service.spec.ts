@@ -1,10 +1,12 @@
 import { mockDeep, type DeepMockProxy } from 'jest-mock-extended';
+import { BadRequestException } from '@nestjs/common';
 import { OrderItemService } from './order-item.service';
 import { OrderService } from './order.service';
 import { ReservationService } from '../reservation/reservation.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { SettingsService } from 'src/modules/settings/settings.service';
 import { AuditLogService } from 'src/modules/audit-log/audit-log.service';
+import { WalletTransactionService } from 'src/modules/wallet/wallet-transaction.service';
 import { AuditEntityType } from 'src/modules/audit-log/enums/audit.enums';
 import { PartyKind } from 'src/common/party';
 import { createPrismaMock, type PrismaMock } from 'src/common/testing/prisma-mock';
@@ -15,6 +17,7 @@ describe('OrderItemService.createService', () => {
   let orderService: DeepMockProxy<OrderService>;
   let settings: DeepMockProxy<SettingsService>;
   let audit: DeepMockProxy<AuditLogService>;
+  let walletTransactions: DeepMockProxy<WalletTransactionService>;
   let service: OrderItemService;
   const ctx = makeCtx();
 
@@ -23,6 +26,7 @@ describe('OrderItemService.createService', () => {
     orderService = mockDeep<OrderService>();
     settings = mockDeep<SettingsService>();
     audit = mockDeep<AuditLogService>();
+    walletTransactions = mockDeep<WalletTransactionService>();
     settings.getDefaultCurrencyCode.mockResolvedValue('RUB');
     orderService.validateOrderEditable.mockResolvedValue(undefined as any);
 
@@ -32,6 +36,7 @@ describe('OrderItemService.createService', () => {
       mockDeep<ReservationService>() as unknown as ReservationService,
       settings as unknown as SettingsService,
       audit as unknown as AuditLogService,
+      walletTransactions as unknown as WalletTransactionService,
     );
   });
 
@@ -105,5 +110,97 @@ describe('OrderItemService.createService', () => {
       ctx,
       'order-1',
     );
+  });
+
+  describe('подрядная работа (kind=CONTRACTOR)', () => {
+    beforeEach(() => {
+      prisma.employee.findFirst.mockResolvedValue(null);
+    });
+
+    it('сотрудник не может быть исполнителем подрядной работы', async () => {
+      prisma.employee.findFirst.mockResolvedValue({ id: 'emp-1' } as any);
+
+      await expect(
+        service.createService(ctx, {
+          orderId: 'order-1',
+          service: 'Работа',
+          kind: 'CONTRACTOR',
+          executor: { kind: PartyKind.PERSON, id: 'person-1' },
+        } as any),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('организация не может быть исполнителем своей работы (AUTOSERVICE)', async () => {
+      await expect(
+        service.createService(ctx, {
+          orderId: 'order-1',
+          service: 'Работа',
+          executor: { kind: PartyKind.ORGANIZATION, id: 'org-1' },
+        } as any),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('себестоимость недопустима для своей работы', async () => {
+      await expect(
+        service.createService(ctx, {
+          orderId: 'order-1',
+          service: 'Работа',
+          cost: { amountMinor: 100n },
+        } as any),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('себестоимость без счёта оплаты — ошибка', async () => {
+      await expect(
+        service.createService(ctx, {
+          orderId: 'order-1',
+          service: 'Работа',
+          kind: 'CONTRACTOR',
+          executor: { kind: PartyKind.ORGANIZATION, id: 'org-1' },
+          cost: { amountMinor: 100n },
+        } as any),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('создание с себестоимостью и счётом — маппит поля и синкает проводку', async () => {
+      prisma.orderItem.create.mockResolvedValue(
+        created({
+          kind: 'CONTRACTOR',
+          executorKind: 'ORGANIZATION',
+          executorId: 'org-1',
+          costAmount: 500000n,
+          costCurrencyCode: 'RUB',
+          costWalletId: 'w1',
+        }) as any,
+      );
+
+      await service.createService(ctx, {
+        orderId: 'order-1',
+        service: 'Работа',
+        kind: 'CONTRACTOR',
+        executor: { kind: PartyKind.ORGANIZATION, id: 'org-1' },
+        cost: { amountMinor: 500000n },
+        costWalletId: 'w1',
+      } as any);
+
+      const data = prisma.orderItem.create.mock.calls[0][0].data as any;
+      expect(data.service.create).toMatchObject({
+        kind: 'CONTRACTOR',
+        executorKind: PartyKind.ORGANIZATION,
+        executorId: 'org-1',
+        costAmount: 500000n,
+        costCurrencyCode: 'RUB',
+        costWalletId: 'w1',
+      });
+      expect(walletTransactions.syncContractorPayout).toHaveBeenCalledTimes(1);
+      const syncArg = walletTransactions.syncContractorPayout.mock.calls[0][2];
+      expect(syncArg).toMatchObject({
+        serviceId: 'oi-1',
+        orderId: 'order-1',
+        kind: 'CONTRACTOR',
+        costAmount: 500000n,
+        costWalletId: 'w1',
+      });
+    });
   });
 });

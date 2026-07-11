@@ -914,13 +914,22 @@ model OrderItemService {
   id                   String    @id @default(uuid()) @db.Uuid
   orderItem            OrderItem @relation(fields: [id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   service              String    @db.VarChar(255)
+  /// AUTOSERVICE | CONTRACTOR — вид работы (своя/подрядная)
+  kind                 String    @default("AUTOSERVICE") @db.VarChar(16)
   executorKind         String?   @map("executor_kind") @db.VarChar(16)
   executorId           String?   @map("executor_id") @db.Uuid
   warranty             Boolean
+  /// EXECUTOR | ORGANIZATION — кто несёт стоимость гарантийной работы
+  warrantyPayer        String?   @map("warranty_payer") @db.VarChar(16)
   priceAmount          BigInt?   @map("price_amount")
   priceCurrencyCode    String?   @map("price_currency_code") @db.VarChar(3)
   discountAmount       BigInt?   @map("discount_amount")
   discountCurrencyCode String?   @map("discount_currency_code") @db.VarChar(3)
+  /// Себестоимость подрядной работы (kind=CONTRACTOR)
+  costAmount           BigInt?   @map("cost_amount")
+  costCurrencyCode     String?   @map("cost_currency_code") @db.VarChar(3)
+  costWallet           Wallet?   @relation(fields: [costWalletId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  costWalletId         String?   @map("cost_wallet_id") @db.Uuid
   createdAt            DateTime? @default(now()) @map("created_at") @db.Timestamptz(0)
   createdBy            String?   @map("created_by") @db.Uuid
 
@@ -1273,6 +1282,7 @@ model Wallet {
   balance                    Decimal             @default(0) @db.Decimal
   transactions               WalletTransaction[]
   expenses                   Expense[]
+  contractorServices         OrderItemService[]
 
   @@map("wallet")
 }

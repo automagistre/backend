@@ -84,6 +84,47 @@ describe('OrderService.getCloseValidation', () => {
     expect(res.closeDeficiencies).toContain('SERVICES_WITHOUT_WORKER');
   });
 
+  it('подрядная работа без себестоимости → CONTRACTOR_WITHOUT_COST', async () => {
+    prisma.order.findFirst.mockResolvedValue(
+      order({
+        items: [
+          {
+            type: '1',
+            service: {
+              executorId: 'org-1',
+              kind: 'CONTRACTOR',
+              costAmount: null,
+            },
+            children: [],
+          },
+        ],
+      }) as any,
+    );
+    const res = await service.getCloseValidation(ctx, 'o1');
+    expect(res.closeDeficiencies).toContain('CONTRACTOR_WITHOUT_COST');
+    expect(res.canClose).toBe(false);
+  });
+
+  it('подрядная работа с себестоимостью → можно закрыть', async () => {
+    prisma.order.findFirst.mockResolvedValue(
+      order({
+        items: [
+          {
+            type: '1',
+            service: {
+              executorId: 'org-1',
+              kind: 'CONTRACTOR',
+              costAmount: 500000n,
+            },
+            children: [],
+          },
+        ],
+      }) as any,
+    );
+    const res = await service.getCloseValidation(ctx, 'o1');
+    expect(res).toEqual({ canClose: true, closeDeficiencies: [] });
+  });
+
   it('все работы с исполнителем и есть пробег → можно закрыть', async () => {
     prisma.order.findFirst.mockResolvedValue(
       order({

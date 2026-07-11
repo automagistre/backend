@@ -1,4 +1,10 @@
-import { Inject, Injectable, NotFoundException, forwardRef } from '@nestjs/common';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  NotFoundException,
+  forwardRef,
+} from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { OrderService } from './order.service';
 import { OrderItemModel } from './models/order-item.model';
@@ -16,7 +22,9 @@ import {
   Prisma,
 } from 'src/generated/prisma/client';
 import { OrderItemType } from './enums/order-item-type.enum';
-import { executorToDb } from 'src/common/party';
+import { OrderItemServiceKind } from './enums/order-item-service-kind.enum';
+import { executorToDb, PartyKind } from 'src/common/party';
+import { WalletTransactionService } from 'src/modules/wallet/wallet-transaction.service';
 import { v6 as uuidv6 } from 'uuid';
 import { ReservationService } from '../reservation/reservation.service';
 import { applyDefaultCurrency } from 'src/common/money';
@@ -39,6 +47,7 @@ export class OrderItemService {
     private readonly reservationService: ReservationService,
     private readonly settingsService: SettingsService,
     private readonly auditLog: AuditLogService,
+    private readonly walletTransactionService: WalletTransactionService,
   ) {}
 
   async findTreeByOrderId(orderId: string): Promise<OrderItemModel[]> {
@@ -124,13 +133,18 @@ export class OrderItemService {
         ? {
             id: service.id,
             service: service.service,
+            kind: service.kind as any,
             executorKind: service.executorKind as any,
             executorId: service.executorId,
             warranty: service.warranty,
+            warrantyPayer: service.warrantyPayer as any,
             priceAmount: service.priceAmount,
             priceCurrencyCode: service.priceCurrencyCode,
             discountAmount: service.discountAmount,
             discountCurrencyCode: service.discountCurrencyCode,
+            costAmount: service.costAmount,
+            costCurrencyCode: service.costCurrencyCode,
+            costWalletId: service.costWalletId,
             createdAt: service.createdAt,
             createdBy: service.createdBy,
             // worker будет загружен через ResolveField
@@ -269,6 +283,54 @@ export class OrderItemService {
     return this.toModel(updated as any);
   }
 
+  /**
+   * Проверка согласованности вида работы и исполнителя:
+   * подрядная работа — организация или персона-неcотрудник, своя — не организация.
+   */
+  private async validateServiceKind(
+    ctx: AuthContext,
+    kind: string,
+    executor: { kind: string | null; id: string | null },
+  ): Promise<void> {
+    if (kind === OrderItemServiceKind.CONTRACTOR) {
+      if (executor.kind === PartyKind.PERSON && executor.id) {
+        const employee = await this.prisma.employee.findFirst({
+          where: {
+            personId: executor.id,
+            firedAt: null,
+            tenantId: ctx.tenantId,
+          },
+          select: { id: true },
+        });
+        if (employee) {
+          throw new BadRequestException(
+            'Сотрудник не может быть исполнителем подрядной работы',
+          );
+        }
+      }
+    } else if (executor.kind === PartyKind.ORGANIZATION) {
+      throw new BadRequestException(
+        'Организация может быть исполнителем только подрядной работы',
+      );
+    }
+  }
+
+  /** Себестоимость допустима только для подрядной работы и только вместе со счётом. */
+  private validateServiceCost(
+    kind: string,
+    costAmount: bigint | null,
+    costWalletId: string | null,
+  ): void {
+    if (costAmount != null && kind !== OrderItemServiceKind.CONTRACTOR) {
+      throw new BadRequestException(
+        'Себестоимость доступна только для подрядной работы',
+      );
+    }
+    if (costAmount != null && costAmount > 0n && !costWalletId) {
+      throw new BadRequestException('Не указан счёт оплаты подрядчику');
+    }
+  }
+
   async createService(
     ctx: AuthContext,
     input: CreateOrderItemServiceInput,
@@ -283,37 +345,72 @@ export class OrderItemService {
       ? applyDefaultCurrency(input.discount, defaultCurrency)
       : { amountMinor: 0n, currencyCode: defaultCurrency };
 
-    const orderItem = await this.prisma.orderItem.create({
-      data: {
-        id: uuidv6(),
-        orderId: input.orderId,
-        parentId: input.parentId,
-        type: '1',
-        tenantId,
-        service: {
-          create: {
-            service: input.service,
-            ...executorToDb(input.executor),
-            warranty: input.warranty ?? false,
-            priceAmount: priceData.amountMinor,
-            priceCurrencyCode: priceData.currencyCode,
-            discountAmount: discountData.amountMinor,
-            discountCurrencyCode: discountData.currencyCode,
-            createdBy: userId,
+    const kind = input.kind ?? OrderItemServiceKind.AUTOSERVICE;
+    await this.validateServiceKind(ctx, kind, {
+      kind: input.executor?.kind ?? null,
+      id: input.executor?.id ?? null,
+    });
+    const costData = input.cost
+      ? applyDefaultCurrency(input.cost, defaultCurrency)
+      : null;
+    this.validateServiceCost(
+      kind,
+      costData?.amountMinor ?? null,
+      input.costWalletId ?? null,
+    );
+
+    const orderItem = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.orderItem.create({
+        data: {
+          id: uuidv6(),
+          orderId: input.orderId,
+          parentId: input.parentId,
+          type: '1',
+          tenantId,
+          service: {
+            create: {
+              service: input.service,
+              kind,
+              ...executorToDb(input.executor),
+              warranty: input.warranty ?? false,
+              warrantyPayer: input.warrantyPayer ?? null,
+              priceAmount: priceData.amountMinor,
+              priceCurrencyCode: priceData.currencyCode,
+              discountAmount: discountData.amountMinor,
+              discountCurrencyCode: discountData.currencyCode,
+              costAmount: costData?.amountMinor ?? null,
+              costCurrencyCode: costData?.currencyCode ?? null,
+              costWalletId: input.costWalletId ?? null,
+              createdBy: userId,
+            },
           },
         },
-      },
-      include: { service: true },
-    });
+        include: { service: true },
+      });
 
-    await this.auditLog.record(this.prisma, ctx, {
-      rootEntityType: AuditEntityType.ORDER,
-      rootEntityId: input.orderId,
-      entityType: AuditEntityType.ORDER_ITEM_SERVICE,
-      entityId: orderItem.id,
-      action: AuditAction.CREATE,
-      after: { ...orderItem.service, parentId: orderItem.parentId },
-      entityDisplayName: orderItem.service?.service ?? null,
+      await this.auditLog.record(tx, ctx, {
+        rootEntityType: AuditEntityType.ORDER,
+        rootEntityId: input.orderId,
+        entityType: AuditEntityType.ORDER_ITEM_SERVICE,
+        entityId: created.id,
+        action: AuditAction.CREATE,
+        after: { ...created.service, parentId: created.parentId },
+        entityDisplayName: created.service?.service ?? null,
+      });
+
+      await this.walletTransactionService.syncContractorPayout(tx, ctx, {
+        serviceId: created.id,
+        orderId: input.orderId,
+        serviceName: created.service!.service,
+        kind: created.service!.kind,
+        executorKind: created.service!.executorKind,
+        executorId: created.service!.executorId,
+        costAmount: created.service!.costAmount,
+        costCurrencyCode: created.service!.costCurrencyCode,
+        costWalletId: created.service!.costWalletId,
+      });
+
+      return created;
     });
 
     return this.toModel(orderItem as any);
@@ -660,12 +757,13 @@ export class OrderItemService {
 
     await this.orderService.validateOrderEditable(ctx, orderItem.orderId!);
 
+    const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
+
     // Обновляем только переданные поля
     const updateData: any = {};
     if (input.service !== undefined) updateData.service = input.service;
+    if (input.kind != null) updateData.kind = input.kind;
     if (input.price !== undefined) {
-      const defaultCurrency =
-        await this.settingsService.getDefaultCurrencyCode();
       const priceData =
         input.price != null
           ? applyDefaultCurrency(input.price, defaultCurrency)
@@ -674,8 +772,6 @@ export class OrderItemService {
       updateData.priceCurrencyCode = priceData.currencyCode;
     }
     if (input.discount !== undefined) {
-      const defaultCurrency =
-        await this.settingsService.getDefaultCurrencyCode();
       const discountData =
         input.discount != null
           ? applyDefaultCurrency(input.discount, defaultCurrency)
@@ -684,9 +780,51 @@ export class OrderItemService {
       updateData.discountCurrencyCode = discountData.currencyCode;
     }
     if (input.warranty !== undefined) updateData.warranty = input.warranty;
+    if (input.warrantyPayer !== undefined) {
+      updateData.warrantyPayer = input.warrantyPayer;
+    }
     if (input.executor !== undefined) {
       Object.assign(updateData, executorToDb(input.executor));
     }
+    if (input.cost !== undefined) {
+      if (input.cost != null) {
+        const costData = applyDefaultCurrency(input.cost, defaultCurrency);
+        updateData.costAmount = costData.amountMinor;
+        updateData.costCurrencyCode = costData.currencyCode;
+      } else {
+        updateData.costAmount = null;
+        updateData.costCurrencyCode = null;
+      }
+    }
+    if (input.costWalletId !== undefined) {
+      updateData.costWalletId = input.costWalletId;
+    }
+
+    // Итоговое состояние после применения апдейта — для валидации и синка проводки
+    const effective = { ...orderItem.service, ...updateData };
+
+    // Перевод в свою работу обнуляет себестоимость (проводка удалится в синке)
+    if (effective.kind !== OrderItemServiceKind.CONTRACTOR) {
+      if (effective.costAmount != null || effective.costWalletId != null) {
+        updateData.costAmount = null;
+        updateData.costCurrencyCode = null;
+        updateData.costWalletId = null;
+        effective.costAmount = null;
+        effective.costCurrencyCode = null;
+        effective.costWalletId = null;
+      }
+    }
+
+    await this.validateServiceKind(ctx, effective.kind, {
+      kind: effective.executorKind,
+      id: effective.executorId,
+    });
+    this.validateServiceCost(
+      effective.kind,
+      effective.costAmount,
+      effective.costWalletId,
+    );
+
     if (input.parentId !== undefined) {
       await this.prisma.orderItem.update({
         where: { id: input.id },
@@ -695,22 +833,39 @@ export class OrderItemService {
     }
 
     if (Object.keys(updateData).length > 0) {
-      await this.prisma.orderItemService.update({
-        where: { id: orderItem.service.id },
-        data: updateData,
-      });
-      await this.auditLog.record(this.prisma, ctx, {
-        rootEntityType: AuditEntityType.ORDER,
-        rootEntityId: orderItem.orderId!,
-        entityType: AuditEntityType.ORDER_ITEM_SERVICE,
-        entityId: input.id,
-        action: AuditAction.UPDATE,
-        before: { ...orderItem.service, parentId: orderItem.parentId },
-        after: { ...orderItem.service, ...updateData, parentId: orderItem.parentId },
-        entityDisplayName:
-          (updateData as { service?: string }).service ??
-          orderItem.service.service ??
-          null,
+      await this.prisma.$transaction(async (tx) => {
+        await tx.orderItemService.update({
+          where: { id: orderItem.service!.id },
+          data: updateData,
+        });
+        await this.auditLog.record(tx, ctx, {
+          rootEntityType: AuditEntityType.ORDER,
+          rootEntityId: orderItem.orderId!,
+          entityType: AuditEntityType.ORDER_ITEM_SERVICE,
+          entityId: input.id,
+          action: AuditAction.UPDATE,
+          before: { ...orderItem.service, parentId: orderItem.parentId },
+          after: {
+            ...orderItem.service,
+            ...updateData,
+            parentId: orderItem.parentId,
+          },
+          entityDisplayName:
+            (updateData as { service?: string }).service ??
+            orderItem.service!.service ??
+            null,
+        });
+        await this.walletTransactionService.syncContractorPayout(tx, ctx, {
+          serviceId: input.id,
+          orderId: orderItem.orderId!,
+          serviceName: effective.service,
+          kind: effective.kind,
+          executorKind: effective.executorKind,
+          executorId: effective.executorId,
+          costAmount: effective.costAmount,
+          costCurrencyCode: effective.costCurrencyCode,
+          costWalletId: effective.costWalletId,
+        });
       });
     }
 
@@ -769,6 +924,11 @@ export class OrderItemService {
       await this.reservationService.releaseAll(orderItem.part.id);
     }
 
+    // Собираем работы (сама позиция + потомки при каскадном удалении),
+    // чтобы удалить их проводки оплаты подрядчику вместе с позициями.
+    const affectedServiceIds: string[] = [];
+    if (orderItem.service) affectedServiceIds.push(orderItem.id);
+
     // Обрабатываем дочерние элементы
     if (!deleteChildren) {
       // Перемещаем дочерние элементы в корень (parentId = null)
@@ -780,7 +940,7 @@ export class OrderItemService {
       // Удаляем дочерние элементы вместе с их резервациями
       const childParts = await client.orderItem.findMany({
         where: { parentId: id },
-        include: { part: true },
+        include: { part: true, service: { select: { id: true } } },
       });
 
       // Рекурсивно удаляем резервации для всех дочерних запчастей
@@ -788,28 +948,45 @@ export class OrderItemService {
         if (child.part) {
           await this.reservationService.releaseAll(child.part.id);
         }
+        if (child.service) {
+          affectedServiceIds.push(child.id);
+        }
         // Рекурсивно обрабатываем внуков
-        await this.deleteChildReservations(child.id, client);
+        await this.deleteChildReservations(child.id, client, affectedServiceIds);
       }
     }
 
-    const deleted = await client.orderItem.delete({
-      where: { id },
-      include: {
-        group: true,
-        service: true,
-        part: {
-          include: {
-            part: {
-              include: {
-                manufacturer: true,
+    const performDelete = async (tx: Prisma.TransactionClient) => {
+      if (orderItem.orderId && affectedServiceIds.length > 0) {
+        await this.walletTransactionService.removeContractorPayouts(
+          tx,
+          ctx,
+          orderItem.orderId,
+          affectedServiceIds,
+        );
+      }
+      return tx.orderItem.delete({
+        where: { id },
+        include: {
+          group: true,
+          service: true,
+          part: {
+            include: {
+              part: {
+                include: {
+                  manufacturer: true,
+                },
               },
+              supplier: true,
             },
-            supplier: true,
           },
         },
-      },
-    });
+      });
+    };
+
+    const deleted = options?.tx
+      ? await performDelete(options.tx)
+      : await this.prisma.$transaction(performDelete);
 
     if (orderItem.orderId && !options?.skipAudit) {
       const entityType = orderItem.group
@@ -842,23 +1019,32 @@ export class OrderItemService {
   }
 
   /**
-   * Рекурсивно удаляет резервации для всех дочерних запчастей
+   * Рекурсивно удаляет резервации для всех дочерних запчастей.
+   * Попутно собирает id дочерних работ (для очистки проводок подрядчику).
    */
   private async deleteChildReservations(
     parentId: string,
     client?: Prisma.TransactionClient | PrismaService,
+    serviceIdsAccumulator?: string[],
   ): Promise<void> {
     const prismaClient = client ?? this.prisma;
     const children = await prismaClient.orderItem.findMany({
       where: { parentId },
-      include: { part: true },
+      include: { part: true, service: { select: { id: true } } },
     });
 
     for (const child of children) {
       if (child.part) {
         await this.reservationService.releaseAll(child.part.id);
       }
-      await this.deleteChildReservations(child.id, prismaClient);
+      if (child.service && serviceIdsAccumulator) {
+        serviceIdsAccumulator.push(child.id);
+      }
+      await this.deleteChildReservations(
+        child.id,
+        prismaClient,
+        serviceIdsAccumulator,
+      );
     }
   }
 }

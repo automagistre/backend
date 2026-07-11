@@ -120,6 +120,15 @@ export class DisplayContextService {
     return manufacturer?.name ?? null;
   }
 
+  /** Название счёта (кошелька) по id. */
+  async getWalletName(walletId: string): Promise<string | null> {
+    const wallet = await this.prisma.wallet.findUnique({
+      where: { id: walletId },
+      select: { name: true },
+    });
+    return wallet?.name ?? null;
+  }
+
   /** Название организации по id. */
   async getOrganizationName(organizationId: string): Promise<string | null> {
     const org = await this.prisma.organization.findUnique({

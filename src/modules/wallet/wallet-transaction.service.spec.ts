@@ -108,6 +108,163 @@ describe('WalletTransactionService', () => {
     });
   });
 
+  describe('syncContractorPayout', () => {
+    const source = (over: Record<string, any> = {}) => ({
+      serviceId: 'svc-1',
+      orderId: 'order-1',
+      serviceName: 'Ремонт генератора',
+      kind: 'CONTRACTOR',
+      executorKind: 'ORGANIZATION',
+      executorId: 'org-1',
+      costAmount: 500000n,
+      costCurrencyCode: 'RUB',
+      costWalletId: 'w1',
+      ...over,
+    });
+
+    beforeEach(() => {
+      display.getPartyDisplay.mockResolvedValue('ИП Иванов');
+    });
+
+    it('создаёт проводку с отрицательной суммой и аудитом CREATE', async () => {
+      prisma.walletTransaction.findFirst.mockResolvedValue(null);
+      prisma.walletTransaction.create.mockResolvedValue({ id: 'wt1' } as any);
+
+      await service.syncContractorPayout(prisma as any, ctx, source());
+
+      const data = prisma.walletTransaction.create.mock.calls[0][0].data as any;
+      expect(data).toMatchObject({
+        walletId: 'w1',
+        source: WalletTransactionSource.ContractorPayout,
+        sourceId: 'svc-1',
+        amountAmount: -500000n,
+        amountCurrencyCode: 'RUB',
+      });
+      expect(audit.record).toHaveBeenCalledTimes(1);
+      expect(audit.record.mock.calls[0][2].action).toBe(AuditAction.CREATE);
+    });
+
+    it('обновляет проводку при изменении суммы/счёта и пишет аудит UPDATE', async () => {
+      prisma.walletTransaction.findFirst.mockResolvedValue({
+        id: 'wt1',
+        walletId: 'w1',
+        amountAmount: -300000n,
+        amountCurrencyCode: 'RUB',
+      } as any);
+
+      await service.syncContractorPayout(prisma as any, ctx, source());
+
+      expect(prisma.walletTransaction.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'wt1' },
+          data: expect.objectContaining({
+            walletId: 'w1',
+            amountAmount: -500000n,
+          }),
+        }),
+      );
+      expect(audit.record.mock.calls[0][2].action).toBe(AuditAction.UPDATE);
+    });
+
+    it('без изменений — не трогает проводку и аудит', async () => {
+      prisma.walletTransaction.findFirst.mockResolvedValue({
+        id: 'wt1',
+        walletId: 'w1',
+        amountAmount: -500000n,
+        amountCurrencyCode: 'RUB',
+      } as any);
+
+      await service.syncContractorPayout(prisma as any, ctx, source());
+
+      expect(prisma.walletTransaction.update).not.toHaveBeenCalled();
+      expect(prisma.walletTransaction.delete).not.toHaveBeenCalled();
+      expect(audit.record).not.toHaveBeenCalled();
+    });
+
+    it('удаляет проводку при обнулении себестоимости с аудитом DELETE', async () => {
+      prisma.walletTransaction.findFirst.mockResolvedValue({
+        id: 'wt1',
+        walletId: 'w1',
+        amountAmount: -500000n,
+        amountCurrencyCode: 'RUB',
+      } as any);
+
+      await service.syncContractorPayout(
+        prisma as any,
+        ctx,
+        source({ costAmount: null }),
+      );
+
+      expect(prisma.walletTransaction.delete).toHaveBeenCalledWith({
+        where: { id: 'wt1' },
+      });
+      expect(audit.record.mock.calls[0][2].action).toBe(AuditAction.DELETE);
+    });
+
+    it('удаляет проводку при смене вида на AUTOSERVICE', async () => {
+      prisma.walletTransaction.findFirst.mockResolvedValue({
+        id: 'wt1',
+        walletId: 'w1',
+        amountAmount: -500000n,
+        amountCurrencyCode: 'RUB',
+      } as any);
+
+      await service.syncContractorPayout(
+        prisma as any,
+        ctx,
+        source({ kind: 'AUTOSERVICE' }),
+      );
+
+      expect(prisma.walletTransaction.delete).toHaveBeenCalledTimes(1);
+    });
+
+    it('не подрядная работа без проводки — no-op', async () => {
+      prisma.walletTransaction.findFirst.mockResolvedValue(null);
+
+      await service.syncContractorPayout(
+        prisma as any,
+        ctx,
+        source({ kind: 'AUTOSERVICE', costAmount: null, costWalletId: null }),
+      );
+
+      expect(prisma.walletTransaction.create).not.toHaveBeenCalled();
+      expect(audit.record).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('removeContractorPayouts', () => {
+    it('удаляет проводки по работам и пишет аудит DELETE на каждую', async () => {
+      prisma.walletTransaction.findMany.mockResolvedValue([
+        {
+          id: 'wt1',
+          amountAmount: -100n,
+          amountCurrencyCode: 'RUB',
+          description: 'Оплата подрядчику: Работа',
+        },
+        {
+          id: 'wt2',
+          amountAmount: -200n,
+          amountCurrencyCode: 'RUB',
+          description: null,
+        },
+      ] as any);
+
+      await service.removeContractorPayouts(prisma as any, ctx, 'order-1', [
+        'svc-1',
+        'svc-2',
+      ]);
+
+      expect(prisma.walletTransaction.delete).toHaveBeenCalledTimes(2);
+      expect(audit.record).toHaveBeenCalledTimes(2);
+      expect(audit.record.mock.calls[0][2].action).toBe(AuditAction.DELETE);
+    });
+
+    it('пустой список работ — no-op', async () => {
+      await service.removeContractorPayouts(prisma as any, ctx, 'order-1', []);
+      expect(prisma.walletTransaction.findMany).not.toHaveBeenCalled();
+    });
+  });
+
   describe('getSourceDisplay', () => {
     it('ордерные источники → getOrderContext', async () => {
       display.getOrderContext.mockResolvedValue('№1, Иванов');

@@ -347,6 +347,8 @@ export class AuditLogService {
         return this.displayContext.getOrderItemDisplay(id);
       case 'manufacturer':
         return this.displayContext.getManufacturerName(id);
+      case 'wallet':
+        return this.displayContext.getWalletName(id);
       default:
         return null;
     }

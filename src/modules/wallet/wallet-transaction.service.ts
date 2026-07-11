@@ -18,6 +18,20 @@ import {
 const DEFAULT_TAKE = 25;
 const DEFAULT_SKIP = 0;
 
+/** Срез подрядной работы для синхронизации проводки оплаты подрядчику. */
+export interface ContractorPayoutSource {
+  /** order_item_service.id (= order_item.id) */
+  serviceId: string;
+  orderId: string;
+  serviceName: string;
+  kind: string;
+  executorKind: string | null;
+  executorId: string | null;
+  costAmount: bigint | null;
+  costCurrencyCode: string | null;
+  costWalletId: string | null;
+}
+
 /**
  * Действие аудита по проводке заказа. OrderPrepay и OrderPrepayRefund имеют
  * одинаковое числовое значение (=1, совместимость со старой CRM), различаем по знаку суммы.
@@ -228,6 +242,185 @@ export class WalletTransactionService {
   }
 
   /**
+   * Синхронизация проводки оплаты подрядчику (source=ContractorPayout, sourceId=serviceId)
+   * с текущим состоянием подрядной работы. Вызывать внутри той же транзакции, что и
+   * изменение работы. Проводка мутабельна только системой: создаётся при появлении
+   * себестоимости, обновляется при её изменении, удаляется при обнулении/смене вида.
+   * Каждая мутация фиксируется в аудите заказа.
+   */
+  async syncContractorPayout(
+    tx: Prisma.TransactionClient,
+    ctx: AuthContext,
+    source: ContractorPayoutSource,
+  ): Promise<void> {
+    const existing = await tx.walletTransaction.findFirst({
+      where: {
+        source: WalletTransactionSource.ContractorPayout,
+        sourceId: source.serviceId,
+        tenantId: ctx.tenantId,
+      },
+    });
+
+    const shouldExist =
+      source.kind === 'CONTRACTOR' &&
+      source.costAmount != null &&
+      source.costAmount > 0n &&
+      source.costWalletId != null;
+
+    if (!shouldExist && !existing) return;
+
+    const displayName = await this.resolveContractorDisplay(source);
+
+    if (!shouldExist && existing) {
+      await tx.walletTransaction.delete({ where: { id: existing.id } });
+      await this.auditContractorPayout(tx, ctx, source.orderId, existing.id, {
+        action: AuditAction.DELETE,
+        oldAmount: {
+          amountMinor: existing.amountAmount ?? 0n,
+          currencyCode: existing.amountCurrencyCode ?? '',
+        },
+        newAmount: null,
+        displayName,
+      });
+      return;
+    }
+
+    const currencyCode =
+      source.costCurrencyCode ??
+      (await this.settingsService.getDefaultCurrencyCode());
+    // Оплата подрядчику — расход: сумма в проводке отрицательная.
+    const amountMinor = -source.costAmount!;
+    const description = `Оплата подрядчику: ${source.serviceName}`;
+
+    if (!existing) {
+      const created = await tx.walletTransaction.create({
+        data: {
+          walletId: source.costWalletId!,
+          source: WalletTransactionSource.ContractorPayout,
+          sourceId: source.serviceId,
+          description,
+          amountAmount: amountMinor,
+          amountCurrencyCode: currencyCode,
+          tenantId: ctx.tenantId,
+          createdBy: ctx.userId,
+        },
+      });
+      await this.auditContractorPayout(tx, ctx, source.orderId, created.id, {
+        action: AuditAction.CREATE,
+        oldAmount: null,
+        newAmount: { amountMinor, currencyCode },
+        displayName,
+      });
+      return;
+    }
+
+    const unchanged =
+      existing.walletId === source.costWalletId &&
+      (existing.amountAmount ?? 0n) === amountMinor &&
+      existing.amountCurrencyCode === currencyCode;
+    if (unchanged) return;
+
+    await tx.walletTransaction.update({
+      where: { id: existing.id },
+      data: {
+        walletId: source.costWalletId!,
+        description,
+        amountAmount: amountMinor,
+        amountCurrencyCode: currencyCode,
+      },
+    });
+    await this.auditContractorPayout(tx, ctx, source.orderId, existing.id, {
+      action: AuditAction.UPDATE,
+      oldAmount: {
+        amountMinor: existing.amountAmount ?? 0n,
+        currencyCode: existing.amountCurrencyCode ?? '',
+      },
+      newAmount: { amountMinor, currencyCode },
+      displayName,
+    });
+  }
+
+  /**
+   * Удаление проводок оплаты подрядчику при удалении работ (в т.ч. каскадном).
+   * Вызывать внутри транзакции удаления позиций заказа.
+   */
+  async removeContractorPayouts(
+    tx: Prisma.TransactionClient,
+    ctx: AuthContext,
+    orderId: string,
+    serviceIds: string[],
+  ): Promise<void> {
+    if (serviceIds.length === 0) return;
+    const transactions = await tx.walletTransaction.findMany({
+      where: {
+        source: WalletTransactionSource.ContractorPayout,
+        sourceId: { in: serviceIds },
+        tenantId: ctx.tenantId,
+      },
+    });
+    for (const txn of transactions) {
+      await tx.walletTransaction.delete({ where: { id: txn.id } });
+      await this.auditContractorPayout(tx, ctx, orderId, txn.id, {
+        action: AuditAction.DELETE,
+        oldAmount: {
+          amountMinor: txn.amountAmount ?? 0n,
+          currencyCode: txn.amountCurrencyCode ?? '',
+        },
+        newAmount: null,
+        displayName: txn.description ?? null,
+      });
+    }
+  }
+
+  private async resolveContractorDisplay(
+    source: ContractorPayoutSource,
+  ): Promise<string | null> {
+    const contractor =
+      source.executorKind && source.executorId
+        ? await this.displayContextService.getPartyDisplay(
+            source.executorKind,
+            source.executorId,
+          )
+        : null;
+    return contractor
+      ? `Оплата подрядчику: ${contractor}`
+      : `Оплата подрядчику: ${source.serviceName}`;
+  }
+
+  private async auditContractorPayout(
+    tx: Prisma.TransactionClient,
+    ctx: AuthContext,
+    orderId: string,
+    transactionId: string,
+    params: {
+      action: AuditAction;
+      oldAmount: Money | null;
+      newAmount: Money | null;
+      displayName: string | null;
+    },
+  ): Promise<void> {
+    const toJson = (m: Money | null) =>
+      m
+        ? { amountMinor: String(m.amountMinor), currencyCode: m.currencyCode }
+        : null;
+    await this.auditLog.record(tx, ctx, {
+      rootEntityType: AuditEntityType.ORDER,
+      rootEntityId: orderId,
+      entityType: AuditEntityType.WALLET_TRANSACTION,
+      entityId: transactionId,
+      action: params.action,
+      changes: [
+        {
+          field: 'amount',
+          oldValue: toJson(params.oldAmount),
+          newValue: toJson(params.newAmount),
+        },
+      ],
+      entityDisplayName: params.displayName,
+    });
+  }
+
+  /**
    * Контекстная строка для отображения (номер заказа, ФИО и т.д.).
    * Фронт склеивает с меткой типа источника.
    */
@@ -263,6 +456,15 @@ export class WalletTransactionService {
         return this.displayContextService.getExpenseName(ctx, sourceId);
       case WalletTransactionSource.ManualIncome:
         return '';
+      case WalletTransactionSource.ContractorPayout: {
+        // source_id — order_item_service.id; контекст — заказ этой работы.
+        const item = await this.prisma.orderItem.findUnique({
+          where: { id: sourceId },
+          select: { orderId: true },
+        });
+        if (!item?.orderId) return '';
+        return this.displayContextService.getOrderContext(ctx, item.orderId);
+      }
       case WalletTransactionSource.Legacy:
       case WalletTransactionSource.Initial:
       default:

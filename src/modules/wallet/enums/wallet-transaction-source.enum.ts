@@ -18,6 +18,8 @@ export enum WalletTransactionSource {
   Initial = 7,
   /** Ручной приходный ордер (без основания) — пополнение счёта руками с дашборда. */
   ManualIncome = 8,
+  /** Оплата подрядчику за работу (source_id = order_item_service.id). Мутабельна только системой. */
+  ContractorPayout = 9,
 }
 
 const LABELS: Record<WalletTransactionSource, string> = {
@@ -30,6 +32,7 @@ const LABELS: Record<WalletTransactionSource, string> = {
   [WalletTransactionSource.OperandManual]: 'Ручная проводка клиента',
   [WalletTransactionSource.Initial]: 'Начальный баланс',
   [WalletTransactionSource.ManualIncome]: 'Ручной приходный ордер',
+  [WalletTransactionSource.ContractorPayout]: 'Оплата подрядчику',
 };
 
 export function getWalletTransactionSourceLabel(source: number): string {

@@ -29,7 +29,8 @@ export type AuditRelationRef =
   | 'car'
   | 'vehicle'
   | 'orderItem'
-  | 'manufacturer';
+  | 'manufacturer'
+  | 'wallet';
 
 /** Тип поля — определяет сравнение при diff и формат при чтении. */
 export type AuditFieldKind =
@@ -86,10 +87,14 @@ export const AUDIT_REGISTRY: Record<AuditEntityType, AuditEntityDef> = {
     scope: AuditScope.TENANT,
     fields: {
       service: { label: 'Работа', kind: { kind: 'scalar' } },
+      kind: { label: 'Вид работы', kind: { kind: 'scalar' } },
       executorId: { label: 'Исполнитель', kind: { kind: 'relation', ref: 'operand' } },
       warranty: { label: 'Гарантия', kind: { kind: 'bool' } },
+      warrantyPayer: { label: 'Плательщик гарантии', kind: { kind: 'scalar' } },
       priceAmount: { label: 'Цена', kind: money('priceCurrencyCode') },
       discountAmount: { label: 'Скидка', kind: money('discountCurrencyCode') },
+      costAmount: { label: 'Себестоимость', kind: money('costCurrencyCode') },
+      costWalletId: { label: 'Счёт оплаты', kind: { kind: 'relation', ref: 'wallet' } },
     },
   },
   [AuditEntityType.ORDER_ITEM_PART]: {

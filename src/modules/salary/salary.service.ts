@@ -51,6 +51,9 @@ export class SalaryService {
       const svc = item.service!;
       if (svc.warranty) continue;
 
+      // Подрядные работы оплачиваются подрядчику (ContractorPayout), а не в ЗП.
+      if (svc.kind === 'CONTRACTOR') continue;
+
       // Зарплата начисляется только персонам (сотрудникам); организации-подрядчики — нет.
       if (!svc.executorId || svc.executorKind !== PartyKind.PERSON) continue;
       const executorPersonId = svc.executorId;
