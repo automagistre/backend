@@ -953,6 +953,8 @@ model OrderItemPart {
   supplierId           String?       @map("supplier_id") @db.Uuid
   quantity             Int
   warranty             Boolean
+  /// EXECUTOR | ORGANIZATION — кто несёт стоимость гарантийной запчасти
+  warrantyPayer        String?       @map("warranty_payer") @db.VarChar(16)
   priceAmount          BigInt?       @map("price_amount")
   priceCurrencyCode    String?       @map("price_currency_code") @db.VarChar(3)
   discountAmount       BigInt?       @map("discount_amount")

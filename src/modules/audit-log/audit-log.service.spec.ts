@@ -65,4 +65,24 @@ describe('AuditLogService (чистые помощники)', () => {
       expect(s.valuesEqual(null, null)).toBe(true);
     });
   });
+
+  describe('formatChanges', () => {
+    it('WARRANTY_DEDUCT: amount на позиции заказа форматируется как money', () => {
+      const formatted = s.formatChanges('ORDER_ITEM_SERVICE' as any, [
+        {
+          field: 'amount',
+          oldValue: null,
+          newValue: { amountMinor: '-50000', currencyCode: 'RUB' },
+        },
+      ]);
+
+      expect(formatted[0]).toMatchObject({
+        field: 'amount',
+        label: 'Сумма удержания',
+        kind: 'MONEY',
+        oldValue: null,
+        newValue: { amountMinor: '-50000', currencyCode: 'RUB' },
+      });
+    });
+  });
 });

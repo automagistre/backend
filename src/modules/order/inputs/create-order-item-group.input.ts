@@ -14,6 +14,8 @@ export class CreateOrderItemGroupInput {
   @Field(() => String)
   name: string;
 
-  @Field(() => Boolean, { defaultValue: false, nullable: true })
+  // Без defaultValue: PartialType наследует опции поля, и дефолт в Update-инпуте
+  // сбрасывал бы флаг при частичном обновлении. Создание подставляет ?? false.
+  @Field(() => Boolean, { nullable: true })
   hideParts?: boolean;
 }

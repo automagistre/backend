@@ -21,6 +21,12 @@ export enum CustomerTransactionSource {
    * проверка начисления ЗП ложно срабатывала и блокировала начисление.
    */
   OrderPrepayRefund = 12,
+  /**
+   * Удержание за гарантию по вине исполнителя (sourceId = orderItemService.id
+   * или orderItemPart.id, operandId = personId сотрудника). Не Penalty —
+   * у Penalty другая семантика (sourceId = userId создателя, ручной штраф).
+   */
+  WarrantyDeduction = 13,
 }
 
 const LABELS: Record<CustomerTransactionSource, string> = {
@@ -35,6 +41,7 @@ const LABELS: Record<CustomerTransactionSource, string> = {
   [CustomerTransactionSource.ManualWithoutWallet]:
     'Ручная проводка (без счёта)',
   [CustomerTransactionSource.OrderPrepayRefund]: 'Возврат предоплаты по заказу',
+  [CustomerTransactionSource.WarrantyDeduction]: 'Удержание за гарантию',
 };
 
 export function getCustomerTransactionSourceLabel(source: number): string {

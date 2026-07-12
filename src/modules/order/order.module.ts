@@ -26,6 +26,7 @@ import { CustomerTransactionModule } from '../customer-transaction/customer-tran
 import { TasksModule } from '../tasks/tasks.module';
 import { RecommendationMigrationModule } from '../recommendation-migration/recommendation-migration.module';
 import { DisplayContextModule } from '../display-context/display-context.module';
+import { NoteModule } from '../note/note.module';
 import './enums/order-item-type.enum';
 import './enums/close-deficiency.enum';
 
@@ -43,6 +44,7 @@ import './enums/close-deficiency.enum';
     TasksModule,
     forwardRef(() => RecommendationMigrationModule),
     DisplayContextModule,
+    NoteModule,
   ],
   providers: [
     OrderService,

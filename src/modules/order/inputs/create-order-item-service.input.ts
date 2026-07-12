@@ -30,7 +30,10 @@ export class CreateOrderItemServiceInput {
   @IsOptional()
   executor?: ExecutorInput | null;
 
-  @Field(() => Boolean, { defaultValue: false, nullable: true })
+  // Без defaultValue: PartialType наследует опции поля, и дефолт в Update-инпуте
+  // сбрасывал бы гарантию при любом частичном обновлении. Создание подставляет ?? false.
+  @Field(() => Boolean, { nullable: true })
+  @IsOptional()
   warranty?: boolean;
 
   @Field(() => WarrantyPayer, {

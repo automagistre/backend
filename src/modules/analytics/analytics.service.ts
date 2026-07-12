@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { CogsService } from 'src/modules/cogs/cogs.service';
 import { OrderStatus } from 'src/modules/order/enums/order-status.enum';
 import {
   TaskStatusEnum,
@@ -587,16 +588,7 @@ export class AnalyticsService {
        JOIN order_deal od ON od.id = oc.id
        JOIN order_item oi ON oi.order_id = o.id
        JOIN order_item_part oip ON oip.id = oi.id
-       LEFT JOIN LATERAL (
-         SELECT ip.price_amount AS unit_cost
-         FROM income_part ip
-         JOIN income i ON i.id = ip.income_id
-         WHERE ip.part_id = oip.part_id
-           AND ip.tenant_id = o.tenant_id
-           AND i.created_at <= od.created_at
-         ORDER BY i.created_at DESC
-         LIMIT 1
-       ) lc ON TRUE
+       ${CogsService.unitCogsLateralJoinSql('oip.part_id', 'o.tenant_id', 'od.created_at')}
        WHERE o.tenant_id = $1::uuid
          AND NOT oip.warranty
          AND od.created_at >= $2

@@ -14,6 +14,10 @@ import { CreateOrderItemPartInput } from './inputs/create-order-item-part.input'
 import { UpdateOrderItemPartInput } from './inputs/update-order-item-part.input';
 import { UpdateOrderItemServiceInput } from './inputs/update-order-item-service.input';
 import { UpdateOrderItemGroupInput } from './inputs/update-order-item-group.input';
+import { ApplyOrderWarrantyInput } from './inputs/apply-order-warranty.input';
+import { ApplyOrderWarrantyPayload } from './models/apply-order-warranty.payload';
+import { WarrantyPayer } from './enums/warranty-payer.enum';
+import { NoteService } from 'src/modules/note/note.service';
 import {
   OrderItem,
   OrderItemGroup,
@@ -23,6 +27,13 @@ import {
 } from 'src/generated/prisma/client';
 import { OrderItemType } from './enums/order-item-type.enum';
 import { OrderItemServiceKind } from './enums/order-item-service-kind.enum';
+import {
+  expandWarrantyItemIds,
+  findAncestorService,
+  resolvePartWarrantyPayer,
+  resolveServiceWarrantyPayer,
+  type WarrantyOrderItemNode,
+} from './warranty-payer.resolve';
 import { executorToDb, PartyKind } from 'src/common/party';
 import { WalletTransactionService } from 'src/modules/wallet/wallet-transaction.service';
 import { v6 as uuidv6 } from 'uuid';
@@ -48,6 +59,7 @@ export class OrderItemService {
     private readonly settingsService: SettingsService,
     private readonly auditLog: AuditLogService,
     private readonly walletTransactionService: WalletTransactionService,
+    private readonly noteService: NoteService,
   ) {}
 
   async findTreeByOrderId(orderId: string): Promise<OrderItemModel[]> {
@@ -153,6 +165,7 @@ export class OrderItemService {
       part: part
         ? {
             ...part,
+            warrantyPayer: part.warrantyPayer as any,
             part: part.part,
             supplier: part.supplier,
           }
@@ -243,7 +256,7 @@ export class OrderItemService {
 
     const updateData: { name?: string; hideParts?: boolean } = {};
     if (input.name !== undefined) updateData.name = input.name;
-    if (input.hideParts !== undefined) updateData.hideParts = input.hideParts;
+    if (input.hideParts != null) updateData.hideParts = input.hideParts;
 
     if (Object.keys(updateData).length > 0) {
       await this.prisma.orderItemGroup.update({
@@ -408,6 +421,8 @@ export class OrderItemService {
         costAmount: created.service!.costAmount,
         costCurrencyCode: created.service!.costCurrencyCode,
         costWalletId: created.service!.costWalletId,
+        warranty: created.service!.warranty,
+        warrantyPayer: created.service!.warrantyPayer,
       });
 
       return created;
@@ -672,7 +687,10 @@ export class OrderItemService {
       updateData.discountAmount = discountData.amountMinor;
       updateData.discountCurrencyCode = discountData.currencyCode;
     }
-    if (input.warranty !== undefined) updateData.warranty = input.warranty;
+    if (input.warranty != null) updateData.warranty = input.warranty;
+    if (input.warrantyPayer !== undefined) {
+      updateData.warrantyPayer = input.warrantyPayer;
+    }
     if (input.supplierId !== undefined)
       updateData.supplierId = input.supplierId;
     if (input.parentId !== undefined) {
@@ -779,7 +797,7 @@ export class OrderItemService {
       updateData.discountAmount = discountData.amountMinor;
       updateData.discountCurrencyCode = discountData.currencyCode;
     }
-    if (input.warranty !== undefined) updateData.warranty = input.warranty;
+    if (input.warranty != null) updateData.warranty = input.warranty;
     if (input.warrantyPayer !== undefined) {
       updateData.warrantyPayer = input.warrantyPayer;
     }
@@ -865,6 +883,8 @@ export class OrderItemService {
           costAmount: effective.costAmount,
           costCurrencyCode: effective.costCurrencyCode,
           costWalletId: effective.costWalletId,
+          warranty: effective.warranty,
+          warrantyPayer: effective.warrantyPayer,
         });
       });
     }
@@ -1016,6 +1036,209 @@ export class OrderItemService {
     }
 
     return this.toModel(deleted as any);
+  }
+
+  /**
+   * Batch-применение гарантии к выделенным позициям (одно модальное окно
+   * вместо тумблера на каждую строку, см. warranty_payer_ui план §2/§3).
+   * В одной транзакции: обновление warranty/warrantyPayer на работах и
+   * запчастях, синк ContractorPayout, upsert заметки с причиной (только
+   * при warranty=true), аудит по каждой позиции.
+   */
+  async applyWarranty(
+    ctx: AuthContext,
+    input: ApplyOrderWarrantyInput,
+  ): Promise<ApplyOrderWarrantyPayload> {
+    await this.orderService.validateOrderEditable(ctx, input.orderId);
+
+    if (input.itemIds.length === 0) {
+      throw new BadRequestException('Не выбрано ни одной позиции');
+    }
+
+    const reason = input.reason?.trim() ?? '';
+    if (input.warranty && !reason) {
+      throw new BadRequestException('Укажите причину гарантии');
+    }
+
+    const [orderRow, allOrderItems] = await Promise.all([
+      this.prisma.order.findFirst({
+        where: { id: input.orderId, tenantId: ctx.tenantId },
+        select: { assigneeId: true },
+      }),
+      this.prisma.orderItem.findMany({
+        where: { orderId: input.orderId },
+        select: {
+          id: true,
+          parentId: true,
+          type: true,
+          service: {
+            select: { kind: true, executorKind: true, executorId: true },
+          },
+        },
+      }),
+    ]);
+
+    const expandedItemIds = expandWarrantyItemIds(input.itemIds, allOrderItems);
+
+    const items = await this.prisma.orderItem.findMany({
+      where: { id: { in: expandedItemIds }, orderId: input.orderId },
+      include: {
+        service: true,
+        part: { include: { part: true } },
+      },
+    });
+
+    const requestedItems = items.filter((item) => input.itemIds.includes(item.id));
+    if (requestedItems.length === 0) {
+      throw new NotFoundException('Позиции не найдены');
+    }
+
+    const serviceItems = items.filter(
+      (item): item is typeof item & { service: NonNullable<(typeof item)['service']> } =>
+        item.service != null,
+    );
+    const partItems = items.filter(
+      (item): item is typeof item & { part: NonNullable<(typeof item)['part']> } =>
+        item.part != null,
+    );
+
+    if (input.warranty) {
+      if (serviceItems.length > 0 && !input.workPayer) {
+        throw new BadRequestException('Укажите плательщика по работам');
+      }
+      if (partItems.length > 0 && !input.partsPayer) {
+        throw new BadRequestException('Укажите плательщика по запчастям');
+      }
+    }
+
+    let noteId: string | null = null;
+
+    const assigneeId = orderRow?.assigneeId ?? null;
+    const orderItemsById = new Map<string, WarrantyOrderItemNode>(
+      allOrderItems.map((row) => [
+        row.id,
+        {
+          parentId: row.parentId,
+          service: row.service,
+        },
+      ]),
+    );
+
+    const resolvePartPayer = (item: (typeof partItems)[number]) =>
+      input.warranty
+        ? resolvePartWarrantyPayer(
+            findAncestorService(item.parentId, orderItemsById),
+            assigneeId,
+            input.partsPayer ?? null,
+          )
+        : null;
+
+    const noteWorkPayer =
+      serviceItems.length > 0 && input.warranty
+        ? serviceItems.some(
+            (item) =>
+              resolveServiceWarrantyPayer(item.service, input.workPayer ?? null) ===
+              WarrantyPayer.EXECUTOR,
+          )
+          ? WarrantyPayer.EXECUTOR
+          : WarrantyPayer.ORGANIZATION
+        : null;
+    const notePartsPayer =
+      partItems.length > 0 && input.warranty
+        ? partItems.some(
+            (item) => resolvePartPayer(item) === WarrantyPayer.EXECUTOR,
+          )
+          ? WarrantyPayer.EXECUTOR
+          : WarrantyPayer.ORGANIZATION
+        : null;
+
+    await this.prisma.$transaction(async (tx) => {
+      for (const item of serviceItems) {
+        const before = item.service;
+        const warrantyPayer: WarrantyPayer | null = input.warranty
+          ? resolveServiceWarrantyPayer(before, input.workPayer ?? null)
+          : null;
+
+        await tx.orderItemService.update({
+          where: { id: item.id },
+          data: { warranty: input.warranty, warrantyPayer },
+        });
+
+        await this.auditLog.record(tx, ctx, {
+          rootEntityType: AuditEntityType.ORDER,
+          rootEntityId: input.orderId,
+          entityType: AuditEntityType.ORDER_ITEM_SERVICE,
+          entityId: item.id,
+          action: AuditAction.UPDATE,
+          before: { ...before, parentId: item.parentId },
+          after: {
+            ...before,
+            warranty: input.warranty,
+            warrantyPayer,
+            parentId: item.parentId,
+          },
+          entityDisplayName: before.service,
+        });
+
+        await this.walletTransactionService.syncContractorPayout(tx, ctx, {
+          serviceId: item.id,
+          orderId: input.orderId,
+          serviceName: before.service,
+          kind: before.kind,
+          executorKind: before.executorKind,
+          executorId: before.executorId,
+          costAmount: before.costAmount,
+          costCurrencyCode: before.costCurrencyCode,
+          costWalletId: before.costWalletId,
+          warranty: input.warranty,
+          warrantyPayer,
+        });
+      }
+
+      for (const item of partItems) {
+        const before = item.part;
+        const warrantyPayer = resolvePartPayer(item);
+
+        await tx.orderItemPart.update({
+          where: { id: item.id },
+          data: { warranty: input.warranty, warrantyPayer },
+        });
+
+        await this.auditLog.record(tx, ctx, {
+          rootEntityType: AuditEntityType.ORDER,
+          rootEntityId: input.orderId,
+          entityType: AuditEntityType.ORDER_ITEM_PART,
+          entityId: item.id,
+          action: AuditAction.UPDATE,
+          before: { ...before, parentId: item.parentId },
+          after: {
+            ...before,
+            warranty: input.warranty,
+            warrantyPayer,
+            parentId: item.parentId,
+          },
+          entityDisplayName: before.part?.name ?? null,
+        });
+      }
+
+      if (input.warranty) {
+        const note = await this.noteService.upsertWarrantyNote(
+          ctx,
+          tx,
+          input.orderId,
+          reason,
+          serviceItems.length > 0 ? noteWorkPayer : null,
+          partItems.length > 0 ? notePartsPayer : null,
+        );
+        noteId = note.id;
+      }
+    });
+
+    return {
+      orderId: input.orderId,
+      updatedCount: serviceItems.length + partItems.length,
+      noteId,
+    };
   }
 
   /**

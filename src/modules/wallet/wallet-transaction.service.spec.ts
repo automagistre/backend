@@ -230,6 +230,51 @@ describe('WalletTransactionService', () => {
       expect(prisma.walletTransaction.create).not.toHaveBeenCalled();
       expect(audit.record).not.toHaveBeenCalled();
     });
+
+    it('гарантия по вине подрядчика (EXECUTOR) — удаляет проводку', async () => {
+      prisma.walletTransaction.findFirst.mockResolvedValue({
+        id: 'wt1',
+        walletId: 'w1',
+        amountAmount: -500000n,
+        amountCurrencyCode: 'RUB',
+      } as any);
+
+      await service.syncContractorPayout(
+        prisma as any,
+        ctx,
+        source({ warranty: true, warrantyPayer: 'EXECUTOR' }),
+      );
+
+      expect(prisma.walletTransaction.delete).toHaveBeenCalledWith({
+        where: { id: 'wt1' },
+      });
+      expect(audit.record.mock.calls[0][2].action).toBe(AuditAction.DELETE);
+    });
+
+    it('гарантия по вине подрядчика (EXECUTOR) без проводки — не создаёт', async () => {
+      prisma.walletTransaction.findFirst.mockResolvedValue(null);
+
+      await service.syncContractorPayout(
+        prisma as any,
+        ctx,
+        source({ warranty: true, warrantyPayer: 'EXECUTOR' }),
+      );
+
+      expect(prisma.walletTransaction.create).not.toHaveBeenCalled();
+    });
+
+    it('гарантия по вине организации (ORGANIZATION) — проводка создаётся как обычно', async () => {
+      prisma.walletTransaction.findFirst.mockResolvedValue(null);
+      prisma.walletTransaction.create.mockResolvedValue({ id: 'wt1' } as any);
+
+      await service.syncContractorPayout(
+        prisma as any,
+        ctx,
+        source({ warranty: true, warrantyPayer: 'ORGANIZATION' }),
+      );
+
+      expect(prisma.walletTransaction.create).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe('removeContractorPayouts', () => {

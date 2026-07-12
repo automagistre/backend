@@ -104,6 +104,76 @@ describe('CustomerTransactionService', () => {
       );
       expect(res).toBe('');
     });
+
+    it('WarrantyDeduction → контекст заказа по id позиции (не orderId)', async () => {
+      display.getOrderContextByOrderItemId.mockResolvedValue('№1, Иванов');
+      const res = await service.getSourceDisplay(
+        ctx,
+        CustomerTransactionSource.WarrantyDeduction,
+        'order-item-1',
+      );
+      expect(display.getOrderContextByOrderItemId).toHaveBeenCalledWith(
+        ctx,
+        'order-item-1',
+      );
+      expect(res).toBe('№1, Иванов');
+    });
+  });
+
+  describe('findByOrderId', () => {
+    it('возвращает заказные проводки и удержания за гарантию по позициям заказа', async () => {
+      prisma.orderItem.findMany.mockResolvedValue([
+        { id: 'item-1' },
+        { id: 'item-2' },
+      ] as any);
+      prisma.customerTransaction.findMany
+        .mockResolvedValueOnce([
+          {
+            id: 'ct-salary',
+            source: CustomerTransactionSource.OrderSalary,
+            sourceId: 'order-1',
+            createdAt: new Date('2026-07-01T10:00:00Z'),
+          },
+        ] as any)
+        .mockResolvedValueOnce([
+          {
+            id: 'ct-warranty',
+            source: CustomerTransactionSource.WarrantyDeduction,
+            sourceId: 'item-1',
+            createdAt: new Date('2026-07-01T12:00:00Z'),
+          },
+        ] as any);
+
+      const result = await service.findByOrderId(ctx, 'order-1');
+
+      expect(prisma.orderItem.findMany).toHaveBeenCalledWith({
+        where: { orderId: 'order-1', tenantId: ctx.tenantId },
+        select: { id: true },
+      });
+      expect(prisma.customerTransaction.findMany).toHaveBeenNthCalledWith(1, {
+        where: {
+          tenantId: ctx.tenantId,
+          sourceId: 'order-1',
+          source: {
+            in: [
+              CustomerTransactionSource.OrderPrepay,
+              CustomerTransactionSource.OrderDebit,
+              CustomerTransactionSource.OrderPayment,
+              CustomerTransactionSource.OrderPrepayRefund,
+              CustomerTransactionSource.OrderSalary,
+            ],
+          },
+        },
+      });
+      expect(prisma.customerTransaction.findMany).toHaveBeenNthCalledWith(2, {
+        where: {
+          tenantId: ctx.tenantId,
+          source: CustomerTransactionSource.WarrantyDeduction,
+          sourceId: { in: ['item-1', 'item-2'] },
+        },
+      });
+      expect(result.map((t) => t.id)).toEqual(['ct-warranty', 'ct-salary']);
+    });
   });
 
   describe('createManualTransaction', () => {

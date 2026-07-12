@@ -7,6 +7,7 @@ import { EmployeeModule } from 'src/modules/employee/employee.module';
 import { CustomerTransactionModule } from 'src/modules/customer-transaction/customer-transaction.module';
 import { SettingsModule } from 'src/modules/settings/settings.module';
 import { DisplayContextModule } from 'src/modules/display-context/display-context.module';
+import { CogsModule } from 'src/modules/cogs/cogs.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { DisplayContextModule } from 'src/modules/display-context/display-contex
     CustomerTransactionModule,
     SettingsModule,
     DisplayContextModule,
+    CogsModule,
   ],
   providers: [
     SalaryService,

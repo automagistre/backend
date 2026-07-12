@@ -60,6 +60,39 @@ type AppealModel {
   type: Int!
 }
 
+input ApplyOrderWarrantyInput {
+  """ID выделенных позиций заказа (order_item.id)"""
+  itemIds: [ID!]!
+  orderId: ID!
+
+  """
+  Плательщик за выделенные запчасти (обязателен, если warranty=true и есть запчасти)
+  """
+  partsPayer: WarrantyPayer
+
+  """
+  Причина гарантии — обязательна, если warranty=true (сохраняется в Note заказа)
+  """
+  reason: String
+
+  """true — пометить как гарантийные, false — снять пометку"""
+  warranty: Boolean!
+
+  """
+  Плательщик за выделенные работы (обязателен, если warranty=true и есть работы)
+  """
+  workPayer: WarrantyPayer
+}
+
+type ApplyOrderWarrantyPayload {
+  """ID заметки с причиной (если warranty=true)"""
+  noteId: ID
+  orderId: ID!
+
+  """Количество обновлённых позиций"""
+  updatedCount: Int!
+}
+
 """Применить шаблон к заказу: дерево работ и запчастей"""
 input ApplyTemplateInput {
   """Элементы шаблона: каждая работа и массив её запчастей"""
@@ -104,6 +137,7 @@ enum AuditAction {
   SUSPEND
   UPDATE
   WAKE
+  WARRANTY_DEDUCT
 }
 
 """Вид значения изменения для форматирования"""
@@ -902,7 +936,7 @@ input CreateOrderInput {
 }
 
 input CreateOrderItemGroupInput {
-  hideParts: Boolean = false
+  hideParts: Boolean
   name: String!
   orderId: ID!
   parentId: ID
@@ -918,7 +952,10 @@ input CreateOrderItemPartInput {
   quantity: Int!
   supplierId: ID
   tenantId: ID
-  warranty: Boolean = false
+  warranty: Boolean
+
+  """Кто несёт стоимость гарантийной запчасти"""
+  warrantyPayer: WarrantyPayer
 }
 
 input CreateOrderItemServiceInput {
@@ -937,7 +974,7 @@ input CreateOrderItemServiceInput {
   price: MoneyInput
   service: String!
   tenantId: ID
-  warranty: Boolean = false
+  warranty: Boolean
 
   """Кто несёт стоимость гарантийной работы"""
   warrantyPayer: WarrantyPayer
@@ -1925,6 +1962,11 @@ type Mutation {
   ): IncomeModel!
   addPartCross(input: AddPartCrossInput!): PartModel!
 
+  """
+  Пометить/снять гарантию у выделенных позиций заказа (batch): payer работ/запчастей, причина → Note заказа
+  """
+  applyOrderWarranty(input: ApplyOrderWarrantyInput!): ApplyOrderWarrantyPayload!
+
   """Применить шаблон к заказу: добавить переданные работы и запчасти."""
   applyTemplate(input: ApplyTemplateInput!): Boolean!
 
@@ -2262,6 +2304,9 @@ type OrderItemPartModel {
   supplier: OrganizationModel
   supplierId: ID
   warranty: Boolean!
+
+  """Кто несёт стоимость гарантийной запчасти"""
+  warrantyPayer: WarrantyPayer
 }
 
 """Вид работы: автосервис или подрядчик"""
@@ -3815,7 +3860,7 @@ input UpdateOrderInput {
 }
 
 input UpdateOrderItemGroupInput {
-  hideParts: Boolean = false
+  hideParts: Boolean
   id: ID!
   name: String
   orderId: ID
@@ -3833,7 +3878,10 @@ input UpdateOrderItemPartInput {
   quantity: Int
   supplierId: ID
   tenantId: ID
-  warranty: Boolean = false
+  warranty: Boolean
+
+  """Кто несёт стоимость гарантийной запчасти"""
+  warrantyPayer: WarrantyPayer
 }
 
 input UpdateOrderItemServiceInput {
@@ -3853,7 +3901,7 @@ input UpdateOrderItemServiceInput {
   price: MoneyInput
   service: String
   tenantId: ID
-  warranty: Boolean = false
+  warranty: Boolean
 
   """Кто несёт стоимость гарантийной работы"""
   warrantyPayer: WarrantyPayer

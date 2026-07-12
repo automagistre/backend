@@ -8,6 +8,13 @@ import {
 import { PrismaService } from 'src/prisma/prisma.service';
 import { OrderModel } from './models/order.model';
 import { OrderStatus } from './enums/order-status.enum';
+import { OrderItemServiceKind } from './enums/order-item-service-kind.enum';
+import {
+  resolvePartWarrantyChargePersonId,
+  resolvePartWarrantyPayer,
+  resolveServiceWarrantyPayer,
+  type WarrantyServiceContext,
+} from './warranty-payer.resolve';
 import { UpdateOrderInput } from './inputs/update-order.input';
 import { CreateOrderInput } from './inputs/create-order.input';
 import { CreateOrderPrepayInput } from './inputs/create-order-prepay.input';
@@ -19,6 +26,9 @@ import { Prisma } from 'src/generated/prisma/client';
 import { WalletTransactionService } from 'src/modules/wallet/wallet-transaction.service';
 import { WalletTransactionSource } from 'src/modules/wallet/enums/wallet-transaction-source.enum';
 import { SalaryService } from 'src/modules/salary/salary.service';
+import { EmployeeService } from 'src/modules/employee/employee.service';
+import { PartyKind } from 'src/common/party';
+import { WarrantyPayer } from './enums/warranty-payer.enum';
 import { CustomerTransactionService } from 'src/modules/customer-transaction/customer-transaction.service';
 import { CustomerTransactionSource } from 'src/modules/customer-transaction/enums/customer-transaction-source.enum';
 import { SettingsService } from 'src/modules/settings/settings.service';
@@ -57,6 +67,7 @@ export class OrderService {
     @Inject(forwardRef(() => RecommendationWorkMigrationService))
     private readonly recommendationWorkMigrationService: RecommendationWorkMigrationService,
     private readonly auditLog: AuditLogService,
+    private readonly employeeService: EmployeeService,
   ) {}
 
   async findOne(ctx: AuthContext, id: string): Promise<OrderModel | null> {
@@ -771,35 +782,48 @@ export class OrderService {
     canClose: boolean;
     closeDeficiencies: string[];
   }> {
+    const serviceSelect = {
+      executorId: true,
+      executorKind: true,
+      kind: true,
+      costAmount: true,
+      warranty: true,
+      warrantyPayer: true,
+    } as const;
+    const partSelect = { warranty: true, warrantyPayer: true } as const;
+
+    const itemSelect = {
+      type: true,
+      service: { select: serviceSelect },
+      part: { select: partSelect },
+      children: {
+        select: {
+          type: true,
+          service: { select: serviceSelect },
+          part: { select: partSelect },
+          children: {
+            select: {
+              type: true,
+              service: { select: serviceSelect },
+              part: { select: partSelect },
+            },
+          },
+        },
+      },
+    } as const;
+
     const order = await this.prisma.order.findFirst({
       where: { id: orderId, tenantId: ctx.tenantId },
       select: {
         status: true,
         carId: true,
         mileage: true,
+        assigneeId: true,
+        // Только корневые позиции: иначе дочерние попадают в items дважды
+        // (плоский список + children) и теряют контекст родительской работы.
         items: {
-          select: {
-            type: true,
-            service: {
-              select: { executorId: true, kind: true, costAmount: true },
-            },
-            children: {
-              select: {
-                type: true,
-                service: {
-                  select: { executorId: true, kind: true, costAmount: true },
-                },
-                children: {
-                  select: {
-                    type: true,
-                    service: {
-                      select: { executorId: true, kind: true, costAmount: true },
-                    },
-                  },
-                },
-              },
-            },
-          },
+          where: { parentId: null },
+          select: itemSelect,
         },
       },
     });
@@ -818,29 +842,37 @@ export class OrderService {
       deficiencies.push('MILEAGE_MISSING');
     }
 
-    type ItemWithService = {
+    type ItemWithServiceAndPart = {
       type: string;
       service?: {
         executorId: string | null;
+        executorKind: string | null;
         kind: string;
         costAmount: bigint | null;
+        warranty: boolean;
+        warrantyPayer: string | null;
       } | null;
-      children?: ItemWithService[];
+      part?: {
+        warranty: boolean;
+        warrantyPayer: string | null;
+      } | null;
+      children?: ItemWithServiceAndPart[];
     };
-    const hasServiceWithoutWorker = (item: ItemWithService): boolean => {
+    const items = order.items as ItemWithServiceAndPart[];
+
+    const hasServiceWithoutWorker = (item: ItemWithServiceAndPart): boolean => {
       if (item.type === '1' && item.service && item.service.executorId == null) {
         return true;
       }
       return item.children?.some(hasServiceWithoutWorker) ?? false;
     };
-    const hasServicesWithoutWorker = order.items.some(hasServiceWithoutWorker);
-    if (hasServicesWithoutWorker) {
+    if (items.some(hasServiceWithoutWorker)) {
       deficiencies.push('SERVICES_WITHOUT_WORKER');
     }
 
     // Подрядные работы без себестоимости блокируют закрытие:
     // без неё нет проводки оплаты подрядчику и корректной прибыли.
-    const hasContractorWithoutCost = (item: ItemWithService): boolean => {
+    const hasContractorWithoutCost = (item: ItemWithServiceAndPart): boolean => {
       if (
         item.type === '1' &&
         item.service?.kind === 'CONTRACTOR' &&
@@ -850,8 +882,116 @@ export class OrderService {
       }
       return item.children?.some(hasContractorWithoutCost) ?? false;
     };
-    if (order.items.some(hasContractorWithoutCost)) {
+    if (items.some(hasContractorWithoutCost)) {
       deficiencies.push('CONTRACTOR_WITHOUT_COST');
+    }
+
+    // Гарантийные позиции: проверяем, что при эффективном EXECUTOR есть сотрудник для удержания.
+    const executorPersonIds = new Set<string>();
+
+    const collectExecutorPersonIds = (item: ItemWithServiceAndPart): void => {
+      const svc = item.service;
+      if (svc?.warranty && svc.warrantyPayer) {
+        const effective = resolveServiceWarrantyPayer(
+          svc,
+          svc.warrantyPayer as WarrantyPayer,
+        );
+        if (
+          effective === WarrantyPayer.EXECUTOR &&
+          svc.executorKind === PartyKind.PERSON &&
+          svc.executorId
+        ) {
+          executorPersonIds.add(svc.executorId);
+        }
+      }
+      item.children?.forEach(collectExecutorPersonIds);
+    };
+    items.forEach(collectExecutorPersonIds);
+
+    const employeeByPersonId = new Map(
+      await Promise.all(
+        Array.from(executorPersonIds).map(
+          async (personId) =>
+            [personId, await this.employeeService.findByPersonId(ctx, personId)] as const,
+        ),
+      ),
+    );
+
+    let hasWarrantyWithoutPayer = false;
+    let hasWarrantyExecutorRequired = false;
+
+    const checkWarranty = (
+      item: ItemWithServiceAndPart,
+      ancestorService: WarrantyServiceContext | null,
+    ): void => {
+      if (item.type === '1' && item.service) {
+        const svc = item.service;
+        if (svc.warranty) {
+          if (!svc.warrantyPayer) {
+            hasWarrantyWithoutPayer = true;
+          } else {
+            const effective = resolveServiceWarrantyPayer(
+              svc,
+              svc.warrantyPayer as WarrantyPayer,
+            );
+            if (effective === WarrantyPayer.EXECUTOR) {
+              const employee =
+                svc.executorKind === PartyKind.PERSON && svc.executorId
+                  ? employeeByPersonId.get(svc.executorId)
+                  : undefined;
+              if (
+                svc.executorKind !== PartyKind.PERSON ||
+                !svc.executorId ||
+                !employee ||
+                employee.ratio == null ||
+                employee.firedAt
+              ) {
+                hasWarrantyExecutorRequired = true;
+              }
+            }
+          }
+        }
+        const nextAncestor = {
+          kind: svc.kind,
+          executorKind: svc.executorKind,
+          executorId: svc.executorId,
+        };
+        item.children?.forEach((child) => checkWarranty(child, nextAncestor));
+        return;
+      }
+      if (item.type === '2' && item.part) {
+        const part = item.part;
+        if (part.warranty) {
+          if (!part.warrantyPayer) {
+            hasWarrantyWithoutPayer = true;
+          } else {
+            const effective = resolvePartWarrantyPayer(
+              ancestorService,
+              order.assigneeId,
+              part.warrantyPayer as WarrantyPayer,
+            );
+            if (effective === WarrantyPayer.EXECUTOR) {
+              const personId = resolvePartWarrantyChargePersonId(
+                ancestorService,
+                order.assigneeId,
+              );
+              if (!personId) {
+                hasWarrantyExecutorRequired = true;
+              }
+            }
+          }
+        }
+        return;
+      }
+      item.children?.forEach((child) => checkWarranty(child, ancestorService));
+    };
+    items.forEach((item) => checkWarranty(item, null));
+
+    if (hasWarrantyWithoutPayer) {
+      deficiencies.push('WARRANTY_WITHOUT_PAYER');
+    }
+    if (hasWarrantyExecutorRequired) {
+      deficiencies.push('WARRANTY_EXECUTOR_REQUIRED');
     }
 
     return {
@@ -1167,6 +1307,10 @@ export class OrderService {
       const messages: Record<string, string> = {
         MILEAGE_MISSING: 'Укажите пробег',
         SERVICES_WITHOUT_WORKER: 'Назначьте исполнителей на все работы',
+        CONTRACTOR_WITHOUT_COST: 'Укажите себестоимость подрядных работ',
+        WARRANTY_WITHOUT_PAYER: 'Укажите плательщика по гарантийной позиции',
+        WARRANTY_EXECUTOR_REQUIRED:
+          'Для гарантии за счёт исполнителя нужен исполнитель-сотрудник (со ставкой) или ответственный по заказу',
       };
       const details = closeValidation.closeDeficiencies
         .map((d) => messages[d] ?? d)
@@ -1329,9 +1473,23 @@ export class OrderService {
       }
     });
 
-    await this.salaryService.chargeByOrder(ctx, input.orderId);
+    await this.chargeOrderSalaryAndWarrantyDeductions(ctx, input.orderId);
 
     return this.findOne(ctx, input.orderId) as Promise<OrderModel>;
+  }
+
+  /**
+   * ЗП по заказу + гарантийные удержания (работы/запчасти по вине исполнителя).
+   * Порядок важен: chargeByOrder начисляет ЗП по негарантийным и ORGANIZATION-
+   * гарантийным работам; удержания — по EXECUTOR-гарантии, независимая проводка.
+   */
+  private async chargeOrderSalaryAndWarrantyDeductions(
+    ctx: AuthContext,
+    orderId: string,
+  ): Promise<void> {
+    await this.salaryService.chargeByOrder(ctx, orderId);
+    await this.salaryService.chargeWarrantyWorkDeductions(ctx, orderId);
+    await this.salaryService.chargeWarrantyPartDeductions(ctx, orderId);
   }
 
   async ensureOrderClosed(ctx: AuthContext, orderId: string): Promise<void> {
@@ -1351,7 +1509,7 @@ export class OrderService {
   }
 
   async chargeOrderSalary(ctx: AuthContext, orderId: string): Promise<void> {
-    await this.salaryService.chargeByOrder(ctx, orderId);
+    await this.chargeOrderSalaryAndWarrantyDeductions(ctx, orderId);
   }
 
   private startOfTodayUTC(): Date {

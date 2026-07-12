@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma } from 'src/generated/prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import type { AuthContext } from 'src/common/user-id.store';
 import { CreateNoteInput } from './inputs/create-note.input';
@@ -10,8 +11,18 @@ import {
   AuditScope,
 } from 'src/modules/audit-log/enums/audit.enums';
 import { DisplayContextService } from 'src/modules/display-context/display-context.service';
-import { NoteTypeLabel } from './enums/note-type.enum';
+import { NoteType, NoteTypeLabel } from './enums/note-type.enum';
 import { orderTitle } from 'src/common/utils/entity-title.util';
+import { WarrantyPayer, WarrantyPayerLabel } from 'src/modules/order/enums/warranty-payer.enum';
+
+/**
+ * Маркер заметки-гарантийного случая: позволяет находить «ту самую» заметку
+ * для upsert без отдельной сущности/колонки (см. warranty_payer_ui план, §1).
+ */
+export const WARRANTY_NOTE_PREFIX = '[Гарантия]. ';
+
+/** Маркер начала причины в тексте гарантийной заметки — для парсинга при редактировании. */
+export const WARRANTY_NOTE_REASON_MARKER = 'Причина: ';
 
 type NoteRoot = {
   rootEntityType: AuditEntityType;
@@ -116,6 +127,7 @@ export class NoteService {
     before: Partial<NoteRow> | null,
     after: Partial<NoteRow> | null,
     action?: AuditAction,
+    client: Prisma.TransactionClient | PrismaService = this.prisma,
   ): Promise<void> {
     const root = await this.resolveNoteRoot(note.subject);
     if (!root) return;
@@ -123,7 +135,7 @@ export class NoteService {
     const displayName = [typeLabel, root.subjectDisplay]
       .filter(Boolean)
       .join(': ');
-    await this.auditLog.record(this.prisma, ctx, {
+    await this.auditLog.record(client, ctx, {
       rootEntityType: root.rootEntityType,
       rootEntityId: note.subject,
       entityType: AuditEntityType.NOTE,
@@ -211,6 +223,80 @@ export class NoteService {
     );
 
     return updated;
+  }
+
+  /**
+   * Upsert заметки-гарантийного случая заказа (см. warranty_payer_ui план, §1/§2):
+   * одна заметка на гарантийный случай — повторный вызов для того же заказа
+   * редактирует существующую (последнюю с маркером {@link WARRANTY_NOTE_PREFIX}),
+   * а не плодит новые. Вызывать внутри транзакции применения гарантии.
+   */
+  async upsertWarrantyNote(
+    ctx: AuthContext,
+    tx: Prisma.TransactionClient,
+    orderId: string,
+    reason: string,
+    workPayer: WarrantyPayer | null,
+    partsPayer: WarrantyPayer | null,
+  ) {
+    const { tenantId, userId } = ctx;
+    const sentences: string[] = [];
+    if (workPayer) {
+      sentences.push(`Работы оплачивает ${WarrantyPayerLabel[workPayer]}.`);
+    }
+    if (partsPayer) {
+      sentences.push(`Запчасти оплачивает ${WarrantyPayerLabel[partsPayer]}.`);
+    }
+    sentences.push(`${WARRANTY_NOTE_REASON_MARKER}${reason.trim()}`);
+    const text = `${WARRANTY_NOTE_PREFIX}${sentences.join(' ')}`;
+
+    const existing = await tx.note.findFirst({
+      where: {
+        subject: orderId,
+        tenantId,
+        type: NoteType.WARNING,
+        text: { startsWith: WARRANTY_NOTE_PREFIX },
+        noteDelete: null,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (existing) {
+      if (existing.text === text) return existing;
+      const updated = await tx.note.update({
+        where: { id: existing.id },
+        data: { text },
+      });
+      await this.auditNote(
+        ctx,
+        updated,
+        { text: existing.text, type: existing.type, isPublic: existing.isPublic },
+        { text: updated.text, type: updated.type, isPublic: updated.isPublic },
+        undefined,
+        tx,
+      );
+      return updated;
+    }
+
+    const created = await tx.note.create({
+      data: {
+        subject: orderId,
+        type: NoteType.WARNING,
+        text,
+        isPublic: false,
+        tenantId,
+        createdBy: userId,
+      },
+    });
+    await this.auditNote(
+      ctx,
+      created,
+      null,
+      { text: created.text, type: created.type, isPublic: created.isPublic },
+      undefined,
+      tx,
+    );
+    return created;
   }
 
   async softDelete(ctx: AuthContext, noteId: string, description?: string) {

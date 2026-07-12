@@ -16,6 +16,8 @@ import { CreateOrderItemServiceInput } from './inputs/create-order-item-service.
 import { CreateOrderItemPartInput } from './inputs/create-order-item-part.input';
 import { UpdateOrderItemPartInput } from './inputs/update-order-item-part.input';
 import { UpdateOrderItemServiceInput } from './inputs/update-order-item-service.input';
+import { ApplyOrderWarrantyInput } from './inputs/apply-order-warranty.input';
+import { ApplyOrderWarrantyPayload } from './models/apply-order-warranty.payload';
 import { OrderService } from './order.service';
 import { PubSub } from 'graphql-subscriptions';
 import { AuthContext } from 'src/common/decorators/auth-context.decorator';
@@ -144,6 +146,20 @@ export class OrderItemResolver {
       await this.publishOrderUpdated(ctx, updated.orderId);
     }
     return updated;
+  }
+
+  @Mutation(() => ApplyOrderWarrantyPayload, {
+    name: 'applyOrderWarranty',
+    description:
+      'Пометить/снять гарантию у выделенных позиций заказа (batch): payer работ/запчастей, причина → Note заказа',
+  })
+  async applyOrderWarranty(
+    @AuthContext() ctx: AuthContextType,
+    @Args('input') input: ApplyOrderWarrantyInput,
+  ): Promise<ApplyOrderWarrantyPayload> {
+    const result = await this.orderItemService.applyWarranty(ctx, input);
+    await this.publishOrderUpdated(ctx, input.orderId);
+    return result;
   }
 
   @Mutation(() => OrderItemModel, {

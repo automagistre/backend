@@ -1,6 +1,7 @@
 import { Field, ID, Int, InputType } from '@nestjs/graphql';
 import { IsOptional } from 'class-validator';
 import { MoneyInput } from 'src/common/inputs/money.input';
+import { WarrantyPayer } from '../enums/warranty-payer.enum';
 
 @InputType()
 export class CreateOrderItemPartInput {
@@ -22,8 +23,18 @@ export class CreateOrderItemPartInput {
   @Field(() => Int)
   quantity: number;
 
-  @Field(() => Boolean, { defaultValue: false, nullable: true })
+  // Без defaultValue: PartialType наследует опции поля, и дефолт в Update-инпуте
+  // сбрасывал бы гарантию при любом частичном обновлении. Создание подставляет ?? false.
+  @Field(() => Boolean, { nullable: true })
+  @IsOptional()
   warranty?: boolean;
+
+  @Field(() => WarrantyPayer, {
+    nullable: true,
+    description: 'Кто несёт стоимость гарантийной запчасти',
+  })
+  @IsOptional()
+  warrantyPayer?: WarrantyPayer | null;
 
   @Field(() => MoneyInput, { nullable: true })
   @IsOptional()

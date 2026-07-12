@@ -95,6 +95,7 @@ export const AUDIT_REGISTRY: Record<AuditEntityType, AuditEntityDef> = {
       discountAmount: { label: 'Скидка', kind: money('discountCurrencyCode') },
       costAmount: { label: 'Себестоимость', kind: money('costCurrencyCode') },
       costWalletId: { label: 'Счёт оплаты', kind: { kind: 'relation', ref: 'wallet' } },
+      amount: { label: 'Сумма удержания', kind: money() },
     },
   },
   [AuditEntityType.ORDER_ITEM_PART]: {
@@ -104,8 +105,10 @@ export const AUDIT_REGISTRY: Record<AuditEntityType, AuditEntityDef> = {
       supplierId: { label: 'Поставщик', kind: { kind: 'relation', ref: 'organization' } },
       quantity: { label: 'Количество', kind: { kind: 'quantityX100' } },
       warranty: { label: 'Гарантия', kind: { kind: 'bool' } },
+      warrantyPayer: { label: 'Плательщик гарантии', kind: { kind: 'scalar' } },
       priceAmount: { label: 'Цена', kind: money('priceCurrencyCode') },
       discountAmount: { label: 'Скидка', kind: money('discountCurrencyCode') },
+      amount: { label: 'Сумма удержания', kind: money() },
     },
   },
   [AuditEntityType.RESERVATION]: {

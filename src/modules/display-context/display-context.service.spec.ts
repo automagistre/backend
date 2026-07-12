@@ -103,6 +103,32 @@ describe('DisplayContextService', () => {
     });
   });
 
+  describe('getOrderContextByOrderItemId', () => {
+    it('резолвит orderId позиции и возвращает контекст заказа', async () => {
+      prisma.orderItem.findFirst.mockResolvedValue({ orderId: 'o1' } as any);
+      prisma.order.findFirst.mockResolvedValue({
+        number: 5,
+        customerId: 'p1',
+        customer: { lastname: 'Сидоров', firstname: 'Пётр' },
+      } as any);
+
+      const result = await service.getOrderContextByOrderItemId(ctx, 'item-1');
+
+      expect(prisma.orderItem.findFirst).toHaveBeenCalledWith({
+        where: { id: 'item-1', tenantId: ctx.tenantId },
+        select: { orderId: true },
+      });
+      expect(result).toBe('№5, Сидоров Пётр');
+    });
+
+    it('пустая строка, если позиция не найдена', async () => {
+      prisma.orderItem.findFirst.mockResolvedValue(null);
+      expect(await service.getOrderContextByOrderItemId(ctx, 'item-x')).toBe(
+        '',
+      );
+    });
+  });
+
   describe('getPersonDisplay', () => {
     it('ФИО или пустая строка', async () => {
       prisma.person.findUnique.mockResolvedValue({

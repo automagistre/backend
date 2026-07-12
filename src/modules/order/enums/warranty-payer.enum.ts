@@ -14,3 +14,9 @@ registerEnumType(WarrantyPayer, {
     ORGANIZATION: { description: 'Стоимость несёт организация (автосервис)' },
   },
 });
+
+/** Человекочитаемая подпись плательщика — используется, например, в тексте гарантийной заметки. */
+export const WarrantyPayerLabel: Record<WarrantyPayer, string> = {
+  [WarrantyPayer.EXECUTOR]: 'Механик',
+  [WarrantyPayer.ORGANIZATION]: 'Организация',
+};

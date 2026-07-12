@@ -133,16 +133,39 @@ export class CustomerTransactionService {
     return { items, total };
   }
 
-  /** Проводки по заказу (OrderPrepay, OrderDebit, OrderPayment, OrderPrepayRefund; sourceId = orderId). */
+  /** Проводки по заказу: заказные (sourceId = orderId) и удержания за гарантию (sourceId = orderItem.id). */
   async findByOrderId(ctx: AuthContext, orderId: string) {
-    return this.prisma.customerTransaction.findMany({
-      where: {
-        tenantId: ctx.tenantId,
-        sourceId: orderId,
-        source: { in: ORDER_SOURCES },
-      },
-      orderBy: { createdAt: 'desc' },
+    const { tenantId } = ctx;
+
+    const orderItems = await this.prisma.orderItem.findMany({
+      where: { orderId, tenantId },
+      select: { id: true },
     });
+    const orderItemIds = orderItems.map((item) => item.id);
+
+    const [orderLinked, warrantyLinked] = await Promise.all([
+      this.prisma.customerTransaction.findMany({
+        where: {
+          tenantId,
+          sourceId: orderId,
+          source: { in: ORDER_SOURCES },
+        },
+      }),
+      orderItemIds.length > 0
+        ? this.prisma.customerTransaction.findMany({
+            where: {
+              tenantId,
+              source: CustomerTransactionSource.WarrantyDeduction,
+              sourceId: { in: orderItemIds },
+            },
+          })
+        : Promise.resolve([]),
+    ]);
+
+    return [...orderLinked, ...warrantyLinked].sort(
+      (a, b) =>
+        (b.createdAt?.getTime() ?? 0) - (a.createdAt?.getTime() ?? 0),
+    );
   }
 
   async getBalance(ctx: AuthContext, operandId: string): Promise<bigint> {
@@ -173,6 +196,13 @@ export class CustomerTransactionService {
     }
     if (ORDER_SOURCES.includes(source as CustomerTransactionSource)) {
       return this.displayContextService.getOrderContext(ctx, sourceId);
+    }
+    if (source === CustomerTransactionSource.WarrantyDeduction) {
+      // sourceId = orderItemService.id | orderItemPart.id (не orderId).
+      return this.displayContextService.getOrderContextByOrderItemId(
+        ctx,
+        sourceId,
+      );
     }
     if (
       source === CustomerTransactionSource.Manual ||

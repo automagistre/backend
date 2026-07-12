@@ -14,6 +14,7 @@ import {
   AuditAction,
   AuditEntityType,
 } from 'src/modules/audit-log/enums/audit.enums';
+import { WarrantyPayer } from 'src/modules/order/enums/warranty-payer.enum';
 
 const DEFAULT_TAKE = 25;
 const DEFAULT_SKIP = 0;
@@ -30,6 +31,9 @@ export interface ContractorPayoutSource {
   costAmount: bigint | null;
   costCurrencyCode: string | null;
   costWalletId: string | null;
+  /** Гарантийная работа по вине исполнителя (EXECUTOR) — подрядчик не получает оплату. */
+  warranty?: boolean;
+  warrantyPayer?: string | null;
 }
 
 /**
@@ -261,11 +265,19 @@ export class WalletTransactionService {
       },
     });
 
+    // Гарантия по вине подрядчика (EXECUTOR) — организация не платит: удерживать
+    // проводку смысла нет, кост подрядчика не оплачивается. warrantyPayer=ORGANIZATION
+    // (или отсутствие гарантии) — оплата подрядчику идёт как обычно.
+    const isExecutorWarranty =
+      source.warranty === true &&
+      source.warrantyPayer === WarrantyPayer.EXECUTOR;
+
     const shouldExist =
       source.kind === 'CONTRACTOR' &&
       source.costAmount != null &&
       source.costAmount > 0n &&
-      source.costWalletId != null;
+      source.costWalletId != null &&
+      !isExecutorWarranty;
 
     if (!shouldExist && !existing) return;
 

@@ -83,6 +83,22 @@ export class DisplayContextService {
     return parts.join(', ');
   }
 
+  /**
+   * Контекст заказа по id его позиции (order_item_service/order_item_part) —
+   * для проводок, привязанных к позиции, а не к заказу напрямую (WarrantyDeduction).
+   */
+  async getOrderContextByOrderItemId(
+    ctx: AuthContext,
+    orderItemId: string,
+  ): Promise<string> {
+    const item = await this.prisma.orderItem.findFirst({
+      where: { id: orderItemId, tenantId: ctx.tenantId },
+      select: { orderId: true },
+    });
+    if (!item?.orderId) return '';
+    return this.getOrderContext(ctx, item.orderId);
+  }
+
   /** Отображение операнда: «Фамилия Имя» или название организации. */
   async getOperandDisplayName(operandId: string): Promise<string | null> {
     const person = await this.prisma.person.findUnique({
