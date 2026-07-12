@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Inject, forwardRef } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import type { AuthContext } from 'src/common/user-id.store';
 import { OrderStatus } from '../order/enums/order-status.enum';
@@ -6,20 +6,41 @@ import { CarServiceHistoryItemModel } from './models/car-service-history-item.mo
 import { OrderServicesGroupModel } from './models/order-services-group.model';
 import { PaginatedCarServices } from './types/paginated-car-services.type';
 import { DisplayContextService } from '../display-context/display-context.service';
+import { RecommendationService } from '../recommendation/recommendation.service';
+import { ServiceSuggestionModel } from './models/service-suggestion.model';
 
 @Injectable()
 export class ServiceService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly displayContext: DisplayContextService,
+    @Inject(forwardRef(() => RecommendationService))
+    private readonly recommendationService: RecommendationService,
   ) {}
+
+  private async toSuggestions(
+    ctx: AuthContext,
+    names: string[],
+  ): Promise<ServiceSuggestionModel[]> {
+    const flags = await this.recommendationService.getContractorFlagsForNames(
+      ctx,
+      names,
+    );
+    return names.map((name) => ({
+      name,
+      isContractor: flags.get(name) ?? false,
+    }));
+  }
 
   /**
    * Поиск уникальных названий работ из заказов тенанта.
    * Слова через пробел — каждое должно входить в название (AND).
    * Сортировка по популярности (частоте), затем по названию.
    */
-  async searchServices(ctx: AuthContext, search?: string): Promise<string[]> {
+  async searchServices(
+    ctx: AuthContext,
+    search?: string,
+  ): Promise<ServiceSuggestionModel[]> {
     const searchTerms = search
       ?.trim()
       .split(/\s+/)
@@ -47,15 +68,19 @@ export class ServiceService {
       take: 50,
     });
 
-    return result
+    const names = result
       .map((r) => r.service)
       .filter((s): s is string => Boolean(s && s.trim()));
+    return this.toSuggestions(ctx, names);
   }
 
   /**
    * Популярные работы (топ по частоте в закрытых заказах тенанта).
    */
-  async getPopularServices(ctx: AuthContext, limit = 20): Promise<string[]> {
+  async getPopularServices(
+    ctx: AuthContext,
+    limit = 20,
+  ): Promise<ServiceSuggestionModel[]> {
     const result = await this.prisma.orderItemService.groupBy({
       by: ['service'],
       where: {
@@ -70,7 +95,10 @@ export class ServiceService {
       take: limit,
     });
 
-    return result.map((r) => r.service).filter((s) => Boolean(s && s.trim()));
+    const names = result
+      .map((r) => r.service)
+      .filter((s) => Boolean(s && s.trim())) as string[];
+    return this.toSuggestions(ctx, names);
   }
 
   /**

@@ -21,9 +21,12 @@ import type { AuthContext } from 'src/common/user-id.store';
 import { AuditLogService } from 'src/modules/audit-log/audit-log.service';
 import { AuditEntityType } from 'src/modules/audit-log/enums/audit.enums';
 import { DisplayContextService } from 'src/modules/display-context/display-context.service';
+import { POLLUTED_CONTRACTOR_ORG_NAMES } from './contractor-recommendation-names.constants';
 
 @Injectable()
 export class RecommendationService {
+  private pollutedContractorOrgIds: string[] | null = null;
+
   constructor(
     private readonly prisma: PrismaService,
     @Inject(forwardRef(() => ReservationService))
@@ -536,5 +539,79 @@ export class RecommendationService {
       select: { carId: true },
     });
     return rec?.carId ?? null;
+  }
+
+  /** Id организаций-заглушек (кэш на инстанс сервиса). */
+  private async getPollutedContractorOrgIds(): Promise<string[]> {
+    if (this.pollutedContractorOrgIds) {
+      return this.pollutedContractorOrgIds;
+    }
+    const rows = await this.prisma.organization.findMany({
+      where: { name: { in: [...POLLUTED_CONTRACTOR_ORG_NAMES] } },
+      select: { id: true },
+    });
+    this.pollutedContractorOrgIds = rows.map((r) => r.id);
+    return this.pollutedContractorOrgIds;
+  }
+
+  /** Фильтр «чистых» подрядных рекомендаций для whitelist. */
+  private async cleanContractorRecommendationWhere(
+    tenantGroupId: string,
+  ): Promise<Prisma.CarRecommendationWhereInput> {
+    const pollutedIds = await this.getPollutedContractorOrgIds();
+    return {
+      kind: 'CONTRACTOR',
+      tenantGroupId,
+      ...(pollutedIds.length > 0
+        ? {
+            OR: [
+              { contractorId: null },
+              { contractorId: { notIn: pollutedIds } },
+            ],
+          }
+        : {}),
+    };
+  }
+
+  /**
+   * Пакетная проверка: какие из переданных названий есть в очищенном whitelist
+   * подрядных рекомендаций тенанта (case-insensitive).
+   */
+  async getContractorFlagsForNames(
+    ctx: AuthContext,
+    names: string[],
+  ): Promise<Map<string, boolean>> {
+    const trimmed = names.map((n) => n.trim()).filter(Boolean);
+    const result = new Map<string, boolean>();
+    for (const name of names) {
+      result.set(name, false);
+    }
+    if (trimmed.length === 0) return result;
+
+    const baseWhere = await this.cleanContractorRecommendationWhere(
+      ctx.tenantGroupId,
+    );
+    const rows = await this.prisma.carRecommendation.findMany({
+      where: {
+        AND: [
+          baseWhere,
+          {
+            OR: trimmed.map((name) => ({
+              service: { equals: name, mode: 'insensitive' },
+            })),
+          },
+        ],
+      },
+      select: { service: true },
+      distinct: ['service'],
+    });
+
+    const matchedLower = new Set(
+      rows.map((r) => r.service.trim().toLowerCase()),
+    );
+    for (const name of names) {
+      result.set(name, matchedLower.has(name.trim().toLowerCase()));
+    }
+    return result;
   }
 }

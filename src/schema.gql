@@ -2945,7 +2945,7 @@ type Query {
   persons(search: String, skip: Int = 0, take: Int = 25): PaginatedPersons!
 
   """Популярные работы (топ-20 по частоте в закрытых заказах)"""
-  popularServices: [String!]!
+  popularServices: [ServiceSuggestionModel!]!
 
   """
   Таблица Закупки: наличие, в заказах, в резерве, в поставке, нужно заказать
@@ -2962,7 +2962,7 @@ type Query {
   reviews(search: String, skip: Int = 0, source: Float, take: Int = 25): PaginatedReviews!
 
   """Поиск работ по названию (временно из уже созданных работ в заказах)"""
-  services(search: String): [String!]!
+  services(search: String): [ServiceSuggestionModel!]!
 
   """Настройки приложения"""
   settings: SettingsModel!
@@ -3142,6 +3142,15 @@ type ReviewModel {
 
   """Текст отзыва"""
   text: String!
+}
+
+"""Подсказка названия работы"""
+type ServiceSuggestionModel {
+  """
+  Работа встречается в подрядных рекомендациях тенанта (очищенный whitelist)
+  """
+  isContractor: Boolean!
+  name: String!
 }
 
 """Настройки приложения (tenant-scoped в будущем)"""
