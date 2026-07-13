@@ -901,6 +901,7 @@ model OrderItem {
   group    OrderItemGroup?
   service  OrderItemService?
   part     OrderItemPart?
+  profit   OrderItemProfit?
 
   @@index([parentId], map: "idx_52ea1f09727aca70")
   @@index([orderId], map: "idx_52ea1f098d9f6d38")
@@ -967,6 +968,34 @@ model OrderItemPart {
   @@map("order_item_part")
 }
 
+/// Снапшот прибыли по позиции заказа на момент закрытия (этап 3 profit system).
+model OrderItemProfit {
+  id            String    @id @default(uuid()) @db.Uuid
+  orderItemId   String    @unique @map("order_item_id") @db.Uuid
+  orderItem     OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  orderId       String    @map("order_id") @db.Uuid
+  order         Order     @relation(fields: [orderId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  tenantId      String    @map("tenant_id") @db.Uuid
+  /// SERVICE | PART
+  kind          String    @db.VarChar(16)
+  revenueAmount BigInt    @map("revenue_amount")
+  costAmount    BigInt    @map("cost_amount")
+  profitAmount  BigInt    @map("profit_amount")
+  currencyCode  String    @map("currency_code") @db.VarChar(3)
+  /// LAST_INCOME | SALARY | CONTRACTOR | NONE
+  costBasis     String    @map("cost_basis") @db.VarChar(16)
+  /// LIVE | LEGACY_BACKFILL
+  origin        String    @db.VarChar(16)
+  warranty      Boolean
+  warrantyPayer String?   @map("warranty_payer") @db.VarChar(16)
+  closedAt      DateTime  @map("closed_at") @db.Timestamptz(0)
+  createdAt     DateTime? @default(now()) @map("created_at") @db.Timestamptz(0)
+
+  @@index([orderId], map: "idx_order_item_profit_order_id")
+  @@index([tenantId, closedAt], map: "idx_order_item_profit_tenant_closed")
+  @@map("order_item_profit")
+}
+
 model OrderPayment {
   id                 String    @id @default(uuid()) @db.Uuid
   orderId            String    @map("order_id") @db.Uuid
@@ -1017,6 +1046,7 @@ model Order {
   close       OrderClose?    @relation("OrderCloseOrder")
   suspends    OrderSuspend[]
   tasks       Task[]
+  itemProfits OrderItemProfit[]
 
   @@unique([number, tenantId], map: "uniq_e52ffdee96901f549033212a")
   @@index([assigneeId], map: "idx_e52ffdee6b20ba36")

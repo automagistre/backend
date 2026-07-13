@@ -27,6 +27,7 @@ import { TasksModule } from '../tasks/tasks.module';
 import { RecommendationMigrationModule } from '../recommendation-migration/recommendation-migration.module';
 import { DisplayContextModule } from '../display-context/display-context.module';
 import { NoteModule } from '../note/note.module';
+import { ProfitModule } from '../profit/profit.module';
 import './enums/order-item-type.enum';
 import './enums/close-deficiency.enum';
 
@@ -45,6 +46,7 @@ import './enums/close-deficiency.enum';
     forwardRef(() => RecommendationMigrationModule),
     DisplayContextModule,
     NoteModule,
+    ProfitModule,
   ],
   providers: [
     OrderService,

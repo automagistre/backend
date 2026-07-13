@@ -47,6 +47,8 @@ import {
   AuditAction,
   AuditEntityType,
 } from 'src/modules/audit-log/enums/audit.enums';
+import { ProfitService } from 'src/modules/profit/profit.service';
+import { ProfitOrigin } from 'src/modules/profit/enums/profit-origin.enum';
 
 const DELETE_COOLING_HOURS = 3;
 /** Совместимость со старой CRM: DiscriminatorMap OrderClose — 1 = OrderDeal, 2 = OrderCancel */
@@ -68,6 +70,7 @@ export class OrderService {
     private readonly recommendationWorkMigrationService: RecommendationWorkMigrationService,
     private readonly auditLog: AuditLogService,
     private readonly employeeService: EmployeeService,
+    private readonly profitService: ProfitService,
   ) {}
 
   async findOne(ctx: AuthContext, id: string): Promise<OrderModel | null> {
@@ -1471,6 +1474,14 @@ export class OrderService {
           data: { mileage: order.mileage },
         });
       }
+
+      await this.profitService.snapshotOrder(
+        tx,
+        ctx,
+        input.orderId,
+        new Date(),
+        ProfitOrigin.LIVE,
+      );
     });
 
     await this.chargeOrderSalaryAndWarrantyDeductions(ctx, input.orderId);

@@ -11,6 +11,7 @@ import { TasksService } from 'src/modules/tasks/tasks.service';
 import { RecommendationWorkMigrationService } from 'src/modules/recommendation-migration/recommendation-work-migration.service';
 import { AuditLogService } from 'src/modules/audit-log/audit-log.service';
 import { EmployeeService } from 'src/modules/employee/employee.service';
+import { ProfitService } from 'src/modules/profit/profit.service';
 import { OrderStatus } from './enums/order-status.enum';
 import { createPrismaMock, type PrismaMock } from 'src/common/testing/prisma-mock';
 import { makeCtx } from 'src/common/testing/auth-context';
@@ -36,6 +37,7 @@ describe('OrderService.getCloseValidation', () => {
       mockDeep<RecommendationWorkMigrationService>() as unknown as RecommendationWorkMigrationService,
       mockDeep<AuditLogService>() as unknown as AuditLogService,
       employeeService as unknown as EmployeeService,
+      mockDeep<ProfitService>() as unknown as ProfitService,
     );
   });
 
