@@ -8,18 +8,37 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { CogsService } from 'src/modules/cogs/cogs.service';
 import { EmployeeService } from 'src/modules/employee/employee.service';
 import { SettingsService } from 'src/modules/settings/settings.service';
+import { CustomerTransactionSource } from 'src/modules/customer-transaction/enums/customer-transaction-source.enum';
 import { OrderItemServiceKind } from 'src/modules/order/enums/order-item-service-kind.enum';
 import { WarrantyPayerKind } from 'src/modules/order/enums/warranty-payer-kind.enum';
 import { PartyKind } from 'src/common/party';
 import type { AuthContext } from 'src/common/user-id.store';
+import { aggregateOrderProfit } from './aggregate-order-profit';
 import { computeLineProfit } from './compute-line-profit';
+import {
+  distributeLegacySalaryCost,
+  type LegacyServiceLine,
+} from './distribute-legacy-salary';
+import { calcPartsMarginPercent, estimatePartCostFromMarkup } from './estimate-part-cost';
 import { ProfitCostBasis } from './enums/profit-cost-basis.enum';
 import { ProfitLineKind } from './enums/profit-line-kind.enum';
 import { ProfitOrigin } from './enums/profit-origin.enum';
+import type { BackfillOrderProfitsInput } from './inputs/backfill-order-profits.input';
+import type { OrderProfitModel } from './models/order-profit.model';
+import type { PeriodProfitModel } from './models/period-profit.model';
+import type { PeriodProfitSummaryModel } from './models/period-profit-summary.model';
+import type { PeriodOrderProfitModel } from './models/period-order-profit.model';
 
 type EmployeeRow = Awaited<
   ReturnType<EmployeeService['findByPersonId']>
 >;
+
+type LegacySnapshotContext = {
+  salaryByPerson: Map<string, bigint>;
+  serviceLines: LegacyServiceLine[];
+};
+
+const BACKFILL_DEFAULT_LIMIT = 1000;
 
 @Injectable()
 export class ProfitService {
@@ -56,6 +75,11 @@ export class ProfitService {
     });
 
     const employeeCache = new Map<string, EmployeeRow>();
+    const legacyContext =
+      origin === ProfitOrigin.LEGACY_BACKFILL
+        ? await this.buildLegacySnapshotContext(tx, ctx, orderId, items)
+        : undefined;
+
     const rows: Prisma.OrderItemProfitCreateManyInput[] = [];
 
     for (const item of items) {
@@ -71,6 +95,7 @@ export class ProfitService {
             origin,
             currencyCode,
             employeeCache,
+            legacyContext,
           ),
         );
       } else if (item.part) {
@@ -114,6 +139,265 @@ export class ProfitService {
     });
   }
 
+  async summarizeOrderProfit(
+    ctx: AuthContext,
+    orderId: string,
+  ): Promise<OrderProfitModel | null> {
+    const rows = await this.findItemProfitRows(ctx, orderId);
+    if (!rows.length) {
+      return null;
+    }
+
+    return aggregateOrderProfit(rows);
+  }
+
+  /** Граница бэкофилла: MIN(income_accrue.created_at) тенанта. */
+  async getBackfillBoundary(tenantId: string): Promise<Date | null> {
+    const result = await this.prisma.incomeAccrue.aggregate({
+      where: { tenantId },
+      _min: { createdAt: true },
+    });
+    return result._min.createdAt ?? null;
+  }
+
+  /**
+   * Бэкофилл исторических сделок (origin=LEGACY_BACKFILL).
+   * Пропускает заказы с LIVE-снапшотом.
+   */
+  async backfillOrderProfits(
+    ctx: AuthContext,
+    input?: BackfillOrderProfitsInput,
+  ): Promise<number> {
+    const boundary = await this.getBackfillBoundary(ctx.tenantId);
+    if (!boundary) {
+      return 0;
+    }
+
+    const limit = input?.limit ?? BACKFILL_DEFAULT_LIMIT;
+    const skip = input?.skip ?? 0;
+
+    const orders = await this.prisma.order.findMany({
+      where: {
+        tenantId: ctx.tenantId,
+        close: {
+          is: {
+            orderDeal: { is: { createdAt: { gte: boundary } } },
+            orderCancel: { is: null },
+          },
+        },
+        NOT: {
+          itemProfits: { some: { origin: ProfitOrigin.LIVE } },
+        },
+      },
+      select: {
+        id: true,
+        close: { select: { orderDeal: { select: { createdAt: true } } } },
+      },
+      orderBy: { number: 'desc' },
+      skip,
+      take: limit,
+    });
+
+    let processed = 0;
+    for (const order of orders) {
+      const closedAt = order.close?.orderDeal?.createdAt ?? new Date();
+      await this.prisma.$transaction((tx) =>
+        this.snapshotOrder(
+          tx,
+          ctx,
+          order.id,
+          closedAt,
+          ProfitOrigin.LEGACY_BACKFILL,
+        ),
+      );
+      processed++;
+    }
+
+    return processed;
+  }
+
+  async getPeriodProfit(
+    ctx: AuthContext,
+    dateFrom: Date,
+    dateTo: Date,
+  ): Promise<PeriodProfitModel> {
+    const boundary = await this.getBackfillBoundary(ctx.tenantId);
+    const end = this.endOfDay(dateTo);
+    const prevFrom = this.shiftYear(dateFrom, -1);
+    const prevTo = this.shiftYear(end, -1);
+
+    const [current, previousYear] = await Promise.all([
+      this.aggregatePeriodSummary(ctx, dateFrom, end),
+      this.aggregatePeriodSummary(ctx, prevFrom, prevTo),
+    ]);
+
+    return {
+      dateFrom,
+      dateTo,
+      backfillBoundary: boundary,
+      hasIncompleteHistory: boundary ? dateFrom < boundary : true,
+      current,
+      previousYear,
+    };
+  }
+
+  private async aggregatePeriodSummary(
+    ctx: AuthContext,
+    dateFrom: Date,
+    dateTo: Date,
+  ): Promise<PeriodProfitSummaryModel> {
+    const where: Prisma.OrderItemProfitWhereInput = {
+      tenantId: ctx.tenantId,
+      closedAt: { gte: dateFrom, lte: dateTo },
+    };
+
+    const contractorWhere: Prisma.OrderItemProfitWhereInput = {
+      ...where,
+      kind: ProfitLineKind.SERVICE,
+      orderItem: {
+        service: {
+          OR: [
+            { kind: OrderItemServiceKind.CONTRACTOR },
+            { executorKind: PartyKind.ORGANIZATION },
+          ],
+        },
+      },
+    };
+
+    const [totalAgg, worksAgg, partsAgg, contractorAgg, ordersCount] =
+      await Promise.all([
+        this.prisma.orderItemProfit.aggregate({
+          where,
+          _sum: {
+            revenueAmount: true,
+            costAmount: true,
+            profitAmount: true,
+          },
+        }),
+        this.prisma.orderItemProfit.aggregate({
+          where: { ...where, kind: ProfitLineKind.SERVICE },
+          _sum: { profitAmount: true },
+        }),
+        this.prisma.orderItemProfit.aggregate({
+          where: { ...where, kind: ProfitLineKind.PART },
+          _sum: { profitAmount: true },
+        }),
+        this.prisma.orderItemProfit.aggregate({
+          where: contractorWhere,
+          _sum: { profitAmount: true },
+        }),
+        this.prisma.orderItemProfit.groupBy({
+          by: ['orderId'],
+          where,
+        }),
+      ]);
+
+    return {
+      grossRevenueAmount: totalAgg._sum.revenueAmount ?? 0n,
+      grossCostAmount: totalAgg._sum.costAmount ?? 0n,
+      grossProfitAmount: totalAgg._sum.profitAmount ?? 0n,
+      worksProfitAmount: worksAgg._sum.profitAmount ?? 0n,
+      partsProfitAmount: partsAgg._sum.profitAmount ?? 0n,
+      contractorProfitAmount: contractorAgg._sum.profitAmount ?? 0n,
+      ordersCount: ordersCount.length,
+    };
+  }
+
+  async getPeriodOrderProfits(
+    ctx: AuthContext,
+    dateFrom: Date,
+    dateTo: Date,
+    take = 25,
+    skip = 0,
+  ): Promise<{ items: PeriodOrderProfitModel[]; total: number }> {
+    const end = this.endOfDay(dateTo);
+    const profitWhere: Prisma.OrderItemProfitWhereInput = {
+      tenantId: ctx.tenantId,
+      closedAt: { gte: dateFrom, lte: end },
+    };
+
+    const orderWhere: Prisma.OrderWhereInput = {
+      tenantId: ctx.tenantId,
+      itemProfits: { some: profitWhere },
+    };
+
+    const [total, orders] = await Promise.all([
+      this.prisma.order.count({ where: orderWhere }),
+      this.prisma.order.findMany({
+        where: orderWhere,
+        select: {
+          id: true,
+          number: true,
+          itemProfits: {
+            where: profitWhere,
+            select: {
+              kind: true,
+              revenueAmount: true,
+              costAmount: true,
+              profitAmount: true,
+              closedAt: true,
+            },
+          },
+          close: {
+            select: {
+              orderDeal: { select: { createdAt: true } },
+            },
+          },
+        },
+        orderBy: { number: 'desc' },
+        skip,
+        take,
+      }),
+    ]);
+
+    const items = orders.map((order) => {
+      let revenueAmount = 0n;
+      let costAmount = 0n;
+      let profitAmount = 0n;
+      let worksProfitAmount = 0n;
+      let partsProfitAmount = 0n;
+      let partsRevenueAmount = 0n;
+      let partsCostAmount = 0n;
+
+      for (const row of order.itemProfits) {
+        revenueAmount += row.revenueAmount;
+        costAmount += row.costAmount;
+        profitAmount += row.profitAmount;
+        if (row.kind === ProfitLineKind.SERVICE) {
+          worksProfitAmount += row.profitAmount;
+        } else if (row.kind === ProfitLineKind.PART) {
+          partsProfitAmount += row.profitAmount;
+          partsRevenueAmount += row.revenueAmount;
+          partsCostAmount += row.costAmount;
+        }
+      }
+
+      const closedAt =
+        order.close?.orderDeal?.createdAt ??
+        order.itemProfits[0]?.closedAt ??
+        dateFrom;
+
+      return {
+        orderId: order.id,
+        orderNumber: order.number,
+        closedAt,
+        revenueAmount,
+        costAmount,
+        profitAmount,
+        worksProfitAmount,
+        partsProfitAmount,
+        partsRevenueAmount,
+        partsCostAmount,
+        partsMarginPercent: calcPartsMarginPercent(
+          partsProfitAmount,
+          partsRevenueAmount,
+        ),
+      };
+    });
+
+    return { items, total };
+  }
+
   /** Идемпотентный пересчёт снапshota для закрытой сделки (не отмены). */
   async recomputeOrderProfit(
     ctx: AuthContext,
@@ -145,6 +429,63 @@ export class ProfitService {
     );
   }
 
+  private async buildLegacySnapshotContext(
+    tx: Prisma.TransactionClient,
+    ctx: AuthContext,
+    orderId: string,
+    items: Array<{
+      id: string;
+      service: {
+        kind: string;
+        executorKind: string | null;
+        executorId: string | null;
+        warranty: boolean;
+        priceAmount: bigint | null;
+        discountAmount: bigint | null;
+      } | null;
+    }>,
+  ): Promise<LegacySnapshotContext> {
+    const salaryByPerson = await this.loadOrderSalaryByPerson(tx, ctx, orderId);
+    const serviceLines: LegacyServiceLine[] = items
+      .filter((item) => item.service)
+      .map((item) => {
+        const service = item.service!;
+        return {
+          orderItemId: item.id,
+          executorId: service.executorId,
+          executorKind: service.executorKind,
+          kind: service.kind,
+          net: (service.priceAmount ?? 0n) - (service.discountAmount ?? 0n),
+          warranty: service.warranty,
+        };
+      });
+
+    return { salaryByPerson, serviceLines };
+  }
+
+  private async loadOrderSalaryByPerson(
+    tx: Prisma.TransactionClient,
+    ctx: AuthContext,
+    orderId: string,
+  ): Promise<Map<string, bigint>> {
+    const txs = await tx.customerTransaction.findMany({
+      where: {
+        tenantId: ctx.tenantId,
+        source: CustomerTransactionSource.OrderSalary,
+        sourceId: orderId,
+      },
+      select: { operandId: true, amountAmount: true },
+    });
+
+    const map = new Map<string, bigint>();
+    for (const row of txs) {
+      const amount = this.absAmount(row.amountAmount ?? 0n);
+      if (amount <= 0n) continue;
+      map.set(row.operandId, (map.get(row.operandId) ?? 0n) + amount);
+    }
+    return map;
+  }
+
   private async buildServiceRow(
     ctx: AuthContext,
     orderItemId: string,
@@ -164,14 +505,53 @@ export class ProfitService {
     origin: ProfitOrigin,
     currencyCode: string,
     employeeCache: Map<string, EmployeeRow>,
+    legacyContext?: LegacySnapshotContext,
   ): Promise<Prisma.OrderItemProfitCreateManyInput> {
     const net = (service.priceAmount ?? 0n) - (service.discountAmount ?? 0n);
-    const { cost, costBasis } = await this.resolveServiceCost(
-      ctx,
-      service,
-      net,
-      employeeCache,
-    );
+
+    if (origin === ProfitOrigin.LEGACY_BACKFILL && service.warranty) {
+      return {
+        orderItemId,
+        orderId,
+        tenantId,
+        kind: ProfitLineKind.SERVICE,
+        revenueAmount: 0n,
+        costAmount: 0n,
+        profitAmount: 0n,
+        currencyCode,
+        costBasis: ProfitCostBasis.NONE,
+        origin,
+        warranty: true,
+        warrantyPayerKind: null,
+        closedAt,
+      };
+    }
+
+    let cost: bigint;
+    let costBasis: ProfitCostBasis;
+
+    if (origin === ProfitOrigin.LEGACY_BACKFILL && legacyContext) {
+      const line: LegacyServiceLine = {
+        orderItemId,
+        executorId: service.executorId,
+        executorKind: service.executorKind,
+        kind: service.kind,
+        net,
+        warranty: service.warranty,
+      };
+      ({ cost, costBasis } = distributeLegacySalaryCost(
+        line,
+        legacyContext.serviceLines,
+        legacyContext.salaryByPerson,
+      ));
+    } else {
+      ({ cost, costBasis } = await this.resolveServiceCost(
+        ctx,
+        service,
+        net,
+        employeeCache,
+      ));
+    }
 
     const amounts = computeLineProfit({
       kind: ProfitLineKind.SERVICE,
@@ -181,8 +561,6 @@ export class ProfitService {
       warrantyPayerKind: service.warrantyPayerKind,
     });
 
-    // Плательщик-сотрудник (сам исполнитель или другой) полностью компенсирует
-    // ЗП/маржу отдельными проводками — cost для отчёта прибыли не показываем.
     const effectiveCostBasis =
       service.warranty && service.warrantyPayerKind !== WarrantyPayerKind.ORGANIZATION
         ? ProfitCostBasis.NONE
@@ -226,19 +604,36 @@ export class ProfitService {
       (part.priceAmount ?? 0n) - (part.discountAmount ?? 0n);
     const revenue = (unitNet * BigInt(part.quantity)) / 100n;
 
+    if (origin === ProfitOrigin.LEGACY_BACKFILL && part.warranty) {
+      return {
+        orderItemId,
+        orderId,
+        tenantId,
+        kind: ProfitLineKind.PART,
+        revenueAmount: 0n,
+        costAmount: 0n,
+        profitAmount: 0n,
+        currencyCode,
+        costBasis: ProfitCostBasis.NONE,
+        origin,
+        warranty: true,
+        warrantyPayerKind: null,
+        closedAt,
+      };
+    }
+
     const cogs = await this.cogsService.getPartLineCogsAtDate(
       ctx.tenantId,
       part.partId,
       part.quantity,
       closedAt,
     );
-    const costBasis =
-      cogs > 0n ? ProfitCostBasis.LAST_INCOME : ProfitCostBasis.NONE;
+    const { cost, costBasis } = this.resolvePartCost(origin, revenue, cogs);
 
     const amounts = computeLineProfit({
       kind: ProfitLineKind.PART,
       revenue,
-      cost: cogs,
+      cost,
       warranty: part.warranty,
       warrantyPayerKind: part.warrantyPayerKind,
     });
@@ -258,6 +653,25 @@ export class ProfitService {
       warrantyPayerKind: part.warrantyPayerKind,
       closedAt,
     };
+  }
+
+  private resolvePartCost(
+    origin: ProfitOrigin,
+    revenue: bigint,
+    cogs: bigint,
+  ): { cost: bigint; costBasis: ProfitCostBasis } {
+    if (cogs > 0n) {
+      return { cost: cogs, costBasis: ProfitCostBasis.LAST_INCOME };
+    }
+
+    if (origin === ProfitOrigin.LEGACY_BACKFILL && revenue > 0n) {
+      return {
+        cost: estimatePartCostFromMarkup(revenue),
+        costBasis: ProfitCostBasis.ESTIMATED_MARKUP,
+      };
+    }
+
+    return { cost: 0n, costBasis: ProfitCostBasis.NONE };
   }
 
   private async resolveServiceCost(
@@ -300,5 +714,21 @@ export class ProfitService {
     }
 
     return { cost: 0n, costBasis: ProfitCostBasis.NONE };
+  }
+
+  private absAmount(value: bigint): bigint {
+    return value < 0n ? -value : value;
+  }
+
+  private endOfDay(date: Date): Date {
+    const end = new Date(date);
+    end.setUTCHours(23, 59, 59, 999);
+    return end;
+  }
+
+  private shiftYear(date: Date, years: number): Date {
+    const shifted = new Date(date);
+    shifted.setUTCFullYear(shifted.getUTCFullYear() + years);
+    return shifted;
   }
 }

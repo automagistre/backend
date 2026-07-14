@@ -219,6 +219,14 @@ type AuditLogEventModel {
   rootEntityType: AuditEntityType!
 }
 
+input BackfillOrderProfitsInput {
+  """Максимум заказов за один запуск"""
+  limit: Int = 200
+
+  """Смещение для пакетного прогона"""
+  skip: Int = 0
+}
+
 input BackfillQualityControlTasksInput {
   """Глубина поиска закрытых заказов в днях"""
   days: Int = 30
@@ -1970,6 +1978,9 @@ type Mutation {
   """Применить шаблон к заказу: добавить переданные работы и запчасти."""
   applyTemplate(input: ApplyTemplateInput!): Boolean!
 
+  """Бэкофилл снапшотов прибыли (LEGACY_BACKFILL), пропускает заказы с LIVE"""
+  backfillOrderProfits(input: BackfillOrderProfitsInput): Int!
+
   """
   Создать пропущенные задачи контроля качества для недавно закрытых заказов
   """
@@ -2435,6 +2446,9 @@ type OrderModel {
   """Снапшот прибыли по позициям (только закрытая сделка)"""
   orderItemProfits: [OrderItemProfitModel!]!
 
+  """Сводка прибыли закрытой сделки"""
+  orderProfit: OrderProfitModel
+
   """Предоплаты по заказу"""
   prepayments: [OrderPaymentModel!]!
   scheduledAt: DateTime
@@ -2462,6 +2476,19 @@ type OrderPaymentModel {
   description: String
   id: ID!
   orderId: String!
+}
+
+"""Сводка прибыли по заказу"""
+type OrderProfitModel {
+  costAmount: BigInt!
+  partsCostAmount: BigInt!
+  partsProfitAmount: BigInt!
+  partsRevenueAmount: BigInt!
+  profitAmount: BigInt!
+  revenueAmount: BigInt!
+  worksCostAmount: BigInt!
+  worksProfitAmount: BigInt!
+  worksRevenueAmount: BigInt!
 }
 
 type OrderServicesGroupModel {
@@ -2669,6 +2696,12 @@ type PaginatedParts {
   total: Int!
 }
 
+"""Страница заказов в отчёте прибыли за период"""
+type PaginatedPeriodOrderProfits {
+  items: [PeriodOrderProfitModel!]!
+  total: Int!
+}
+
 type PaginatedPersons {
   items: [PersonModel!]!
   total: Int!
@@ -2823,6 +2856,50 @@ input PasswordLoginDto {
   username: String!
 }
 
+"""Прибыль одного заказа в отчёте за период"""
+type PeriodOrderProfitModel {
+  closedAt: DateTime!
+  costAmount: BigInt!
+  orderId: ID!
+  orderNumber: Int!
+  partsCostAmount: BigInt!
+
+  """Маржа запчастей, % от выручки (profit/revenue×100)"""
+  partsMarginPercent: Float
+  partsProfitAmount: BigInt!
+  partsRevenueAmount: BigInt!
+  profitAmount: BigInt!
+  revenueAmount: BigInt!
+  worksProfitAmount: BigInt!
+}
+
+"""Прибыль за период (валовая по снапшотам заказов)"""
+type PeriodProfitModel {
+  """Граница бэкофилла (MIN income_accrue.created_at)"""
+  backfillBoundary: DateTime
+  current: PeriodProfitSummaryModel!
+  dateFrom: DateTime!
+  dateTo: DateTime!
+
+  """Период начинается раньше границы бэкофилла — данные неполные"""
+  hasIncompleteHistory: Boolean!
+
+  """Тот же интервал календарных дат год назад"""
+  previousYear: PeriodProfitSummaryModel!
+}
+
+"""Сводка валовой прибыли за интервал дат"""
+type PeriodProfitSummaryModel {
+  """Прибыль от подрядных работ (справочно)"""
+  contractorProfitAmount: BigInt!
+  grossCostAmount: BigInt!
+  grossProfitAmount: BigInt!
+  grossRevenueAmount: BigInt!
+  ordersCount: Int!
+  partsProfitAmount: BigInt!
+  worksProfitAmount: BigInt!
+}
+
 type PersonModel {
   balance: Int!
 
@@ -2891,6 +2968,7 @@ type ProcurementTableResult {
 """Источник себестоимости в снапшоте прибыли"""
 enum ProfitCostBasis {
   CONTRACTOR
+  ESTIMATED_MARKUP
   LAST_INCOME
   NONE
   SALARY
@@ -3039,6 +3117,12 @@ type Query {
   """Умный автокомплит запчастей с учетом кузова и аналогов"""
   partsSmartAutocomplete(input: PartsSmartAutocompleteInput!): [PartSmartAutocompleteItemModel!]!
 
+  """Заказы с прибылью за период (постранично)"""
+  periodOrderProfits(dateFrom: DateTime!, dateTo: DateTime!, skip: Int = 0, take: Int = 25): PaginatedPeriodOrderProfits!
+
+  """Сводка валовой прибыли за период"""
+  periodProfit(dateFrom: DateTime!, dateTo: DateTime!): PeriodProfitModel!
+
   """Клиент по id"""
   person(id: String!): PersonModel!
 
@@ -3052,6 +3136,9 @@ type Query {
   Таблица Закупки: наличие, в заказах, в резерве, в поставке, нужно заказать
   """
   procurementTable(search: String, skip: Int! = 0, take: Int! = 25): ProcurementTableResult!
+
+  """Граница бэкофилла (MIN income_accrue.created_at)"""
+  profitBackfillBoundary: DateTime
 
   """Резервации для элемента заказа"""
   reservations(orderItemPartId: ID!): [ReservationModel!]!

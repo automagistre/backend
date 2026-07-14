@@ -1487,6 +1487,14 @@ export class OrderService {
     return this.profitService.findItemProfitRows(ctx, orderId);
   }
 
+  /** Сводка прибыли заказа (null если снапшота нет). */
+  async findOrderProfit(ctx: AuthContext, orderId: string) {
+    if (!(await this.isClosedDeal(ctx, orderId))) {
+      return null;
+    }
+    return this.profitService.summarizeOrderProfit(ctx, orderId);
+  }
+
   async ensureOrderClosed(ctx: AuthContext, orderId: string): Promise<void> {
     const order = await this.prisma.order.findFirst({
       where: { id: orderId, tenantId: ctx.tenantId },
