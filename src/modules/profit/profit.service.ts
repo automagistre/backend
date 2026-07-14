@@ -98,6 +98,22 @@ export class ProfitService {
     return rows.length;
   }
 
+  /** Строки снапшота прибыли по заказу (без проверки статуса заказа). */
+  async findItemProfitRows(ctx: AuthContext, orderId: string) {
+    return this.prisma.orderItemProfit.findMany({
+      where: { orderId, tenantId: ctx.tenantId },
+      include: {
+        orderItem: {
+          include: {
+            service: true,
+            part: { include: { part: true } },
+          },
+        },
+      },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+    });
+  }
+
   /** Идемпотентный пересчёт снапshota для закрытой сделки (не отмены). */
   async recomputeOrderProfit(
     ctx: AuthContext,

@@ -2312,6 +2312,33 @@ type OrderItemPartModel {
   warrantyPayerPersonId: ID
 }
 
+"""Снапшот прибыли по позиции заказа"""
+type OrderItemProfitModel {
+  closedAt: DateTime!
+
+  """Себестоимость в копейках"""
+  costAmount: BigInt!
+  costBasis: ProfitCostBasis!
+  createdAt: DateTime
+  currencyCode: String!
+  id: ID!
+  kind: ProfitLineKind!
+
+  """Название работы или запчасти"""
+  lineDisplayName: String!
+  orderId: ID!
+  orderItemId: ID!
+  origin: ProfitOrigin!
+
+  """Прибыль в копейках"""
+  profitAmount: BigInt!
+
+  """Выручка в копейках"""
+  revenueAmount: BigInt!
+  warranty: Boolean!
+  warrantyPayerKind: WarrantyPayerKind
+}
+
 """Вид работы: автосервис или подрядчик"""
 enum OrderItemServiceKind {
   """Работа выполняется сотрудником автосервиса"""
@@ -2404,6 +2431,9 @@ type OrderModel {
   items: [OrderItemModel!]!
   mileage: Int
   number: Int!
+
+  """Снапшот прибыли по позициям (только закрытая сделка)"""
+  orderItemProfits: [OrderItemProfitModel!]!
 
   """Предоплаты по заказу"""
   prepayments: [OrderPaymentModel!]!
@@ -2856,6 +2886,26 @@ enum ProcurementStatus {
 type ProcurementTableResult {
   items: [ProcurementRowModel!]!
   total: Int!
+}
+
+"""Источник себестоимости в снапшоте прибыли"""
+enum ProfitCostBasis {
+  CONTRACTOR
+  LAST_INCOME
+  NONE
+  SALARY
+}
+
+"""Тип позиции в снапшоте прибыли"""
+enum ProfitLineKind {
+  PART
+  SERVICE
+}
+
+"""Происхождение снапшота прибыли"""
+enum ProfitOrigin {
+  LEGACY_BACKFILL
+  LIVE
 }
 
 type Query {

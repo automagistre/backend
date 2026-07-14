@@ -29,6 +29,7 @@ import { OrderPaymentModel } from './models/order-payment.model';
 import { CustomerTransactionModel } from '../customer-transaction/models/customer-transaction.model';
 import { WalletTransactionService } from '../wallet/wallet-transaction.service';
 import { CustomerTransactionService } from '../customer-transaction/customer-transaction.service';
+import { OrderItemProfitModel } from '../profit/models/order-item-profit.model';
 import { UpdateOrderInput } from './inputs/update-order.input';
 import { CreateOrderInput } from './inputs/create-order.input';
 import { CreateOrderPrepayInput } from './inputs/create-order-prepay.input';
@@ -364,6 +365,16 @@ export class OrderResolver {
     @Parent() order: OrderModel,
   ): Promise<CustomerTransactionModel[]> {
     return this.customerTransactionService.findByOrderId(ctx, order.id);
+  }
+
+  @ResolveField(() => [OrderItemProfitModel], {
+    description: 'Снапшот прибыли по позициям (только закрытая сделка)',
+  })
+  async orderItemProfits(
+    @AuthContext() ctx: AuthContextType,
+    @Parent() order: OrderModel,
+  ) {
+    return this.orderService.findOrderItemProfits(ctx, order.id);
   }
 
   @Mutation(() => OrderModel, {

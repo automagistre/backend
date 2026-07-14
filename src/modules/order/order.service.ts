@@ -1479,6 +1479,14 @@ export class OrderService {
     await this.salaryService.chargeWarrantyPartDeductions(ctx, orderId);
   }
 
+  /** Снапшот прибыли по позициям — только для закрытой сделки (не отмена). */
+  async findOrderItemProfits(ctx: AuthContext, orderId: string) {
+    if (!(await this.isClosedDeal(ctx, orderId))) {
+      return [];
+    }
+    return this.profitService.findItemProfitRows(ctx, orderId);
+  }
+
   async ensureOrderClosed(ctx: AuthContext, orderId: string): Promise<void> {
     const order = await this.prisma.order.findFirst({
       where: { id: orderId, tenantId: ctx.tenantId },
@@ -1503,6 +1511,21 @@ export class OrderService {
     const d = new Date();
     d.setUTCHours(0, 0, 0, 0);
     return d;
+  }
+
+  private async isClosedDeal(
+    ctx: AuthContext,
+    orderId: string,
+  ): Promise<boolean> {
+    const close = await this.prisma.orderClose.findFirst({
+      where: { orderId, tenantId: ctx.tenantId },
+      select: {
+        orderDeal: { select: { id: true } },
+        orderCancel: { select: { id: true } },
+      },
+    });
+
+    return !!close?.orderDeal && !close.orderCancel;
   }
 
   private startOfTomorrowUTC(): Date {

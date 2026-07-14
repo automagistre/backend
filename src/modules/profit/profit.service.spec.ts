@@ -190,3 +190,35 @@ describe('ProfitService.snapshotOrder', () => {
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 });
+
+describe('ProfitService.findItemProfitRows', () => {
+  let prisma: DeepMockProxy<PrismaService>;
+  let service: ProfitService;
+
+  const ctx = { tenantId: 'tenant-1', userId: 'user-1' } as any;
+
+  beforeEach(() => {
+    prisma = mockDeep<PrismaService>();
+    service = new ProfitService(
+      prisma as unknown as PrismaService,
+      mockDeep<CogsService>() as unknown as CogsService,
+      mockDeep<EmployeeService>() as unknown as EmployeeService,
+      mockDeep<SettingsService>() as unknown as SettingsService,
+    );
+  });
+
+  it('загружает строки снапшота по orderId', async () => {
+    prisma.orderItemProfit.findMany.mockResolvedValue([
+      { id: 'profit-1', profitAmount: 1000n },
+    ] as any);
+
+    const rows = await service.findItemProfitRows(ctx, 'order-1');
+
+    expect(rows).toHaveLength(1);
+    expect(prisma.orderItemProfit.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { orderId: 'order-1', tenantId: 'tenant-1' },
+      }),
+    );
+  });
+});

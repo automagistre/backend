@@ -4,13 +4,14 @@ import { CogsModule } from 'src/modules/cogs/cogs.module';
 import { EmployeeModule } from 'src/modules/employee/employee.module';
 import { SettingsModule } from 'src/modules/settings/settings.module';
 import { ProfitService } from './profit.service';
+import { OrderItemProfitResolver } from './order-item-profit.resolver';
 import './enums/profit-line-kind.enum';
 import './enums/profit-cost-basis.enum';
 import './enums/profit-origin.enum';
 
 @Module({
   imports: [PrismaModule, CogsModule, EmployeeModule, SettingsModule],
-  providers: [ProfitService],
+  providers: [ProfitService, OrderItemProfitResolver],
   exports: [ProfitService],
 })
 export class ProfitModule {}
