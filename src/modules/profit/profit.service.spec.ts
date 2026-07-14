@@ -191,6 +191,48 @@ describe('ProfitService.snapshotOrder', () => {
   });
 });
 
+describe('ProfitService.getPeriodProfit', () => {
+  let prisma: DeepMockProxy<PrismaService>;
+  let settings: DeepMockProxy<SettingsService>;
+  let service: ProfitService;
+
+  const ctx = { tenantId: 'tenant-1', userId: 'user-1' } as any;
+  const emptyAgg = {
+    _sum: { revenueAmount: 0n, costAmount: 0n, profitAmount: 0n },
+  };
+
+  beforeEach(() => {
+    prisma = mockDeep<PrismaService>();
+    settings = mockDeep<SettingsService>();
+    settings.getTimezone.mockResolvedValue('Europe/Moscow');
+    prisma.incomeAccrue.aggregate.mockResolvedValue({
+      _min: { createdAt: new Date('2020-01-01T00:00:00Z') },
+    } as any);
+    prisma.orderItemProfit.aggregate.mockResolvedValue(emptyAgg as any);
+    prisma.orderItemProfit.groupBy.mockResolvedValue([]);
+
+    service = new ProfitService(
+      prisma as unknown as PrismaService,
+      mockDeep<CogsService>() as unknown as CogsService,
+      mockDeep<EmployeeService>() as unknown as EmployeeService,
+      settings as unknown as SettingsService,
+    );
+  });
+
+  it('включает закрытые сделки до конца последнего дня в TZ тенанта', async () => {
+    // DatePicker: 14.07.2026 00:00 MSK → 13.07.2026T21:00:00.000Z
+    const dateFrom = new Date('2026-07-01T00:00:00.000+03:00');
+    const dateTo = new Date('2026-07-14T00:00:00.000+03:00');
+
+    await service.getPeriodProfit(ctx, dateFrom, dateTo);
+
+    const where = (prisma.orderItemProfit.aggregate.mock.calls[0][0] as any)
+      .where.closedAt;
+    expect(where.gte).toEqual(new Date('2026-07-01T00:00:00.000+03:00'));
+    expect(where.lt).toEqual(new Date('2026-07-15T00:00:00.000+03:00'));
+  });
+});
+
 describe('ProfitService.findItemProfitRows', () => {
   let prisma: DeepMockProxy<PrismaService>;
   let service: ProfitService;

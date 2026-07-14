@@ -13,6 +13,12 @@ import { OrderItemServiceKind } from 'src/modules/order/enums/order-item-service
 import { WarrantyPayerKind } from 'src/modules/order/enums/warranty-payer-kind.enum';
 import { PartyKind } from 'src/common/party';
 import type { AuthContext } from 'src/common/user-id.store';
+import {
+  addDays,
+  startOfDay,
+  toZonedParts,
+  zonedToUtc,
+} from 'src/common/utils/zoned-time.util';
 import { aggregateOrderProfit } from './aggregate-order-profit';
 import { computeLineProfit } from './compute-line-profit';
 import {
@@ -222,13 +228,21 @@ export class ProfitService {
     dateTo: Date,
   ): Promise<PeriodProfitModel> {
     const boundary = await this.getBackfillBoundary(ctx.tenantId);
-    const end = this.endOfDay(dateTo);
-    const prevFrom = this.shiftYear(dateFrom, -1);
-    const prevTo = this.shiftYear(end, -1);
+    const tz = await this.settingsService.getTimezone(ctx.tenantId);
+    const currentBounds = this.resolvePeriodBounds(dateFrom, dateTo, tz);
+    const previousBounds = this.shiftPeriodBoundsByYear(currentBounds, tz, -1);
 
     const [current, previousYear] = await Promise.all([
-      this.aggregatePeriodSummary(ctx, dateFrom, end),
-      this.aggregatePeriodSummary(ctx, prevFrom, prevTo),
+      this.aggregatePeriodSummary(
+        ctx,
+        currentBounds.from,
+        currentBounds.toExclusive,
+      ),
+      this.aggregatePeriodSummary(
+        ctx,
+        previousBounds.from,
+        previousBounds.toExclusive,
+      ),
     ]);
 
     return {
@@ -244,11 +258,11 @@ export class ProfitService {
   private async aggregatePeriodSummary(
     ctx: AuthContext,
     dateFrom: Date,
-    dateTo: Date,
+    dateToExclusive: Date,
   ): Promise<PeriodProfitSummaryModel> {
     const where: Prisma.OrderItemProfitWhereInput = {
       tenantId: ctx.tenantId,
-      closedAt: { gte: dateFrom, lte: dateTo },
+      closedAt: { gte: dateFrom, lt: dateToExclusive },
     };
 
     const contractorWhere: Prisma.OrderItemProfitWhereInput = {
@@ -310,10 +324,11 @@ export class ProfitService {
     take = 25,
     skip = 0,
   ): Promise<{ items: PeriodOrderProfitModel[]; total: number }> {
-    const end = this.endOfDay(dateTo);
+    const tz = await this.settingsService.getTimezone(ctx.tenantId);
+    const { from, toExclusive } = this.resolvePeriodBounds(dateFrom, dateTo, tz);
     const profitWhere: Prisma.OrderItemProfitWhereInput = {
       tenantId: ctx.tenantId,
-      closedAt: { gte: dateFrom, lte: end },
+      closedAt: { gte: from, lt: toExclusive },
     };
 
     const orderWhere: Prisma.OrderWhereInput = {
@@ -716,19 +731,43 @@ export class ProfitService {
     return { cost: 0n, costBasis: ProfitCostBasis.NONE };
   }
 
+  private resolvePeriodBounds(
+    dateFrom: Date,
+    dateTo: Date,
+    tz: string,
+  ): { from: Date; toExclusive: Date } {
+    const from = startOfDay(dateFrom, tz);
+    const toExclusive = addDays(startOfDay(dateTo, tz), 1);
+    return { from, toExclusive };
+  }
+
+  /** Сдвигает календарный период на years лет в зоне тенанта. */
+  private shiftPeriodBoundsByYear(
+    bounds: { from: Date; toExclusive: Date },
+    tz: string,
+    years: number,
+  ): { from: Date; toExclusive: Date } {
+    const zFrom = toZonedParts(bounds.from, tz);
+    const lastIncludedDay = addDays(bounds.toExclusive, -1);
+    const zTo = toZonedParts(lastIncludedDay, tz);
+    return {
+      from: zonedToUtc(
+        zFrom.year + years,
+        zFrom.month,
+        zFrom.day,
+        0,
+        0,
+        0,
+        tz,
+      ),
+      toExclusive: addDays(
+        zonedToUtc(zTo.year + years, zTo.month, zTo.day, 0, 0, 0, tz),
+        1,
+      ),
+    };
+  }
+
   private absAmount(value: bigint): bigint {
     return value < 0n ? -value : value;
-  }
-
-  private endOfDay(date: Date): Date {
-    const end = new Date(date);
-    end.setUTCHours(23, 59, 59, 999);
-    return end;
-  }
-
-  private shiftYear(date: Date, years: number): Date {
-    const shifted = new Date(date);
-    shifted.setUTCFullYear(shifted.getUTCFullYear() + years);
-    return shifted;
   }
 }
