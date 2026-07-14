@@ -312,40 +312,26 @@ describe('RecommendationService', () => {
   });
 
   describe('getContractorFlagsForNames', () => {
-    beforeEach(() => {
-      prisma.organization.findMany.mockResolvedValue([
-        { id: 'org-polluted' },
-      ] as any);
-    });
-
-    it('возвращает флаги для совпадающих названий (case-insensitive)', async () => {
-      prisma.carRecommendation.findMany.mockResolvedValue([
-        { service: 'Ремонт рулевой рейки' },
-        { service: 'ремонт генератора' },
-      ] as any);
-
+    it('возвращает флаги для названий из whitelist (case-insensitive)', async () => {
       const flags = await service.getContractorFlagsForNames(ctx, [
         'Ремонт рулевой рейки',
-        'Ремонт генератора',
+        'ремонт генератора',
         'Замена масла',
       ]);
 
       expect(flags.get('Ремонт рулевой рейки')).toBe(true);
-      expect(flags.get('Ремонт генератора')).toBe(true);
+      expect(flags.get('ремонт генератора')).toBe(true);
       expect(flags.get('Замена масла')).toBe(false);
+      expect(prisma.carRecommendation.findMany).not.toHaveBeenCalled();
+    });
 
-      const where = (prisma.carRecommendation.findMany.mock.calls[0][0] as any)
-        .where;
-      expect(where.AND[0]).toMatchObject({
-        kind: 'CONTRACTOR',
-        tenantGroupId: ctx.tenantGroupId,
-      });
-      expect(where.AND[0].OR).toEqual(
-        expect.arrayContaining([
-          { contractorId: null },
-          { contractorId: { notIn: ['org-polluted'] } },
-        ]),
-      );
+    it('не помечает autoservice-работы из истории БД', async () => {
+      const flags = await service.getContractorFlagsForNames(ctx, [
+        'Замена задних тормозных колодок',
+      ]);
+
+      expect(flags.get('Замена задних тормозных колодок')).toBe(false);
+      expect(prisma.carRecommendation.findMany).not.toHaveBeenCalled();
     });
 
     it('пустой ввод — все false', async () => {

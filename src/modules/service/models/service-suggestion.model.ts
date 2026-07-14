@@ -7,7 +7,7 @@ export class ServiceSuggestionModel {
 
   @Field(() => Boolean, {
     description:
-      'Работа встречается в подрядных рекомендациях тенанта (очищенный whitelist)',
+      'Работа из канонического whitelist подрядных работ',
   })
   isContractor: boolean;
 }

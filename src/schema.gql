@@ -3334,9 +3334,7 @@ type ReviewModel {
 
 """Подсказка названия работы"""
 type ServiceSuggestionModel {
-  """
-  Работа встречается в подрядных рекомендациях тенанта (очищенный whitelist)
-  """
+  """Работа из канонического whitelist подрядных работ"""
   isContractor: Boolean!
   name: String!
 }
