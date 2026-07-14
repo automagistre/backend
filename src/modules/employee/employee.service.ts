@@ -132,6 +132,7 @@ export class EmployeeService {
         tenantId: ctx.tenantId,
         person: { tenantGroupId: ctx.tenantGroupId },
       },
+      orderBy: { firedAt: { sort: 'asc', nulls: 'first' } },
       include: {
         person: true,
       },

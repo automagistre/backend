@@ -8,7 +8,7 @@ import { ProfitService } from './profit.service';
 import { ProfitCostBasis } from './enums/profit-cost-basis.enum';
 import { ProfitLineKind } from './enums/profit-line-kind.enum';
 import { ProfitOrigin } from './enums/profit-origin.enum';
-import { WarrantyPayer } from 'src/modules/order/enums/warranty-payer.enum';
+import { WarrantyPayerKind } from 'src/modules/order/enums/warranty-payer-kind.enum';
 
 describe('ProfitService.snapshotOrder', () => {
   let prisma: DeepMockProxy<PrismaService>;
@@ -53,7 +53,7 @@ describe('ProfitService.snapshotOrder', () => {
           executorKind: 'PERSON',
           executorId: 'person-1',
           warranty: false,
-          warrantyPayer: null,
+          warrantyPayerKind: null,
           priceAmount: 10000n,
           discountAmount: 0n,
           costAmount: null,
@@ -67,7 +67,7 @@ describe('ProfitService.snapshotOrder', () => {
           executorKind: 'ORGANIZATION',
           executorId: 'org-1',
           warranty: false,
-          warrantyPayer: null,
+          warrantyPayerKind: null,
           priceAmount: 100000n,
           discountAmount: 0n,
           costAmount: 80000n,
@@ -81,7 +81,7 @@ describe('ProfitService.snapshotOrder', () => {
           partId: 'part-1',
           quantity: 100,
           warranty: false,
-          warrantyPayer: null,
+          warrantyPayerKind: null,
           priceAmount: 5000n,
           discountAmount: 0n,
         },
@@ -137,7 +137,7 @@ describe('ProfitService.snapshotOrder', () => {
     });
   });
 
-  it('гарантия работа EXECUTOR: profit=0, costBasis=NONE', async () => {
+  it('гарантия работа с плательщиком-сотрудником: profit=0, costBasis=NONE', async () => {
     tx.order.findFirst.mockResolvedValue({ id: 'order-1', tenantId: 'tenant-1' });
     tx.orderItem.findMany.mockResolvedValue([
       {
@@ -147,7 +147,8 @@ describe('ProfitService.snapshotOrder', () => {
           executorKind: 'PERSON',
           executorId: 'person-1',
           warranty: true,
-          warrantyPayer: WarrantyPayer.EXECUTOR,
+          warrantyPayerKind: WarrantyPayerKind.EMPLOYEE,
+          warrantyPayerPersonId: 'person-1',
           priceAmount: 10000n,
           discountAmount: 0n,
           costAmount: null,

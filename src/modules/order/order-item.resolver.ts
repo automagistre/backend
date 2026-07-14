@@ -151,7 +151,9 @@ export class OrderItemResolver {
   @Mutation(() => ApplyOrderWarrantyPayload, {
     name: 'applyOrderWarranty',
     description:
-      'Пометить/снять гарантию у выделенных позиций заказа (batch): payer работ/запчастей, причина → Note заказа',
+      'Пометить/снять гарантию у выделенных позиций заказа (batch): причина → Note заказа. ' +
+      'Плательщик не выбирается здесь — назначается отдельно по каждой позиции ' +
+      '(updateOrderItemService/updateOrderItemPart, warrantyPayerKind/warrantyPayerPersonId)',
   })
   async applyOrderWarranty(
     @AuthContext() ctx: AuthContextType,

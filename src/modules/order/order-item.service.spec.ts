@@ -280,39 +280,12 @@ describe('OrderItemService.createService', () => {
           orderId: 'order-1',
           itemIds: ['svc-item-1'],
           warranty: true,
-          workPayer: 'EXECUTOR',
           reason: '   ',
         } as any),
       ).rejects.toBeInstanceOf(BadRequestException);
     });
 
-    it('бросает ошибку, если есть работы, но не указан workPayer', async () => {
-      mockApplyWarrantyQueries([serviceItem()]);
-
-      await expect(
-        service.applyWarranty(ctx, {
-          orderId: 'order-1',
-          itemIds: ['svc-item-1'],
-          warranty: true,
-          reason: 'Брак',
-        } as any),
-      ).rejects.toBeInstanceOf(BadRequestException);
-    });
-
-    it('бросает ошибку, если есть запчасти, но не указан partsPayer', async () => {
-      mockApplyWarrantyQueries([partItem()]);
-
-      await expect(
-        service.applyWarranty(ctx, {
-          orderId: 'order-1',
-          itemIds: ['part-item-1'],
-          warranty: true,
-          reason: 'Брак',
-        } as any),
-      ).rejects.toBeInstanceOf(BadRequestException);
-    });
-
-    it('помечает работу и запчасть гарантийными, синкает payout, upsert Note', async () => {
+    it('помечает работу и запчасть гарантийными без плательщика (назначается отдельно по позиции), синкает payout, создаёт Note', async () => {
       mockApplyWarrantyQueries(
         [serviceItem(), partItem()],
         [
@@ -327,24 +300,30 @@ describe('OrderItemService.createService', () => {
           },
         ],
       );
-      noteService.upsertWarrantyNote.mockResolvedValue({ id: 'note-1' } as any);
+      noteService.createWarrantyNote.mockResolvedValue({ id: 'note-1' } as any);
 
       const result = await service.applyWarranty(ctx, {
         orderId: 'order-1',
         itemIds: ['svc-item-1', 'part-item-1'],
         warranty: true,
-        workPayer: 'EXECUTOR',
-        partsPayer: 'ORGANIZATION',
         reason: 'Повторный выезд',
       } as any);
 
       expect(prisma.orderItemService.update).toHaveBeenCalledWith({
         where: { id: 'svc-item-1' },
-        data: { warranty: true, warrantyPayer: 'EXECUTOR' },
+        data: {
+          warranty: true,
+          warrantyPayerKind: null,
+          warrantyPayerPersonId: null,
+        },
       });
       expect(prisma.orderItemPart.update).toHaveBeenCalledWith({
         where: { id: 'part-item-1' },
-        data: { warranty: true, warrantyPayer: 'ORGANIZATION' },
+        data: {
+          warranty: true,
+          warrantyPayerKind: null,
+          warrantyPayerPersonId: null,
+        },
       });
       expect(walletTransactions.syncContractorPayout).toHaveBeenCalledWith(
         prisma,
@@ -352,16 +331,13 @@ describe('OrderItemService.createService', () => {
         expect.objectContaining({
           serviceId: 'svc-item-1',
           warranty: true,
-          warrantyPayer: 'EXECUTOR',
         }),
       );
-      expect(noteService.upsertWarrantyNote).toHaveBeenCalledWith(
+      expect(noteService.createWarrantyNote).toHaveBeenCalledWith(
         ctx,
         prisma,
         'order-1',
         'Повторный выезд',
-        'EXECUTOR',
-        'ORGANIZATION',
       );
       expect(result).toEqual({
         orderId: 'order-1',
@@ -370,7 +346,7 @@ describe('OrderItemService.createService', () => {
       });
     });
 
-    it('для подрядной работы принудительно ставит ORGANIZATION, даже если передан EXECUTOR', async () => {
+    it('для подрядной работы принудительно ставит ORGANIZATION без запроса плательщика', async () => {
       mockApplyWarrantyQueries([
         serviceItem({
           kind: 'CONTRACTOR',
@@ -379,31 +355,32 @@ describe('OrderItemService.createService', () => {
           costAmount: 50000n,
         }),
       ]);
-      noteService.upsertWarrantyNote.mockResolvedValue({ id: 'note-1' } as any);
+      noteService.createWarrantyNote.mockResolvedValue({ id: 'note-1' } as any);
 
       await service.applyWarranty(ctx, {
         orderId: 'order-1',
         itemIds: ['svc-item-1'],
         warranty: true,
-        workPayer: 'EXECUTOR',
         reason: 'Брак подрядчика',
       } as any);
 
       expect(prisma.orderItemService.update).toHaveBeenCalledWith({
         where: { id: 'svc-item-1' },
-        data: { warranty: true, warrantyPayer: 'ORGANIZATION' },
+        data: {
+          warranty: true,
+          warrantyPayerKind: 'ORGANIZATION',
+          warrantyPayerPersonId: null,
+        },
       });
-      expect(noteService.upsertWarrantyNote).toHaveBeenCalledWith(
+      expect(noteService.createWarrantyNote).toHaveBeenCalledWith(
         ctx,
         prisma,
         'order-1',
         'Брак подрядчика',
-        'ORGANIZATION',
-        null,
       );
     });
 
-    it('корневая запчасть без ответственного → ORGANIZATION (правило 5)', async () => {
+    it('запчасть помечается гарантийной без плательщика (без авто-резолва по родителю)', async () => {
       mockApplyWarrantyQueries(
         [
           {
@@ -422,23 +399,26 @@ describe('OrderItemService.createService', () => {
         [],
         null,
       );
-      noteService.upsertWarrantyNote.mockResolvedValue({ id: 'note-1' } as any);
+      noteService.createWarrantyNote.mockResolvedValue({ id: 'note-1' } as any);
 
       await service.applyWarranty(ctx, {
         orderId: 'order-1',
         itemIds: ['part-item-1'],
         warranty: true,
-        partsPayer: 'EXECUTOR',
         reason: 'Брак',
       } as any);
 
       expect(prisma.orderItemPart.update).toHaveBeenCalledWith({
         where: { id: 'part-item-1' },
-        data: { warranty: true, warrantyPayer: 'ORGANIZATION' },
+        data: {
+          warranty: true,
+          warrantyPayerKind: null,
+          warrantyPayerPersonId: null,
+        },
       });
     });
 
-    it('при выборе только работы добавляет дочерние запчасти', async () => {
+    it('при выборе только работы добавляет дочерние запчасти (плательщик не назначается в batch)', async () => {
       mockApplyWarrantyQueries(
         [serviceItem(), partItem()],
         [
@@ -447,26 +427,28 @@ describe('OrderItemService.createService', () => {
           { id: 'group-1', parentId: null, type: '3', service: null },
         ],
       );
-      noteService.upsertWarrantyNote.mockResolvedValue({ id: 'note-1' } as any);
+      noteService.createWarrantyNote.mockResolvedValue({ id: 'note-1' } as any);
 
       await service.applyWarranty(ctx, {
         orderId: 'order-1',
         itemIds: ['svc-item-1'],
         warranty: true,
-        workPayer: 'EXECUTOR',
-        partsPayer: 'EXECUTOR',
         reason: 'Брак',
       } as any);
 
       expect(prisma.orderItemPart.update).toHaveBeenCalledWith({
         where: { id: 'part-item-1' },
-        data: { warranty: true, warrantyPayer: 'EXECUTOR' },
+        data: {
+          warranty: true,
+          warrantyPayerKind: null,
+          warrantyPayerPersonId: null,
+        },
       });
     });
 
     it('снятие гарантии обнуляет payer и не требует причину/Note', async () => {
       mockApplyWarrantyQueries([
-        serviceItem({ warranty: true, warrantyPayer: 'EXECUTOR' }),
+        serviceItem({ warranty: true, warrantyPayerKind: 'EMPLOYEE', warrantyPayerPersonId: 'person-1' }),
       ]);
 
       const result = await service.applyWarranty(ctx, {
@@ -477,17 +459,17 @@ describe('OrderItemService.createService', () => {
 
       expect(prisma.orderItemService.update).toHaveBeenCalledWith({
         where: { id: 'svc-item-1' },
-        data: { warranty: false, warrantyPayer: null },
+        data: { warranty: false, warrantyPayerKind: null, warrantyPayerPersonId: null },
       });
-      expect(noteService.upsertWarrantyNote).not.toHaveBeenCalled();
+      expect(noteService.createWarrantyNote).not.toHaveBeenCalled();
       expect(result.noteId).toBeNull();
     });
 
     it('снятие гарантии с работы снимает её и с дочерних запчастей', async () => {
       mockApplyWarrantyQueries(
         [
-          serviceItem({ warranty: true, warrantyPayer: 'EXECUTOR' }),
-          partItem({ warranty: true, warrantyPayer: 'EXECUTOR' }),
+          serviceItem({ warranty: true, warrantyPayerKind: 'EMPLOYEE', warrantyPayerPersonId: 'person-1' }),
+          partItem({ warranty: true, warrantyPayerKind: 'EMPLOYEE', warrantyPayerPersonId: 'person-1' }),
         ],
         [
           { id: 'svc-item-1', parentId: null, type: '1', service: { kind: 'AUTOSERVICE', executorKind: 'PERSON', executorId: 'person-1' } },
@@ -503,7 +485,7 @@ describe('OrderItemService.createService', () => {
 
       expect(prisma.orderItemPart.update).toHaveBeenCalledWith({
         where: { id: 'part-item-1' },
-        data: { warranty: false, warrantyPayer: null },
+        data: { warranty: false, warrantyPayerKind: null, warrantyPayerPersonId: null },
       });
     });
   });

@@ -4,7 +4,7 @@ import { CounterpartyUnion } from 'src/modules/supplier/supplier.union';
 import { PersonModel } from 'src/modules/person/models/person.model';
 import { OrganizationModel } from 'src/modules/organization/models/organization.model';
 import { OrderItemServiceKind } from '../enums/order-item-service-kind.enum';
-import { WarrantyPayer } from '../enums/warranty-payer.enum';
+import { WarrantyPayerKind } from '../enums/warranty-payer-kind.enum';
 
 @ObjectType({ description: 'Услуга в заказе' })
 export class OrderItemServiceModel {
@@ -34,11 +34,17 @@ export class OrderItemServiceModel {
   @Field(() => Boolean)
   warranty: boolean;
 
-  @Field(() => WarrantyPayer, {
+  @Field(() => WarrantyPayerKind, {
     nullable: true,
     description: 'Кто несёт стоимость гарантийной работы',
   })
-  warrantyPayer: WarrantyPayer | null;
+  warrantyPayerKind: WarrantyPayerKind | null;
+
+  @Field(() => ID, {
+    nullable: true,
+    description: 'person_id сотрудника-плательщика (при warrantyPayerKind=EMPLOYEE)',
+  })
+  warrantyPayerPersonId: string | null;
 
   @Field(() => BigInt, { nullable: true })
   priceAmount: bigint | null;

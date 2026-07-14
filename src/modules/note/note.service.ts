@@ -13,16 +13,12 @@ import {
 import { DisplayContextService } from 'src/modules/display-context/display-context.service';
 import { NoteType, NoteTypeLabel } from './enums/note-type.enum';
 import { orderTitle } from 'src/common/utils/entity-title.util';
-import { WarrantyPayer, WarrantyPayerLabel } from 'src/modules/order/enums/warranty-payer.enum';
 
 /**
- * Маркер заметки-гарантийного случая: позволяет находить «ту самую» заметку
- * для upsert без отдельной сущности/колонки (см. warranty_payer_ui план, §1).
+ * Маркер заметки-гарантийного случая: каждая заявка на гарантию создаёт
+ * отдельную заметку с этим префиксом (без upsert — история случаев не теряется).
  */
 export const WARRANTY_NOTE_PREFIX = '[Гарантия]. ';
-
-/** Маркер начала причины в тексте гарантийной заметки — для парсинга при редактировании. */
-export const WARRANTY_NOTE_REASON_MARKER = 'Причина: ';
 
 type NoteRoot = {
   rootEntityType: AuditEntityType;
@@ -226,57 +222,20 @@ export class NoteService {
   }
 
   /**
-   * Upsert заметки-гарантийного случая заказа (см. warranty_payer_ui план, §1/§2):
-   * одна заметка на гарантийный случай — повторный вызов для того же заказа
-   * редактирует существующую (последнюю с маркером {@link WARRANTY_NOTE_PREFIX}),
-   * а не плодит новые. Вызывать внутри транзакции применения гарантии.
+   * Создаёт заметку-гарантийный случай заказа. Каждое применение гарантии —
+   * отдельная заметка (без upsert), чтобы не терять историю при повторных
+   * гарантиях по одному заказу. Плательщики хранятся структурно на позициях
+   * заказа (warrantyPayerKind/PersonId), поэтому в тексте — только причина.
+   * Вызывать внутри транзакции применения гарантии.
    */
-  async upsertWarrantyNote(
+  async createWarrantyNote(
     ctx: AuthContext,
     tx: Prisma.TransactionClient,
     orderId: string,
     reason: string,
-    workPayer: WarrantyPayer | null,
-    partsPayer: WarrantyPayer | null,
   ) {
     const { tenantId, userId } = ctx;
-    const sentences: string[] = [];
-    if (workPayer) {
-      sentences.push(`Работы оплачивает ${WarrantyPayerLabel[workPayer]}.`);
-    }
-    if (partsPayer) {
-      sentences.push(`Запчасти оплачивает ${WarrantyPayerLabel[partsPayer]}.`);
-    }
-    sentences.push(`${WARRANTY_NOTE_REASON_MARKER}${reason.trim()}`);
-    const text = `${WARRANTY_NOTE_PREFIX}${sentences.join(' ')}`;
-
-    const existing = await tx.note.findFirst({
-      where: {
-        subject: orderId,
-        tenantId,
-        type: NoteType.WARNING,
-        text: { startsWith: WARRANTY_NOTE_PREFIX },
-        noteDelete: null,
-      },
-      orderBy: { createdAt: 'desc' },
-    });
-
-    if (existing) {
-      if (existing.text === text) return existing;
-      const updated = await tx.note.update({
-        where: { id: existing.id },
-        data: { text },
-      });
-      await this.auditNote(
-        ctx,
-        updated,
-        { text: existing.text, type: existing.type, isPublic: existing.isPublic },
-        { text: updated.text, type: updated.type, isPublic: updated.isPublic },
-        undefined,
-        tx,
-      );
-      return updated;
-    }
+    const text = `${WARRANTY_NOTE_PREFIX}${reason.trim()}`;
 
     const created = await tx.note.create({
       data: {

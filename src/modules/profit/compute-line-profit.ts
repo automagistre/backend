@@ -1,4 +1,4 @@
-import { WarrantyPayer } from 'src/modules/order/enums/warranty-payer.enum';
+import { WarrantyPayerKind } from 'src/modules/order/enums/warranty-payer-kind.enum';
 import { ProfitLineKind } from './enums/profit-line-kind.enum';
 
 export type ComputeLineProfitInput = {
@@ -6,7 +6,7 @@ export type ComputeLineProfitInput = {
   revenue: bigint;
   cost: bigint;
   warranty: boolean;
-  warrantyPayer?: string | null;
+  warrantyPayerKind?: string | null;
 };
 
 export type LineProfitAmounts = {
@@ -19,12 +19,18 @@ export type LineProfitAmounts = {
  * Чистая функция расчёта прибыли по одной позиции.
  * Не знает об источнике cost — только revenue/cost/warranty.
  *
+ * Для работ: если плательщик — сотрудник (сам исполнитель или другой), cost
+ * не показывается в прибыли — либо ЗП не начислена (плательщик=исполнитель),
+ * либо начислена, но полностью компенсирована плательщиком отдельными
+ * проводками (chargeWarrantyPayerCompensation). Только ORGANIZATION-платёж
+ * реально уменьшает прибыль заказа.
+ *
  * @see profit_calculation_system_e9c1f217.plan.md §2
  */
 export function computeLineProfit(
   input: ComputeLineProfitInput,
 ): LineProfitAmounts {
-  const { kind, revenue, cost, warranty, warrantyPayer } = input;
+  const { kind, revenue, cost, warranty, warrantyPayerKind } = input;
 
   if (!warranty) {
     return {
@@ -42,7 +48,7 @@ export function computeLineProfit(
     };
   }
 
-  if (warrantyPayer === WarrantyPayer.EXECUTOR) {
+  if (warrantyPayerKind !== WarrantyPayerKind.ORGANIZATION) {
     return {
       revenueAmount: 0n,
       costAmount: 0n,

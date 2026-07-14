@@ -11,13 +11,7 @@ import { PartyKind } from 'src/common/party';
 import { AuditLogService } from 'src/modules/audit-log/audit-log.service';
 import { DisplayContextService } from 'src/modules/display-context/display-context.service';
 import { CogsService } from 'src/modules/cogs/cogs.service';
-import { WarrantyPayer } from 'src/modules/order/enums/warranty-payer.enum';
-import {
-  findAncestorService,
-  resolvePartWarrantyChargePersonId,
-  resolvePartWarrantyPayer,
-  type WarrantyOrderItemNode,
-} from 'src/modules/order/warranty-payer.resolve';
+import { WarrantyPayerKind } from 'src/modules/order/enums/warranty-payer-kind.enum';
 import {
   AuditAction,
   AuditEntityType,
@@ -58,10 +52,15 @@ export class SalaryService {
 
     for (const item of services) {
       const svc = item.service!;
-      // Гарантия за счёт исполнителя — ЗП не начисляется, вместо неё удержание
-      // с сотрудника (chargeWarrantyWorkDeductions). За счёт организации —
-      // начисляем ЗП как за обычную работу (выручки нет, но труд оплачивается).
-      if (svc.warranty && svc.warrantyPayer !== WarrantyPayer.ORGANIZATION) {
+      // ЗП не начисляется только если плательщик гарантии — тот же сотрудник,
+      // что и исполнитель (сам виноват — сам не получает оплату, см.
+      // chargeWarrantyExecutorDeductions). Во всех остальных случаях (платит
+      // организация или другой сотрудник) исполнитель получает ЗП как обычно.
+      const isSamePersonWarranty =
+        svc.warranty &&
+        svc.warrantyPayerKind === WarrantyPayerKind.EMPLOYEE &&
+        svc.warrantyPayerPersonId === svc.executorId;
+      if (isSamePersonWarranty) {
         continue;
       }
 
@@ -144,13 +143,14 @@ export class SalaryService {
   }
 
   /**
-   * Удержание с сотрудника за гарантийную работу по его вине (warrantyPayer=EXECUTOR,
-   * kind=AUTOSERVICE). Сумма = price×(100−ratio)% — та маржа, которую организация
-   * получила бы в обычной работе; удержание компенсирует её, раз выручки по гарантии нет.
-   * ContractorPayout не создаётся при EXECUTOR-гарантии (см. syncContractorPayout),
-   * поэтому здесь только AUTOSERVICE.
+   * Удержание с сотрудника за гарантийную работу по его же вине (плательщик =
+   * исполнитель, kind=AUTOSERVICE). Сумма = price×(100−ratio)% — та маржа,
+   * которую организация получила бы в обычной работе; удержание компенсирует
+   * её, раз выручки по гарантии нет (сам ЗП за эту позицию не начисляется,
+   * см. chargeByOrder). ContractorPayout не создаётся при гарантии подрядчика
+   * (см. syncContractorPayout), поэтому здесь только AUTOSERVICE.
    */
-  async chargeWarrantyWorkDeductions(
+  async chargeWarrantyExecutorDeductions(
     ctx: AuthContext,
     orderId: string,
   ): Promise<void> {
@@ -160,13 +160,17 @@ export class SalaryService {
         orderId,
         service: {
           warranty: true,
-          warrantyPayer: WarrantyPayer.EXECUTOR,
+          warrantyPayerKind: WarrantyPayerKind.EMPLOYEE,
           kind: 'AUTOSERVICE',
         },
       },
       include: { service: true },
     });
-    const services = items.filter((item) => item.service !== null);
+    const services = items.filter(
+      (item) =>
+        item.service !== null &&
+        item.service.warrantyPayerPersonId === item.service.executorId,
+    );
     if (services.length === 0) return;
 
     const alreadyCharged = await this.prisma.customerTransaction.findMany({
@@ -233,41 +237,169 @@ export class SalaryService {
   }
 
   /**
-   * Удержание с сотрудника за гарантийную запчасть по его вине (warrantyPayer=EXECUTOR).
-   * Сумма = себестоимость на момент закрытия заказа (CogsService). Исполнитель —
-   * исполнитель родительской работы (если персона), иначе ответственный по заказу.
+   * Гарантия за работу, где плательщик — ДРУГОЙ сотрудник (не исполнитель):
+   * исполнитель получает ЗП как обычно (chargeByOrder), а плательщик
+   * компенсирует организации и ЗП исполнителя, и потерянную маржу — двумя
+   * отдельными проводками (WarrantySalaryCompensation + WarrantyMarginDeduction).
+   */
+  async chargeWarrantyPayerCompensation(
+    ctx: AuthContext,
+    orderId: string,
+  ): Promise<void> {
+    const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
+    const items = await this.prisma.orderItem.findMany({
+      where: {
+        orderId,
+        service: {
+          warranty: true,
+          warrantyPayerKind: WarrantyPayerKind.EMPLOYEE,
+          kind: 'AUTOSERVICE',
+        },
+      },
+      include: { service: true },
+    });
+    const services = items.filter(
+      (item) =>
+        item.service !== null &&
+        item.service.warrantyPayerPersonId != null &&
+        item.service.warrantyPayerPersonId !== item.service.executorId,
+    );
+    if (services.length === 0) return;
+
+    const alreadyCharged = await this.prisma.customerTransaction.findMany({
+      where: {
+        source: {
+          in: [
+            CustomerTransactionSource.WarrantySalaryCompensation,
+            CustomerTransactionSource.WarrantyMarginDeduction,
+          ],
+        },
+        sourceId: { in: services.map((item) => item.id) },
+        tenantId: ctx.tenantId,
+      },
+      select: { sourceId: true, source: true },
+    });
+    const chargedKeys = new Set(
+      alreadyCharged.map((t) => `${t.sourceId}:${t.source}`),
+    );
+
+    for (const item of services) {
+      const svc = item.service!;
+      const payerPersonId = svc.warrantyPayerPersonId!;
+
+      if (svc.executorKind !== PartyKind.PERSON || !svc.executorId) continue;
+
+      const base = (svc.priceAmount ?? 0n) - (svc.discountAmount ?? 0n);
+      if (base <= 0n) continue;
+
+      const employee = await this.employeeService.findByPersonId(
+        ctx,
+        svc.executorId,
+      );
+      if (!employee || employee.ratio == null || employee.firedAt) continue;
+
+      const salaryAmount = (base * BigInt(employee.ratio)) / 100n;
+      const marginAmount = base - salaryAmount;
+
+      await this.prisma.$transaction(async (tx) => {
+        if (
+          salaryAmount > 0n &&
+          !chargedKeys.has(
+            `${item.id}:${CustomerTransactionSource.WarrantySalaryCompensation}`,
+          )
+        ) {
+          await this.customerTransactionService.createWithinTransaction(
+            tx,
+            {
+              operandId: payerPersonId,
+              source: CustomerTransactionSource.WarrantySalaryCompensation,
+              sourceId: item.id,
+              amount: {
+                amountMinor: -salaryAmount,
+                currencyCode: defaultCurrency,
+              },
+            },
+            ctx.tenantId,
+            ctx.userId,
+          );
+          await this.auditLog.record(tx, ctx, {
+            rootEntityType: AuditEntityType.ORDER,
+            rootEntityId: orderId,
+            entityType: AuditEntityType.ORDER_ITEM_SERVICE,
+            entityId: item.id,
+            action: AuditAction.WARRANTY_DEDUCT,
+            changes: [
+              {
+                field: 'amount',
+                oldValue: null,
+                newValue: {
+                  amountMinor: String(-salaryAmount),
+                  currencyCode: defaultCurrency,
+                },
+              },
+            ],
+            entityDisplayName: svc.service,
+          });
+        }
+
+        if (
+          marginAmount > 0n &&
+          !chargedKeys.has(
+            `${item.id}:${CustomerTransactionSource.WarrantyMarginDeduction}`,
+          )
+        ) {
+          await this.customerTransactionService.createWithinTransaction(
+            tx,
+            {
+              operandId: payerPersonId,
+              source: CustomerTransactionSource.WarrantyMarginDeduction,
+              sourceId: item.id,
+              amount: {
+                amountMinor: -marginAmount,
+                currencyCode: defaultCurrency,
+              },
+            },
+            ctx.tenantId,
+            ctx.userId,
+          );
+          await this.auditLog.record(tx, ctx, {
+            rootEntityType: AuditEntityType.ORDER,
+            rootEntityId: orderId,
+            entityType: AuditEntityType.ORDER_ITEM_SERVICE,
+            entityId: item.id,
+            action: AuditAction.WARRANTY_DEDUCT,
+            changes: [
+              {
+                field: 'amount',
+                oldValue: null,
+                newValue: {
+                  amountMinor: String(-marginAmount),
+                  currencyCode: defaultCurrency,
+                },
+              },
+            ],
+            entityDisplayName: svc.service,
+          });
+        }
+      });
+    }
+  }
+
+  /**
+   * Удержание с сотрудника-плательщика за гарантийную запчасть (warrantyPayerKind=
+   * EMPLOYEE). Сумма = себестоимость на момент закрытия заказа (CogsService).
+   * Если плательщик — организация, удержания нет (она поглощает стоимость).
    */
   async chargeWarrantyPartDeductions(
     ctx: AuthContext,
     orderId: string,
   ): Promise<void> {
     const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
-    const order = await this.prisma.order.findFirst({
-      where: { id: orderId, tenantId: ctx.tenantId },
-      select: { assigneeId: true },
-    });
-
-    const allOrderItems = await this.prisma.orderItem.findMany({
-      where: { orderId },
-      select: {
-        id: true,
-        parentId: true,
-        service: {
-          select: { kind: true, executorKind: true, executorId: true },
-        },
-      },
-    });
-    const orderItemsById = new Map<string, WarrantyOrderItemNode>(
-      allOrderItems.map((row) => [
-        row.id,
-        { parentId: row.parentId, service: row.service },
-      ]),
-    );
 
     const items = await this.prisma.orderItem.findMany({
       where: {
         orderId,
-        part: { warranty: true, warrantyPayer: WarrantyPayer.EXECUTOR },
+        part: { warranty: true, warrantyPayerKind: WarrantyPayerKind.EMPLOYEE },
       },
       include: {
         part: { include: { part: true } },
@@ -292,18 +424,7 @@ export class SalaryService {
       if (chargedIds.has(item.id)) continue;
       const part = item.part!;
 
-      const ancestorService = findAncestorService(item.parentId, orderItemsById);
-      const effectivePayer = resolvePartWarrantyPayer(
-        ancestorService,
-        order?.assigneeId,
-        WarrantyPayer.EXECUTOR,
-      );
-      if (effectivePayer !== WarrantyPayer.EXECUTOR) continue;
-
-      const personId = resolvePartWarrantyChargePersonId(
-        ancestorService,
-        order?.assigneeId,
-      );
+      const personId = part.warrantyPayerPersonId;
       if (!personId) continue;
 
       const cogs = await this.cogsService.getPartLineCogsAtDate(

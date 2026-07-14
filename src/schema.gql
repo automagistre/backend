@@ -66,22 +66,12 @@ input ApplyOrderWarrantyInput {
   orderId: ID!
 
   """
-  Плательщик за выделенные запчасти (обязателен, если warranty=true и есть запчасти)
-  """
-  partsPayer: WarrantyPayer
-
-  """
-  Причина гарантии — обязательна, если warranty=true (сохраняется в Note заказа)
+  Причина гарантии — обязательна, если warranty=true (сохраняется в Note заказа). Плательщик здесь не выбирается — назначается отдельно по каждой позиции (см. warrantyPayerKind/warrantyPayerPersonId в updateOrderItemService/updateOrderItemPart).
   """
   reason: String
 
   """true — пометить как гарантийные, false — снять пометку"""
   warranty: Boolean!
-
-  """
-  Плательщик за выделенные работы (обязателен, если warranty=true и есть работы)
-  """
-  workPayer: WarrantyPayer
 }
 
 type ApplyOrderWarrantyPayload {
@@ -955,7 +945,12 @@ input CreateOrderItemPartInput {
   warranty: Boolean
 
   """Кто несёт стоимость гарантийной запчасти"""
-  warrantyPayer: WarrantyPayer
+  warrantyPayerKind: WarrantyPayerKind
+
+  """
+  person_id сотрудника-плательщика (обязателен при warrantyPayerKind=EMPLOYEE)
+  """
+  warrantyPayerPersonId: ID
 }
 
 input CreateOrderItemServiceInput {
@@ -977,7 +972,12 @@ input CreateOrderItemServiceInput {
   warranty: Boolean
 
   """Кто несёт стоимость гарантийной работы"""
-  warrantyPayer: WarrantyPayer
+  warrantyPayerKind: WarrantyPayerKind
+
+  """
+  person_id сотрудника-плательщика (обязателен при warrantyPayerKind=EMPLOYEE)
+  """
+  warrantyPayerPersonId: ID
 }
 
 input CreateOrderPrepayInput {
@@ -1963,7 +1963,7 @@ type Mutation {
   addPartCross(input: AddPartCrossInput!): PartModel!
 
   """
-  Пометить/снять гарантию у выделенных позиций заказа (batch): payer работ/запчастей, причина → Note заказа
+  Пометить/снять гарантию у выделенных позиций заказа (batch): причина → Note заказа. Плательщик не выбирается здесь — назначается отдельно по каждой позиции (updateOrderItemService/updateOrderItemPart, warrantyPayerKind/warrantyPayerPersonId)
   """
   applyOrderWarranty(input: ApplyOrderWarrantyInput!): ApplyOrderWarrantyPayload!
 
@@ -2306,7 +2306,10 @@ type OrderItemPartModel {
   warranty: Boolean!
 
   """Кто несёт стоимость гарантийной запчасти"""
-  warrantyPayer: WarrantyPayer
+  warrantyPayerKind: WarrantyPayerKind
+
+  """person_id сотрудника-плательщика (при warrantyPayerKind=EMPLOYEE)"""
+  warrantyPayerPersonId: ID
 }
 
 """Вид работы: автосервис или подрядчик"""
@@ -2350,7 +2353,10 @@ type OrderItemServiceModel {
   warranty: Boolean!
 
   """Кто несёт стоимость гарантийной работы"""
-  warrantyPayer: WarrantyPayer
+  warrantyPayerKind: WarrantyPayerKind
+
+  """person_id сотрудника-плательщика (при warrantyPayerKind=EMPLOYEE)"""
+  warrantyPayerPersonId: ID
 }
 
 """Тип элемента заказа"""
@@ -3881,7 +3887,12 @@ input UpdateOrderItemPartInput {
   warranty: Boolean
 
   """Кто несёт стоимость гарантийной запчасти"""
-  warrantyPayer: WarrantyPayer
+  warrantyPayerKind: WarrantyPayerKind
+
+  """
+  person_id сотрудника-плательщика (обязателен при warrantyPayerKind=EMPLOYEE)
+  """
+  warrantyPayerPersonId: ID
 }
 
 input UpdateOrderItemServiceInput {
@@ -3904,7 +3915,12 @@ input UpdateOrderItemServiceInput {
   warranty: Boolean
 
   """Кто несёт стоимость гарантийной работы"""
-  warrantyPayer: WarrantyPayer
+  warrantyPayerKind: WarrantyPayerKind
+
+  """
+  person_id сотрудника-плательщика (обязателен при warrantyPayerKind=EMPLOYEE)
+  """
+  warrantyPayerPersonId: ID
 }
 
 input UpdateOrganizationInput {
@@ -4195,10 +4211,10 @@ type WalletTransactionModel {
   walletId: String!
 }
 
-"""Плательщик по гарантийной работе"""
-enum WarrantyPayer {
-  """Стоимость несёт исполнитель (сотрудник/подрядчик)"""
-  EXECUTOR
+"""Плательщик по гарантийной позиции"""
+enum WarrantyPayerKind {
+  """Стоимость несёт конкретный сотрудник"""
+  EMPLOYEE
 
   """Стоимость несёт организация (автосервис)"""
   ORGANIZATION

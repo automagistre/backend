@@ -9,7 +9,7 @@ import { CogsService } from 'src/modules/cogs/cogs.service';
 import { EmployeeService } from 'src/modules/employee/employee.service';
 import { SettingsService } from 'src/modules/settings/settings.service';
 import { OrderItemServiceKind } from 'src/modules/order/enums/order-item-service-kind.enum';
-import { WarrantyPayer } from 'src/modules/order/enums/warranty-payer.enum';
+import { WarrantyPayerKind } from 'src/modules/order/enums/warranty-payer-kind.enum';
 import { PartyKind } from 'src/common/party';
 import type { AuthContext } from 'src/common/user-id.store';
 import { computeLineProfit } from './compute-line-profit';
@@ -139,7 +139,7 @@ export class ProfitService {
       executorKind: string | null;
       executorId: string | null;
       warranty: boolean;
-      warrantyPayer: string | null;
+      warrantyPayerKind: string | null;
       priceAmount: bigint | null;
       discountAmount: bigint | null;
       costAmount: bigint | null;
@@ -162,11 +162,13 @@ export class ProfitService {
       revenue: net,
       cost,
       warranty: service.warranty,
-      warrantyPayer: service.warrantyPayer,
+      warrantyPayerKind: service.warrantyPayerKind,
     });
 
+    // Плательщик-сотрудник (сам исполнитель или другой) полностью компенсирует
+    // ЗП/маржу отдельными проводками — cost для отчёта прибыли не показываем.
     const effectiveCostBasis =
-      service.warranty && service.warrantyPayer === WarrantyPayer.EXECUTOR
+      service.warranty && service.warrantyPayerKind !== WarrantyPayerKind.ORGANIZATION
         ? ProfitCostBasis.NONE
         : costBasis;
 
@@ -182,7 +184,7 @@ export class ProfitService {
       costBasis: effectiveCostBasis,
       origin,
       warranty: service.warranty,
-      warrantyPayer: service.warrantyPayer,
+      warrantyPayerKind: service.warrantyPayerKind,
       closedAt,
     };
   }
@@ -196,7 +198,7 @@ export class ProfitService {
       partId: string;
       quantity: number;
       warranty: boolean;
-      warrantyPayer: string | null;
+      warrantyPayerKind: string | null;
       priceAmount: bigint | null;
       discountAmount: bigint | null;
     },
@@ -222,7 +224,7 @@ export class ProfitService {
       revenue,
       cost: cogs,
       warranty: part.warranty,
-      warrantyPayer: part.warrantyPayer,
+      warrantyPayerKind: part.warrantyPayerKind,
     });
 
     return {
@@ -237,7 +239,7 @@ export class ProfitService {
       costBasis,
       origin,
       warranty: part.warranty,
-      warrantyPayer: part.warrantyPayer,
+      warrantyPayerKind: part.warrantyPayerKind,
       closedAt,
     };
   }

@@ -1,4 +1,4 @@
-import { WarrantyPayer } from 'src/modules/order/enums/warranty-payer.enum';
+import { WarrantyPayerKind } from 'src/modules/order/enums/warranty-payer-kind.enum';
 import { ProfitLineKind } from './enums/profit-line-kind.enum';
 import { computeLineProfit } from './compute-line-profit';
 
@@ -48,14 +48,14 @@ describe('computeLineProfit', () => {
     });
   });
 
-  it('гарантия работа EXECUTOR: profit = 0', () => {
+  it('гарантия работа, плательщик — сотрудник (исполнитель или другой): profit = 0', () => {
     expect(
       computeLineProfit({
         kind: ProfitLineKind.SERVICE,
         revenue: 10000n,
         cost: 3000n,
         warranty: true,
-        warrantyPayer: WarrantyPayer.EXECUTOR,
+        warrantyPayerKind: WarrantyPayerKind.EMPLOYEE,
       }),
     ).toEqual({
       revenueAmount: 0n,
@@ -71,7 +71,7 @@ describe('computeLineProfit', () => {
         revenue: 10000n,
         cost: 80000n,
         warranty: true,
-        warrantyPayer: WarrantyPayer.ORGANIZATION,
+        warrantyPayerKind: WarrantyPayerKind.ORGANIZATION,
       }),
     ).toEqual({
       revenueAmount: 0n,
@@ -87,7 +87,7 @@ describe('computeLineProfit', () => {
         revenue: 10000n,
         cost: 5000n,
         warranty: true,
-        warrantyPayer: WarrantyPayer.EXECUTOR,
+        warrantyPayerKind: WarrantyPayerKind.EMPLOYEE,
       }),
     ).toEqual({
       revenueAmount: 0n,

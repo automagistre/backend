@@ -31,6 +31,7 @@ describe('EmployeeService person/employee converters', () => {
     expect(prisma.employee.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({ personId: 'person-1' }),
+        orderBy: { firedAt: { sort: 'asc', nulls: 'first' } },
       }),
     );
   });

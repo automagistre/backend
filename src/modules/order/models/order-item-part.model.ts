@@ -1,7 +1,7 @@
 import { Field, ID, Int, ObjectType } from '@nestjs/graphql';
 import { PartModel } from 'src/modules/part/models/part.model';
 import { OrganizationModel } from 'src/modules/organization/models/organization.model';
-import { WarrantyPayer } from '../enums/warranty-payer.enum';
+import { WarrantyPayerKind } from '../enums/warranty-payer-kind.enum';
 
 @ObjectType({ description: 'Запчасть в заказе' })
 export class OrderItemPartModel {
@@ -26,11 +26,17 @@ export class OrderItemPartModel {
   @Field(() => Boolean)
   warranty: boolean;
 
-  @Field(() => WarrantyPayer, {
+  @Field(() => WarrantyPayerKind, {
     nullable: true,
     description: 'Кто несёт стоимость гарантийной запчасти',
   })
-  warrantyPayer: WarrantyPayer | null;
+  warrantyPayerKind: WarrantyPayerKind | null;
+
+  @Field(() => ID, {
+    nullable: true,
+    description: 'person_id сотрудника-плательщика (при warrantyPayerKind=EMPLOYEE)',
+  })
+  warrantyPayerPersonId: string | null;
 
   @Field(() => BigInt, { nullable: true })
   priceAmount: bigint | null;

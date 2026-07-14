@@ -12,7 +12,7 @@ CREATE TABLE "order_item_profit" (
     "cost_basis" VARCHAR(16) NOT NULL,
     "origin" VARCHAR(16) NOT NULL,
     "warranty" BOOLEAN NOT NULL,
-    "warranty_payer" VARCHAR(16),
+    "warranty_payer_kind" VARCHAR(16),
     "closed_at" TIMESTAMPTZ(0) NOT NULL,
     "created_at" TIMESTAMPTZ(0) DEFAULT CURRENT_TIMESTAMP,
 

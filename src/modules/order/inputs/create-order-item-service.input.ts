@@ -3,7 +3,7 @@ import { IsOptional } from 'class-validator';
 import { MoneyInput } from 'src/common/inputs/money.input';
 import { ExecutorInput } from 'src/common/party';
 import { OrderItemServiceKind } from '../enums/order-item-service-kind.enum';
-import { WarrantyPayer } from '../enums/warranty-payer.enum';
+import { WarrantyPayerKind } from '../enums/warranty-payer-kind.enum';
 
 @InputType()
 export class CreateOrderItemServiceInput {
@@ -36,12 +36,19 @@ export class CreateOrderItemServiceInput {
   @IsOptional()
   warranty?: boolean;
 
-  @Field(() => WarrantyPayer, {
+  @Field(() => WarrantyPayerKind, {
     nullable: true,
     description: 'Кто несёт стоимость гарантийной работы',
   })
   @IsOptional()
-  warrantyPayer?: WarrantyPayer | null;
+  warrantyPayerKind?: WarrantyPayerKind | null;
+
+  @Field(() => ID, {
+    nullable: true,
+    description: 'person_id сотрудника-плательщика (обязателен при warrantyPayerKind=EMPLOYEE)',
+  })
+  @IsOptional()
+  warrantyPayerPersonId?: string | null;
 
   @Field(() => MoneyInput, { nullable: true })
   @IsOptional()

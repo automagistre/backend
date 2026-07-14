@@ -5,7 +5,7 @@ export enum CloseDeficiency {
   SERVICES_WITHOUT_WORKER = 'SERVICES_WITHOUT_WORKER',
   CONTRACTOR_WITHOUT_COST = 'CONTRACTOR_WITHOUT_COST',
   WARRANTY_WITHOUT_PAYER = 'WARRANTY_WITHOUT_PAYER',
-  WARRANTY_EXECUTOR_REQUIRED = 'WARRANTY_EXECUTOR_REQUIRED',
+  WARRANTY_PAYER_NOT_ELIGIBLE = 'WARRANTY_PAYER_NOT_ELIGIBLE',
 }
 
 registerEnumType(CloseDeficiency, {
@@ -24,9 +24,9 @@ registerEnumType(CloseDeficiency, {
     WARRANTY_WITHOUT_PAYER: {
       description: 'Гарантийная позиция без плательщика',
     },
-    WARRANTY_EXECUTOR_REQUIRED: {
+    WARRANTY_PAYER_NOT_ELIGIBLE: {
       description:
-        'Гарантия за счёт исполнителя, но исполнителя-сотрудника (со ставкой) или ответственного по заказу нет',
+        'Плательщик гарантии — сотрудник, но он не найден, уволен или не имеет ставки',
     },
   },
 });

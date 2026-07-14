@@ -118,6 +118,18 @@ describe('CustomerTransactionService', () => {
       );
       expect(res).toBe('№1, Иванов');
     });
+
+    it('WarrantySalaryCompensation/WarrantyMarginDeduction → контекст заказа по id позиции', async () => {
+      display.getOrderContextByOrderItemId.mockResolvedValue('№1, Иванов');
+      for (const source of [
+        CustomerTransactionSource.WarrantySalaryCompensation,
+        CustomerTransactionSource.WarrantyMarginDeduction,
+      ]) {
+        const res = await service.getSourceDisplay(ctx, source, 'order-item-1');
+        expect(res).toBe('№1, Иванов');
+      }
+      expect(display.getOrderContextByOrderItemId).toHaveBeenCalledTimes(2);
+    });
   });
 
   describe('findByOrderId', () => {
@@ -168,7 +180,13 @@ describe('CustomerTransactionService', () => {
       expect(prisma.customerTransaction.findMany).toHaveBeenNthCalledWith(2, {
         where: {
           tenantId: ctx.tenantId,
-          source: CustomerTransactionSource.WarrantyDeduction,
+          source: {
+            in: [
+              CustomerTransactionSource.WarrantyDeduction,
+              CustomerTransactionSource.WarrantySalaryCompensation,
+              CustomerTransactionSource.WarrantyMarginDeduction,
+            ],
+          },
           sourceId: { in: ['item-1', 'item-2'] },
         },
       });

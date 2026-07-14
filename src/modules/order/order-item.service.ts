@@ -16,7 +16,7 @@ import { UpdateOrderItemServiceInput } from './inputs/update-order-item-service.
 import { UpdateOrderItemGroupInput } from './inputs/update-order-item-group.input';
 import { ApplyOrderWarrantyInput } from './inputs/apply-order-warranty.input';
 import { ApplyOrderWarrantyPayload } from './models/apply-order-warranty.payload';
-import { WarrantyPayer } from './enums/warranty-payer.enum';
+import { WarrantyPayerKind } from './enums/warranty-payer-kind.enum';
 import { NoteService } from 'src/modules/note/note.service';
 import {
   OrderItem,
@@ -27,13 +27,7 @@ import {
 } from 'src/generated/prisma/client';
 import { OrderItemType } from './enums/order-item-type.enum';
 import { OrderItemServiceKind } from './enums/order-item-service-kind.enum';
-import {
-  expandWarrantyItemIds,
-  findAncestorService,
-  resolvePartWarrantyPayer,
-  resolveServiceWarrantyPayer,
-  type WarrantyOrderItemNode,
-} from './warranty-payer.resolve';
+import { expandWarrantyItemIds, isContractorService } from './warranty-payer.resolve';
 import { executorToDb, PartyKind } from 'src/common/party';
 import { WalletTransactionService } from 'src/modules/wallet/wallet-transaction.service';
 import { v6 as uuidv6 } from 'uuid';
@@ -149,7 +143,8 @@ export class OrderItemService {
             executorKind: service.executorKind as any,
             executorId: service.executorId,
             warranty: service.warranty,
-            warrantyPayer: service.warrantyPayer as any,
+            warrantyPayerKind: service.warrantyPayerKind as any,
+            warrantyPayerPersonId: service.warrantyPayerPersonId,
             priceAmount: service.priceAmount,
             priceCurrencyCode: service.priceCurrencyCode,
             discountAmount: service.discountAmount,
@@ -165,7 +160,7 @@ export class OrderItemService {
       part: part
         ? {
             ...part,
-            warrantyPayer: part.warrantyPayer as any,
+            warrantyPayerKind: part.warrantyPayerKind as any,
             part: part.part,
             supplier: part.supplier,
           }
@@ -344,6 +339,72 @@ export class OrderItemService {
     }
   }
 
+  /** Плательщик = EMPLOYEE допустим только для действующего сотрудника (не подрядчика). */
+  private async validatePayerSelection(
+    ctx: AuthContext,
+    payerKind: WarrantyPayerKind | null | undefined,
+    payerPersonId: string | null | undefined,
+    subject: string,
+  ): Promise<void> {
+    if (!payerKind) {
+      throw new BadRequestException(
+        `Укажите плательщика гарантии для ${subject}`,
+      );
+    }
+    if (payerKind === WarrantyPayerKind.EMPLOYEE) {
+      if (!payerPersonId) {
+        throw new BadRequestException('Укажите сотрудника-плательщика гарантии');
+      }
+      const employee = await this.prisma.employee.findFirst({
+        where: { personId: payerPersonId, firedAt: null, tenantId: ctx.tenantId },
+        select: { id: true },
+      });
+      if (!employee) {
+        throw new BadRequestException(
+          'Плательщик гарантии должен быть действующим сотрудником',
+        );
+      }
+    }
+  }
+
+  /**
+   * Разрешает плательщика гарантии для работы/запчасти. Подрядная работа —
+   * плательщик всегда ORGANIZATION (форсируется автоматически). Иначе выбор
+   * обязателен при warranty=true.
+   */
+  private async resolveWarrantyPayer(
+    ctx: AuthContext,
+    params: {
+      warranty: boolean;
+      isContractorWork?: boolean;
+      payerKind?: WarrantyPayerKind | null;
+      payerPersonId?: string | null;
+      subject: string;
+    },
+  ): Promise<{
+    warrantyPayerKind: WarrantyPayerKind | null;
+    warrantyPayerPersonId: string | null;
+  }> {
+    if (!params.warranty) {
+      return { warrantyPayerKind: null, warrantyPayerPersonId: null };
+    }
+    if (params.isContractorWork) {
+      return { warrantyPayerKind: WarrantyPayerKind.ORGANIZATION, warrantyPayerPersonId: null };
+    }
+    await this.validatePayerSelection(
+      ctx,
+      params.payerKind,
+      params.payerPersonId,
+      params.subject,
+    );
+    const kind = params.payerKind!;
+    return {
+      warrantyPayerKind: kind,
+      warrantyPayerPersonId:
+        kind === WarrantyPayerKind.EMPLOYEE ? (params.payerPersonId ?? null) : null,
+    };
+  }
+
   async createService(
     ctx: AuthContext,
     input: CreateOrderItemServiceInput,
@@ -372,6 +433,19 @@ export class OrderItemService {
       input.costWalletId ?? null,
     );
 
+    const warranty = input.warranty ?? false;
+    const payer = await this.resolveWarrantyPayer(ctx, {
+      warranty,
+      isContractorWork: isContractorService({
+        kind,
+        executorKind: input.executor?.kind ?? null,
+        executorId: input.executor?.id ?? null,
+      }),
+      payerKind: input.warrantyPayerKind ?? null,
+      payerPersonId: input.warrantyPayerPersonId ?? null,
+      subject: 'работы',
+    });
+
     const orderItem = await this.prisma.$transaction(async (tx) => {
       const created = await tx.orderItem.create({
         data: {
@@ -385,8 +459,9 @@ export class OrderItemService {
               service: input.service,
               kind,
               ...executorToDb(input.executor),
-              warranty: input.warranty ?? false,
-              warrantyPayer: input.warrantyPayer ?? null,
+              warranty,
+              warrantyPayerKind: payer.warrantyPayerKind,
+              warrantyPayerPersonId: payer.warrantyPayerPersonId,
               priceAmount: priceData.amountMinor,
               priceCurrencyCode: priceData.currencyCode,
               discountAmount: discountData.amountMinor,
@@ -422,7 +497,6 @@ export class OrderItemService {
         costCurrencyCode: created.service!.costCurrencyCode,
         costWalletId: created.service!.costWalletId,
         warranty: created.service!.warranty,
-        warrantyPayer: created.service!.warrantyPayer,
       });
 
       return created;
@@ -464,6 +538,14 @@ export class OrderItemService {
       ? applyDefaultCurrency(input.discount, defaultCurrency)
       : { amountMinor: 0n, currencyCode: defaultCurrency };
 
+    const warranty = input.warranty ?? false;
+    const payer = await this.resolveWarrantyPayer(ctx, {
+      warranty,
+      payerKind: input.warrantyPayerKind ?? null,
+      payerPersonId: input.warrantyPayerPersonId ?? null,
+      subject: 'запчасти',
+    });
+
     const orderItem = await this.prisma.orderItem.create({
       data: {
         id: uuidv6(),
@@ -476,7 +558,9 @@ export class OrderItemService {
             partId: input.partId,
             supplierId: input.supplierId,
             quantity: input.quantity,
-            warranty: input.warranty ?? false,
+            warranty,
+            warrantyPayerKind: payer.warrantyPayerKind,
+            warrantyPayerPersonId: payer.warrantyPayerPersonId,
             priceAmount: priceData.amountMinor,
             priceCurrencyCode: priceData.currencyCode,
             discountAmount: discountData.amountMinor,
@@ -688,8 +772,26 @@ export class OrderItemService {
       updateData.discountCurrencyCode = discountData.currencyCode;
     }
     if (input.warranty != null) updateData.warranty = input.warranty;
-    if (input.warrantyPayer !== undefined) {
-      updateData.warrantyPayer = input.warrantyPayer;
+
+    const warrantyRelevant =
+      input.warranty != null ||
+      input.warrantyPayerKind !== undefined ||
+      input.warrantyPayerPersonId !== undefined;
+    if (warrantyRelevant) {
+      const payer = await this.resolveWarrantyPayer(ctx, {
+        warranty: input.warranty ?? orderItem.part.warranty,
+        payerKind:
+          input.warrantyPayerKind !== undefined
+            ? input.warrantyPayerKind
+            : (orderItem.part.warrantyPayerKind as WarrantyPayerKind | null),
+        payerPersonId:
+          input.warrantyPayerPersonId !== undefined
+            ? input.warrantyPayerPersonId
+            : orderItem.part.warrantyPayerPersonId,
+        subject: 'запчасти',
+      });
+      updateData.warrantyPayerKind = payer.warrantyPayerKind;
+      updateData.warrantyPayerPersonId = payer.warrantyPayerPersonId;
     }
     if (input.supplierId !== undefined)
       updateData.supplierId = input.supplierId;
@@ -798,9 +900,6 @@ export class OrderItemService {
       updateData.discountCurrencyCode = discountData.currencyCode;
     }
     if (input.warranty != null) updateData.warranty = input.warranty;
-    if (input.warrantyPayer !== undefined) {
-      updateData.warrantyPayer = input.warrantyPayer;
-    }
     if (input.executor !== undefined) {
       Object.assign(updateData, executorToDb(input.executor));
     }
@@ -843,6 +942,36 @@ export class OrderItemService {
       effective.costWalletId,
     );
 
+    const warrantyRelevant =
+      input.warranty != null ||
+      input.warrantyPayerKind !== undefined ||
+      input.warrantyPayerPersonId !== undefined ||
+      input.kind != null ||
+      input.executor !== undefined;
+    if (warrantyRelevant) {
+      const payer = await this.resolveWarrantyPayer(ctx, {
+        warranty: effective.warranty,
+        isContractorWork: isContractorService({
+          kind: effective.kind,
+          executorKind: effective.executorKind,
+          executorId: effective.executorId,
+        }),
+        payerKind:
+          input.warrantyPayerKind !== undefined
+            ? input.warrantyPayerKind
+            : effective.warrantyPayerKind,
+        payerPersonId:
+          input.warrantyPayerPersonId !== undefined
+            ? input.warrantyPayerPersonId
+            : effective.warrantyPayerPersonId,
+        subject: 'работы',
+      });
+      updateData.warrantyPayerKind = payer.warrantyPayerKind;
+      updateData.warrantyPayerPersonId = payer.warrantyPayerPersonId;
+      effective.warrantyPayerKind = payer.warrantyPayerKind;
+      effective.warrantyPayerPersonId = payer.warrantyPayerPersonId;
+    }
+
     if (input.parentId !== undefined) {
       await this.prisma.orderItem.update({
         where: { id: input.id },
@@ -884,7 +1013,6 @@ export class OrderItemService {
           costCurrencyCode: effective.costCurrencyCode,
           costWalletId: effective.costWalletId,
           warranty: effective.warranty,
-          warrantyPayer: effective.warrantyPayer,
         });
       });
     }
@@ -1040,10 +1168,15 @@ export class OrderItemService {
 
   /**
    * Batch-применение гарантии к выделенным позициям (одно модальное окно
-   * вместо тумблера на каждую строку, см. warranty_payer_ui план §2/§3).
-   * В одной транзакции: обновление warranty/warrantyPayer на работах и
-   * запчастях, синк ContractorPayout, upsert заметки с причиной (только
-   * при warranty=true), аудит по каждой позиции.
+   * вместо тумблера на каждую строку). Плательщик здесь НЕ выбирается —
+   * только флаг warranty и причина (Note); для подрядных работ плательщик
+   * всегда форсируется в ORGANIZATION, для остальных позиций плательщик
+   * назначается отдельно по каждой позиции (см. updateService/updatePart,
+   * warrantyPayerKind/warrantyPayerPersonId) — это исключает путаницу, когда
+   * один batch-выбор в диалоге неявно применялся бы к разным позициям с
+   * разными фактическими плательщиками. В одной транзакции: обновление
+   * warranty/warrantyPayerKind на работах и запчастях, синк ContractorPayout,
+   * создание заметки с причиной (только при warranty=true), аудит по каждой позиции.
    */
   async applyWarranty(
     ctx: AuthContext,
@@ -1060,23 +1193,17 @@ export class OrderItemService {
       throw new BadRequestException('Укажите причину гарантии');
     }
 
-    const [orderRow, allOrderItems] = await Promise.all([
-      this.prisma.order.findFirst({
-        where: { id: input.orderId, tenantId: ctx.tenantId },
-        select: { assigneeId: true },
-      }),
-      this.prisma.orderItem.findMany({
-        where: { orderId: input.orderId },
-        select: {
-          id: true,
-          parentId: true,
-          type: true,
-          service: {
-            select: { kind: true, executorKind: true, executorId: true },
-          },
+    const allOrderItems = await this.prisma.orderItem.findMany({
+      where: { orderId: input.orderId },
+      select: {
+        id: true,
+        parentId: true,
+        type: true,
+        service: {
+          select: { kind: true, executorKind: true, executorId: true },
         },
-      }),
-    ]);
+      },
+    });
 
     const expandedItemIds = expandWarrantyItemIds(input.itemIds, allOrderItems);
 
@@ -1102,66 +1229,22 @@ export class OrderItemService {
         item.part != null,
     );
 
-    if (input.warranty) {
-      if (serviceItems.length > 0 && !input.workPayer) {
-        throw new BadRequestException('Укажите плательщика по работам');
-      }
-      if (partItems.length > 0 && !input.partsPayer) {
-        throw new BadRequestException('Укажите плательщика по запчастям');
-      }
-    }
-
     let noteId: string | null = null;
-
-    const assigneeId = orderRow?.assigneeId ?? null;
-    const orderItemsById = new Map<string, WarrantyOrderItemNode>(
-      allOrderItems.map((row) => [
-        row.id,
-        {
-          parentId: row.parentId,
-          service: row.service,
-        },
-      ]),
-    );
-
-    const resolvePartPayer = (item: (typeof partItems)[number]) =>
-      input.warranty
-        ? resolvePartWarrantyPayer(
-            findAncestorService(item.parentId, orderItemsById),
-            assigneeId,
-            input.partsPayer ?? null,
-          )
-        : null;
-
-    const noteWorkPayer =
-      serviceItems.length > 0 && input.warranty
-        ? serviceItems.some(
-            (item) =>
-              resolveServiceWarrantyPayer(item.service, input.workPayer ?? null) ===
-              WarrantyPayer.EXECUTOR,
-          )
-          ? WarrantyPayer.EXECUTOR
-          : WarrantyPayer.ORGANIZATION
-        : null;
-    const notePartsPayer =
-      partItems.length > 0 && input.warranty
-        ? partItems.some(
-            (item) => resolvePartPayer(item) === WarrantyPayer.EXECUTOR,
-          )
-          ? WarrantyPayer.EXECUTOR
-          : WarrantyPayer.ORGANIZATION
-        : null;
 
     await this.prisma.$transaction(async (tx) => {
       for (const item of serviceItems) {
         const before = item.service;
-        const warrantyPayer: WarrantyPayer | null = input.warranty
-          ? resolveServiceWarrantyPayer(before, input.workPayer ?? null)
-          : null;
+        // Плательщик подрядной работы фиксирован (ORGANIZATION); для своих
+        // работ payer сбрасывается — назначается позже отдельно по позиции.
+        const warrantyPayerKind =
+          input.warranty && isContractorService(before)
+            ? WarrantyPayerKind.ORGANIZATION
+            : null;
+        const warrantyPayerPersonId = null;
 
         await tx.orderItemService.update({
           where: { id: item.id },
-          data: { warranty: input.warranty, warrantyPayer },
+          data: { warranty: input.warranty, warrantyPayerKind, warrantyPayerPersonId },
         });
 
         await this.auditLog.record(tx, ctx, {
@@ -1174,7 +1257,8 @@ export class OrderItemService {
           after: {
             ...before,
             warranty: input.warranty,
-            warrantyPayer,
+            warrantyPayerKind,
+            warrantyPayerPersonId,
             parentId: item.parentId,
           },
           entityDisplayName: before.service,
@@ -1191,17 +1275,18 @@ export class OrderItemService {
           costCurrencyCode: before.costCurrencyCode,
           costWalletId: before.costWalletId,
           warranty: input.warranty,
-          warrantyPayer,
         });
       }
 
       for (const item of partItems) {
         const before = item.part;
-        const warrantyPayer = resolvePartPayer(item);
+        // Плательщик запчасти сбрасывается — назначается позже отдельно по позиции.
+        const warrantyPayerKind = null;
+        const warrantyPayerPersonId = null;
 
         await tx.orderItemPart.update({
           where: { id: item.id },
-          data: { warranty: input.warranty, warrantyPayer },
+          data: { warranty: input.warranty, warrantyPayerKind, warrantyPayerPersonId },
         });
 
         await this.auditLog.record(tx, ctx, {
@@ -1214,7 +1299,8 @@ export class OrderItemService {
           after: {
             ...before,
             warranty: input.warranty,
-            warrantyPayer,
+            warrantyPayerKind,
+            warrantyPayerPersonId,
             parentId: item.parentId,
           },
           entityDisplayName: before.part?.name ?? null,
@@ -1222,14 +1308,7 @@ export class OrderItemService {
       }
 
       if (input.warranty) {
-        const note = await this.noteService.upsertWarrantyNote(
-          ctx,
-          tx,
-          input.orderId,
-          reason,
-          serviceItems.length > 0 ? noteWorkPayer : null,
-          partItems.length > 0 ? notePartsPayer : null,
-        );
+        const note = await this.noteService.createWarrantyNote(ctx, tx, input.orderId, reason);
         noteId = note.id;
       }
     });

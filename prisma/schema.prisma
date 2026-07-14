@@ -928,8 +928,10 @@ model OrderItemService {
   executorKind         String?   @map("executor_kind") @db.VarChar(16)
   executorId           String?   @map("executor_id") @db.Uuid
   warranty             Boolean
-  /// EXECUTOR | ORGANIZATION — кто несёт стоимость гарантийной работы
-  warrantyPayer        String?   @map("warranty_payer") @db.VarChar(16)
+  /// EMPLOYEE | ORGANIZATION — кто несёт стоимость гарантийной работы
+  warrantyPayerKind    String?   @map("warranty_payer_kind") @db.VarChar(16)
+  /// person_id сотрудника-плательщика (обязателен при warrantyPayerKind=EMPLOYEE)
+  warrantyPayerPersonId String?  @map("warranty_payer_person_id") @db.Uuid
   priceAmount          BigInt?   @map("price_amount")
   priceCurrencyCode    String?   @map("price_currency_code") @db.VarChar(3)
   discountAmount       BigInt?   @map("discount_amount")
@@ -954,8 +956,10 @@ model OrderItemPart {
   supplierId           String?       @map("supplier_id") @db.Uuid
   quantity             Int
   warranty             Boolean
-  /// EXECUTOR | ORGANIZATION — кто несёт стоимость гарантийной запчасти
-  warrantyPayer        String?       @map("warranty_payer") @db.VarChar(16)
+  /// EMPLOYEE | ORGANIZATION — кто несёт стоимость гарантийной запчасти
+  warrantyPayerKind    String?       @map("warranty_payer_kind") @db.VarChar(16)
+  /// person_id сотрудника-плательщика (обязателен при warrantyPayerKind=EMPLOYEE)
+  warrantyPayerPersonId String?      @map("warranty_payer_person_id") @db.Uuid
   priceAmount          BigInt?       @map("price_amount")
   priceCurrencyCode    String?       @map("price_currency_code") @db.VarChar(3)
   discountAmount       BigInt?       @map("discount_amount")
@@ -987,7 +991,8 @@ model OrderItemProfit {
   /// LIVE | LEGACY_BACKFILL
   origin        String    @db.VarChar(16)
   warranty      Boolean
-  warrantyPayer String?   @map("warranty_payer") @db.VarChar(16)
+  /// EMPLOYEE | ORGANIZATION — кто несёт стоимость гарантийной позиции
+  warrantyPayerKind String? @map("warranty_payer_kind") @db.VarChar(16)
   closedAt      DateTime  @map("closed_at") @db.Timestamptz(0)
   createdAt     DateTime? @default(now()) @map("created_at") @db.Timestamptz(0)
 

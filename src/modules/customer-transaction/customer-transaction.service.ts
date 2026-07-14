@@ -27,6 +27,13 @@ const ORDER_SOURCES = [
   CustomerTransactionSource.OrderSalary,
 ];
 
+/** Проводки по гарантии: sourceId = orderItemService.id | orderItemPart.id */
+const WARRANTY_SOURCES = [
+  CustomerTransactionSource.WarrantyDeduction,
+  CustomerTransactionSource.WarrantySalaryCompensation,
+  CustomerTransactionSource.WarrantyMarginDeduction,
+];
+
 @Injectable()
 export class CustomerTransactionService {
   constructor(
@@ -155,7 +162,7 @@ export class CustomerTransactionService {
         ? this.prisma.customerTransaction.findMany({
             where: {
               tenantId,
-              source: CustomerTransactionSource.WarrantyDeduction,
+              source: { in: WARRANTY_SOURCES },
               sourceId: { in: orderItemIds },
             },
           })
@@ -197,7 +204,7 @@ export class CustomerTransactionService {
     if (ORDER_SOURCES.includes(source as CustomerTransactionSource)) {
       return this.displayContextService.getOrderContext(ctx, sourceId);
     }
-    if (source === CustomerTransactionSource.WarrantyDeduction) {
+    if (WARRANTY_SOURCES.includes(source as CustomerTransactionSource)) {
       // sourceId = orderItemService.id | orderItemPart.id (не orderId).
       return this.displayContextService.getOrderContextByOrderItemId(
         ctx,

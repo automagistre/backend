@@ -8,7 +8,7 @@ import { AuditLogService } from 'src/modules/audit-log/audit-log.service';
 import { DisplayContextService } from 'src/modules/display-context/display-context.service';
 import { CogsService } from 'src/modules/cogs/cogs.service';
 import { CustomerTransactionSource } from 'src/modules/customer-transaction/enums/customer-transaction-source.enum';
-import { WarrantyPayer } from 'src/modules/order/enums/warranty-payer.enum';
+import { WarrantyPayerKind } from 'src/modules/order/enums/warranty-payer-kind.enum';
 import type { AuthContext } from 'src/common/user-id.store';
 import { createPrismaMock } from 'src/common/testing/prisma-mock';
 import { makeCtx } from 'src/common/testing/auth-context';
@@ -121,10 +121,14 @@ describe('SalaryService.chargeByOrder', () => {
     expect(customerTx.createWithinTransaction).not.toHaveBeenCalled();
   });
 
-  it('пропускает гарантийные работы за счёт исполнителя (EXECUTOR) — начисление отдельным методом', async () => {
+  it('пропускает гарантию, если плательщик = исполнитель — начисление отдельным методом', async () => {
     prisma.customerTransaction.findFirst.mockResolvedValue(null);
     prisma.orderItem.findMany.mockResolvedValue([
-      svc({ warranty: true, warrantyPayer: WarrantyPayer.EXECUTOR }),
+      svc({
+        warranty: true,
+        warrantyPayerKind: WarrantyPayerKind.EMPLOYEE,
+        warrantyPayerPersonId: 'person-1',
+      }),
     ] as any);
 
     await service.chargeByOrder(ctx, 'order-1');
@@ -133,21 +137,10 @@ describe('SalaryService.chargeByOrder', () => {
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
-  it('пропускает гарантийные работы без указанного payer', async () => {
-    prisma.customerTransaction.findFirst.mockResolvedValue(null);
-    prisma.orderItem.findMany.mockResolvedValue([
-      svc({ warranty: true, warrantyPayer: null }),
-    ] as any);
-
-    await service.chargeByOrder(ctx, 'order-1');
-
-    expect(customerTx.createWithinTransaction).not.toHaveBeenCalled();
-  });
-
   it('начисляет ЗП за гарантийную работу за счёт организации (ORGANIZATION) как за обычную', async () => {
     prisma.customerTransaction.findFirst.mockResolvedValue(null);
     prisma.orderItem.findMany.mockResolvedValue([
-      svc({ warranty: true, warrantyPayer: WarrantyPayer.ORGANIZATION }),
+      svc({ warranty: true, warrantyPayerKind: WarrantyPayerKind.ORGANIZATION }),
     ] as any);
     employee.findByPersonId.mockResolvedValue({
       id: 'emp-1',
@@ -160,6 +153,30 @@ describe('SalaryService.chargeByOrder', () => {
 
     expect(customerTx.createWithinTransaction).toHaveBeenCalledTimes(1);
     const arg = customerTx.createWithinTransaction.mock.calls[0][1];
+    expect(arg.amount?.amountMinor).toBe(4000n);
+  });
+
+  it('начисляет ЗП за гарантийную работу, если плательщик — другой сотрудник', async () => {
+    prisma.customerTransaction.findFirst.mockResolvedValue(null);
+    prisma.orderItem.findMany.mockResolvedValue([
+      svc({
+        warranty: true,
+        warrantyPayerKind: WarrantyPayerKind.EMPLOYEE,
+        warrantyPayerPersonId: 'person-2',
+      }),
+    ] as any);
+    employee.findByPersonId.mockResolvedValue({
+      id: 'emp-1',
+      personId: 'person-1',
+      ratio: 40,
+      firedAt: null,
+    } as any);
+
+    await service.chargeByOrder(ctx, 'order-1');
+
+    expect(customerTx.createWithinTransaction).toHaveBeenCalledTimes(1);
+    const arg = customerTx.createWithinTransaction.mock.calls[0][1];
+    expect(arg.operandId).toBe('person-1');
     expect(arg.amount?.amountMinor).toBe(4000n);
   });
 
@@ -284,7 +301,7 @@ describe('SalaryService.chargeMonthlySalaries', () => {
   });
 });
 
-describe('SalaryService.chargeWarrantyWorkDeductions', () => {
+describe('SalaryService.chargeWarrantyExecutorDeductions', () => {
   let prisma: DeepMockProxy<PrismaService>;
   let employee: DeepMockProxy<EmployeeService>;
   let customerTx: DeepMockProxy<CustomerTransactionService>;
@@ -325,6 +342,8 @@ describe('SalaryService.chargeWarrantyWorkDeductions', () => {
     service: {
       executorKind: 'PERSON',
       executorId: 'person-1',
+      warrantyPayerKind: WarrantyPayerKind.EMPLOYEE,
+      warrantyPayerPersonId: 'person-1',
       priceAmount: 10000n,
       discountAmount: 0n,
       service: 'Ремонт подвески',
@@ -341,7 +360,7 @@ describe('SalaryService.chargeWarrantyWorkDeductions', () => {
       firedAt: null,
     } as any);
 
-    await service.chargeWarrantyWorkDeductions(ctx, 'order-1');
+    await service.chargeWarrantyExecutorDeductions(ctx, 'order-1');
 
     expect(customerTx.createWithinTransaction).toHaveBeenCalledTimes(1);
     const arg = customerTx.createWithinTransaction.mock.calls[0][1];
@@ -351,24 +370,32 @@ describe('SalaryService.chargeWarrantyWorkDeductions', () => {
     expect(arg.amount?.amountMinor).toBe(-6000n);
   });
 
+  it('не удерживает, если плательщик — другой сотрудник (не исполнитель)', async () => {
+    prisma.orderItem.findMany.mockResolvedValue([
+      item({ warrantyPayerPersonId: 'person-2' }),
+    ] as any);
+
+    await service.chargeWarrantyExecutorDeductions(ctx, 'order-1');
+
+    expect(customerTx.createWithinTransaction).not.toHaveBeenCalled();
+  });
+
   it('идемпотентность: пропускает позиции с уже существующей проводкой', async () => {
     prisma.orderItem.findMany.mockResolvedValue([item()] as any);
     prisma.customerTransaction.findMany.mockResolvedValue([
       { sourceId: 'item-1' },
     ] as any);
 
-    await service.chargeWarrantyWorkDeductions(ctx, 'order-1');
+    await service.chargeWarrantyExecutorDeductions(ctx, 'order-1');
 
     expect(employee.findByPersonId).not.toHaveBeenCalled();
     expect(customerTx.createWithinTransaction).not.toHaveBeenCalled();
   });
 
   it('пропускает исполнителя-организацию (удержание только с персоны)', async () => {
-    prisma.orderItem.findMany.mockResolvedValue([
-      item({ executorKind: 'ORGANIZATION', executorId: 'org-1' }),
-    ] as any);
+    prisma.orderItem.findMany.mockResolvedValue([]);
 
-    await service.chargeWarrantyWorkDeductions(ctx, 'order-1');
+    await service.chargeWarrantyExecutorDeductions(ctx, 'order-1');
 
     expect(customerTx.createWithinTransaction).not.toHaveBeenCalled();
   });
@@ -382,7 +409,126 @@ describe('SalaryService.chargeWarrantyWorkDeductions', () => {
       firedAt: null,
     } as any);
 
-    await service.chargeWarrantyWorkDeductions(ctx, 'order-1');
+    await service.chargeWarrantyExecutorDeductions(ctx, 'order-1');
+
+    expect(customerTx.createWithinTransaction).not.toHaveBeenCalled();
+  });
+});
+
+describe('SalaryService.chargeWarrantyPayerCompensation', () => {
+  let prisma: DeepMockProxy<PrismaService>;
+  let employee: DeepMockProxy<EmployeeService>;
+  let customerTx: DeepMockProxy<CustomerTransactionService>;
+  let settings: DeepMockProxy<SettingsService>;
+  let audit: DeepMockProxy<AuditLogService>;
+  let display: DeepMockProxy<DisplayContextService>;
+  let cogs: DeepMockProxy<CogsService>;
+  let service: SalaryService;
+
+  const ctx = makeCtx();
+
+  beforeEach(() => {
+    prisma = mockDeep<PrismaService>();
+    employee = mockDeep<EmployeeService>();
+    customerTx = mockDeep<CustomerTransactionService>();
+    settings = mockDeep<SettingsService>();
+    audit = mockDeep<AuditLogService>();
+    display = mockDeep<DisplayContextService>();
+    cogs = mockDeep<CogsService>();
+
+    settings.getDefaultCurrencyCode.mockResolvedValue('RUB');
+    prisma.$transaction.mockImplementation(async (cb: any) => cb(prisma));
+    prisma.customerTransaction.findMany.mockResolvedValue([]);
+
+    service = new SalaryService(
+      prisma as unknown as PrismaService,
+      employee as unknown as EmployeeService,
+      customerTx as unknown as CustomerTransactionService,
+      settings as unknown as SettingsService,
+      audit as unknown as AuditLogService,
+      display as unknown as DisplayContextService,
+      cogs as unknown as CogsService,
+    );
+  });
+
+  const item = (over: Record<string, any> = {}) => ({
+    id: 'item-1',
+    service: {
+      executorKind: 'PERSON',
+      executorId: 'person-1',
+      warrantyPayerKind: WarrantyPayerKind.EMPLOYEE,
+      warrantyPayerPersonId: 'person-2',
+      priceAmount: 10000n,
+      discountAmount: 0n,
+      service: 'Ремонт подвески',
+      ...over,
+    },
+  });
+
+  it('создаёт 2 проводки на плательщика: компенсация ЗП + маржа, в сумме = базе', async () => {
+    prisma.orderItem.findMany.mockResolvedValue([item()] as any);
+    employee.findByPersonId.mockResolvedValue({
+      id: 'emp-1',
+      personId: 'person-1',
+      ratio: 40,
+      firedAt: null,
+    } as any);
+
+    await service.chargeWarrantyPayerCompensation(ctx, 'order-1');
+
+    expect(customerTx.createWithinTransaction).toHaveBeenCalledTimes(2);
+    const salaryArg = customerTx.createWithinTransaction.mock.calls[0][1];
+    const marginArg = customerTx.createWithinTransaction.mock.calls[1][1];
+    expect(salaryArg.operandId).toBe('person-2');
+    expect(salaryArg.source).toBe(
+      CustomerTransactionSource.WarrantySalaryCompensation,
+    );
+    expect(salaryArg.amount?.amountMinor).toBe(-4000n);
+    expect(marginArg.operandId).toBe('person-2');
+    expect(marginArg.source).toBe(
+      CustomerTransactionSource.WarrantyMarginDeduction,
+    );
+    expect(marginArg.amount?.amountMinor).toBe(-6000n);
+  });
+
+  it('не создаёт проводки, если плательщик совпадает с исполнителем', async () => {
+    prisma.orderItem.findMany.mockResolvedValue([
+      item({ warrantyPayerPersonId: 'person-1' }),
+    ] as any);
+
+    await service.chargeWarrantyPayerCompensation(ctx, 'order-1');
+
+    expect(customerTx.createWithinTransaction).not.toHaveBeenCalled();
+  });
+
+  it('не создаёт проводки, если плательщик — организация', async () => {
+    prisma.orderItem.findMany.mockResolvedValue([]);
+
+    await service.chargeWarrantyPayerCompensation(ctx, 'order-1');
+
+    expect(customerTx.createWithinTransaction).not.toHaveBeenCalled();
+  });
+
+  it('идемпотентность: не дублирует уже созданные проводки', async () => {
+    prisma.orderItem.findMany.mockResolvedValue([item()] as any);
+    prisma.customerTransaction.findMany.mockResolvedValue([
+      {
+        sourceId: 'item-1',
+        source: CustomerTransactionSource.WarrantySalaryCompensation,
+      },
+      {
+        sourceId: 'item-1',
+        source: CustomerTransactionSource.WarrantyMarginDeduction,
+      },
+    ] as any);
+    employee.findByPersonId.mockResolvedValue({
+      id: 'emp-1',
+      personId: 'person-1',
+      ratio: 40,
+      firedAt: null,
+    } as any);
+
+    await service.chargeWarrantyPayerCompensation(ctx, 'order-1');
 
     expect(customerTx.createWithinTransaction).not.toHaveBeenCalled();
   });
@@ -412,7 +558,6 @@ describe('SalaryService.chargeWarrantyPartDeductions', () => {
     settings.getDefaultCurrencyCode.mockResolvedValue('RUB');
     prisma.$transaction.mockImplementation(async (cb: any) => cb(prisma));
     prisma.customerTransaction.findMany.mockResolvedValue([]);
-    prisma.order.findFirst.mockResolvedValue({ assigneeId: null } as any);
 
     service = new SalaryService(
       prisma as unknown as PrismaService,
@@ -427,32 +572,17 @@ describe('SalaryService.chargeWarrantyPartDeductions', () => {
 
   const partItem = (over: Record<string, any> = {}) => ({
     id: 'item-1',
-    parentId: 'svc-1',
-    part: { partId: 'part-1', quantity: 100, part: { name: 'Подшипник' } },
-    ...over,
+    part: {
+      partId: 'part-1',
+      quantity: 100,
+      part: { name: 'Подшипник' },
+      warrantyPayerPersonId: 'person-1',
+      ...over,
+    },
   });
 
-  const mockPartDeductionQueries = (
-    warrantyParts: unknown[],
-    orderTree: unknown[] = [
-      {
-        id: 'svc-1',
-        parentId: null,
-        service: {
-          kind: 'AUTOSERVICE',
-          executorKind: 'PERSON',
-          executorId: 'person-1',
-        },
-      },
-    ],
-  ) => {
-    prisma.orderItem.findMany
-      .mockResolvedValueOnce(orderTree as any)
-      .mockResolvedValueOnce(warrantyParts as any);
-  };
-
-  it('удерживает COGS с исполнителя родительской работы', async () => {
-    mockPartDeductionQueries([partItem()]);
+  it('удерживает COGS с сотрудника-плательщика', async () => {
+    prisma.orderItem.findMany.mockResolvedValue([partItem()] as any);
     cogs.getPartLineCogsAtDate.mockResolvedValue(3000n);
 
     await service.chargeWarrantyPartDeductions(ctx, 'order-1');
@@ -465,45 +595,18 @@ describe('SalaryService.chargeWarrantyPartDeductions', () => {
     expect(arg.amount?.amountMinor).toBe(-3000n);
   });
 
-  it('корневая запчасть — удерживает с ответственного по заказу', async () => {
-    prisma.order.findFirst.mockResolvedValue({ assigneeId: 'assignee-1' } as any);
-    mockPartDeductionQueries([partItem({ parentId: null })], []);
-    cogs.getPartLineCogsAtDate.mockResolvedValue(3000n);
-
-    await service.chargeWarrantyPartDeductions(ctx, 'order-1');
-
-    expect(customerTx.createWithinTransaction).toHaveBeenCalledTimes(1);
-    const arg = customerTx.createWithinTransaction.mock.calls[0][1];
-    expect(arg.operandId).toBe('assignee-1');
-  });
-
-  it('родитель-подрядчик — не удерживает (организация платит)', async () => {
-    mockPartDeductionQueries(
-      [partItem({ parentId: 'svc-1' })],
-      [
-        {
-          id: 'svc-1',
-          parentId: null,
-          service: {
-            kind: 'CONTRACTOR',
-            executorKind: 'ORGANIZATION',
-            executorId: 'org-1',
-          },
-        },
-      ],
-    );
-    cogs.getPartLineCogsAtDate.mockResolvedValue(3000n);
+  it('плательщик — организация (нет в выборке EMPLOYEE) — не удерживает', async () => {
+    prisma.orderItem.findMany.mockResolvedValue([]);
 
     await service.chargeWarrantyPartDeductions(ctx, 'order-1');
 
     expect(customerTx.createWithinTransaction).not.toHaveBeenCalled();
   });
 
-  it('без исполнителя и без ответственного по заказу — пропускает', async () => {
-    mockPartDeductionQueries(
-      [partItem({ parentId: null })],
-      [],
-    );
+  it('без personId — пропускает защитно', async () => {
+    prisma.orderItem.findMany.mockResolvedValue([
+      partItem({ warrantyPayerPersonId: null }),
+    ] as any);
 
     await service.chargeWarrantyPartDeductions(ctx, 'order-1');
 
@@ -511,7 +614,7 @@ describe('SalaryService.chargeWarrantyPartDeductions', () => {
   });
 
   it('COGS = 0 (закупок не было) — пропускает', async () => {
-    mockPartDeductionQueries([partItem()]);
+    prisma.orderItem.findMany.mockResolvedValue([partItem()] as any);
     cogs.getPartLineCogsAtDate.mockResolvedValue(0n);
 
     await service.chargeWarrantyPartDeductions(ctx, 'order-1');
@@ -520,7 +623,7 @@ describe('SalaryService.chargeWarrantyPartDeductions', () => {
   });
 
   it('идемпотентность: пропускает позиции с уже существующей проводкой', async () => {
-    mockPartDeductionQueries([partItem()]);
+    prisma.orderItem.findMany.mockResolvedValue([partItem()] as any);
     prisma.customerTransaction.findMany.mockResolvedValue([
       { sourceId: 'item-1' },
     ] as any);

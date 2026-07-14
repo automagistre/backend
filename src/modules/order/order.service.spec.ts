@@ -145,7 +145,7 @@ describe('OrderService.getCloseValidation', () => {
     expect(res).toEqual({ canClose: true, closeDeficiencies: [] });
   });
 
-  it('гарантийная работа без warrantyPayer → WARRANTY_WITHOUT_PAYER', async () => {
+  it('гарантийная работа без плательщика → WARRANTY_WITHOUT_PAYER', async () => {
     prisma.order.findFirst.mockResolvedValue(
       order({
         items: [
@@ -155,7 +155,8 @@ describe('OrderService.getCloseValidation', () => {
               executorId: 'person-1',
               executorKind: 'PERSON',
               warranty: true,
-              warrantyPayer: null,
+              warrantyPayerKind: null,
+              warrantyPayerPersonId: null,
             },
             children: [],
           },
@@ -167,13 +168,13 @@ describe('OrderService.getCloseValidation', () => {
     expect(res.canClose).toBe(false);
   });
 
-  it('гарантийная запчасть без warrantyPayer → WARRANTY_WITHOUT_PAYER', async () => {
+  it('гарантийная запчасть без плательщика → WARRANTY_WITHOUT_PAYER', async () => {
     prisma.order.findFirst.mockResolvedValue(
       order({
         items: [
           {
             type: '2',
-            part: { warranty: true, warrantyPayer: null },
+            part: { warranty: true, warrantyPayerKind: null, warrantyPayerPersonId: null },
             children: [],
           },
         ],
@@ -183,125 +184,7 @@ describe('OrderService.getCloseValidation', () => {
     expect(res.closeDeficiencies).toContain('WARRANTY_WITHOUT_PAYER');
   });
 
-  it('заказ 69137: корневая запчасть EXECUTOR + подрядная работа в группе → без дефицита', async () => {
-    prisma.order.findFirst.mockResolvedValue(
-      order({
-        assigneeId: null,
-        items: [
-          {
-            type: '2',
-            part: { warranty: false, warrantyPayer: null },
-            children: [],
-          },
-          {
-            type: '2',
-            part: { warranty: true, warrantyPayer: 'EXECUTOR' },
-            children: [],
-          },
-          {
-            type: '3',
-            children: [
-              {
-                type: '1',
-                service: {
-                  kind: 'CONTRACTOR',
-                  executorId: 'org-1',
-                  executorKind: 'ORGANIZATION',
-                  costAmount: 300000n,
-                  warranty: false,
-                  warrantyPayer: 'ORGANIZATION',
-                },
-                children: [],
-              },
-            ],
-          },
-        ],
-      }) as any,
-    );
-    const res = await service.getCloseValidation(ctx, 'o1');
-    expect(res.closeDeficiencies).not.toContain('WARRANTY_EXECUTOR_REQUIRED');
-    expect(res.canClose).toBe(true);
-  });
-
-  it('гарантия EXECUTOR за AUTOSERVICE с исполнителем-организацией → без дефицита', async () => {
-    prisma.order.findFirst.mockResolvedValue(
-      order({
-        items: [
-          {
-            type: '1',
-            service: {
-              kind: 'AUTOSERVICE',
-              executorId: 'org-1',
-              executorKind: 'ORGANIZATION',
-              warranty: true,
-              warrantyPayer: 'EXECUTOR',
-            },
-            children: [],
-          },
-        ],
-      }) as any,
-    );
-    const res = await service.getCloseValidation(ctx, 'o1');
-    expect(res.closeDeficiencies).not.toContain('WARRANTY_EXECUTOR_REQUIRED');
-    expect(res.canClose).toBe(true);
-  });
-
-  it('гарантия подрядной работы с подрядчиком → без WARRANTY_EXECUTOR_REQUIRED', async () => {
-    prisma.order.findFirst.mockResolvedValue(
-      order({
-        items: [
-          {
-            type: '1',
-            service: {
-              kind: 'CONTRACTOR',
-              executorId: 'org-1',
-              executorKind: 'ORGANIZATION',
-              costAmount: 50000n,
-              warranty: true,
-              warrantyPayer: 'EXECUTOR',
-            },
-            children: [],
-          },
-        ],
-      }) as any,
-    );
-    const res = await service.getCloseValidation(ctx, 'o1');
-    expect(res.closeDeficiencies).not.toContain('WARRANTY_EXECUTOR_REQUIRED');
-    expect(res.canClose).toBe(true);
-  });
-
-  it('гарантия EXECUTOR за запчасть под подрядной работой без ответственного → без дефицита', async () => {
-    prisma.order.findFirst.mockResolvedValue(
-      order({
-        assigneeId: null,
-        items: [
-          {
-            type: '1',
-            service: {
-              kind: 'CONTRACTOR',
-              executorId: 'org-1',
-              executorKind: 'ORGANIZATION',
-              costAmount: 50000n,
-              warranty: true,
-              warrantyPayer: 'ORGANIZATION',
-            },
-            children: [
-              {
-                type: '2',
-                part: { warranty: true, warrantyPayer: 'EXECUTOR' },
-                children: [],
-              },
-            ],
-          },
-        ],
-      }) as any,
-    );
-    const res = await service.getCloseValidation(ctx, 'o1');
-    expect(res.closeDeficiencies).not.toContain('WARRANTY_EXECUTOR_REQUIRED');
-    expect(res.canClose).toBe(true);
-  });
-
-  it('гарантия EXECUTOR за работу: сотрудник без ratio → WARRANTY_EXECUTOR_REQUIRED', async () => {
+  it('гарантия с плательщиком ORGANIZATION (работа и запчасть) → без дефицита', async () => {
     prisma.order.findFirst.mockResolvedValue(
       order({
         items: [
@@ -311,7 +194,40 @@ describe('OrderService.getCloseValidation', () => {
               executorId: 'person-1',
               executorKind: 'PERSON',
               warranty: true,
-              warrantyPayer: 'EXECUTOR',
+              warrantyPayerKind: 'ORGANIZATION',
+              warrantyPayerPersonId: null,
+            },
+            children: [
+              {
+                type: '2',
+                part: {
+                  warranty: true,
+                  warrantyPayerKind: 'ORGANIZATION',
+                  warrantyPayerPersonId: null,
+                },
+                children: [],
+              },
+            ],
+          },
+        ],
+      }) as any,
+    );
+    const res = await service.getCloseValidation(ctx, 'o1');
+    expect(res).toEqual({ canClose: true, closeDeficiencies: [] });
+  });
+
+  it('гарантия с плательщиком-сотрудником без ставки → WARRANTY_PAYER_NOT_ELIGIBLE', async () => {
+    prisma.order.findFirst.mockResolvedValue(
+      order({
+        items: [
+          {
+            type: '1',
+            service: {
+              executorId: 'person-1',
+              executorKind: 'PERSON',
+              warranty: true,
+              warrantyPayerKind: 'EMPLOYEE',
+              warrantyPayerPersonId: 'person-1',
             },
             children: [],
           },
@@ -325,20 +241,19 @@ describe('OrderService.getCloseValidation', () => {
       firedAt: null,
     } as any);
     const res = await service.getCloseValidation(ctx, 'o1');
-    expect(res.closeDeficiencies).toContain('WARRANTY_EXECUTOR_REQUIRED');
+    expect(res.closeDeficiencies).toContain('WARRANTY_PAYER_NOT_ELIGIBLE');
   });
 
-  it('гарантия EXECUTOR за работу: исполнитель-сотрудник со ставкой → без дефицита', async () => {
+  it('гарантия с плательщиком-сотрудником уволенным → WARRANTY_PAYER_NOT_ELIGIBLE', async () => {
     prisma.order.findFirst.mockResolvedValue(
       order({
         items: [
           {
-            type: '1',
-            service: {
-              executorId: 'person-1',
-              executorKind: 'PERSON',
+            type: '2',
+            part: {
               warranty: true,
-              warrantyPayer: 'EXECUTOR',
+              warrantyPayerKind: 'EMPLOYEE',
+              warrantyPayerPersonId: 'person-2',
             },
             children: [],
           },
@@ -346,78 +261,16 @@ describe('OrderService.getCloseValidation', () => {
       }) as any,
     );
     employeeService.findByPersonId.mockResolvedValue({
-      id: 'emp-1',
-      personId: 'person-1',
+      id: 'emp-2',
+      personId: 'person-2',
       ratio: 40,
-      firedAt: null,
+      firedAt: new Date(),
     } as any);
     const res = await service.getCloseValidation(ctx, 'o1');
-    expect(res).toEqual({ canClose: true, closeDeficiencies: [] });
+    expect(res.closeDeficiencies).toContain('WARRANTY_PAYER_NOT_ELIGIBLE');
   });
 
-  it('гарантия EXECUTOR за запчасть: родительская работа за сотрудником → без дефицита', async () => {
-    prisma.order.findFirst.mockResolvedValue(
-      order({
-        items: [
-          {
-            type: '1',
-            service: {
-              executorId: 'person-1',
-              executorKind: 'PERSON',
-              warranty: false,
-              warrantyPayer: null,
-            },
-            children: [
-              {
-                type: '2',
-                part: { warranty: true, warrantyPayer: 'EXECUTOR' },
-                children: [],
-              },
-            ],
-          },
-        ],
-      }) as any,
-    );
-    const res = await service.getCloseValidation(ctx, 'o1');
-    expect(res).toEqual({ canClose: true, closeDeficiencies: [] });
-  });
-
-  it('гарантия EXECUTOR за корневую запчасть без ответственного → платит организация, без дефицита', async () => {
-    prisma.order.findFirst.mockResolvedValue(
-      order({
-        assigneeId: null,
-        items: [
-          {
-            type: '2',
-            part: { warranty: true, warrantyPayer: 'EXECUTOR' },
-            children: [],
-          },
-        ],
-      }) as any,
-    );
-    const res = await service.getCloseValidation(ctx, 'o1');
-    expect(res.closeDeficiencies).not.toContain('WARRANTY_EXECUTOR_REQUIRED');
-    expect(res.canClose).toBe(true);
-  });
-
-  it('гарантия EXECUTOR за запчасть без родителя-сотрудника, но с ответственным по заказу → без дефицита', async () => {
-    prisma.order.findFirst.mockResolvedValue(
-      order({
-        assigneeId: 'assignee-1',
-        items: [
-          {
-            type: '2',
-            part: { warranty: true, warrantyPayer: 'EXECUTOR' },
-            children: [],
-          },
-        ],
-      }) as any,
-    );
-    const res = await service.getCloseValidation(ctx, 'o1');
-    expect(res).toEqual({ canClose: true, closeDeficiencies: [] });
-  });
-
-  it('гарантия ORGANIZATION за работу и запчасть → без дефицита', async () => {
+  it('гарантия с плательщиком-сотрудником со ставкой (исполнитель или другой) → без дефицита', async () => {
     prisma.order.findFirst.mockResolvedValue(
       order({
         items: [
@@ -427,19 +280,20 @@ describe('OrderService.getCloseValidation', () => {
               executorId: 'person-1',
               executorKind: 'PERSON',
               warranty: true,
-              warrantyPayer: 'ORGANIZATION',
+              warrantyPayerKind: 'EMPLOYEE',
+              warrantyPayerPersonId: 'person-2',
             },
-            children: [
-              {
-                type: '2',
-                part: { warranty: true, warrantyPayer: 'ORGANIZATION' },
-                children: [],
-              },
-            ],
+            children: [],
           },
         ],
       }) as any,
     );
+    employeeService.findByPersonId.mockResolvedValue({
+      id: 'emp-2',
+      personId: 'person-2',
+      ratio: 40,
+      firedAt: null,
+    } as any);
     const res = await service.getCloseValidation(ctx, 'o1');
     expect(res).toEqual({ canClose: true, closeDeficiencies: [] });
   });

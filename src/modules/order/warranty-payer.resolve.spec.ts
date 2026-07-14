@@ -1,14 +1,6 @@
 import { PartyKind } from 'src/common/party';
 import { OrderItemServiceKind } from './enums/order-item-service-kind.enum';
-import { WarrantyPayer } from './enums/warranty-payer.enum';
-import {
-  expandWarrantyItemIds,
-  findAncestorService,
-  resolvePartWarrantyChargePersonId,
-  resolvePartWarrantyPayer,
-  resolveServiceWarrantyPayer,
-  type WarrantyOrderItemNode,
-} from './warranty-payer.resolve';
+import { expandWarrantyItemIds, isContractorService } from './warranty-payer.resolve';
 
 describe('warranty-payer.resolve', () => {
   const autoservicePerson = {
@@ -22,58 +14,23 @@ describe('warranty-payer.resolve', () => {
     executorId: 'org-1',
   };
 
-  describe('resolveServiceWarrantyPayer', () => {
-    it('1. сотрудник → EXECUTOR', () => {
-      expect(resolveServiceWarrantyPayer(autoservicePerson, WarrantyPayer.EXECUTOR)).toBe(
-        WarrantyPayer.EXECUTOR,
-      );
+  describe('isContractorService', () => {
+    it('kind=CONTRACTOR → true', () => {
+      expect(isContractorService(contractor)).toBe(true);
     });
 
-    it('2. подрядчик → ORGANIZATION', () => {
-      expect(resolveServiceWarrantyPayer(contractor, WarrantyPayer.EXECUTOR)).toBe(
-        WarrantyPayer.ORGANIZATION,
-      );
-    });
-
-    it('ORGANIZATION остаётся ORGANIZATION', () => {
+    it('executorKind=ORGANIZATION → true даже при kind=AUTOSERVICE', () => {
       expect(
-        resolveServiceWarrantyPayer(autoservicePerson, WarrantyPayer.ORGANIZATION),
-      ).toBe(WarrantyPayer.ORGANIZATION);
-    });
-  });
-
-  describe('resolvePartWarrantyPayer', () => {
-    it('3. родитель-сотрудник → EXECUTOR', () => {
-      expect(
-        resolvePartWarrantyPayer(autoservicePerson, null, WarrantyPayer.EXECUTOR),
-      ).toBe(WarrantyPayer.EXECUTOR);
+        isContractorService({
+          kind: OrderItemServiceKind.AUTOSERVICE,
+          executorKind: PartyKind.ORGANIZATION,
+          executorId: 'org-1',
+        }),
+      ).toBe(true);
     });
 
-    it('4. без родителя, есть ответственный → EXECUTOR', () => {
-      expect(resolvePartWarrantyPayer(null, 'person-2', WarrantyPayer.EXECUTOR)).toBe(
-        WarrantyPayer.EXECUTOR,
-      );
-    });
-
-    it('5. без родителя, нет ответственного → ORGANIZATION', () => {
-      expect(resolvePartWarrantyPayer(null, null, WarrantyPayer.EXECUTOR)).toBe(
-        WarrantyPayer.ORGANIZATION,
-      );
-    });
-
-    it('6. родитель-подрядчик → ORGANIZATION', () => {
-      expect(resolvePartWarrantyPayer(contractor, 'person-2', WarrantyPayer.EXECUTOR)).toBe(
-        WarrantyPayer.ORGANIZATION,
-      );
-    });
-  });
-
-  describe('resolvePartWarrantyChargePersonId', () => {
-    it('возвращает исполнителя родителя или ответственного', () => {
-      expect(resolvePartWarrantyChargePersonId(autoservicePerson, null)).toBe('person-1');
-      expect(resolvePartWarrantyChargePersonId(null, 'person-2')).toBe('person-2');
-      expect(resolvePartWarrantyChargePersonId(contractor, 'person-2')).toBeNull();
-      expect(resolvePartWarrantyChargePersonId(null, null)).toBeNull();
+    it('своя работа с сотрудником → false', () => {
+      expect(isContractorService(autoservicePerson)).toBe(false);
     });
   });
 
@@ -85,16 +42,6 @@ describe('warranty-payer.resolve', () => {
         { id: 'part-1', parentId: 'svc-1', type: '2' },
       ]);
       expect(ids).toEqual(['group-1', 'part-1']);
-    });
-  });
-
-  describe('findAncestorService', () => {
-    it('находит работу через группу', () => {
-      const items = new Map<string, WarrantyOrderItemNode>([
-        ['group-1', { parentId: 'svc-1', service: null }],
-        ['svc-1', { parentId: null, service: autoservicePerson }],
-      ]);
-      expect(findAncestorService('group-1', items)).toEqual(autoservicePerson);
     });
   });
 });

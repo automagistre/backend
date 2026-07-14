@@ -27,6 +27,18 @@ export enum CustomerTransactionSource {
    * у Penalty другая семантика (sourceId = userId создателя, ручной штраф).
    */
   WarrantyDeduction = 13,
+  /**
+   * Компенсация ЗП исполнителя с плательщика гарантии, когда плательщик —
+   * другой сотрудник (не исполнитель). sourceId = orderItemService.id,
+   * operandId = personId плательщика.
+   */
+  WarrantySalaryCompensation = 14,
+  /**
+   * Удержание за простой сервиса с плательщика гарантии, когда плательщик —
+   * другой сотрудник (не исполнитель). sourceId = orderItemService.id,
+   * operandId = personId плательщика.
+   */
+  WarrantyMarginDeduction = 15,
 }
 
 const LABELS: Record<CustomerTransactionSource, string> = {
@@ -42,6 +54,10 @@ const LABELS: Record<CustomerTransactionSource, string> = {
     'Ручная проводка (без счёта)',
   [CustomerTransactionSource.OrderPrepayRefund]: 'Возврат предоплаты по заказу',
   [CustomerTransactionSource.WarrantyDeduction]: 'Удержание за гарантию',
+  [CustomerTransactionSource.WarrantySalaryCompensation]:
+    'Компенсация ЗП по гарантии',
+  [CustomerTransactionSource.WarrantyMarginDeduction]:
+    'Удержание за простой по гарантии',
 };
 
 export function getCustomerTransactionSourceLabel(source: number): string {

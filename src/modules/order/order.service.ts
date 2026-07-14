@@ -9,12 +9,6 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { OrderModel } from './models/order.model';
 import { OrderStatus } from './enums/order-status.enum';
 import { OrderItemServiceKind } from './enums/order-item-service-kind.enum';
-import {
-  resolvePartWarrantyChargePersonId,
-  resolvePartWarrantyPayer,
-  resolveServiceWarrantyPayer,
-  type WarrantyServiceContext,
-} from './warranty-payer.resolve';
 import { UpdateOrderInput } from './inputs/update-order.input';
 import { CreateOrderInput } from './inputs/create-order.input';
 import { CreateOrderPrepayInput } from './inputs/create-order-prepay.input';
@@ -27,8 +21,7 @@ import { WalletTransactionService } from 'src/modules/wallet/wallet-transaction.
 import { WalletTransactionSource } from 'src/modules/wallet/enums/wallet-transaction-source.enum';
 import { SalaryService } from 'src/modules/salary/salary.service';
 import { EmployeeService } from 'src/modules/employee/employee.service';
-import { PartyKind } from 'src/common/party';
-import { WarrantyPayer } from './enums/warranty-payer.enum';
+import { WarrantyPayerKind } from './enums/warranty-payer-kind.enum';
 import { CustomerTransactionService } from 'src/modules/customer-transaction/customer-transaction.service';
 import { CustomerTransactionSource } from 'src/modules/customer-transaction/enums/customer-transaction-source.enum';
 import { SettingsService } from 'src/modules/settings/settings.service';
@@ -791,9 +784,14 @@ export class OrderService {
       kind: true,
       costAmount: true,
       warranty: true,
-      warrantyPayer: true,
+      warrantyPayerKind: true,
+      warrantyPayerPersonId: true,
     } as const;
-    const partSelect = { warranty: true, warrantyPayer: true } as const;
+    const partSelect = {
+      warranty: true,
+      warrantyPayerKind: true,
+      warrantyPayerPersonId: true,
+    } as const;
 
     const itemSelect = {
       type: true,
@@ -821,7 +819,6 @@ export class OrderService {
         status: true,
         carId: true,
         mileage: true,
-        assigneeId: true,
         // Только корневые позиции: иначе дочерние попадают в items дважды
         // (плоский список + children) и теряют контекст родительской работы.
         items: {
@@ -853,11 +850,13 @@ export class OrderService {
         kind: string;
         costAmount: bigint | null;
         warranty: boolean;
-        warrantyPayer: string | null;
+        warrantyPayerKind: string | null;
+        warrantyPayerPersonId: string | null;
       } | null;
       part?: {
         warranty: boolean;
-        warrantyPayer: string | null;
+        warrantyPayerKind: string | null;
+        warrantyPayerPersonId: string | null;
       } | null;
       children?: ItemWithServiceAndPart[];
     };
@@ -889,112 +888,86 @@ export class OrderService {
       deficiencies.push('CONTRACTOR_WITHOUT_COST');
     }
 
-    // Гарантийные позиции: проверяем, что при эффективном EXECUTOR есть сотрудник для удержания.
-    const executorPersonIds = new Set<string>();
+    // Гарантийные позиции: плательщик обязателен; если это сотрудник —
+    // он должен быть действующим и иметь ставку (для удержаний по ЗП).
+    const employeePayerPersonIds = new Set<string>();
 
-    const collectExecutorPersonIds = (item: ItemWithServiceAndPart): void => {
-      const svc = item.service;
-      if (svc?.warranty && svc.warrantyPayer) {
-        const effective = resolveServiceWarrantyPayer(
-          svc,
-          svc.warrantyPayer as WarrantyPayer,
-        );
-        if (
-          effective === WarrantyPayer.EXECUTOR &&
-          svc.executorKind === PartyKind.PERSON &&
-          svc.executorId
-        ) {
-          executorPersonIds.add(svc.executorId);
-        }
+    const collectEmployeePayerPersonIds = (item: ItemWithServiceAndPart): void => {
+      if (
+        item.service?.warranty &&
+        item.service.warrantyPayerKind === WarrantyPayerKind.EMPLOYEE &&
+        item.service.warrantyPayerPersonId
+      ) {
+        employeePayerPersonIds.add(item.service.warrantyPayerPersonId);
       }
-      item.children?.forEach(collectExecutorPersonIds);
+      if (
+        item.part?.warranty &&
+        item.part.warrantyPayerKind === WarrantyPayerKind.EMPLOYEE &&
+        item.part.warrantyPayerPersonId
+      ) {
+        employeePayerPersonIds.add(item.part.warrantyPayerPersonId);
+      }
+      item.children?.forEach(collectEmployeePayerPersonIds);
     };
-    items.forEach(collectExecutorPersonIds);
+    items.forEach(collectEmployeePayerPersonIds);
 
     const employeeByPersonId = new Map(
       await Promise.all(
-        Array.from(executorPersonIds).map(
+        Array.from(employeePayerPersonIds).map(
           async (personId) =>
             [personId, await this.employeeService.findByPersonId(ctx, personId)] as const,
         ),
       ),
     );
 
-    let hasWarrantyWithoutPayer = false;
-    let hasWarrantyExecutorRequired = false;
-
-    const checkWarranty = (
-      item: ItemWithServiceAndPart,
-      ancestorService: WarrantyServiceContext | null,
-    ): void => {
-      if (item.type === '1' && item.service) {
-        const svc = item.service;
-        if (svc.warranty) {
-          if (!svc.warrantyPayer) {
-            hasWarrantyWithoutPayer = true;
-          } else {
-            const effective = resolveServiceWarrantyPayer(
-              svc,
-              svc.warrantyPayer as WarrantyPayer,
-            );
-            if (effective === WarrantyPayer.EXECUTOR) {
-              const employee =
-                svc.executorKind === PartyKind.PERSON && svc.executorId
-                  ? employeeByPersonId.get(svc.executorId)
-                  : undefined;
-              if (
-                svc.executorKind !== PartyKind.PERSON ||
-                !svc.executorId ||
-                !employee ||
-                employee.ratio == null ||
-                employee.firedAt
-              ) {
-                hasWarrantyExecutorRequired = true;
-              }
-            }
-          }
-        }
-        const nextAncestor = {
-          kind: svc.kind,
-          executorKind: svc.executorKind,
-          executorId: svc.executorId,
-        };
-        item.children?.forEach((child) => checkWarranty(child, nextAncestor));
-        return;
-      }
-      if (item.type === '2' && item.part) {
-        const part = item.part;
-        if (part.warranty) {
-          if (!part.warrantyPayer) {
-            hasWarrantyWithoutPayer = true;
-          } else {
-            const effective = resolvePartWarrantyPayer(
-              ancestorService,
-              order.assigneeId,
-              part.warrantyPayer as WarrantyPayer,
-            );
-            if (effective === WarrantyPayer.EXECUTOR) {
-              const personId = resolvePartWarrantyChargePersonId(
-                ancestorService,
-                order.assigneeId,
-              );
-              if (!personId) {
-                hasWarrantyExecutorRequired = true;
-              }
-            }
-          }
-        }
-        return;
-      }
-      item.children?.forEach((child) => checkWarranty(child, ancestorService));
+    const isEligiblePayer = (
+      kind: string | null,
+      personId: string | null,
+    ): boolean => {
+      if (!kind) return false;
+      if (kind === WarrantyPayerKind.ORGANIZATION) return true;
+      if (!personId) return false;
+      const employee = employeeByPersonId.get(personId);
+      return !!employee && employee.ratio != null && !employee.firedAt;
     };
-    items.forEach((item) => checkWarranty(item, null));
+
+    let hasWarrantyWithoutPayer = false;
+    let hasWarrantyPayerNotEligible = false;
+
+    const checkWarranty = (item: ItemWithServiceAndPart): void => {
+      if (item.service?.warranty) {
+        if (!item.service.warrantyPayerKind) {
+          hasWarrantyWithoutPayer = true;
+        } else if (
+          !isEligiblePayer(
+            item.service.warrantyPayerKind,
+            item.service.warrantyPayerPersonId,
+          )
+        ) {
+          hasWarrantyPayerNotEligible = true;
+        }
+      }
+      if (item.part?.warranty) {
+        if (!item.part.warrantyPayerKind) {
+          hasWarrantyWithoutPayer = true;
+        } else if (
+          !isEligiblePayer(
+            item.part.warrantyPayerKind,
+            item.part.warrantyPayerPersonId,
+          )
+        ) {
+          hasWarrantyPayerNotEligible = true;
+        }
+      }
+      item.children?.forEach(checkWarranty);
+    };
+    items.forEach(checkWarranty);
 
     if (hasWarrantyWithoutPayer) {
       deficiencies.push('WARRANTY_WITHOUT_PAYER');
     }
-    if (hasWarrantyExecutorRequired) {
-      deficiencies.push('WARRANTY_EXECUTOR_REQUIRED');
+    if (hasWarrantyPayerNotEligible) {
+      deficiencies.push('WARRANTY_PAYER_NOT_ELIGIBLE');
     }
 
     return {
@@ -1312,8 +1285,8 @@ export class OrderService {
         SERVICES_WITHOUT_WORKER: 'Назначьте исполнителей на все работы',
         CONTRACTOR_WITHOUT_COST: 'Укажите себестоимость подрядных работ',
         WARRANTY_WITHOUT_PAYER: 'Укажите плательщика по гарантийной позиции',
-        WARRANTY_EXECUTOR_REQUIRED:
-          'Для гарантии за счёт исполнителя нужен исполнитель-сотрудник (со ставкой) или ответственный по заказу',
+        WARRANTY_PAYER_NOT_ELIGIBLE:
+          'Плательщик гарантии должен быть действующим сотрудником со ставкой',
       };
       const details = closeValidation.closeDeficiencies
         .map((d) => messages[d] ?? d)
@@ -1490,16 +1463,19 @@ export class OrderService {
   }
 
   /**
-   * ЗП по заказу + гарантийные удержания (работы/запчасти по вине исполнителя).
-   * Порядок важен: chargeByOrder начисляет ЗП по негарантийным и ORGANIZATION-
-   * гарантийным работам; удержания — по EXECUTOR-гарантии, независимая проводка.
+   * ЗП по заказу + гарантийные удержания. Порядок важен: chargeByOrder
+   * начисляет ЗП по негарантийным работам и по гарантийным, где плательщик
+   * не совпадает с исполнителем (организация или другой сотрудник). Далее —
+   * удержания: с исполнителя (если он же плательщик), с другого сотрудника-
+   * плательщика (компенсация ЗП + маржи), с сотрудника-плательщика по запчастям.
    */
   private async chargeOrderSalaryAndWarrantyDeductions(
     ctx: AuthContext,
     orderId: string,
   ): Promise<void> {
     await this.salaryService.chargeByOrder(ctx, orderId);
-    await this.salaryService.chargeWarrantyWorkDeductions(ctx, orderId);
+    await this.salaryService.chargeWarrantyExecutorDeductions(ctx, orderId);
+    await this.salaryService.chargeWarrantyPayerCompensation(ctx, orderId);
     await this.salaryService.chargeWarrantyPartDeductions(ctx, orderId);
   }
 

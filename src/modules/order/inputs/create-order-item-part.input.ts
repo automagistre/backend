@@ -1,7 +1,7 @@
 import { Field, ID, Int, InputType } from '@nestjs/graphql';
 import { IsOptional } from 'class-validator';
 import { MoneyInput } from 'src/common/inputs/money.input';
-import { WarrantyPayer } from '../enums/warranty-payer.enum';
+import { WarrantyPayerKind } from '../enums/warranty-payer-kind.enum';
 
 @InputType()
 export class CreateOrderItemPartInput {
@@ -29,12 +29,19 @@ export class CreateOrderItemPartInput {
   @IsOptional()
   warranty?: boolean;
 
-  @Field(() => WarrantyPayer, {
+  @Field(() => WarrantyPayerKind, {
     nullable: true,
     description: 'Кто несёт стоимость гарантийной запчасти',
   })
   @IsOptional()
-  warrantyPayer?: WarrantyPayer | null;
+  warrantyPayerKind?: WarrantyPayerKind | null;
+
+  @Field(() => ID, {
+    nullable: true,
+    description: 'person_id сотрудника-плательщика (обязателен при warrantyPayerKind=EMPLOYEE)',
+  })
+  @IsOptional()
+  warrantyPayerPersonId?: string | null;
 
   @Field(() => MoneyInput, { nullable: true })
   @IsOptional()
