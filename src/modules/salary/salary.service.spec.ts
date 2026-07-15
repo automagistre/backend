@@ -43,7 +43,7 @@ describe('SalaryService.chargeByOrder', () => {
 
     settings.getDefaultCurrencyCode.mockResolvedValue('RUB');
     display.getPersonDisplay.mockResolvedValue('Иванов Иван');
-    prisma.$transaction.mockImplementation(async (cb: any) => cb(prisma));
+    jest.mocked(prisma.$transaction).mockImplementation(async (cb: any) => cb(prisma));
 
     service = new SalaryService(
       prisma as unknown as PrismaService,
@@ -68,7 +68,7 @@ describe('SalaryService.chargeByOrder', () => {
   });
 
   it('идемпотентность: при существующей проводке OrderSalary ничего не делает', async () => {
-    prisma.customerTransaction.findFirst.mockResolvedValue({ id: 'tx' } as any);
+    jest.mocked(prisma.customerTransaction.findFirst).mockResolvedValue({ id: 'tx' } as any);
 
     await service.chargeByOrder(ctx, 'order-1');
 
@@ -77,8 +77,8 @@ describe('SalaryService.chargeByOrder', () => {
   });
 
   it('начисляет по ratio: operandId = employee.personId, сумма = total*ratio/100', async () => {
-    prisma.customerTransaction.findFirst.mockResolvedValue(null);
-    prisma.orderItem.findMany.mockResolvedValue([svc()] as any);
+    jest.mocked(prisma.customerTransaction.findFirst).mockResolvedValue(null);
+    jest.mocked(prisma.orderItem.findMany).mockResolvedValue([svc()] as any);
     employee.findByPersonId.mockResolvedValue({
       id: 'emp-1',
       personId: 'person-1',
@@ -98,8 +98,8 @@ describe('SalaryService.chargeByOrder', () => {
   });
 
   it('пропускает подрядные работы (kind=CONTRACTOR) даже с исполнителем-персоной', async () => {
-    prisma.customerTransaction.findFirst.mockResolvedValue(null);
-    prisma.orderItem.findMany.mockResolvedValue([
+    jest.mocked(prisma.customerTransaction.findFirst).mockResolvedValue(null);
+    jest.mocked(prisma.orderItem.findMany).mockResolvedValue([
       svc({ kind: 'CONTRACTOR' }),
     ] as any);
 
@@ -110,8 +110,8 @@ describe('SalaryService.chargeByOrder', () => {
   });
 
   it('пропускает исполнителя-организацию (ЗП только персонам)', async () => {
-    prisma.customerTransaction.findFirst.mockResolvedValue(null);
-    prisma.orderItem.findMany.mockResolvedValue([
+    jest.mocked(prisma.customerTransaction.findFirst).mockResolvedValue(null);
+    jest.mocked(prisma.orderItem.findMany).mockResolvedValue([
       svc({ executorKind: 'ORGANIZATION', executorId: 'org-1' }),
     ] as any);
 
@@ -122,8 +122,8 @@ describe('SalaryService.chargeByOrder', () => {
   });
 
   it('пропускает гарантию, если плательщик = исполнитель — начисление отдельным методом', async () => {
-    prisma.customerTransaction.findFirst.mockResolvedValue(null);
-    prisma.orderItem.findMany.mockResolvedValue([
+    jest.mocked(prisma.customerTransaction.findFirst).mockResolvedValue(null);
+    jest.mocked(prisma.orderItem.findMany).mockResolvedValue([
       svc({
         warranty: true,
         warrantyPayerKind: WarrantyPayerKind.EMPLOYEE,
@@ -138,8 +138,8 @@ describe('SalaryService.chargeByOrder', () => {
   });
 
   it('начисляет ЗП за гарантийную работу за счёт организации (ORGANIZATION) как за обычную', async () => {
-    prisma.customerTransaction.findFirst.mockResolvedValue(null);
-    prisma.orderItem.findMany.mockResolvedValue([
+    jest.mocked(prisma.customerTransaction.findFirst).mockResolvedValue(null);
+    jest.mocked(prisma.orderItem.findMany).mockResolvedValue([
       svc({ warranty: true, warrantyPayerKind: WarrantyPayerKind.ORGANIZATION }),
     ] as any);
     employee.findByPersonId.mockResolvedValue({
@@ -157,8 +157,8 @@ describe('SalaryService.chargeByOrder', () => {
   });
 
   it('начисляет ЗП за гарантийную работу, если плательщик — другой сотрудник', async () => {
-    prisma.customerTransaction.findFirst.mockResolvedValue(null);
-    prisma.orderItem.findMany.mockResolvedValue([
+    jest.mocked(prisma.customerTransaction.findFirst).mockResolvedValue(null);
+    jest.mocked(prisma.orderItem.findMany).mockResolvedValue([
       svc({
         warranty: true,
         warrantyPayerKind: WarrantyPayerKind.EMPLOYEE,
@@ -181,8 +181,8 @@ describe('SalaryService.chargeByOrder', () => {
   });
 
   it('пропускает работы без исполнителя (executor = null)', async () => {
-    prisma.customerTransaction.findFirst.mockResolvedValue(null);
-    prisma.orderItem.findMany.mockResolvedValue([
+    jest.mocked(prisma.customerTransaction.findFirst).mockResolvedValue(null);
+    jest.mocked(prisma.orderItem.findMany).mockResolvedValue([
       svc({ executorKind: null, executorId: null }),
     ] as any);
 
@@ -193,8 +193,8 @@ describe('SalaryService.chargeByOrder', () => {
   });
 
   it('пропускает уволенного / без ratio', async () => {
-    prisma.customerTransaction.findFirst.mockResolvedValue(null);
-    prisma.orderItem.findMany.mockResolvedValue([svc()] as any);
+    jest.mocked(prisma.customerTransaction.findFirst).mockResolvedValue(null);
+    jest.mocked(prisma.orderItem.findMany).mockResolvedValue([svc()] as any);
     employee.findByPersonId.mockResolvedValue({
       id: 'emp-1',
       personId: 'person-1',
@@ -253,8 +253,8 @@ describe('SalaryService.chargeMonthlySalaries', () => {
   });
 
   it('начисляет: operandId = employee.personId, source=MonthlySalary, sourceId=salary.id', async () => {
-    prisma.employeeSalary.findMany.mockResolvedValue([salary()] as any);
-    prisma.customerTransaction.findFirst.mockResolvedValue(null);
+    jest.mocked(prisma.employeeSalary.findMany).mockResolvedValue([salary()] as any);
+    jest.mocked(prisma.customerTransaction.findFirst).mockResolvedValue(null);
 
     await service.chargeMonthlySalaries(ctx, 5);
 
@@ -267,8 +267,8 @@ describe('SalaryService.chargeMonthlySalaries', () => {
   });
 
   it('идемпотентность в текущем месяце: при существующей проводке пропускает', async () => {
-    prisma.employeeSalary.findMany.mockResolvedValue([salary()] as any);
-    prisma.customerTransaction.findFirst.mockResolvedValue({ id: 'tx' } as any);
+    jest.mocked(prisma.employeeSalary.findMany).mockResolvedValue([salary()] as any);
+    jest.mocked(prisma.customerTransaction.findFirst).mockResolvedValue({ id: 'tx' } as any);
 
     await service.chargeMonthlySalaries(ctx, 5);
 
@@ -276,10 +276,10 @@ describe('SalaryService.chargeMonthlySalaries', () => {
   });
 
   it('пропускает нулевой оклад', async () => {
-    prisma.employeeSalary.findMany.mockResolvedValue([
+    jest.mocked(prisma.employeeSalary.findMany).mockResolvedValue([
       salary({ amount: 0n }),
     ] as any);
-    prisma.customerTransaction.findFirst.mockResolvedValue(null);
+    jest.mocked(prisma.customerTransaction.findFirst).mockResolvedValue(null);
 
     await service.chargeMonthlySalaries(ctx, 5);
 
@@ -287,11 +287,11 @@ describe('SalaryService.chargeMonthlySalaries', () => {
   });
 
   it('ошибка по одному окладу не прерывает остальные', async () => {
-    prisma.employeeSalary.findMany.mockResolvedValue([
+    jest.mocked(prisma.employeeSalary.findMany).mockResolvedValue([
       salary({ id: 'salary-1', employee: { personId: 'p1' } }),
       salary({ id: 'salary-2', employee: { personId: 'p2' } }),
     ] as any);
-    prisma.customerTransaction.findFirst.mockResolvedValue(null);
+    jest.mocked(prisma.customerTransaction.findFirst).mockResolvedValue(null);
     customerTx.createWithinTransaction
       .mockRejectedValueOnce(new Error('boom'))
       .mockResolvedValueOnce({} as any);
@@ -323,8 +323,8 @@ describe('SalaryService.chargeWarrantyExecutorDeductions', () => {
     cogs = mockDeep<CogsService>();
 
     settings.getDefaultCurrencyCode.mockResolvedValue('RUB');
-    prisma.$transaction.mockImplementation(async (cb: any) => cb(prisma));
-    prisma.customerTransaction.findMany.mockResolvedValue([]);
+    jest.mocked(prisma.$transaction).mockImplementation(async (cb: any) => cb(prisma));
+    jest.mocked(prisma.customerTransaction.findMany).mockResolvedValue([]);
 
     service = new SalaryService(
       prisma as unknown as PrismaService,
@@ -352,7 +352,7 @@ describe('SalaryService.chargeWarrantyExecutorDeductions', () => {
   });
 
   it('удерживает price×(100−ratio)%: цена 10000, ставка 40% → удержание 6000', async () => {
-    prisma.orderItem.findMany.mockResolvedValue([item()] as any);
+    jest.mocked(prisma.orderItem.findMany).mockResolvedValue([item()] as any);
     employee.findByPersonId.mockResolvedValue({
       id: 'emp-1',
       personId: 'person-1',
@@ -371,7 +371,7 @@ describe('SalaryService.chargeWarrantyExecutorDeductions', () => {
   });
 
   it('не удерживает, если плательщик — другой сотрудник (не исполнитель)', async () => {
-    prisma.orderItem.findMany.mockResolvedValue([
+    jest.mocked(prisma.orderItem.findMany).mockResolvedValue([
       item({ warrantyPayerPersonId: 'person-2' }),
     ] as any);
 
@@ -381,8 +381,8 @@ describe('SalaryService.chargeWarrantyExecutorDeductions', () => {
   });
 
   it('идемпотентность: пропускает позиции с уже существующей проводкой', async () => {
-    prisma.orderItem.findMany.mockResolvedValue([item()] as any);
-    prisma.customerTransaction.findMany.mockResolvedValue([
+    jest.mocked(prisma.orderItem.findMany).mockResolvedValue([item()] as any);
+    jest.mocked(prisma.customerTransaction.findMany).mockResolvedValue([
       { sourceId: 'item-1' },
     ] as any);
 
@@ -393,7 +393,7 @@ describe('SalaryService.chargeWarrantyExecutorDeductions', () => {
   });
 
   it('пропускает исполнителя-организацию (удержание только с персоны)', async () => {
-    prisma.orderItem.findMany.mockResolvedValue([]);
+    jest.mocked(prisma.orderItem.findMany).mockResolvedValue([]);
 
     await service.chargeWarrantyExecutorDeductions(ctx, 'order-1');
 
@@ -401,7 +401,7 @@ describe('SalaryService.chargeWarrantyExecutorDeductions', () => {
   });
 
   it('пропускает сотрудника без ratio / уволенного', async () => {
-    prisma.orderItem.findMany.mockResolvedValue([item()] as any);
+    jest.mocked(prisma.orderItem.findMany).mockResolvedValue([item()] as any);
     employee.findByPersonId.mockResolvedValue({
       id: 'emp-1',
       personId: 'person-1',
@@ -437,8 +437,8 @@ describe('SalaryService.chargeWarrantyPayerCompensation', () => {
     cogs = mockDeep<CogsService>();
 
     settings.getDefaultCurrencyCode.mockResolvedValue('RUB');
-    prisma.$transaction.mockImplementation(async (cb: any) => cb(prisma));
-    prisma.customerTransaction.findMany.mockResolvedValue([]);
+    jest.mocked(prisma.$transaction).mockImplementation(async (cb: any) => cb(prisma));
+    jest.mocked(prisma.customerTransaction.findMany).mockResolvedValue([]);
 
     service = new SalaryService(
       prisma as unknown as PrismaService,
@@ -466,7 +466,7 @@ describe('SalaryService.chargeWarrantyPayerCompensation', () => {
   });
 
   it('создаёт 2 проводки на плательщика: компенсация ЗП + маржа, в сумме = базе', async () => {
-    prisma.orderItem.findMany.mockResolvedValue([item()] as any);
+    jest.mocked(prisma.orderItem.findMany).mockResolvedValue([item()] as any);
     employee.findByPersonId.mockResolvedValue({
       id: 'emp-1',
       personId: 'person-1',
@@ -492,7 +492,7 @@ describe('SalaryService.chargeWarrantyPayerCompensation', () => {
   });
 
   it('не создаёт проводки, если плательщик совпадает с исполнителем', async () => {
-    prisma.orderItem.findMany.mockResolvedValue([
+    jest.mocked(prisma.orderItem.findMany).mockResolvedValue([
       item({ warrantyPayerPersonId: 'person-1' }),
     ] as any);
 
@@ -502,7 +502,7 @@ describe('SalaryService.chargeWarrantyPayerCompensation', () => {
   });
 
   it('не создаёт проводки, если плательщик — организация', async () => {
-    prisma.orderItem.findMany.mockResolvedValue([]);
+    jest.mocked(prisma.orderItem.findMany).mockResolvedValue([]);
 
     await service.chargeWarrantyPayerCompensation(ctx, 'order-1');
 
@@ -510,8 +510,8 @@ describe('SalaryService.chargeWarrantyPayerCompensation', () => {
   });
 
   it('идемпотентность: не дублирует уже созданные проводки', async () => {
-    prisma.orderItem.findMany.mockResolvedValue([item()] as any);
-    prisma.customerTransaction.findMany.mockResolvedValue([
+    jest.mocked(prisma.orderItem.findMany).mockResolvedValue([item()] as any);
+    jest.mocked(prisma.customerTransaction.findMany).mockResolvedValue([
       {
         sourceId: 'item-1',
         source: CustomerTransactionSource.WarrantySalaryCompensation,
@@ -556,8 +556,8 @@ describe('SalaryService.chargeWarrantyPartDeductions', () => {
     cogs = mockDeep<CogsService>();
 
     settings.getDefaultCurrencyCode.mockResolvedValue('RUB');
-    prisma.$transaction.mockImplementation(async (cb: any) => cb(prisma));
-    prisma.customerTransaction.findMany.mockResolvedValue([]);
+    jest.mocked(prisma.$transaction).mockImplementation(async (cb: any) => cb(prisma));
+    jest.mocked(prisma.customerTransaction.findMany).mockResolvedValue([]);
 
     service = new SalaryService(
       prisma as unknown as PrismaService,
@@ -582,7 +582,7 @@ describe('SalaryService.chargeWarrantyPartDeductions', () => {
   });
 
   it('удерживает COGS с сотрудника-плательщика', async () => {
-    prisma.orderItem.findMany.mockResolvedValue([partItem()] as any);
+    jest.mocked(prisma.orderItem.findMany).mockResolvedValue([partItem()] as any);
     cogs.getPartLineCogsAtDate.mockResolvedValue(3000n);
 
     await service.chargeWarrantyPartDeductions(ctx, 'order-1');
@@ -596,7 +596,7 @@ describe('SalaryService.chargeWarrantyPartDeductions', () => {
   });
 
   it('плательщик — организация (нет в выборке EMPLOYEE) — не удерживает', async () => {
-    prisma.orderItem.findMany.mockResolvedValue([]);
+    jest.mocked(prisma.orderItem.findMany).mockResolvedValue([]);
 
     await service.chargeWarrantyPartDeductions(ctx, 'order-1');
 
@@ -604,7 +604,7 @@ describe('SalaryService.chargeWarrantyPartDeductions', () => {
   });
 
   it('без personId — пропускает защитно', async () => {
-    prisma.orderItem.findMany.mockResolvedValue([
+    jest.mocked(prisma.orderItem.findMany).mockResolvedValue([
       partItem({ warrantyPayerPersonId: null }),
     ] as any);
 
@@ -614,7 +614,7 @@ describe('SalaryService.chargeWarrantyPartDeductions', () => {
   });
 
   it('COGS = 0 (закупок не было) — пропускает', async () => {
-    prisma.orderItem.findMany.mockResolvedValue([partItem()] as any);
+    jest.mocked(prisma.orderItem.findMany).mockResolvedValue([partItem()] as any);
     cogs.getPartLineCogsAtDate.mockResolvedValue(0n);
 
     await service.chargeWarrantyPartDeductions(ctx, 'order-1');
@@ -623,8 +623,8 @@ describe('SalaryService.chargeWarrantyPartDeductions', () => {
   });
 
   it('идемпотентность: пропускает позиции с уже существующей проводкой', async () => {
-    prisma.orderItem.findMany.mockResolvedValue([partItem()] as any);
-    prisma.customerTransaction.findMany.mockResolvedValue([
+    jest.mocked(prisma.orderItem.findMany).mockResolvedValue([partItem()] as any);
+    jest.mocked(prisma.customerTransaction.findMany).mockResolvedValue([
       { sourceId: 'item-1' },
     ] as any);
 

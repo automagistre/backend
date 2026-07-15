@@ -18,7 +18,7 @@ describe('NoteService.createWarrantyNote', () => {
     prisma = createPrismaMock();
     audit = mockDeep<AuditLogService>();
     displayContext = mockDeep<DisplayContextService>();
-    prisma.order.findFirst.mockResolvedValue({ id: 'order-1', number: 1 } as any);
+    jest.mocked(prisma.order.findFirst).mockResolvedValue({ id: 'order-1', number: 1 } as any);
 
     service = new NoteService(
       prisma as unknown as PrismaService,
@@ -29,7 +29,7 @@ describe('NoteService.createWarrantyNote', () => {
 
   it('создаёт заметку с маркером и причиной', async () => {
     const text = `${WARRANTY_NOTE_PREFIX}Брак прошлой работы`;
-    prisma.note.create.mockResolvedValue({
+    jest.mocked(prisma.note.create).mockResolvedValue({
       id: 'note-1',
       text,
       type: NoteType.WARNING,
@@ -56,7 +56,7 @@ describe('NoteService.createWarrantyNote', () => {
 
   it('создаёт новую заметку при повторном применении гарантии, не перезаписывая предыдущую', async () => {
     const text = `${WARRANTY_NOTE_PREFIX}Вторая причина`;
-    prisma.note.create.mockResolvedValue({
+    jest.mocked(prisma.note.create).mockResolvedValue({
       id: 'note-2',
       text,
       type: NoteType.WARNING,

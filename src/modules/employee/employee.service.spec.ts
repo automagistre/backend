@@ -25,7 +25,7 @@ describe('EmployeeService person/employee converters', () => {
   });
 
   it('findByPersonId ищет по personId в рамках тенанта', async () => {
-    prisma.employee.findFirst.mockResolvedValue(emp as any);
+    jest.mocked(prisma.employee.findFirst).mockResolvedValue(emp as any);
     const res = await service.findByPersonId(ctx, 'person-1');
     expect(res?.id).toBe('emp-1');
     expect(prisma.employee.findFirst).toHaveBeenCalledWith(
@@ -37,7 +37,7 @@ describe('EmployeeService person/employee converters', () => {
   });
 
   it('resolvePersonIdByEmployeeId: employee.id -> personId', async () => {
-    prisma.employee.findFirst.mockResolvedValue(emp as any);
+    jest.mocked(prisma.employee.findFirst).mockResolvedValue(emp as any);
     expect(await service.resolvePersonIdByEmployeeId(ctx, 'emp-1')).toBe(
       'person-1',
     );
@@ -45,7 +45,7 @@ describe('EmployeeService person/employee converters', () => {
   });
 
   it('resolveEmployeeIdByPersonId: personId -> employee.id', async () => {
-    prisma.employee.findFirst.mockResolvedValue(emp as any);
+    jest.mocked(prisma.employee.findFirst).mockResolvedValue(emp as any);
     expect(await service.resolveEmployeeIdByPersonId(ctx, 'person-1')).toBe(
       'emp-1',
     );

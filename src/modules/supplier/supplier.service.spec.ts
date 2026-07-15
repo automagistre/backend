@@ -11,22 +11,22 @@ describe('SupplierService', () => {
   beforeEach(() => {
     prisma = createPrismaMock();
     service = new SupplierService(prisma as unknown as PrismaService);
-    prisma.income.groupBy.mockResolvedValue([] as any);
-    prisma.partSupply.groupBy.mockResolvedValue([] as any);
-    prisma.orderItemPart.findMany.mockResolvedValue([] as any);
-    prisma.orderItemService.findMany.mockResolvedValue([] as any);
-    prisma.employee.findMany.mockResolvedValue([] as any);
+    jest.mocked(prisma.income.groupBy).mockResolvedValue([] as any);
+    jest.mocked(prisma.partSupply.groupBy).mockResolvedValue([] as any);
+    jest.mocked(prisma.orderItemPart.findMany).mockResolvedValue([] as any);
+    jest.mocked(prisma.orderItemService.findMany).mockResolvedValue([] as any);
+    jest.mocked(prisma.employee.findMany).mockResolvedValue([] as any);
   });
 
   describe('getSuppliers', () => {
     it('сортирует по популярности: организация с проводками выше', async () => {
-      prisma.person.findMany.mockResolvedValue([
+      jest.mocked(prisma.person.findMany).mockResolvedValue([
         { id: 'p1', lastname: 'Борисов', firstname: 'Антон' },
       ] as any);
-      prisma.organization.findMany.mockResolvedValue([
+      jest.mocked(prisma.organization.findMany).mockResolvedValue([
         { id: 'o1', name: 'Алмаз' },
       ] as any);
-      prisma.income.groupBy.mockResolvedValue([
+      jest.mocked(prisma.income.groupBy).mockResolvedValue([
         { supplierId: 'o1', _count: { supplierId: 5 } },
       ] as any);
 
@@ -39,12 +39,12 @@ describe('SupplierService', () => {
 
   describe('getContractors', () => {
     it('исключает персон-сотрудников', async () => {
-      prisma.person.findMany.mockResolvedValue([
+      jest.mocked(prisma.person.findMany).mockResolvedValue([
         { id: 'p1', lastname: 'A', firstname: 'A' },
         { id: 'p2', lastname: 'B', firstname: 'B' },
       ] as any);
-      prisma.organization.findMany.mockResolvedValue([] as any);
-      prisma.employee.findMany.mockResolvedValue([{ personId: 'p1' }] as any);
+      jest.mocked(prisma.organization.findMany).mockResolvedValue([] as any);
+      jest.mocked(prisma.employee.findMany).mockResolvedValue([{ personId: 'p1' }] as any);
 
       const res = await service.getContractors(ctx);
       const ids = res.map((r) => r.id);

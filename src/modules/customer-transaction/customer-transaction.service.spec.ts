@@ -38,7 +38,7 @@ describe('CustomerTransactionService', () => {
 
   describe('createWithinTransaction', () => {
     it('пишет операнд/источник/сумму; пустая сумма → 0n с валютой по умолчанию', async () => {
-      prisma.customerTransaction.create.mockResolvedValue({ id: 'ct1' } as any);
+      jest.mocked(prisma.customerTransaction.create).mockResolvedValue({ id: 'ct1' } as any);
 
       await service.createWithinTransaction(
         prisma as any,
@@ -51,7 +51,7 @@ describe('CustomerTransactionService', () => {
         ctx.userId,
       );
 
-      expect(prisma.customerTransaction.create.mock.calls[0][0].data).toMatchObject({
+      expect(jest.mocked(prisma.customerTransaction.create).mock.calls[0][0].data).toMatchObject({
         operandId: 'person-1',
         source: CustomerTransactionSource.OrderSalary,
         sourceId: 'order-1',
@@ -63,12 +63,12 @@ describe('CustomerTransactionService', () => {
 
   describe('getBalance', () => {
     it('возвращает сумму проводок (0n при отсутствии)', async () => {
-      prisma.customerTransaction.aggregate.mockResolvedValue({
+      jest.mocked(prisma.customerTransaction.aggregate).mockResolvedValue({
         _sum: { amountAmount: 1500n },
       } as any);
       expect(await service.getBalance(ctx, 'person-1')).toBe(1500n);
 
-      prisma.customerTransaction.aggregate.mockResolvedValue({
+      jest.mocked(prisma.customerTransaction.aggregate).mockResolvedValue({
         _sum: { amountAmount: null },
       } as any);
       expect(await service.getBalance(ctx, 'person-1')).toBe(0n);
@@ -134,11 +134,11 @@ describe('CustomerTransactionService', () => {
 
   describe('findByOrderId', () => {
     it('возвращает заказные проводки и удержания за гарантию по позициям заказа', async () => {
-      prisma.orderItem.findMany.mockResolvedValue([
+      jest.mocked(prisma.orderItem.findMany).mockResolvedValue([
         { id: 'item-1' },
         { id: 'item-2' },
       ] as any);
-      prisma.customerTransaction.findMany
+      jest.mocked(prisma.customerTransaction.findMany)
         .mockResolvedValueOnce([
           {
             id: 'ct-salary',

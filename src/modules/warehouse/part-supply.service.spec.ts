@@ -17,12 +17,12 @@ describe('PartSupplyService', () => {
 
   describe('getSupplyTotalByPart', () => {
     it('возвращает сумму, если > 0', async () => {
-      prisma.partSupply.aggregate.mockResolvedValue({ _sum: { quantity: 5 } } as any);
+      jest.mocked(prisma.partSupply.aggregate).mockResolvedValue({ _sum: { quantity: 5 } } as any);
       expect(await service.getSupplyTotalByPart('p1', 't1')).toBe(5);
     });
 
     it('возвращает 0 при отрицательном балансе', async () => {
-      prisma.partSupply.aggregate.mockResolvedValue({ _sum: { quantity: -3 } } as any);
+      jest.mocked(prisma.partSupply.aggregate).mockResolvedValue({ _sum: { quantity: -3 } } as any);
       expect(await service.getSupplyTotalByPart('p1', 't1')).toBe(0);
     });
   });
@@ -35,7 +35,7 @@ describe('PartSupplyService', () => {
 
     it('помечает запчасти с просроченной поставкой', async () => {
       const old = new Date('2000-01-01');
-      prisma.partSupply.groupBy.mockResolvedValue([
+      jest.mocked(prisma.partSupply.groupBy).mockResolvedValue([
         { partId: 'p1', supplierId: 's1', _sum: { quantity: 2 }, _max: { createdAt: old } },
         { partId: 'p2', supplierId: 's1', _sum: { quantity: 2 }, _max: { createdAt: new Date() } },
       ] as any);
@@ -52,15 +52,15 @@ describe('PartSupplyService', () => {
     });
 
     it('уменьшает только в пределах положительного баланса', async () => {
-      prisma.partSupply.aggregate.mockResolvedValue({ _sum: { quantity: 3 } } as any);
+      jest.mocked(prisma.partSupply.aggregate).mockResolvedValue({ _sum: { quantity: 3 } } as any);
       await service.decreaseSupplyForIncome(prisma as any, 'p1', 's1', 10, 'i1', 't1');
-      const arg = prisma.partSupply.create.mock.calls[0][0].data as any;
+      const arg = jest.mocked(prisma.partSupply.create).mock.calls[0][0].data as any;
       expect(arg.quantity).toBe(-3);
       expect(arg.source).toBe(SupplySource.INCOME);
     });
 
     it('не создаёт запись при нулевом балансе', async () => {
-      prisma.partSupply.aggregate.mockResolvedValue({ _sum: { quantity: 0 } } as any);
+      jest.mocked(prisma.partSupply.aggregate).mockResolvedValue({ _sum: { quantity: 0 } } as any);
       await service.decreaseSupplyForIncome(prisma as any, 'p1', 's1', 10, 'i1', 't1');
       expect(prisma.partSupply.create).not.toHaveBeenCalled();
     });
@@ -74,7 +74,7 @@ describe('PartSupplyService', () => {
     });
 
     it('createPartSupply создаёт MANUAL поставку с положительным количеством', async () => {
-      prisma.partSupply.create.mockResolvedValue({
+      jest.mocked(prisma.partSupply.create).mockResolvedValue({
         id: 'ps1',
         partId: 'p1',
         supplierId: 's1',
@@ -82,14 +82,14 @@ describe('PartSupplyService', () => {
       } as any);
       const res = await service.createPartSupply(ctx, 'p1', 's1', 4);
       expect(res.quantity).toBe(4);
-      const arg = prisma.partSupply.create.mock.calls[0][0].data as any;
+      const arg = jest.mocked(prisma.partSupply.create).mock.calls[0][0].data as any;
       expect(arg.source).toBe(SupplySource.MANUAL);
     });
 
     it('cancelPartSupply пишет отрицательное количество', async () => {
-      prisma.partSupply.create.mockResolvedValue({ id: 'ps1' } as any);
+      jest.mocked(prisma.partSupply.create).mockResolvedValue({ id: 'ps1' } as any);
       await service.cancelPartSupply(ctx, 'p1', 's1', 4);
-      const arg = prisma.partSupply.create.mock.calls[0][0].data as any;
+      const arg = jest.mocked(prisma.partSupply.create).mock.calls[0][0].data as any;
       expect(arg.quantity).toBe(-4);
     });
   });

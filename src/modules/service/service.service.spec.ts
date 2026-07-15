@@ -24,7 +24,7 @@ describe('ServiceService', () => {
 
   describe('searchServices', () => {
     it('добавляет isContractor из whitelist рекомендаций', async () => {
-      prisma.orderItemService.groupBy.mockResolvedValue([
+      jest.mocked(prisma.orderItemService.groupBy).mockResolvedValue([
         { service: 'Ремонт рулевой рейки', _count: { service: 10 } },
         { service: 'Замена масла', _count: { service: 5 } },
       ] as any);
@@ -46,7 +46,7 @@ describe('ServiceService', () => {
 
   describe('getPopularServices', () => {
     it('добавляет isContractor к популярным работам', async () => {
-      prisma.orderItemService.groupBy.mockResolvedValue([
+      jest.mocked(prisma.orderItemService.groupBy).mockResolvedValue([
         { service: 'Ремонт карданного вала', _count: { service: 3 } },
       ] as any);
       recommendation.getContractorFlagsForNames.mockResolvedValue(

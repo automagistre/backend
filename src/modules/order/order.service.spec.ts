@@ -50,13 +50,13 @@ describe('OrderService.getCloseValidation', () => {
   });
 
   it('заказ не найден → нельзя закрыть, без дефицитов', async () => {
-    prisma.order.findFirst.mockResolvedValue(null);
+    jest.mocked(prisma.order.findFirst).mockResolvedValue(null);
     const res = await service.getCloseValidation(ctx, 'o1');
     expect(res).toEqual({ canClose: false, closeDeficiencies: [] });
   });
 
   it('закрытый/отменённый статус → нельзя закрыть, без дефицитов', async () => {
-    prisma.order.findFirst.mockResolvedValue(
+    jest.mocked(prisma.order.findFirst).mockResolvedValue(
       order({ status: OrderStatus.CLOSED }) as any,
     );
     const res = await service.getCloseValidation(ctx, 'o1');
@@ -64,7 +64,7 @@ describe('OrderService.getCloseValidation', () => {
   });
 
   it('есть авто, но не указан пробег → MILEAGE_MISSING', async () => {
-    prisma.order.findFirst.mockResolvedValue(
+    jest.mocked(prisma.order.findFirst).mockResolvedValue(
       order({ carId: 'car-1', mileage: null }) as any,
     );
     const res = await service.getCloseValidation(ctx, 'o1');
@@ -73,7 +73,7 @@ describe('OrderService.getCloseValidation', () => {
   });
 
   it('работа (type=1) без исполнителя, в т.ч. вложенная → SERVICES_WITHOUT_WORKER', async () => {
-    prisma.order.findFirst.mockResolvedValue(
+    jest.mocked(prisma.order.findFirst).mockResolvedValue(
       order({
         items: [
           {
@@ -91,7 +91,7 @@ describe('OrderService.getCloseValidation', () => {
   });
 
   it('подрядная работа без себестоимости → CONTRACTOR_WITHOUT_COST', async () => {
-    prisma.order.findFirst.mockResolvedValue(
+    jest.mocked(prisma.order.findFirst).mockResolvedValue(
       order({
         items: [
           {
@@ -112,7 +112,7 @@ describe('OrderService.getCloseValidation', () => {
   });
 
   it('подрядная работа с себестоимостью → можно закрыть', async () => {
-    prisma.order.findFirst.mockResolvedValue(
+    jest.mocked(prisma.order.findFirst).mockResolvedValue(
       order({
         items: [
           {
@@ -132,7 +132,7 @@ describe('OrderService.getCloseValidation', () => {
   });
 
   it('все работы с исполнителем и есть пробег → можно закрыть', async () => {
-    prisma.order.findFirst.mockResolvedValue(
+    jest.mocked(prisma.order.findFirst).mockResolvedValue(
       order({
         carId: 'car-1',
         mileage: 1000,
@@ -146,7 +146,7 @@ describe('OrderService.getCloseValidation', () => {
   });
 
   it('гарантийная работа без плательщика → WARRANTY_WITHOUT_PAYER', async () => {
-    prisma.order.findFirst.mockResolvedValue(
+    jest.mocked(prisma.order.findFirst).mockResolvedValue(
       order({
         items: [
           {
@@ -169,7 +169,7 @@ describe('OrderService.getCloseValidation', () => {
   });
 
   it('гарантийная запчасть без плательщика → WARRANTY_WITHOUT_PAYER', async () => {
-    prisma.order.findFirst.mockResolvedValue(
+    jest.mocked(prisma.order.findFirst).mockResolvedValue(
       order({
         items: [
           {
@@ -185,7 +185,7 @@ describe('OrderService.getCloseValidation', () => {
   });
 
   it('гарантия с плательщиком ORGANIZATION (работа и запчасть) → без дефицита', async () => {
-    prisma.order.findFirst.mockResolvedValue(
+    jest.mocked(prisma.order.findFirst).mockResolvedValue(
       order({
         items: [
           {
@@ -217,7 +217,7 @@ describe('OrderService.getCloseValidation', () => {
   });
 
   it('гарантия с плательщиком-сотрудником без ставки → WARRANTY_PAYER_NOT_ELIGIBLE', async () => {
-    prisma.order.findFirst.mockResolvedValue(
+    jest.mocked(prisma.order.findFirst).mockResolvedValue(
       order({
         items: [
           {
@@ -245,7 +245,7 @@ describe('OrderService.getCloseValidation', () => {
   });
 
   it('гарантия с плательщиком-сотрудником уволенным → WARRANTY_PAYER_NOT_ELIGIBLE', async () => {
-    prisma.order.findFirst.mockResolvedValue(
+    jest.mocked(prisma.order.findFirst).mockResolvedValue(
       order({
         items: [
           {
@@ -271,7 +271,7 @@ describe('OrderService.getCloseValidation', () => {
   });
 
   it('гарантия с плательщиком-сотрудником со ставкой (исполнитель или другой) → без дефицита', async () => {
-    prisma.order.findFirst.mockResolvedValue(
+    jest.mocked(prisma.order.findFirst).mockResolvedValue(
       order({
         items: [
           {

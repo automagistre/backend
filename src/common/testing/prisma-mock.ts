@@ -10,7 +10,7 @@ export type PrismaMock = DeepMockProxy<PrismaService>;
  */
 export function createPrismaMock(): PrismaMock {
   const prisma = mockDeep<PrismaService>();
-  prisma.$transaction.mockImplementation((arg: any) =>
+  jest.mocked(prisma.$transaction).mockImplementation((arg: any) =>
     typeof arg === 'function' ? arg(prisma) : Promise.all(arg),
   );
   return prisma;

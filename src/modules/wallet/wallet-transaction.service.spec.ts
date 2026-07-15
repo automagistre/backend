@@ -52,12 +52,12 @@ describe('WalletTransactionService', () => {
 
     it('OrderDebit → пишет проводку и аудит DEBIT', async () => {
       wallet.findOne.mockResolvedValue({ id: 'w1' } as any);
-      prisma.walletTransaction.create.mockResolvedValue({
+      jest.mocked(prisma.walletTransaction.create).mockResolvedValue({
         id: 'wt1',
         source: WalletTransactionSource.OrderDebit,
         sourceId: 'order-1',
       } as any);
-      prisma.order.findUnique.mockResolvedValue({ customerId: 'c1' } as any);
+      jest.mocked(prisma.order.findUnique).mockResolvedValue({ customerId: 'c1' } as any);
       display.getOperandDisplayName.mockResolvedValue('Иванов Иван');
 
       await service.create(ctx, {
@@ -73,12 +73,12 @@ describe('WalletTransactionService', () => {
 
     it('OrderPrepay с отрицательной суммой → аудит REFUND', async () => {
       wallet.findOne.mockResolvedValue({ id: 'w1' } as any);
-      prisma.walletTransaction.create.mockResolvedValue({
+      jest.mocked(prisma.walletTransaction.create).mockResolvedValue({
         id: 'wt1',
         source: WalletTransactionSource.OrderPrepay,
         sourceId: 'order-1',
       } as any);
-      prisma.order.findUnique.mockResolvedValue({ customerId: null } as any);
+      jest.mocked(prisma.order.findUnique).mockResolvedValue({ customerId: null } as any);
 
       await service.create(ctx, {
         walletId: 'w1',
@@ -92,7 +92,7 @@ describe('WalletTransactionService', () => {
 
     it('неордерный источник (Initial) → без аудита', async () => {
       wallet.findOne.mockResolvedValue({ id: 'w1' } as any);
-      prisma.walletTransaction.create.mockResolvedValue({
+      jest.mocked(prisma.walletTransaction.create).mockResolvedValue({
         id: 'wt1',
         source: WalletTransactionSource.Initial,
         sourceId: 'x',
@@ -127,12 +127,12 @@ describe('WalletTransactionService', () => {
     });
 
     it('создаёт проводку с отрицательной суммой и аудитом CREATE', async () => {
-      prisma.walletTransaction.findFirst.mockResolvedValue(null);
-      prisma.walletTransaction.create.mockResolvedValue({ id: 'wt1' } as any);
+      jest.mocked(prisma.walletTransaction.findFirst).mockResolvedValue(null);
+      jest.mocked(prisma.walletTransaction.create).mockResolvedValue({ id: 'wt1' } as any);
 
       await service.syncContractorPayout(prisma as any, ctx, source());
 
-      const data = prisma.walletTransaction.create.mock.calls[0][0].data as any;
+      const data = jest.mocked(prisma.walletTransaction.create).mock.calls[0][0].data as any;
       expect(data).toMatchObject({
         walletId: 'w1',
         source: WalletTransactionSource.ContractorPayout,
@@ -145,7 +145,7 @@ describe('WalletTransactionService', () => {
     });
 
     it('обновляет проводку при изменении суммы/счёта и пишет аудит UPDATE', async () => {
-      prisma.walletTransaction.findFirst.mockResolvedValue({
+      jest.mocked(prisma.walletTransaction.findFirst).mockResolvedValue({
         id: 'wt1',
         walletId: 'w1',
         amountAmount: -300000n,
@@ -167,7 +167,7 @@ describe('WalletTransactionService', () => {
     });
 
     it('без изменений — не трогает проводку и аудит', async () => {
-      prisma.walletTransaction.findFirst.mockResolvedValue({
+      jest.mocked(prisma.walletTransaction.findFirst).mockResolvedValue({
         id: 'wt1',
         walletId: 'w1',
         amountAmount: -500000n,
@@ -182,7 +182,7 @@ describe('WalletTransactionService', () => {
     });
 
     it('удаляет проводку при обнулении себестоимости с аудитом DELETE', async () => {
-      prisma.walletTransaction.findFirst.mockResolvedValue({
+      jest.mocked(prisma.walletTransaction.findFirst).mockResolvedValue({
         id: 'wt1',
         walletId: 'w1',
         amountAmount: -500000n,
@@ -202,7 +202,7 @@ describe('WalletTransactionService', () => {
     });
 
     it('удаляет проводку при смене вида на AUTOSERVICE', async () => {
-      prisma.walletTransaction.findFirst.mockResolvedValue({
+      jest.mocked(prisma.walletTransaction.findFirst).mockResolvedValue({
         id: 'wt1',
         walletId: 'w1',
         amountAmount: -500000n,
@@ -219,7 +219,7 @@ describe('WalletTransactionService', () => {
     });
 
     it('не подрядная работа без проводки — no-op', async () => {
-      prisma.walletTransaction.findFirst.mockResolvedValue(null);
+      jest.mocked(prisma.walletTransaction.findFirst).mockResolvedValue(null);
 
       await service.syncContractorPayout(
         prisma as any,
@@ -232,7 +232,7 @@ describe('WalletTransactionService', () => {
     });
 
     it('гарантийная подрядная работа — удаляет проводку', async () => {
-      prisma.walletTransaction.findFirst.mockResolvedValue({
+      jest.mocked(prisma.walletTransaction.findFirst).mockResolvedValue({
         id: 'wt1',
         walletId: 'w1',
         amountAmount: -500000n,
@@ -252,7 +252,7 @@ describe('WalletTransactionService', () => {
     });
 
     it('гарантийная подрядная работа без проводки — не создаёт', async () => {
-      prisma.walletTransaction.findFirst.mockResolvedValue(null);
+      jest.mocked(prisma.walletTransaction.findFirst).mockResolvedValue(null);
 
       await service.syncContractorPayout(
         prisma as any,
@@ -264,8 +264,8 @@ describe('WalletTransactionService', () => {
     });
 
     it('без гарантии — проводка создаётся как обычно', async () => {
-      prisma.walletTransaction.findFirst.mockResolvedValue(null);
-      prisma.walletTransaction.create.mockResolvedValue({ id: 'wt1' } as any);
+      jest.mocked(prisma.walletTransaction.findFirst).mockResolvedValue(null);
+      jest.mocked(prisma.walletTransaction.create).mockResolvedValue({ id: 'wt1' } as any);
 
       await service.syncContractorPayout(
         prisma as any,
@@ -279,7 +279,7 @@ describe('WalletTransactionService', () => {
 
   describe('removeContractorPayouts', () => {
     it('удаляет проводки по работам и пишет аудит DELETE на каждую', async () => {
-      prisma.walletTransaction.findMany.mockResolvedValue([
+      jest.mocked(prisma.walletTransaction.findMany).mockResolvedValue([
         {
           id: 'wt1',
           amountAmount: -100n,
@@ -323,7 +323,7 @@ describe('WalletTransactionService', () => {
     });
 
     it('Payroll → операнд связанной проводки клиента', async () => {
-      prisma.customerTransaction.findFirst.mockResolvedValue({
+      jest.mocked(prisma.customerTransaction.findFirst).mockResolvedValue({
         operandId: 'person-1',
       } as any);
       display.getOperandDisplayName.mockResolvedValue('Петров Пётр');

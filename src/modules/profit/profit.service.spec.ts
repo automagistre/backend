@@ -27,7 +27,7 @@ describe('ProfitService.snapshotOrder', () => {
     settings = mockDeep<SettingsService>();
 
     settings.getDefaultCurrencyCode.mockResolvedValue('RUB');
-    prisma.$transaction.mockImplementation(async (cb: any) => cb(prisma));
+    jest.mocked(prisma.$transaction).mockImplementation(async (cb: any) => cb(prisma));
 
     service = new ProfitService(
       prisma as unknown as PrismaService,
@@ -44,8 +44,8 @@ describe('ProfitService.snapshotOrder', () => {
   } as any;
 
   it('записывает строки по работе, подрядчику и запчасти', async () => {
-    tx.order.findFirst.mockResolvedValue({ id: 'order-1', tenantId: 'tenant-1' });
-    tx.orderItem.findMany.mockResolvedValue([
+    jest.mocked(tx.order.findFirst).mockResolvedValue({ id: 'order-1', tenantId: 'tenant-1' });
+    jest.mocked(tx.orderItem.findMany).mockResolvedValue([
       {
         id: 'svc-1',
         service: {
@@ -138,8 +138,8 @@ describe('ProfitService.snapshotOrder', () => {
   });
 
   it('гарантия работа с плательщиком-сотрудником: profit=0, costBasis=NONE', async () => {
-    tx.order.findFirst.mockResolvedValue({ id: 'order-1', tenantId: 'tenant-1' });
-    tx.orderItem.findMany.mockResolvedValue([
+    jest.mocked(tx.order.findFirst).mockResolvedValue({ id: 'order-1', tenantId: 'tenant-1' });
+    jest.mocked(tx.orderItem.findMany).mockResolvedValue([
       {
         id: 'svc-1',
         service: {
@@ -178,7 +178,7 @@ describe('ProfitService.snapshotOrder', () => {
   });
 
   it('recomputeOrderProfit отклоняет отменённый заказ', async () => {
-    prisma.order.findFirst.mockResolvedValue({
+    jest.mocked(prisma.order.findFirst).mockResolvedValue({
       close: {
         orderCancel: { id: 'cancel-1' },
         orderDeal: { createdAt: closedAt },
@@ -205,11 +205,11 @@ describe('ProfitService.getPeriodProfit', () => {
     prisma = mockDeep<PrismaService>();
     settings = mockDeep<SettingsService>();
     settings.getTimezone.mockResolvedValue('Europe/Moscow');
-    prisma.incomeAccrue.aggregate.mockResolvedValue({
+    jest.mocked(prisma.incomeAccrue.aggregate).mockResolvedValue({
       _min: { createdAt: new Date('2020-01-01T00:00:00Z') },
     } as any);
-    prisma.orderItemProfit.aggregate.mockResolvedValue(emptyAgg as any);
-    prisma.orderItemProfit.groupBy.mockResolvedValue([]);
+    jest.mocked(prisma.orderItemProfit.aggregate).mockResolvedValue(emptyAgg as any);
+    jest.mocked(prisma.orderItemProfit.groupBy).mockResolvedValue([]);
 
     service = new ProfitService(
       prisma as unknown as PrismaService,
@@ -226,7 +226,7 @@ describe('ProfitService.getPeriodProfit', () => {
 
     await service.getPeriodProfit(ctx, dateFrom, dateTo);
 
-    const where = (prisma.orderItemProfit.aggregate.mock.calls[0][0] as any)
+    const where = (jest.mocked(prisma.orderItemProfit.aggregate).mock.calls[0][0] as any)
       .where.closedAt;
     expect(where.gte).toEqual(new Date('2026-07-01T00:00:00.000+03:00'));
     expect(where.lt).toEqual(new Date('2026-07-15T00:00:00.000+03:00'));
@@ -250,7 +250,7 @@ describe('ProfitService.findItemProfitRows', () => {
   });
 
   it('загружает строки снапшота по orderId', async () => {
-    prisma.orderItemProfit.findMany.mockResolvedValue([
+    jest.mocked(prisma.orderItemProfit.findMany).mockResolvedValue([
       { id: 'profit-1', profitAmount: 1000n },
     ] as any);
 

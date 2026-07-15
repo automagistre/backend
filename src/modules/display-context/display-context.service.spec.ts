@@ -21,7 +21,7 @@ describe('DisplayContextService', () => {
     });
 
     it('ORGANIZATION → organization.findUnique', async () => {
-      prisma.organization.findUnique.mockResolvedValue({ id: 'o1' } as any);
+      jest.mocked(prisma.organization.findUnique).mockResolvedValue({ id: 'o1' } as any);
       const res = await service.resolveCounterparty('ORGANIZATION', 'o1');
       expect(prisma.organization.findUnique).toHaveBeenCalledWith({
         where: { id: 'o1' },
@@ -30,7 +30,7 @@ describe('DisplayContextService', () => {
     });
 
     it('PERSON (и прочее) → person.findUnique', async () => {
-      prisma.person.findUnique.mockResolvedValue({ id: 'p1' } as any);
+      jest.mocked(prisma.person.findUnique).mockResolvedValue({ id: 'p1' } as any);
       await service.resolveCounterparty('PERSON', 'p1');
       expect(prisma.person.findUnique).toHaveBeenCalledWith({
         where: { id: 'p1' },
@@ -40,14 +40,14 @@ describe('DisplayContextService', () => {
 
   describe('getPartyDisplay', () => {
     it('ORGANIZATION → название организации', async () => {
-      prisma.organization.findUnique.mockResolvedValue({ name: 'ООО Ромашка' } as any);
+      jest.mocked(prisma.organization.findUnique).mockResolvedValue({ name: 'ООО Ромашка' } as any);
       expect(await service.getPartyDisplay('ORGANIZATION', 'o1')).toBe(
         'ООО Ромашка',
       );
     });
 
     it('PERSON → ФИО', async () => {
-      prisma.person.findUnique.mockResolvedValue({
+      jest.mocked(prisma.person.findUnique).mockResolvedValue({
         lastname: 'Иванов',
         firstname: 'Иван',
       } as any);
@@ -57,7 +57,7 @@ describe('DisplayContextService', () => {
 
   describe('getOperandDisplayName', () => {
     it('персона → ФИО', async () => {
-      prisma.person.findUnique.mockResolvedValue({
+      jest.mocked(prisma.person.findUnique).mockResolvedValue({
         lastname: 'Петров',
         firstname: 'Пётр',
       } as any);
@@ -65,21 +65,21 @@ describe('DisplayContextService', () => {
     });
 
     it('не персона → название организации', async () => {
-      prisma.person.findUnique.mockResolvedValue(null);
-      prisma.organization.findUnique.mockResolvedValue({ name: 'Орг' } as any);
+      jest.mocked(prisma.person.findUnique).mockResolvedValue(null);
+      jest.mocked(prisma.organization.findUnique).mockResolvedValue({ name: 'Орг' } as any);
       expect(await service.getOperandDisplayName('id')).toBe('Орг');
     });
 
     it('ничего не найдено → null', async () => {
-      prisma.person.findUnique.mockResolvedValue(null);
-      prisma.organization.findUnique.mockResolvedValue(null);
+      jest.mocked(prisma.person.findUnique).mockResolvedValue(null);
+      jest.mocked(prisma.organization.findUnique).mockResolvedValue(null);
       expect(await service.getOperandDisplayName('id')).toBeNull();
     });
   });
 
   describe('getOrderContext', () => {
     it('«№N, ФИО» для клиента-персоны', async () => {
-      prisma.order.findFirst.mockResolvedValue({
+      jest.mocked(prisma.order.findFirst).mockResolvedValue({
         number: 123,
         customerId: 'p1',
         customer: { lastname: 'Иванов', firstname: 'Иван' },
@@ -88,25 +88,25 @@ describe('DisplayContextService', () => {
     });
 
     it('«№N, Организация», если клиент — организация', async () => {
-      prisma.order.findFirst.mockResolvedValue({
+      jest.mocked(prisma.order.findFirst).mockResolvedValue({
         number: 7,
         customerId: 'org1',
         customer: null,
       } as any);
-      prisma.organization.findUnique.mockResolvedValue({ name: 'Орг' } as any);
+      jest.mocked(prisma.organization.findUnique).mockResolvedValue({ name: 'Орг' } as any);
       expect(await service.getOrderContext(ctx, 'o1')).toBe('№7, Орг');
     });
 
     it('пустая строка, если заказ не найден', async () => {
-      prisma.order.findFirst.mockResolvedValue(null);
+      jest.mocked(prisma.order.findFirst).mockResolvedValue(null);
       expect(await service.getOrderContext(ctx, 'o1')).toBe('');
     });
   });
 
   describe('getOrderContextByOrderItemId', () => {
     it('резолвит orderId позиции и возвращает контекст заказа', async () => {
-      prisma.orderItem.findFirst.mockResolvedValue({ orderId: 'o1' } as any);
-      prisma.order.findFirst.mockResolvedValue({
+      jest.mocked(prisma.orderItem.findFirst).mockResolvedValue({ orderId: 'o1' } as any);
+      jest.mocked(prisma.order.findFirst).mockResolvedValue({
         number: 5,
         customerId: 'p1',
         customer: { lastname: 'Сидоров', firstname: 'Пётр' },
@@ -122,7 +122,7 @@ describe('DisplayContextService', () => {
     });
 
     it('пустая строка, если позиция не найдена', async () => {
-      prisma.orderItem.findFirst.mockResolvedValue(null);
+      jest.mocked(prisma.orderItem.findFirst).mockResolvedValue(null);
       expect(await service.getOrderContextByOrderItemId(ctx, 'item-x')).toBe(
         '',
       );
@@ -131,13 +131,13 @@ describe('DisplayContextService', () => {
 
   describe('getPersonDisplay', () => {
     it('ФИО или пустая строка', async () => {
-      prisma.person.findUnique.mockResolvedValue({
+      jest.mocked(prisma.person.findUnique).mockResolvedValue({
         lastname: 'Сидоров',
         firstname: null,
       } as any);
       expect(await service.getPersonDisplay('p1')).toBe('Сидоров');
 
-      prisma.person.findUnique.mockResolvedValue(null);
+      jest.mocked(prisma.person.findUnique).mockResolvedValue(null);
       expect(await service.getPersonDisplay('p2')).toBe('');
     });
   });

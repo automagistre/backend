@@ -31,9 +31,9 @@ describe('ExpenseService', () => {
 
   describe('create', () => {
     it('тримит имя и не проверяет счёт, если walletId не задан', async () => {
-      prisma.expense.create.mockResolvedValue({ id: 'e1' } as any);
+      jest.mocked(prisma.expense.create).mockResolvedValue({ id: 'e1' } as any);
       await service.create(ctx, { name: '  Аренда  ' } as any);
-      const arg = prisma.expense.create.mock.calls[0][0].data as any;
+      const arg = jest.mocked(prisma.expense.create).mock.calls[0][0].data as any;
       expect(arg.name).toBe('Аренда');
       expect(wallet.findOne).not.toHaveBeenCalled();
     });
@@ -48,24 +48,24 @@ describe('ExpenseService', () => {
 
   describe('remove', () => {
     it('бросает NotFound, если статьи нет', async () => {
-      prisma.expense.findFirst.mockResolvedValue(null as any);
+      jest.mocked(prisma.expense.findFirst).mockResolvedValue(null as any);
       await expect(service.remove(ctx, 'e1')).rejects.toBeInstanceOf(
         NotFoundException,
       );
     });
 
     it('бросает Conflict, если есть проводки', async () => {
-      prisma.expense.findFirst.mockResolvedValue({ id: 'e1' } as any);
-      prisma.walletTransaction.count.mockResolvedValue(2 as any);
+      jest.mocked(prisma.expense.findFirst).mockResolvedValue({ id: 'e1' } as any);
+      jest.mocked(prisma.walletTransaction.count).mockResolvedValue(2 as any);
       await expect(service.remove(ctx, 'e1')).rejects.toBeInstanceOf(
         ConflictException,
       );
     });
 
     it('удаляет, если проводок нет', async () => {
-      prisma.expense.findFirst.mockResolvedValue({ id: 'e1' } as any);
-      prisma.walletTransaction.count.mockResolvedValue(0 as any);
-      prisma.expense.delete.mockResolvedValue({ id: 'e1' } as any);
+      jest.mocked(prisma.expense.findFirst).mockResolvedValue({ id: 'e1' } as any);
+      jest.mocked(prisma.walletTransaction.count).mockResolvedValue(0 as any);
+      jest.mocked(prisma.expense.delete).mockResolvedValue({ id: 'e1' } as any);
       await service.remove(ctx, 'e1');
       expect(prisma.expense.delete).toHaveBeenCalledWith({ where: { id: 'e1' } });
     });
@@ -73,7 +73,7 @@ describe('ExpenseService', () => {
 
   describe('createExpenseTransaction', () => {
     it('NotFound, если статьи нет', async () => {
-      prisma.expense.findFirst.mockResolvedValue(null as any);
+      jest.mocked(prisma.expense.findFirst).mockResolvedValue(null as any);
       await expect(
         service.createExpenseTransaction(ctx, {
           expenseId: 'e1',
@@ -84,7 +84,7 @@ describe('ExpenseService', () => {
     });
 
     it('конвертирует положительную сумму в отрицательную проводку Expense', async () => {
-      prisma.expense.findFirst.mockResolvedValue({ id: 'e1' } as any);
+      jest.mocked(prisma.expense.findFirst).mockResolvedValue({ id: 'e1' } as any);
       wallet.findOne.mockResolvedValue({ id: 'w1' } as any);
 
       await service.createExpenseTransaction(ctx, {

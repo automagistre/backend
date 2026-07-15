@@ -52,7 +52,7 @@ describe('OrderItemService.createService', () => {
   });
 
   it('маппит executor {PERSON,id} в executorKind/executorId и пишет аудит', async () => {
-    prisma.orderItem.create.mockResolvedValue(created() as any);
+    jest.mocked(prisma.orderItem.create).mockResolvedValue(created() as any);
 
     await service.createService(ctx, {
       orderId: 'order-1',
@@ -60,7 +60,7 @@ describe('OrderItemService.createService', () => {
       executor: { kind: PartyKind.PERSON, id: 'person-1' },
     } as any);
 
-    const data = prisma.orderItem.create.mock.calls[0][0].data as any;
+    const data = jest.mocked(prisma.orderItem.create).mock.calls[0][0].data as any;
     expect(data.service.create).toMatchObject({
       executorKind: PartyKind.PERSON,
       executorId: 'person-1',
@@ -73,20 +73,20 @@ describe('OrderItemService.createService', () => {
   });
 
   it('без исполнителя пишет executorKind/executorId = null', async () => {
-    prisma.orderItem.create.mockResolvedValue(created() as any);
+    jest.mocked(prisma.orderItem.create).mockResolvedValue(created() as any);
 
     await service.createService(ctx, {
       orderId: 'order-1',
       service: 'Работа',
     } as any);
 
-    const data = prisma.orderItem.create.mock.calls[0][0].data as any;
+    const data = jest.mocked(prisma.orderItem.create).mock.calls[0][0].data as any;
     expect(data.service.create.executorKind).toBeNull();
     expect(data.service.create.executorId).toBeNull();
   });
 
   it('применяет цену/скидку с валютой по умолчанию', async () => {
-    prisma.orderItem.create.mockResolvedValue(created() as any);
+    jest.mocked(prisma.orderItem.create).mockResolvedValue(created() as any);
 
     await service.createService(ctx, {
       orderId: 'order-1',
@@ -95,7 +95,7 @@ describe('OrderItemService.createService', () => {
       discount: { amountMinor: 50000n },
     } as any);
 
-    const data = prisma.orderItem.create.mock.calls[0][0].data as any;
+    const data = jest.mocked(prisma.orderItem.create).mock.calls[0][0].data as any;
     expect(data.service.create).toMatchObject({
       priceAmount: 500000n,
       priceCurrencyCode: 'RUB',
@@ -105,7 +105,7 @@ describe('OrderItemService.createService', () => {
   });
 
   it('проверяет редактируемость заказа перед созданием', async () => {
-    prisma.orderItem.create.mockResolvedValue(created() as any);
+    jest.mocked(prisma.orderItem.create).mockResolvedValue(created() as any);
     await service.createService(ctx, {
       orderId: 'order-1',
       service: 'Работа',
@@ -118,11 +118,11 @@ describe('OrderItemService.createService', () => {
 
   describe('подрядная работа (kind=CONTRACTOR)', () => {
     beforeEach(() => {
-      prisma.employee.findFirst.mockResolvedValue(null);
+      jest.mocked(prisma.employee.findFirst).mockResolvedValue(null);
     });
 
     it('сотрудник не может быть исполнителем подрядной работы', async () => {
-      prisma.employee.findFirst.mockResolvedValue({ id: 'emp-1' } as any);
+      jest.mocked(prisma.employee.findFirst).mockResolvedValue({ id: 'emp-1' } as any);
 
       await expect(
         service.createService(ctx, {
@@ -167,7 +167,7 @@ describe('OrderItemService.createService', () => {
     });
 
     it('создание с себестоимостью и счётом — маппит поля и синкает проводку', async () => {
-      prisma.orderItem.create.mockResolvedValue(
+      jest.mocked(prisma.orderItem.create).mockResolvedValue(
         created({
           kind: 'CONTRACTOR',
           executorKind: 'ORGANIZATION',
@@ -187,7 +187,7 @@ describe('OrderItemService.createService', () => {
         costWalletId: 'w1',
       } as any);
 
-      const data = prisma.orderItem.create.mock.calls[0][0].data as any;
+      const data = jest.mocked(prisma.orderItem.create).mock.calls[0][0].data as any;
       expect(data.service.create).toMatchObject({
         kind: 'CONTRACTOR',
         executorKind: PartyKind.ORGANIZATION,
@@ -214,8 +214,8 @@ describe('OrderItemService.createService', () => {
       allItems: unknown[] = [],
       assigneeId: string | null = 'person-1',
     ) => {
-      prisma.order.findFirst.mockResolvedValue({ assigneeId } as any);
-      prisma.orderItem.findMany.mockImplementation(((args: any) => {
+      jest.mocked(prisma.order.findFirst).mockResolvedValue({ assigneeId } as any);
+      jest.mocked(prisma.orderItem.findMany).mockImplementation(((args: any) => {
         if (args?.where?.orderId && !args?.where?.id) {
           return Promise.resolve(allItems as any);
         }

@@ -30,10 +30,10 @@ describe('ReservationService', () => {
 
   describe('getReservable', () => {
     it('остаток минус резерв в активных заказах', async () => {
-      prisma.motion.aggregate.mockResolvedValue({
+      jest.mocked(prisma.motion.aggregate).mockResolvedValue({
         _sum: { quantity: 10 },
       } as any);
-      prisma.reservation.aggregate.mockResolvedValue({
+      jest.mocked(prisma.reservation.aggregate).mockResolvedValue({
         _sum: { quantity: 3 },
       } as any);
 
@@ -43,7 +43,7 @@ describe('ReservationService', () => {
 
   describe('reserve', () => {
     const stub = () => {
-      prisma.orderItemPart.findUnique.mockResolvedValue({
+      jest.mocked(prisma.orderItemPart.findUnique).mockResolvedValue({
         partId: 'p1',
         part: { name: 'Колодки' },
         orderItem: { orderId: 'o1' },
@@ -59,8 +59,8 @@ describe('ReservationService', () => {
 
     it('бросает, если недостаточно доступного остатка', async () => {
       stub();
-      prisma.motion.aggregate.mockResolvedValue({ _sum: { quantity: 10 } } as any);
-      prisma.reservation.aggregate.mockResolvedValue({
+      jest.mocked(prisma.motion.aggregate).mockResolvedValue({ _sum: { quantity: 10 } } as any);
+      jest.mocked(prisma.reservation.aggregate).mockResolvedValue({
         _sum: { quantity: 8 },
       } as any);
 
@@ -71,11 +71,11 @@ describe('ReservationService', () => {
 
     it('создаёт резерв и пишет аудит RESERVE при достатке', async () => {
       stub();
-      prisma.motion.aggregate.mockResolvedValue({ _sum: { quantity: 10 } } as any);
-      prisma.reservation.aggregate.mockResolvedValue({
+      jest.mocked(prisma.motion.aggregate).mockResolvedValue({ _sum: { quantity: 10 } } as any);
+      jest.mocked(prisma.reservation.aggregate).mockResolvedValue({
         _sum: { quantity: 3 },
       } as any);
-      prisma.reservation.create.mockResolvedValue({ id: 'r1' } as any);
+      jest.mocked(prisma.reservation.create).mockResolvedValue({ id: 'r1' } as any);
 
       await service.reserve(ctx, { orderItemPartId: 'oip1', quantity: 5 });
 
@@ -87,15 +87,15 @@ describe('ReservationService', () => {
 
   describe('release (частичное, FIFO)', () => {
     it('удаляет старые резервы и урезает последний', async () => {
-      prisma.orderItemPart.findUnique.mockResolvedValue({
+      jest.mocked(prisma.orderItemPart.findUnique).mockResolvedValue({
         orderItem: { orderId: 'o1' },
         part: { name: 'Колодки' },
       } as any);
-      prisma.reservation.findMany.mockResolvedValue([
+      jest.mocked(prisma.reservation.findMany).mockResolvedValue([
         { id: 'a', quantity: 3 },
         { id: 'b', quantity: 4 },
       ] as any);
-      prisma.reservation.deleteMany.mockResolvedValue({ count: 1 } as any);
+      jest.mocked(prisma.reservation.deleteMany).mockResolvedValue({ count: 1 } as any);
 
       const released = await service.release(ctx, {
         orderItemPartId: 'oip1',

@@ -37,14 +37,14 @@ describe('IncomeService', () => {
   });
 
   it('findById бросает NotFound', async () => {
-    prisma.income.findFirst.mockResolvedValue(null as any);
+    jest.mocked(prisma.income.findFirst).mockResolvedValue(null as any);
     await expect(service.findById(ctx, 'x')).rejects.toBeInstanceOf(
       NotFoundException,
     );
   });
 
   it('update запрещён для оприходованного прихода', async () => {
-    prisma.income.findFirst.mockResolvedValue({
+    jest.mocked(prisma.income.findFirst).mockResolvedValue({
       id: 'i1',
       incomeAccrue: { id: 'a1' },
     } as any);
@@ -55,7 +55,7 @@ describe('IncomeService', () => {
 
   describe('createIncomePart', () => {
     it('бросает BadRequest при количестве <= 0', async () => {
-      prisma.income.findFirst.mockResolvedValue({
+      jest.mocked(prisma.income.findFirst).mockResolvedValue({
         id: 'i1',
         incomeAccrue: null,
       } as any);
@@ -70,11 +70,11 @@ describe('IncomeService', () => {
     });
 
     it('создаёт позицию с нормализацией валюты', async () => {
-      prisma.income.findFirst.mockResolvedValue({
+      jest.mocked(prisma.income.findFirst).mockResolvedValue({
         id: 'i1',
         incomeAccrue: null,
       } as any);
-      prisma.incomePart.create.mockResolvedValue({
+      jest.mocked(prisma.incomePart.create).mockResolvedValue({
         id: 'ip1',
         incomeId: 'i1',
         partId: 'p1',
@@ -91,7 +91,7 @@ describe('IncomeService', () => {
         price: { amountMinor: 100n, currencyCode: null },
       } as any);
 
-      const arg = prisma.incomePart.create.mock.calls[0][0].data as any;
+      const arg = jest.mocked(prisma.incomePart.create).mock.calls[0][0].data as any;
       expect(arg.priceCurrencyCode).toBe('RUB');
       expect(res.price?.amountMinor).toBe(100n);
     });
@@ -108,14 +108,14 @@ describe('IncomeService', () => {
     };
 
     it('NotFound, если прихода нет', async () => {
-      prisma.income.findFirst.mockResolvedValue(null as any);
+      jest.mocked(prisma.income.findFirst).mockResolvedValue(null as any);
       await expect(service.accrue(ctx, 'i1')).rejects.toBeInstanceOf(
         NotFoundException,
       );
     });
 
     it('BadRequest, если уже оприходован', async () => {
-      prisma.income.findFirst.mockResolvedValue({
+      jest.mocked(prisma.income.findFirst).mockResolvedValue({
         ...incomeReady,
         incomeAccrue: { id: 'a1' },
       } as any);
@@ -125,7 +125,7 @@ describe('IncomeService', () => {
     });
 
     it('BadRequest, если нет позиций', async () => {
-      prisma.income.findFirst.mockResolvedValue({
+      jest.mocked(prisma.income.findFirst).mockResolvedValue({
         ...incomeReady,
         incomeParts: [],
       } as any);
@@ -135,7 +135,7 @@ describe('IncomeService', () => {
     });
 
     it('BadRequest, если сумма оплаты больше суммы прихода', async () => {
-      prisma.income.findFirst.mockResolvedValue(incomeReady as any);
+      jest.mocked(prisma.income.findFirst).mockResolvedValue(incomeReady as any);
       await expect(
         service.accrue(ctx, 'i1', {
           walletId: 'w1',
@@ -145,7 +145,7 @@ describe('IncomeService', () => {
     });
 
     it('NotFound, если счёт оплаты не найден', async () => {
-      prisma.income.findFirst.mockResolvedValue(incomeReady as any);
+      jest.mocked(prisma.income.findFirst).mockResolvedValue(incomeReady as any);
       walletTx.findOne.mockResolvedValue(null as any);
       await expect(
         service.accrue(ctx, 'i1', {
@@ -156,7 +156,7 @@ describe('IncomeService', () => {
     });
 
     it('BadRequest, если счёт недоступен для приходов', async () => {
-      prisma.income.findFirst.mockResolvedValue(incomeReady as any);
+      jest.mocked(prisma.income.findFirst).mockResolvedValue(incomeReady as any);
       walletTx.findOne.mockResolvedValue({ useInIncome: false } as any);
       await expect(
         service.accrue(ctx, 'i1', {

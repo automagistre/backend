@@ -38,8 +38,8 @@ describe('CalendarService', () => {
 
   describe('createEntry', () => {
     it('создаёт запись с orderInfo, пишет аудит и нормализует длительность', async () => {
-      prisma.calendarEntry.create.mockResolvedValue({ id: 'ce1' } as any);
-      prisma.calendarEntry.findFirst.mockResolvedValue(entryWith() as any);
+      jest.mocked(prisma.calendarEntry.create).mockResolvedValue({ id: 'ce1' } as any);
+      jest.mocked(prisma.calendarEntry.findFirst).mockResolvedValue(entryWith() as any);
 
       const result = await service.createEntry(ctx, {
         date: new Date('2026-01-01T10:00:00Z'),
@@ -49,7 +49,7 @@ describe('CalendarService', () => {
         description: 'desc',
       } as any);
 
-      const createArg = prisma.calendarEntry.create.mock.calls[0][0].data as any;
+      const createArg = jest.mocked(prisma.calendarEntry.create).mock.calls[0][0].data as any;
       expect(createArg.calendarEntryOrderInfo).toBeDefined();
       expect(audit.record).toHaveBeenCalledTimes(1);
       // PT90M → нормализуется в PT1H30M
@@ -57,8 +57,8 @@ describe('CalendarService', () => {
     });
 
     it('без участников/описания не создаёт orderInfo', async () => {
-      prisma.calendarEntry.create.mockResolvedValue({ id: 'ce1' } as any);
-      prisma.calendarEntry.findFirst.mockResolvedValue(
+      jest.mocked(prisma.calendarEntry.create).mockResolvedValue({ id: 'ce1' } as any);
+      jest.mocked(prisma.calendarEntry.findFirst).mockResolvedValue(
         entryWith({ calendarEntryOrderInfo: [] }) as any,
       );
 
@@ -67,20 +67,20 @@ describe('CalendarService', () => {
         duration: 'PT1H',
       } as any);
 
-      const createArg = prisma.calendarEntry.create.mock.calls[0][0].data as any;
+      const createArg = jest.mocked(prisma.calendarEntry.create).mock.calls[0][0].data as any;
       expect(createArg.calendarEntryOrderInfo).toBeUndefined();
     });
   });
 
   describe('updateEntry', () => {
     it('возвращает null, если запись не найдена', async () => {
-      prisma.calendarEntry.findFirst.mockResolvedValue(null as any);
+      jest.mocked(prisma.calendarEntry.findFirst).mockResolvedValue(null as any);
       const res = await service.updateEntry(ctx, { id: 'missing' } as any);
       expect(res).toBeNull();
     });
 
     it('без изменений → возвращает существующую без транзакции', async () => {
-      prisma.calendarEntry.findFirst.mockResolvedValue(entryWith() as any);
+      jest.mocked(prisma.calendarEntry.findFirst).mockResolvedValue(entryWith() as any);
       const res = await service.updateEntry(ctx, { id: 'ce1' } as any);
       expect(res).toBeTruthy();
       expect(prisma.$transaction).not.toHaveBeenCalled();
@@ -88,7 +88,7 @@ describe('CalendarService', () => {
     });
 
     it('смена assignee → создаёт снапшот orderInfo и пишет аудит', async () => {
-      prisma.calendarEntry.findFirst
+      jest.mocked(prisma.calendarEntry.findFirst)
         .mockResolvedValueOnce(entryWith() as any)
         .mockResolvedValueOnce(entryWith() as any);
 
@@ -102,7 +102,7 @@ describe('CalendarService', () => {
 
   describe('deleteEntry', () => {
     it('создаёт запись удаления и аудит DELETE', async () => {
-      prisma.calendarEntry.findFirst.mockResolvedValue(entryWith() as any);
+      jest.mocked(prisma.calendarEntry.findFirst).mockResolvedValue(entryWith() as any);
 
       await service.deleteEntry(ctx, {
         id: 'ce1',
@@ -111,7 +111,7 @@ describe('CalendarService', () => {
       } as any);
 
       expect(prisma.calendarEntryDeletion.create).toHaveBeenCalledTimes(1);
-      const delArg = prisma.calendarEntryDeletion.create.mock.calls[0][0].data as any;
+      const delArg = jest.mocked(prisma.calendarEntryDeletion.create).mock.calls[0][0].data as any;
       expect(delArg.reason).toBe(2);
       expect(audit.record.mock.calls[0][2].action).toBe(AuditAction.DELETE);
     });

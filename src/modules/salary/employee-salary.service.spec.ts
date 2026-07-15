@@ -24,7 +24,7 @@ describe('EmployeeSalaryService', () => {
 
   describe('listByEmployee', () => {
     it('маппит isCancelled из наличия employeeSalaryEnd', async () => {
-      prisma.employeeSalary.findMany.mockResolvedValue([
+      jest.mocked(prisma.employeeSalary.findMany).mockResolvedValue([
         {
           id: 's1',
           employeeId: 'e1',
@@ -52,7 +52,7 @@ describe('EmployeeSalaryService', () => {
 
   describe('create', () => {
     it('бросает NotFound при отсутствии сотрудника', async () => {
-      prisma.employee.findFirst.mockResolvedValue(null);
+      jest.mocked(prisma.employee.findFirst).mockResolvedValue(null);
       await expect(
         service.create(ctx, {
           employeeId: 'nope',
@@ -63,8 +63,8 @@ describe('EmployeeSalaryService', () => {
     });
 
     it('создаёт запись с нормализованной суммой и контекстом', async () => {
-      prisma.employee.findFirst.mockResolvedValue({ id: 'e1' } as any);
-      prisma.employeeSalary.create.mockResolvedValue({ id: 's1' } as any);
+      jest.mocked(prisma.employee.findFirst).mockResolvedValue({ id: 'e1' } as any);
+      jest.mocked(prisma.employeeSalary.create).mockResolvedValue({ id: 's1' } as any);
 
       await service.create(ctx, {
         employeeId: 'e1',
@@ -72,7 +72,7 @@ describe('EmployeeSalaryService', () => {
         amount: { amountMinor: 50000n },
       } as any);
 
-      const arg = prisma.employeeSalary.create.mock.calls[0][0];
+      const arg = jest.mocked(prisma.employeeSalary.create).mock.calls[0][0];
       expect(arg.data).toMatchObject({
         employeeId: 'e1',
         payday: 10,
@@ -85,14 +85,14 @@ describe('EmployeeSalaryService', () => {
 
   describe('cancel', () => {
     it('бросает NotFound, если оклад не найден', async () => {
-      prisma.employeeSalary.findFirst.mockResolvedValue(null);
+      jest.mocked(prisma.employeeSalary.findFirst).mockResolvedValue(null);
       await expect(service.cancel(ctx, 's1')).rejects.toBeInstanceOf(
         NotFoundException,
       );
     });
 
     it('бросает, если уже отменён', async () => {
-      prisma.employeeSalary.findFirst.mockResolvedValue({
+      jest.mocked(prisma.employeeSalary.findFirst).mockResolvedValue({
         id: 's1',
         employeeSalaryEnd: { id: 'end1' },
       } as any);
@@ -102,11 +102,11 @@ describe('EmployeeSalaryService', () => {
     });
 
     it('создаёт employeeSalaryEnd для активного оклада', async () => {
-      prisma.employeeSalary.findFirst.mockResolvedValue({
+      jest.mocked(prisma.employeeSalary.findFirst).mockResolvedValue({
         id: 's1',
         employeeSalaryEnd: null,
       } as any);
-      prisma.employeeSalaryEnd.create.mockResolvedValue({ id: 'end1' } as any);
+      jest.mocked(prisma.employeeSalaryEnd.create).mockResolvedValue({ id: 'end1' } as any);
 
       await service.cancel(ctx, 's1');
 

@@ -21,7 +21,7 @@ describe('PartPriceService / PartDiscountService', () => {
         prisma as unknown as PrismaService,
         settings as unknown as SettingsService,
       );
-      prisma.partPrice.create.mockResolvedValue({ id: 'pp1' } as any);
+      jest.mocked(prisma.partPrice.create).mockResolvedValue({ id: 'pp1' } as any);
 
       await service.create({
         partId: 'p1',
@@ -31,7 +31,7 @@ describe('PartPriceService / PartDiscountService', () => {
         createdBy: 'u1',
       } as any);
 
-      expect(prisma.partPrice.create.mock.calls[0][0].data).toMatchObject({
+      expect(jest.mocked(prisma.partPrice.create).mock.calls[0][0].data).toMatchObject({
         priceAmount: 0n,
         priceCurrencyCode: 'RUB',
       });
@@ -44,7 +44,7 @@ describe('PartPriceService / PartDiscountService', () => {
         prisma as unknown as PrismaService,
         settings as unknown as SettingsService,
       );
-      prisma.partDiscount.create.mockResolvedValue({ id: 'pd1' } as any);
+      jest.mocked(prisma.partDiscount.create).mockResolvedValue({ id: 'pd1' } as any);
 
       await service.create({
         partId: 'p1',
@@ -54,7 +54,7 @@ describe('PartPriceService / PartDiscountService', () => {
         createdBy: 'u1',
       } as any);
 
-      expect(prisma.partDiscount.create.mock.calls[0][0].data).toMatchObject({
+      expect(jest.mocked(prisma.partDiscount.create).mock.calls[0][0].data).toMatchObject({
         discountAmount: 25000n,
         discountCurrencyCode: 'RUB',
       });
