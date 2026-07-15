@@ -298,3 +298,120 @@ describe('OrderService.getCloseValidation', () => {
     expect(res).toEqual({ canClose: true, closeDeficiencies: [] });
   });
 });
+
+describe('OrderService calendar entry order link', () => {
+  let prisma: PrismaMock;
+  let auditLog: DeepMockProxy<AuditLogService>;
+  let service: OrderService;
+  const ctx = makeCtx();
+  const entryId = 'entry-1';
+  const orderId = 'order-1';
+
+  const deletableOrder = {
+    createdAt: new Date(),
+    close: null,
+    _count: { items: 0 },
+  };
+
+  const setupService = () => {
+    prisma = createPrismaMock();
+    auditLog = mockDeep<AuditLogService>();
+    service = new OrderService(
+      prisma as unknown as PrismaService,
+      mockDeep<WalletTransactionService>() as unknown as WalletTransactionService,
+      mockDeep<SalaryService>() as unknown as SalaryService,
+      mockDeep<CustomerTransactionService>() as unknown as CustomerTransactionService,
+      mockDeep<SettingsService>() as unknown as SettingsService,
+      mockDeep<WarehouseService>() as unknown as WarehouseService,
+      mockDeep<OrganizationService>() as unknown as OrganizationService,
+      mockDeep<TasksService>() as unknown as TasksService,
+      mockDeep<RecommendationWorkMigrationService>() as unknown as RecommendationWorkMigrationService,
+      auditLog as unknown as AuditLogService,
+      mockDeep<EmployeeService>() as unknown as EmployeeService,
+      mockDeep<ProfitService>() as unknown as ProfitService,
+    );
+  };
+
+  const mockCreateFromEntry = () => {
+    jest.mocked(prisma.calendarEntry.findFirst).mockResolvedValue({ id: entryId } as any);
+    jest.mocked(prisma.$queryRaw).mockResolvedValue([] as any);
+    jest.mocked(prisma.order.aggregate).mockResolvedValue({ _max: { number: 1 } } as any);
+    jest.mocked(prisma.order.create).mockResolvedValue({
+      id: orderId,
+      tenantId: ctx.tenantId,
+      number: 2,
+      status: OrderStatus.WORKING,
+    } as any);
+    jest.mocked(prisma.calendarEntryOrder.create).mockResolvedValue({} as any);
+    auditLog.record.mockResolvedValue(undefined as any);
+  };
+
+  beforeEach(() => {
+    setupService();
+  });
+
+  it('deleteOrder удаляет связь calendar_entry_order', async () => {
+    jest.mocked(prisma.order.findFirst).mockResolvedValue(deletableOrder as any);
+    jest.mocked(prisma.calendarEntryOrder.deleteMany).mockResolvedValue({ count: 1 });
+    jest.mocked(prisma.order.delete).mockResolvedValue({ id: orderId } as any);
+
+    await service.deleteOrder(ctx, orderId);
+
+    expect(prisma.calendarEntryOrder.deleteMany).toHaveBeenCalledWith({
+      where: { orderId, tenantId: ctx.tenantId },
+    });
+    expect(prisma.order.delete).toHaveBeenCalledWith({ where: { id: orderId } });
+  });
+
+  it('create → delete → create на том же entryId проходит', async () => {
+    mockCreateFromEntry();
+    jest.mocked(prisma.calendarEntryOrder.findFirst).mockResolvedValue(null);
+
+    const created = await service.create(ctx, { entryId });
+    expect(created.id).toBe(orderId);
+
+    jest.mocked(prisma.order.findFirst).mockResolvedValue(deletableOrder as any);
+    jest.mocked(prisma.calendarEntryOrder.deleteMany).mockResolvedValue({ count: 1 });
+    jest.mocked(prisma.order.delete).mockResolvedValue({ id: orderId } as any);
+    await service.deleteOrder(ctx, orderId);
+
+    jest.mocked(prisma.calendarEntryOrder.findFirst).mockResolvedValue(null);
+    jest.mocked(prisma.order.create).mockResolvedValue({
+      id: 'order-2',
+      tenantId: ctx.tenantId,
+      number: 3,
+      status: OrderStatus.WORKING,
+    } as any);
+
+    const recreated = await service.create(ctx, { entryId });
+    expect(recreated.id).toBe('order-2');
+    expect(prisma.calendarEntryOrder.create).toHaveBeenCalledTimes(2);
+  });
+
+  it('create с сиротской связью очищает link и создаёт заказ', async () => {
+    mockCreateFromEntry();
+    jest.mocked(prisma.calendarEntryOrder.findFirst).mockResolvedValue({
+      orderId: 'deleted-order',
+    } as any);
+    jest.mocked(prisma.order.findFirst).mockResolvedValue(null);
+
+    const created = await service.create(ctx, { entryId });
+
+    expect(prisma.calendarEntryOrder.deleteMany).toHaveBeenCalledWith({
+      where: { entryId, tenantId: ctx.tenantId },
+    });
+    expect(created.id).toBe(orderId);
+  });
+
+  it('create с живой связью отклоняет дубль', async () => {
+    mockCreateFromEntry();
+    jest.mocked(prisma.calendarEntryOrder.findFirst).mockResolvedValue({
+      orderId: 'existing-order',
+    } as any);
+    jest.mocked(prisma.order.findFirst).mockResolvedValue({ id: 'existing-order' } as any);
+
+    await expect(service.create(ctx, { entryId })).rejects.toThrow(
+      'Для этой записи уже создан заказ',
+    );
+  });
+});

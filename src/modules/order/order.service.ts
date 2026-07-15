@@ -564,7 +564,13 @@ export class OrderService {
       }
       throw new BadRequestException(result.message);
     }
-    await this.prisma.order.delete({ where: { id: orderId } });
+    const { tenantId } = ctx;
+    await this.prisma.$transaction(async (tx) => {
+      await tx.calendarEntryOrder.deleteMany({
+        where: { orderId, tenantId },
+      });
+      await tx.order.delete({ where: { id: orderId } });
+    });
     return true;
   }
 
@@ -711,7 +717,16 @@ export class OrderService {
         select: { orderId: true },
       });
       if (existingLink) {
-        throw new BadRequestException('Для этой записи уже создан заказ');
+        const linkedOrder = await tx.order.findFirst({
+          where: { id: existingLink.orderId, tenantId },
+          select: { id: true },
+        });
+        if (linkedOrder) {
+          throw new BadRequestException('Для этой записи уже создан заказ');
+        }
+        await tx.calendarEntryOrder.deleteMany({
+          where: { entryId, tenantId },
+        });
       }
 
       const agg = await tx.order.aggregate({
