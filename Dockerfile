@@ -1,5 +1,5 @@
 # Builder: зависимости и сборка из актуального кода (без кэша старого COPY . .)
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 RUN apk add --no-cache openssl
 WORKDIR /usr/src/app
 
@@ -20,7 +20,7 @@ COPY src ./src/
 RUN npx prisma generate && npm run build
 
 # Runner: только артефакты, без исходников
-FROM node:20-alpine AS runner
+FROM node:22-alpine AS runner
 RUN apk add --no-cache openssl && \
     addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nodejs
