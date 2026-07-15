@@ -233,6 +233,45 @@ describe('ProfitService.getPeriodProfit', () => {
   });
 });
 
+describe('ProfitService.getPeriodOrderProfits', () => {
+  let prisma: DeepMockProxy<PrismaService>;
+  let settings: DeepMockProxy<SettingsService>;
+  let service: ProfitService;
+
+  const ctx = { tenantId: 'tenant-1', userId: 'user-1' } as any;
+
+  beforeEach(() => {
+    prisma = mockDeep<PrismaService>();
+    settings = mockDeep<SettingsService>();
+    settings.getTimezone.mockResolvedValue('Europe/Moscow');
+    jest.mocked(prisma.order.count).mockResolvedValue(0);
+    jest.mocked(prisma.order.findMany).mockResolvedValue([]);
+
+    service = new ProfitService(
+      prisma as unknown as PrismaService,
+      mockDeep<CogsService>() as unknown as CogsService,
+      mockDeep<EmployeeService>() as unknown as EmployeeService,
+      settings as unknown as SettingsService,
+    );
+  });
+
+  it('сортирует заказы по дате закрытия сделки', async () => {
+    const dateFrom = new Date('2026-07-01T00:00:00.000+03:00');
+    const dateTo = new Date('2026-07-14T00:00:00.000+03:00');
+
+    await service.getPeriodOrderProfits(ctx, dateFrom, dateTo);
+
+    expect(prisma.order.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orderBy: [
+          { close: { orderDeal: { createdAt: 'desc' } } },
+          { number: 'desc' },
+        ],
+      }),
+    );
+  });
+});
+
 describe('ProfitService.findItemProfitRows', () => {
   let prisma: DeepMockProxy<PrismaService>;
   let service: ProfitService;

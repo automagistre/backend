@@ -359,7 +359,10 @@ export class ProfitService {
             },
           },
         },
-        orderBy: { number: 'desc' },
+        orderBy: [
+          { close: { orderDeal: { createdAt: 'desc' } } },
+          { number: 'desc' },
+        ],
         skip,
         take,
       }),
