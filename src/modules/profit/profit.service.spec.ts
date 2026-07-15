@@ -137,6 +137,41 @@ describe('ProfitService.snapshotOrder', () => {
     });
   });
 
+  it('запчасть без закупок: оценка маржи 30%, costBasis=ESTIMATED_MARKUP', async () => {
+    jest.mocked(tx.order.findFirst).mockResolvedValue({ id: 'order-1', tenantId: 'tenant-1' });
+    jest.mocked(tx.orderItem.findMany).mockResolvedValue([
+      {
+        id: 'part-1',
+        service: null,
+        part: {
+          partId: 'part-1',
+          quantity: 100,
+          warranty: false,
+          warrantyPayerKind: null,
+          priceAmount: 10000n,
+          discountAmount: 0n,
+        },
+      },
+    ]);
+    cogs.getPartLineCogsAtDate.mockResolvedValue(0n);
+
+    await service.snapshotOrder(tx, ctx, 'order-1', closedAt, ProfitOrigin.LIVE);
+
+    expect(tx.orderItemProfit.createMany).toHaveBeenCalledWith({
+      data: [
+        expect.objectContaining({
+          orderItemId: 'part-1',
+          kind: ProfitLineKind.PART,
+          revenueAmount: 10000n,
+          costAmount: 7000n,
+          profitAmount: 3000n,
+          costBasis: ProfitCostBasis.ESTIMATED_MARKUP,
+          origin: ProfitOrigin.LIVE,
+        }),
+      ],
+    });
+  });
+
   it('гарантия работа с плательщиком-сотрудником: profit=0, costBasis=NONE', async () => {
     jest.mocked(tx.order.findFirst).mockResolvedValue({ id: 'order-1', tenantId: 'tenant-1' });
     jest.mocked(tx.orderItem.findMany).mockResolvedValue([

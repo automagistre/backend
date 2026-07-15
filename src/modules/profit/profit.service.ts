@@ -25,7 +25,11 @@ import {
   distributeLegacySalaryCost,
   type LegacyServiceLine,
 } from './distribute-legacy-salary';
-import { calcPartsMarginPercent, estimatePartCostFromMarkup } from './estimate-part-cost';
+import {
+  calcPartsMarginPercent,
+  estimatePartCostFromMarkup,
+  estimatePartCostFromProfitMargin,
+} from './estimate-part-cost';
 import { ProfitCostBasis } from './enums/profit-cost-basis.enum';
 import { ProfitLineKind } from './enums/profit-line-kind.enum';
 import { ProfitOrigin } from './enums/profit-origin.enum';
@@ -646,7 +650,12 @@ export class ProfitService {
       part.quantity,
       closedAt,
     );
-    const { cost, costBasis } = this.resolvePartCost(origin, revenue, cogs);
+    const { cost, costBasis } = this.resolvePartCost(
+      origin,
+      revenue,
+      cogs,
+      part.warranty,
+    );
 
     const amounts = computeLineProfit({
       kind: ProfitLineKind.PART,
@@ -677,14 +686,23 @@ export class ProfitService {
     origin: ProfitOrigin,
     revenue: bigint,
     cogs: bigint,
+    warranty: boolean,
   ): { cost: bigint; costBasis: ProfitCostBasis } {
     if (cogs > 0n) {
       return { cost: cogs, costBasis: ProfitCostBasis.LAST_INCOME };
     }
 
-    if (origin === ProfitOrigin.LEGACY_BACKFILL && revenue > 0n) {
+    // Нет закупок — оцениваем себестоимость, иначе маржа получается 100%.
+    if (revenue > 0n && !warranty) {
+      if (origin === ProfitOrigin.LEGACY_BACKFILL) {
+        return {
+          cost: estimatePartCostFromMarkup(revenue),
+          costBasis: ProfitCostBasis.ESTIMATED_MARKUP,
+        };
+      }
+
       return {
-        cost: estimatePartCostFromMarkup(revenue),
+        cost: estimatePartCostFromProfitMargin(revenue),
         costBasis: ProfitCostBasis.ESTIMATED_MARKUP,
       };
     }

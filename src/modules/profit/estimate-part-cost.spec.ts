@@ -1,6 +1,8 @@
 import {
   calcPartsMarginPercent,
+  DEFAULT_PART_PROFIT_PERCENT,
   estimatePartCostFromMarkup,
+  estimatePartCostFromProfitMargin,
   LEGACY_PART_MARKUP_PERCENT,
 } from './estimate-part-cost';
 
@@ -19,6 +21,20 @@ describe('estimatePartCostFromMarkup', () => {
 
   it('константа LEGACY_PART_MARKUP_PERCENT = 40', () => {
     expect(LEGACY_PART_MARKUP_PERCENT).toBe(40);
+  });
+});
+
+describe('estimatePartCostFromProfitMargin', () => {
+  it('маржа 30%: cost = 70% revenue', () => {
+    expect(estimatePartCostFromProfitMargin(10000n)).toBe(7000n);
+  });
+
+  it('нулевая выручка → cost 0', () => {
+    expect(estimatePartCostFromProfitMargin(0n)).toBe(0n);
+  });
+
+  it('константа DEFAULT_PART_PROFIT_PERCENT = 30', () => {
+    expect(DEFAULT_PART_PROFIT_PERCENT).toBe(30);
   });
 });
 
