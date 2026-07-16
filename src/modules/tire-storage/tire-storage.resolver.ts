@@ -92,7 +92,7 @@ export class TireStorageResolver {
 
   @Mutation(() => TireStorageModel, {
     name: 'updateTireStorage',
-    description: 'Обновить введённый (ENTERED) договор хранения',
+    description: 'Обновить введённый договор или ручную опись на складе',
   })
   async updateTireStorage(
     @AuthContext() ctx: AuthContextType,

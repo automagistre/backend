@@ -2283,7 +2283,7 @@ type Mutation {
   """Обновить задачу (статус, результат, теги и др.)"""
   updateTask(input: UpdateTaskInput!): TaskModel!
 
-  """Обновить введённый (ENTERED) договор хранения"""
+  """Обновить введённый договор или ручную опись на складе"""
   updateTireStorage(input: UpdateTireStorageInput!): TireStorageModel!
 
   """Разбудить заказ (снять приостановку досрочно)"""
@@ -4369,8 +4369,13 @@ input UpdateTaskInput {
 }
 
 input UpdateTireStorageInput {
+  """Дата приёмки (только для ручной описи; пересчитывает срок)"""
+  acceptedAt: DateTime
   amount: MoneyInput
   carId: ID
+
+  """Клиент (только для ручной описи на складе)"""
+  customerId: ID
   height: Int
   id: ID!
   manufacturer: String

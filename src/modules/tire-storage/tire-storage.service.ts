@@ -329,10 +329,35 @@ export class TireStorageService {
         `Договор хранения с ID ${input.id} не найден`,
       );
     }
-    if (exists.status !== TireStorageStatus.ENTERED) {
+
+    const isEntered = exists.status === TireStorageStatus.ENTERED;
+    const isManualWarehouse =
+      exists.status === TireStorageStatus.IN_WAREHOUSE && exists.orderId == null;
+
+    if (!isEntered && !isManualWarehouse) {
       throw new BadRequestException(
-        'Редактировать можно только введённый (неоплаченный) договор',
+        'Редактировать можно только введённый договор или ручную опись на складе',
       );
+    }
+
+    if (input.customerId !== undefined) {
+      if (!isManualWarehouse) {
+        throw new BadRequestException(
+          'Клиента можно менять только у ручной описи на складе',
+        );
+      }
+      if (!input.customerId) {
+        throw new BadRequestException('Клиент обязателен');
+      }
+      const person = await this.prisma.person.findFirst({
+        where: { id: input.customerId, tenantGroupId: ctx.tenantGroupId },
+        select: { id: true },
+      });
+      if (!person) {
+        throw new NotFoundException(
+          `Клиент с ID ${input.customerId} не найден`,
+        );
+      }
     }
 
     if (input.carId) {
@@ -345,10 +370,21 @@ export class TireStorageService {
       }
     }
 
+    if (input.acceptedAt !== undefined && !isManualWarehouse) {
+      throw new BadRequestException(
+        'Дату приёмки можно менять только у ручной описи на складе',
+      );
+    }
+
     const data: Prisma.TireStorageUpdateInput = {};
-    if (input.carId !== undefined) data.car = input.carId
-      ? { connect: { id: input.carId } }
-      : { disconnect: true };
+    if (input.customerId) {
+      data.customer = { connect: { id: input.customerId } };
+    }
+    if (input.carId !== undefined) {
+      data.car = input.carId
+        ? { connect: { id: input.carId } }
+        : { disconnect: true };
+    }
     if (input.width != null) data.width = input.width;
     if (input.height != null) data.height = input.height;
     if (input.radius != null) data.radius = input.radius;
@@ -358,11 +394,22 @@ export class TireStorageService {
     if (input.season != null) data.season = input.season;
     if (input.note !== undefined) data.note = input.note?.trim() || null;
 
+    if (input.acceptedAt !== undefined) {
+      const acceptedAt = input.acceptedAt ? new Date(input.acceptedAt) : new Date();
+      const expiresAt = new Date(acceptedAt);
+      expiresAt.setMonth(expiresAt.getMonth() + STORAGE_MONTHS);
+      data.acceptedAt = acceptedAt;
+      data.expiresAt = expiresAt;
+    }
+
     if (input.amount) {
       const defaultCurrency =
         await this.settingsService.getDefaultCurrencyCode();
       const amount = applyDefaultCurrency(input.amount, defaultCurrency);
-      if (amount.amountMinor <= 0n) {
+      if (amount.amountMinor < 0n) {
+        throw new BadRequestException('Сумма договора не может быть отрицательной');
+      }
+      if (amount.amountMinor <= 0n && !isManualWarehouse) {
         throw new BadRequestException('Сумма договора должна быть больше нуля');
       }
       data.amountAmount = amount.amountMinor;

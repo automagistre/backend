@@ -11,6 +11,14 @@ export class UpdateTireStorageInput {
 
   @IsOptional()
   @IsUUID()
+  @Field(() => ID, {
+    nullable: true,
+    description: 'Клиент (только для ручной описи на складе)',
+  })
+  customerId?: string | null;
+
+  @IsOptional()
+  @IsUUID()
   @Field(() => ID, { nullable: true })
   carId?: string | null;
 
@@ -57,6 +65,13 @@ export class UpdateTireStorageInput {
   @IsOptional()
   @Field(() => TireSeason, { nullable: true })
   season?: TireSeason;
+
+  @IsOptional()
+  @Field(() => Date, {
+    nullable: true,
+    description: 'Дата приёмки (только для ручной описи; пересчитывает срок)',
+  })
+  acceptedAt?: Date | null;
 
   @IsOptional()
   @Field(() => String, { nullable: true })
