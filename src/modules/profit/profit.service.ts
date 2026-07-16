@@ -124,6 +124,38 @@ export class ProfitService {
       }
     }
 
+    // Договоры хранения, оплаченные этим заказом (уже IN_WAREHOUSE на момент снапшота)
+    const storages = await tx.tireStorage.findMany({
+      where: {
+        orderId,
+        status: 'IN_WAREHOUSE',
+        tenantGroupId: ctx.tenantGroupId,
+      },
+      select: {
+        id: true,
+        amountAmount: true,
+        amountCurrencyCode: true,
+      },
+    });
+    for (const storage of storages) {
+      rows.push({
+        orderItemId: null,
+        storageId: storage.id,
+        orderId,
+        tenantId: order.tenantId,
+        kind: ProfitLineKind.STORAGE,
+        revenueAmount: storage.amountAmount,
+        costAmount: 0n,
+        profitAmount: storage.amountAmount,
+        currencyCode: storage.amountCurrencyCode || currencyCode,
+        costBasis: ProfitCostBasis.NONE,
+        origin,
+        warranty: false,
+        warrantyPayerKind: null,
+        closedAt,
+      });
+    }
+
     await tx.orderItemProfit.deleteMany({ where: { orderId } });
 
     if (rows.length > 0) {
@@ -282,7 +314,7 @@ export class ProfitService {
       },
     };
 
-    const [totalAgg, worksAgg, partsAgg, contractorAgg, ordersCount] =
+    const [totalAgg, worksAgg, partsAgg, storageAgg, contractorAgg, ordersCount] =
       await Promise.all([
         this.prisma.orderItemProfit.aggregate({
           where,
@@ -301,6 +333,10 @@ export class ProfitService {
           _sum: { profitAmount: true },
         }),
         this.prisma.orderItemProfit.aggregate({
+          where: { ...where, kind: ProfitLineKind.STORAGE },
+          _sum: { profitAmount: true },
+        }),
+        this.prisma.orderItemProfit.aggregate({
           where: contractorWhere,
           _sum: { profitAmount: true },
         }),
@@ -316,6 +352,7 @@ export class ProfitService {
       grossProfitAmount: totalAgg._sum.profitAmount ?? 0n,
       worksProfitAmount: worksAgg._sum.profitAmount ?? 0n,
       partsProfitAmount: partsAgg._sum.profitAmount ?? 0n,
+      storageProfitAmount: storageAgg._sum.profitAmount ?? 0n,
       contractorProfitAmount: contractorAgg._sum.profitAmount ?? 0n,
       ordersCount: ordersCount.length,
     };
@@ -378,6 +415,7 @@ export class ProfitService {
       let profitAmount = 0n;
       let worksProfitAmount = 0n;
       let partsProfitAmount = 0n;
+      let storageProfitAmount = 0n;
       let partsRevenueAmount = 0n;
       let partsCostAmount = 0n;
 
@@ -391,6 +429,8 @@ export class ProfitService {
           partsProfitAmount += row.profitAmount;
           partsRevenueAmount += row.revenueAmount;
           partsCostAmount += row.costAmount;
+        } else if (row.kind === ProfitLineKind.STORAGE) {
+          storageProfitAmount += row.profitAmount;
         }
       }
 
@@ -408,6 +448,7 @@ export class ProfitService {
         profitAmount,
         worksProfitAmount,
         partsProfitAmount,
+        storageProfitAmount,
         partsRevenueAmount,
         partsCostAmount,
         partsMarginPercent: calcPartsMarginPercent(

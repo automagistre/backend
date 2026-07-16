@@ -214,6 +214,7 @@ model Person {
   taskCustomer                   Task[]                   @relation("TaskCustomer")
   appUser                        AppUser?
   calls                          Call[]
+  tireStorages                   TireStorage[]
 
   @@unique([telephone, tenantGroupId], map: "uniq_34dcd176450ff010dff2bbb0")
   @@map("person")
@@ -272,6 +273,7 @@ model Car {
   CalendarEntryOrderInfo   CalendarEntryOrderInfo[]
   Order                    Order[]
   CarRecommendation        CarRecommendation[]
+  tireStorages             TireStorage[]
 
   @@unique([identifier, tenantGroupId], map: "uniq_773de69d772e836adff2bbb0")
   @@map("car")
@@ -974,27 +976,30 @@ model OrderItemPart {
 
 /// Снапшот прибыли по позиции заказа на момент закрытия (этап 3 profit system).
 model OrderItemProfit {
-  id            String    @id @default(uuid()) @db.Uuid
-  orderItemId   String    @unique @map("order_item_id") @db.Uuid
-  orderItem     OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  orderId       String    @map("order_id") @db.Uuid
-  order         Order     @relation(fields: [orderId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  tenantId      String    @map("tenant_id") @db.Uuid
-  /// SERVICE | PART
-  kind          String    @db.VarChar(16)
-  revenueAmount BigInt    @map("revenue_amount")
-  costAmount    BigInt    @map("cost_amount")
-  profitAmount  BigInt    @map("profit_amount")
-  currencyCode  String    @map("currency_code") @db.VarChar(3)
+  id            String       @id @default(uuid()) @db.Uuid
+  orderItemId   String?      @unique @map("order_item_id") @db.Uuid
+  orderItem     OrderItem?   @relation(fields: [orderItemId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  /// Договор хранения (для kind=STORAGE)
+  storageId     String?      @unique @map("storage_id") @db.Uuid
+  storage       TireStorage? @relation(fields: [storageId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  orderId       String       @map("order_id") @db.Uuid
+  order         Order        @relation(fields: [orderId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  tenantId      String       @map("tenant_id") @db.Uuid
+  /// SERVICE | PART | STORAGE
+  kind          String       @db.VarChar(16)
+  revenueAmount BigInt       @map("revenue_amount")
+  costAmount    BigInt       @map("cost_amount")
+  profitAmount  BigInt       @map("profit_amount")
+  currencyCode  String       @map("currency_code") @db.VarChar(3)
   /// LAST_INCOME | SALARY | CONTRACTOR | NONE
-  costBasis     String    @map("cost_basis") @db.VarChar(16)
+  costBasis     String       @map("cost_basis") @db.VarChar(16)
   /// LIVE | LEGACY_BACKFILL
-  origin        String    @db.VarChar(16)
+  origin        String       @db.VarChar(16)
   warranty      Boolean
   /// EMPLOYEE | ORGANIZATION — кто несёт стоимость гарантийной позиции
-  warrantyPayerKind String? @map("warranty_payer_kind") @db.VarChar(16)
-  closedAt      DateTime  @map("closed_at") @db.Timestamptz(0)
-  createdAt     DateTime? @default(now()) @map("created_at") @db.Timestamptz(0)
+  warrantyPayerKind String?  @map("warranty_payer_kind") @db.VarChar(16)
+  closedAt      DateTime     @map("closed_at") @db.Timestamptz(0)
+  createdAt     DateTime?    @default(now()) @map("created_at") @db.Timestamptz(0)
 
   @@index([orderId], map: "idx_order_item_profit_order_id")
   @@index([tenantId, closedAt], map: "idx_order_item_profit_tenant_closed")
@@ -1046,18 +1051,59 @@ model Order {
   tenantId    String         @map("tenant_id") @db.Uuid
   createdAt   DateTime?      @default(now()) @map("created_at") @db.Timestamptz(0)
   createdBy   String?        @map("created_by") @db.Uuid
-  items       OrderItem[]
-  payments    OrderPayment[]
-  close       OrderClose?    @relation("OrderCloseOrder")
-  suspends    OrderSuspend[]
-  tasks       Task[]
-  itemProfits OrderItemProfit[]
+  items         OrderItem[]
+  payments      OrderPayment[]
+  close         OrderClose?    @relation("OrderCloseOrder")
+  suspends      OrderSuspend[]
+  tasks         Task[]
+  itemProfits   OrderItemProfit[]
+  tireStorages  TireStorage[]
 
   @@unique([number, tenantId], map: "uniq_e52ffdee96901f549033212a")
   @@index([assigneeId], map: "idx_e52ffdee6b20ba36")
   @@index([carId])
   @@index([customerId])
   @@map("orders")
+}
+
+/// Договор сезонного хранения шин/дисков (не работа — отдельный финансовый поток)
+model TireStorage {
+  id                 String            @id @default(uuid()) @db.Uuid
+  number             Int
+  tenantGroupId      String            @map("tenant_group_id") @db.Uuid
+  customerId         String            @map("customer_id") @db.Uuid
+  customer           Person            @relation(fields: [customerId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  carId              String?           @map("car_id") @db.Uuid
+  car                Car?              @relation(fields: [carId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  /// Заказ, в котором договор введён и оплачивается
+  orderId            String?           @map("order_id") @db.Uuid
+  order              Order?            @relation(fields: [orderId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  amountAmount       BigInt            @map("amount_amount")
+  amountCurrencyCode String            @map("amount_currency_code") @db.VarChar(3)
+  width              Int
+  height             Int
+  radius             Int
+  manufacturer       String            @db.VarChar(255)
+  quantity           Int               @default(4)
+  onDisks            Boolean           @default(false) @map("on_disks")
+  /// SUMMER | WINTER
+  season             String            @db.VarChar(16)
+  /// ENTERED | IN_WAREHOUSE | AWAITING_SHOP | IN_SHOP | CLOSED | DISPOSED
+  status             String            @default("ENTERED") @db.VarChar(16)
+  acceptedAt         DateTime?         @map("accepted_at") @db.Timestamptz(0)
+  expiresAt          DateTime?         @map("expires_at") @db.Timestamptz(0)
+  closedAt           DateTime?         @map("closed_at") @db.Timestamptz(0)
+  closedById         String?           @map("closed_by_id") @db.Uuid
+  note               String?           @db.VarChar(255)
+  createdAt          DateTime?         @default(now()) @map("created_at") @db.Timestamptz(0)
+  createdBy          String?           @map("created_by") @db.Uuid
+  profit             OrderItemProfit?
+
+  @@unique([number, tenantGroupId], map: "uniq_tire_storage_number_tenant_group")
+  @@index([customerId], map: "idx_tire_storage_customer")
+  @@index([orderId], map: "idx_tire_storage_order")
+  @@index([tenantGroupId, status], map: "idx_tire_storage_group_status")
+  @@map("tire_storage")
 }
 
 model Task {

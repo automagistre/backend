@@ -26,6 +26,11 @@ export class PeriodOrderProfitModel {
   @Field(() => BigInt)
   partsProfitAmount: bigint;
 
+  @Field(() => BigInt, {
+    description: 'Прибыль от хранения шин',
+  })
+  storageProfitAmount: bigint;
+
   @Field(() => BigInt)
   partsRevenueAmount: bigint;
 

@@ -42,6 +42,7 @@ import {
 } from 'src/modules/audit-log/enums/audit.enums';
 import { ProfitService } from 'src/modules/profit/profit.service';
 import { ProfitOrigin } from 'src/modules/profit/enums/profit-origin.enum';
+import { TireStorageService } from 'src/modules/tire-storage/tire-storage.service';
 
 const DELETE_COOLING_HOURS = 3;
 /** Совместимость со старой CRM: DiscriminatorMap OrderClose — 1 = OrderDeal, 2 = OrderCancel */
@@ -64,6 +65,8 @@ export class OrderService {
     private readonly auditLog: AuditLogService,
     private readonly employeeService: EmployeeService,
     private readonly profitService: ProfitService,
+    @Inject(forwardRef(() => TireStorageService))
+    private readonly tireStorageService: TireStorageService,
   ) {}
 
   async findOne(ctx: AuthContext, id: string): Promise<OrderModel | null> {
@@ -252,8 +255,9 @@ export class OrderService {
   }
 
   /**
-   * Сумма заказа: услуги (priceAmount - discountAmount) + запчасти (priceAmount - discountAmount) * (quantity / 100).
-   * Количество запчастей приходит в сотых долях (100 = 1 ед., 250 = 2.5 ед.), нормализуем до единиц делением на 100.
+   * Сумма заказа: услуги + запчасти + введённые договоры хранения (ENTERED).
+   * Запчасти: (priceAmount - discountAmount) * (quantity / 100).
+   * Хранение входит в списание при закрытии (OrderPayment).
    */
   async getOrderTotal(ctx: AuthContext, orderId: string): Promise<bigint> {
     const items = await this.prisma.orderItem.findMany({
@@ -275,6 +279,15 @@ export class OrderService {
         total += ((p - d) * BigInt(item.part.quantity)) / 100n;
       }
     }
+
+    const enteredStorages = await this.tireStorageService.findEnteredByOrder(
+      ctx,
+      orderId,
+    );
+    for (const storage of enteredStorages) {
+      total += storage.amount?.amountMinor ?? 0n;
+    }
+
     return total;
   }
 
@@ -1211,6 +1224,12 @@ export class OrderService {
         });
       }
 
+      await this.tireStorageService.deleteEnteredForOrder(
+        tx,
+        ctx,
+        input.orderId,
+      );
+
       if (saveToRecommendations) {
         const serviceItems = await tx.orderItem.findMany({
           where: {
@@ -1463,11 +1482,20 @@ export class OrderService {
         });
       }
 
+      const closedAt = new Date();
+
+      await this.tireStorageService.markInWarehouseForOrder(
+        tx,
+        ctx,
+        input.orderId,
+        closedAt,
+      );
+
       await this.profitService.snapshotOrder(
         tx,
         ctx,
         input.orderId,
-        new Date(),
+        closedAt,
         ProfitOrigin.LIVE,
       );
     });

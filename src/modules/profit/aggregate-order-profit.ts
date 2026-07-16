@@ -17,6 +17,8 @@ export type OrderProfitTotals = {
   partsRevenueAmount: bigint;
   partsCostAmount: bigint;
   partsProfitAmount: bigint;
+  storageRevenueAmount: bigint;
+  storageProfitAmount: bigint;
 };
 
 export function aggregateOrderProfit(
@@ -32,6 +34,8 @@ export function aggregateOrderProfit(
     partsRevenueAmount: 0n,
     partsCostAmount: 0n,
     partsProfitAmount: 0n,
+    storageRevenueAmount: 0n,
+    storageProfitAmount: 0n,
   };
 
   for (const row of rows) {
@@ -47,6 +51,9 @@ export function aggregateOrderProfit(
       totals.partsRevenueAmount += row.revenueAmount;
       totals.partsCostAmount += row.costAmount;
       totals.partsProfitAmount += row.profitAmount;
+    } else if (row.kind === ProfitLineKind.STORAGE) {
+      totals.storageRevenueAmount += row.revenueAmount;
+      totals.storageProfitAmount += row.profitAmount;
     }
   }
 

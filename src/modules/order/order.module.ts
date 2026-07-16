@@ -28,6 +28,7 @@ import { RecommendationMigrationModule } from '../recommendation-migration/recom
 import { DisplayContextModule } from '../display-context/display-context.module';
 import { NoteModule } from '../note/note.module';
 import { ProfitModule } from '../profit/profit.module';
+import { TireStorageModule } from '../tire-storage/tire-storage.module';
 import './enums/order-item-type.enum';
 import './enums/close-deficiency.enum';
 
@@ -47,6 +48,7 @@ import './enums/close-deficiency.enum';
     DisplayContextModule,
     NoteModule,
     ProfitModule,
+    forwardRef(() => TireStorageModule),
   ],
   providers: [
     OrderService,

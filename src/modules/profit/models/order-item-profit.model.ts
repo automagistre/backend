@@ -9,8 +9,14 @@ export class OrderItemProfitModel {
   @Field(() => ID)
   id: string;
 
-  @Field(() => ID)
-  orderItemId: string;
+  @Field(() => ID, { nullable: true })
+  orderItemId: string | null;
+
+  @Field(() => ID, {
+    nullable: true,
+    description: 'Договор хранения (для kind=STORAGE)',
+  })
+  storageId: string | null;
 
   @Field(() => ID)
   orderId: string;

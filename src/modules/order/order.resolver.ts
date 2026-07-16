@@ -1,4 +1,4 @@
-import { Inject } from '@nestjs/common';
+import { Inject, forwardRef } from '@nestjs/common';
 import {
   Args,
   ID,
@@ -31,6 +31,8 @@ import { WalletTransactionService } from '../wallet/wallet-transaction.service';
 import { CustomerTransactionService } from '../customer-transaction/customer-transaction.service';
 import { OrderItemProfitModel } from '../profit/models/order-item-profit.model';
 import { OrderProfitModel } from '../profit/models/order-profit.model';
+import { TireStorageService } from '../tire-storage/tire-storage.service';
+import { TireStorageModel } from '../tire-storage/models/tire-storage.model';
 import { UpdateOrderInput } from './inputs/update-order.input';
 import { CreateOrderInput } from './inputs/create-order.input';
 import { CreateOrderPrepayInput } from './inputs/create-order-prepay.input';
@@ -64,6 +66,8 @@ export class OrderResolver {
     private readonly walletTransactionService: WalletTransactionService,
     private readonly customerTransactionService: CustomerTransactionService,
     private readonly appUserLoader: AppUserLoader,
+    @Inject(forwardRef(() => TireStorageService))
+    private readonly tireStorageService: TireStorageService,
     @Inject('PUB_SUB') private readonly pubSub: PubSub,
   ) {}
 
@@ -387,6 +391,17 @@ export class OrderResolver {
     @Parent() order: OrderModel,
   ) {
     return this.orderService.findOrderProfit(ctx, order.id);
+  }
+
+  @ResolveField(() => [TireStorageModel], {
+    description:
+      'Договоры хранения этого заказа (ENTERED/IN_WAREHOUSE/CLOSED) — для суммы заказа, печати и фин.карточки',
+  })
+  async enteredTireStorages(
+    @AuthContext() ctx: AuthContextType,
+    @Parent() order: OrderModel,
+  ): Promise<TireStorageModel[]> {
+    return this.tireStorageService.findByOrder(ctx, order.id);
   }
 
   @Mutation(() => OrderModel, {

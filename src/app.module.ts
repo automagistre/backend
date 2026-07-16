@@ -43,6 +43,7 @@ import { WwwModule } from './modules/www/www.module';
 import { MeModule } from './modules/me/me.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { ProfitModule } from './modules/profit/profit.module';
+import { TireStorageModule } from './modules/tire-storage/tire-storage.module';
 import { DevAuthGuard } from './modules/auth/guards/dev-auth.guard';
 import { TenantGuard } from './common/guards/tenant.guard';
 import { Reflector } from '@nestjs/core';
@@ -97,6 +98,7 @@ import authConfig from './config/auth.config';
     MeModule,
     DashboardModule,
     ProfitModule,
+    TireStorageModule,
   ],
   providers: [
     {

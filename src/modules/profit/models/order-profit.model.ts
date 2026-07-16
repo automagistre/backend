@@ -28,4 +28,10 @@ export class OrderProfitModel {
 
   @Field(() => BigInt)
   partsProfitAmount: bigint;
+
+  @Field(() => BigInt, { description: 'Выручка от хранения шин' })
+  storageRevenueAmount: bigint;
+
+  @Field(() => BigInt, { description: 'Прибыль от хранения шин' })
+  storageProfitAmount: bigint;
 }

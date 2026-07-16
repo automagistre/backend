@@ -9,8 +9,14 @@ export class TenantRequisitesModel {
   @Field(() => String, { description: 'Название организации' })
   name: string;
 
-  @Field(() => String, { description: 'Адрес' })
+  @Field(() => String, { description: 'Юридический адрес' })
   address: string;
+
+  @Field(() => String, {
+    nullable: true,
+    description: 'Фактический адрес (место оказания услуг / хранения)',
+  })
+  actualAddress?: string | null;
 
   @Field(() => String, { nullable: true, description: 'Сайт' })
   site?: string | null;

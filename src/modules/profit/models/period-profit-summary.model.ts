@@ -18,6 +18,11 @@ export class PeriodProfitSummaryModel {
   partsProfitAmount: bigint;
 
   @Field(() => BigInt, {
+    description: 'Прибыль от хранения шин',
+  })
+  storageProfitAmount: bigint;
+
+  @Field(() => BigInt, {
     description: 'Прибыль от подрядных работ (справочно)',
   })
   contractorProfitAmount: bigint;

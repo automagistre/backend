@@ -9,6 +9,7 @@ export const TENANT_REQUISITES_BY_IDENTIFIER: Record<
     type: string;
     name: string;
     address: string;
+    actualAddress?: string | null;
     site?: string | null;
     email?: string | null;
     logo: string;
@@ -48,6 +49,7 @@ export const TENANT_REQUISITES_BY_IDENTIFIER: Record<
     type: 'IP',
     name: 'ИП Сидоров Кирилл Михайлович',
     address: 'г. Москва, Нагатинская наб., д. 14, к. 1, кв. 407',
+    actualAddress: 'г. Москва, ул. Газопровод, д. 6А, стр.2',
     site: 'www.automagistre.ru',
     email: 'info@automagistre.ru',
     logo: 'logo_automagistre_color.png',
@@ -67,6 +69,7 @@ export const TENANT_REQUISITES_BY_IDENTIFIER: Record<
     type: 'IP',
     name: 'ИП Ахметзянов А.А.',
     address: 'г. Казань, Магистральная 33 к.1',
+    actualAddress: null,
     site: 'www.automagistre.ru',
     email: 'info@automagistre.ru',
     logo: 'logo_automagistre_color.png',
@@ -86,6 +89,7 @@ export const TENANT_REQUISITES_BY_IDENTIFIER: Record<
     name: 'ИП Щавлев В.А.',
     address:
       'Моск. обл., Орехово-Зуевский район, п. Пригородный, Малодубенское шоссе, 3 км, цех № 1',
+    actualAddress: null,
     site: 'vk.com/smitavtoservis',
     email: null,
     logo: 'logo_smith.png',
