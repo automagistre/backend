@@ -2164,7 +2164,7 @@ type Mutation {
   """Удалить задачу"""
   deleteTask(id: ID!): Boolean!
 
-  """Удалить введённый (ENTERED) договор хранения"""
+  """Удалить введённый договор или ручную опись на складе (без заказа)"""
   deleteTireStorage(id: ID!): Boolean!
 
   """

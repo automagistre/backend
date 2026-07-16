@@ -573,9 +573,15 @@ export class TireStorageService {
     if (!exists) {
       throw new NotFoundException(`Договор хранения с ID ${id} не найден`);
     }
-    if (exists.status !== TireStorageStatus.ENTERED) {
+    if (
+      exists.status !== TireStorageStatus.ENTERED &&
+      !(
+        exists.status === TireStorageStatus.IN_WAREHOUSE &&
+        exists.orderId == null
+      )
+    ) {
       throw new BadRequestException(
-        'Удалить можно только введённый (неоплаченный) договор',
+        'Удалить можно только введённый договор или ошибочную ручную опись на складе',
       );
     }
     await this.prisma.tireStorage.delete({ where: { id } });

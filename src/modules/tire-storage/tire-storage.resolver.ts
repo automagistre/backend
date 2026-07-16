@@ -171,7 +171,8 @@ export class TireStorageResolver {
 
   @Mutation(() => Boolean, {
     name: 'deleteTireStorage',
-    description: 'Удалить введённый (ENTERED) договор хранения',
+    description:
+      'Удалить введённый договор или ручную опись на складе (без заказа)',
   })
   async deleteTireStorage(
     @AuthContext() ctx: AuthContextType,
