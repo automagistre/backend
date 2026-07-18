@@ -214,7 +214,6 @@ model Person {
   taskCustomer                   Task[]                   @relation("TaskCustomer")
   appUser                        AppUser?
   calls                          Call[]
-  tireStorages                   TireStorage[]
 
   @@unique([telephone, tenantGroupId], map: "uniq_34dcd176450ff010dff2bbb0")
   @@map("person")
@@ -1071,8 +1070,8 @@ model TireStorage {
   id                 String            @id @default(uuid()) @db.Uuid
   number             Int
   tenantGroupId      String            @map("tenant_group_id") @db.Uuid
+  /// Клиент: person.id | organization.id (без FK — как orders.customer_id)
   customerId         String            @map("customer_id") @db.Uuid
-  customer           Person            @relation(fields: [customerId], references: [id], onDelete: Restrict, onUpdate: NoAction)
   carId              String?           @map("car_id") @db.Uuid
   car                Car?              @relation(fields: [carId], references: [id], onDelete: SetNull, onUpdate: NoAction)
   /// Заказ, в котором договор введён и оплачивается

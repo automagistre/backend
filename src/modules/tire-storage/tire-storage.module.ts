@@ -1,5 +1,6 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { PersonModule } from '../person/person.module';
+import { OrganizationModule } from '../organization/organization.module';
 import { CarModule } from '../vehicle/car.module';
 import { OrderModule } from '../order/order.module';
 import { SettingsModule } from '../settings/settings.module';
@@ -13,6 +14,7 @@ import './enums/tire-season.enum';
   imports: [
     SettingsModule,
     PersonModule,
+    OrganizationModule,
     CarModule,
     AppUserModule,
     forwardRef(() => OrderModule),

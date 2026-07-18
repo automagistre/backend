@@ -81,10 +81,10 @@ export class TireStorageService {
     };
   }
 
-  private buildWhere(
+  private async buildWhere(
     ctx: AuthContext,
     args: TireStorageFindManyArgs,
-  ): Prisma.TireStorageWhereInput {
+  ): Promise<Prisma.TireStorageWhereInput> {
     const where: Prisma.TireStorageWhereInput = {
       tenantGroupId: ctx.tenantGroupId,
     };
@@ -107,28 +107,38 @@ export class TireStorageService {
     if (args.search?.trim()) {
       const q = args.search.trim();
       const asNumber = Number.parseInt(q, 10);
+      const [persons, orgs] = await Promise.all([
+        this.prisma.person.findMany({
+          where: {
+            tenantGroupId: ctx.tenantGroupId,
+            OR: [
+              { firstname: { contains: q, mode: 'insensitive' } },
+              { lastname: { contains: q, mode: 'insensitive' } },
+              { telephone: { contains: q, mode: 'insensitive' } },
+              { officePhone: { contains: q, mode: 'insensitive' } },
+            ],
+          },
+          select: { id: true },
+          take: 100,
+        }),
+        this.prisma.organization.findMany({
+          where: {
+            tenantGroupId: ctx.tenantGroupId,
+            OR: [
+              { name: { contains: q, mode: 'insensitive' } },
+              { telephone: { contains: q, mode: 'insensitive' } },
+              { officePhone: { contains: q, mode: 'insensitive' } },
+            ],
+          },
+          select: { id: true },
+          take: 100,
+        }),
+      ]);
+      const customerIds = [...persons, ...orgs].map((r) => r.id);
       where.OR = [
-        {
-          customer: {
-            firstname: { contains: q, mode: 'insensitive' },
-          },
-        },
-        {
-          customer: {
-            lastname: { contains: q, mode: 'insensitive' },
-          },
-        },
-        {
-          customer: {
-            telephone: { contains: q, mode: 'insensitive' },
-          },
-        },
-        {
-          customer: {
-            officePhone: { contains: q, mode: 'insensitive' },
-          },
-        },
+        ...(customerIds.length ? [{ customerId: { in: customerIds } }] : []),
         { manufacturer: { contains: q, mode: 'insensitive' } },
+        { note: { contains: q, mode: 'insensitive' } },
         ...(Number.isFinite(asNumber) && String(asNumber) === q
           ? [{ number: asNumber }]
           : []),
@@ -138,13 +148,31 @@ export class TireStorageService {
     return where;
   }
 
+  /** Клиент = person | organization (без FK, как у orders). */
+  private async assertCustomerExists(
+    ctx: AuthContext,
+    customerId: string,
+  ): Promise<void> {
+    const person = await this.prisma.person.findFirst({
+      where: { id: customerId, tenantGroupId: ctx.tenantGroupId },
+      select: { id: true },
+    });
+    if (person) return;
+    const org = await this.prisma.organization.findFirst({
+      where: { id: customerId, tenantGroupId: ctx.tenantGroupId },
+      select: { id: true },
+    });
+    if (org) return;
+    throw new NotFoundException(`Клиент с ID ${customerId} не найден`);
+  }
+
   async findMany(
     ctx: AuthContext,
     args: TireStorageFindManyArgs = {},
   ): Promise<{ items: TireStorageModel[]; total: number }> {
     const take = args.take ?? 25;
     const skip = args.skip ?? 0;
-    const where = this.buildWhere(ctx, args);
+    const where = await this.buildWhere(ctx, args);
 
     if (take === 0) {
       const total = await this.prisma.tireStorage.count({ where });
@@ -212,15 +240,7 @@ export class TireStorageService {
     ctx: AuthContext,
     input: CreateTireStorageInput,
   ): Promise<TireStorageModel> {
-    const person = await this.prisma.person.findFirst({
-      where: { id: input.customerId, tenantGroupId: ctx.tenantGroupId },
-      select: { id: true },
-    });
-    if (!person) {
-      throw new NotFoundException(
-        `Клиент с ID ${input.customerId} не найден`,
-      );
-    }
+    await this.assertCustomerExists(ctx, input.customerId);
 
     // Ручное добавление на склад — без заказа (опись). Договор сразу IN_WAREHOUSE.
     const isManual = !input.orderId;
@@ -349,15 +369,7 @@ export class TireStorageService {
       if (!input.customerId) {
         throw new BadRequestException('Клиент обязателен');
       }
-      const person = await this.prisma.person.findFirst({
-        where: { id: input.customerId, tenantGroupId: ctx.tenantGroupId },
-        select: { id: true },
-      });
-      if (!person) {
-        throw new NotFoundException(
-          `Клиент с ID ${input.customerId} не найден`,
-        );
-      }
+      await this.assertCustomerExists(ctx, input.customerId);
     }
 
     if (input.carId) {
@@ -378,7 +390,7 @@ export class TireStorageService {
 
     const data: Prisma.TireStorageUpdateInput = {};
     if (input.customerId) {
-      data.customer = { connect: { id: input.customerId } };
+      data.customerId = input.customerId;
     }
     if (input.carId !== undefined) {
       data.car = input.carId

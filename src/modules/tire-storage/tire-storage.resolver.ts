@@ -15,6 +15,9 @@ import { AppUserLoader } from '../app-user/app-user.loader';
 import { AppUserModel } from '../app-user/models/app-user.model';
 import { PersonService } from '../person/person.service';
 import { PersonModel } from '../person/models/person.model';
+import { OrganizationService } from '../organization/organization.service';
+import { OrganizationModel } from '../organization/models/organization.model';
+import { CounterpartyUnion } from '../supplier/supplier.union';
 import { CarService } from '../vehicle/car.service';
 import { CarModel } from '../vehicle/models/car.model';
 import { OrderService } from '../order/order.service';
@@ -34,6 +37,7 @@ export class TireStorageResolver {
   constructor(
     private readonly tireStorageService: TireStorageService,
     private readonly personService: PersonService,
+    private readonly organizationService: OrganizationService,
     private readonly carService: CarService,
     private readonly orderService: OrderService,
     private readonly appUserLoader: AppUserLoader,
@@ -181,12 +185,15 @@ export class TireStorageResolver {
     return this.tireStorageService.remove(ctx, id);
   }
 
-  @ResolveField(() => PersonModel, { nullable: true })
+  @ResolveField(() => CounterpartyUnion, { nullable: true })
   async customer(
     @AuthContext() ctx: AuthContextType,
     @Parent() storage: TireStorageModel,
-  ): Promise<PersonModel | null> {
-    return (await this.personService.findOne(ctx, storage.customerId)) as any;
+  ): Promise<PersonModel | OrganizationModel | null> {
+    const person = await this.personService.findOne(ctx, storage.customerId);
+    if (person) return person as PersonModel;
+    const org = await this.organizationService.findOne(ctx, storage.customerId);
+    return org as OrganizationModel | null;
   }
 
   @ResolveField(() => CarModel, { nullable: true })

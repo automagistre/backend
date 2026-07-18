@@ -3865,7 +3865,7 @@ type TireStorageModel {
   createdAt: DateTime
   createdBy: ID
   createdByUser: AppUserModel
-  customer: PersonModel
+  customer: Counterparty
   customerId: ID!
   expiresAt: DateTime
   height: Int!
