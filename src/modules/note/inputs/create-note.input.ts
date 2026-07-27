@@ -5,7 +5,9 @@ import { NoteType } from '../enums/note-type.enum';
 @InputType()
 export class CreateNoteInput {
   @IsUUID()
-  @Field(() => ID, { description: 'ID сущности (Order, Car, Person)' })
+  @Field(() => ID, {
+    description: 'ID сущности (Order, Car, Person, Organization, Part)',
+  })
   subjectId: string;
 
   @Field(() => NoteType, { description: 'Тип заметки' })

@@ -915,7 +915,7 @@ input CreateMcWorkInput {
 input CreateNoteInput {
   isPublic: Boolean = false
 
-  """ID сущности (Order, Car, Person)"""
+  """ID сущности (Order, Car, Person, Organization, Part)"""
   subjectId: ID!
 
   """Текст заметки"""
@@ -4154,7 +4154,7 @@ input UpdateNoteInput {
   id: ID!
   isPublic: Boolean = false
 
-  """ID сущности (Order, Car, Person)"""
+  """ID сущности (Order, Car, Person, Organization, Part)"""
   subjectId: ID
 
   """Текст заметки"""

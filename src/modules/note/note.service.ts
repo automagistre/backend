@@ -43,7 +43,7 @@ export class NoteService {
   ) {}
 
   private async validateSubject(subjectId: string): Promise<void> {
-    const [order, car, person, part] = await Promise.all([
+    const [order, car, person, organization, part] = await Promise.all([
       this.prisma.order.findFirst({
         where: { id: subjectId },
         select: { id: true },
@@ -56,12 +56,16 @@ export class NoteService {
         where: { id: subjectId },
         select: { id: true },
       }),
+      this.prisma.organization.findFirst({
+        where: { id: subjectId },
+        select: { id: true },
+      }),
       this.prisma.part.findFirst({
         where: { id: subjectId },
         select: { id: true },
       }),
     ]);
-    if (!order && !car && !person && !part) {
+    if (!order && !car && !person && !organization && !part) {
       throw new NotFoundException('Subject not found');
     }
   }
@@ -100,6 +104,18 @@ export class NoteService {
         scope: AuditScope.GROUP,
         subjectDisplay:
           (await this.displayContext.getPersonDisplay(subjectId)) ?? '',
+      };
+    }
+    const organization = await this.prisma.organization.findFirst({
+      where: { id: subjectId },
+      select: { id: true },
+    });
+    if (organization) {
+      return {
+        rootEntityType: AuditEntityType.ORGANIZATION,
+        scope: AuditScope.GROUP,
+        subjectDisplay:
+          (await this.displayContext.getOrganizationName(subjectId)) ?? '',
       };
     }
     const part = await this.prisma.part.findFirst({
