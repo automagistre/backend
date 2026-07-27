@@ -71,6 +71,7 @@ enum OrderStatus {
   SELECTION
   PAYMENT_WAITING
   CANCELLED
+  INVOICE
 }
 
 enum CallDirection {

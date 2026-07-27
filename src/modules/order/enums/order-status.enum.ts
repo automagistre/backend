@@ -14,6 +14,7 @@ export enum OrderStatus {
   SELECTION = 11,
   PAYMENT_WAITING = 12,
   CANCELLED = 13,
+  INVOICE = 14,
 }
 
 export const OrderStatusLabel = {
@@ -30,6 +31,7 @@ export const OrderStatusLabel = {
   [OrderStatus.SELECTION]: 'Подбор запчастей',
   [OrderStatus.PAYMENT_WAITING]: 'Ожидает Оплаты',
   [OrderStatus.CANCELLED]: 'Отменён',
+  [OrderStatus.INVOICE]: 'Выставить счет',
 };
 
 export const OrderStatusSeverity = {
@@ -46,6 +48,7 @@ export const OrderStatusSeverity = {
   [OrderStatus.SELECTION]: 'danger',
   [OrderStatus.PAYMENT_WAITING]: 'info',
   [OrderStatus.CANCELLED]: 'secondary',
+  [OrderStatus.INVOICE]: 'warning',
 };
 
 registerEnumType(OrderStatus, {
@@ -90,6 +93,9 @@ registerEnumType(OrderStatus, {
     },
     CANCELLED: {
       description: 'Отменён',
+    },
+    INVOICE: {
+      description: 'Выставить счет',
     },
   },
 });
