@@ -71,6 +71,8 @@ export interface EmployeeDebtSummary {
 export interface OperationsKpi {
   activeOrders: number;
   readyOrders: number;
+  paymentWaitingOrders: number;
+  invoiceOrders: number;
   qualityControlTasks: number;
   openTasks: number;
 }

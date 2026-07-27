@@ -1372,8 +1372,14 @@ type DashboardOperationsKpi {
   """Активные заказы (не закрытые и не отменённые)"""
   activeOrders: Float!
 
+  """Заказы на выставление счёта (status = INVOICE)"""
+  invoiceOrders: Float!
+
   """Все открытые задачи (TODO + IN_PROGRESS)"""
   openTasks: Float!
+
+  """Заказы ожидающие оплаты (status = PAYMENT_WAITING)"""
+  paymentWaitingOrders: Float!
 
   """Открытые задачи QUALITY_CONTROL (TODO + IN_PROGRESS)"""
   qualityControlTasks: Float!

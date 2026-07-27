@@ -327,33 +327,52 @@ export class AnalyticsService {
   // ---------- Operations KPI ----------
 
   async getOperationsKpi(tenantId: string): Promise<OperationsKpi> {
-    const [activeOrders, readyOrders, qualityControlTasks, openTasks] =
-      await Promise.all([
-        this.prisma.order.count({
-          where: {
-            tenantId,
-            status: { notIn: [OrderStatus.CLOSED, OrderStatus.CANCELLED] },
-          },
-        }),
-        this.prisma.order.count({
-          where: { tenantId, status: OrderStatus.READY },
-        }),
-        this.prisma.task.count({
-          where: {
-            tenantId,
-            type: TaskTypeEnum.QUALITY_CONTROL,
-            status: { in: [TaskStatusEnum.TODO, TaskStatusEnum.IN_PROGRESS] },
-          },
-        }),
-        this.prisma.task.count({
-          where: {
-            tenantId,
-            status: { in: [TaskStatusEnum.TODO, TaskStatusEnum.IN_PROGRESS] },
-          },
-        }),
-      ]);
+    const [
+      activeOrders,
+      readyOrders,
+      paymentWaitingOrders,
+      invoiceOrders,
+      qualityControlTasks,
+      openTasks,
+    ] = await Promise.all([
+      this.prisma.order.count({
+        where: {
+          tenantId,
+          status: { notIn: [OrderStatus.CLOSED, OrderStatus.CANCELLED] },
+        },
+      }),
+      this.prisma.order.count({
+        where: { tenantId, status: OrderStatus.READY },
+      }),
+      this.prisma.order.count({
+        where: { tenantId, status: OrderStatus.PAYMENT_WAITING },
+      }),
+      this.prisma.order.count({
+        where: { tenantId, status: OrderStatus.INVOICE },
+      }),
+      this.prisma.task.count({
+        where: {
+          tenantId,
+          type: TaskTypeEnum.QUALITY_CONTROL,
+          status: { in: [TaskStatusEnum.TODO, TaskStatusEnum.IN_PROGRESS] },
+        },
+      }),
+      this.prisma.task.count({
+        where: {
+          tenantId,
+          status: { in: [TaskStatusEnum.TODO, TaskStatusEnum.IN_PROGRESS] },
+        },
+      }),
+    ]);
 
-    return { activeOrders, readyOrders, qualityControlTasks, openTasks };
+    return {
+      activeOrders,
+      readyOrders,
+      paymentWaitingOrders,
+      invoiceOrders,
+      qualityControlTasks,
+      openTasks,
+    };
   }
 
   // ---------- Warranty за 30 дней ----------

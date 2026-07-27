@@ -99,6 +99,12 @@ export class OperationsKpiModel {
   @Field(() => Number, { description: 'Заказы готовые к выдаче (status = READY)' })
   readyOrders: number;
 
+  @Field(() => Number, { description: 'Заказы ожидающие оплаты (status = PAYMENT_WAITING)' })
+  paymentWaitingOrders: number;
+
+  @Field(() => Number, { description: 'Заказы на выставление счёта (status = INVOICE)' })
+  invoiceOrders: number;
+
   @Field(() => Number, { description: 'Открытые задачи QUALITY_CONTROL (TODO + IN_PROGRESS)' })
   qualityControlTasks: number;
 
