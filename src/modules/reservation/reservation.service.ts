@@ -515,6 +515,105 @@ export class ReservationService {
   }
 
   /**
+   * Дорезерв всех недорезервированных позиций заказа со свободного склада
+   * (в рамках транзакции оприходования). Best-effort: если мало — резервирует сколько есть.
+   */
+  async reserveUnreservedForOrder(
+    tx: Prisma.TransactionClient,
+    orderId: string,
+    tenantId: string,
+    createdBy: string | null,
+  ): Promise<void> {
+    const orderItemIds: string[] = [];
+    let ids = (
+      await tx.orderItem.findMany({
+        where: { orderId },
+        select: { id: true },
+      })
+    ).map((i) => i.id);
+    while (ids.length > 0) {
+      orderItemIds.push(...ids);
+      ids = (
+        await tx.orderItem.findMany({
+          where: { parentId: { in: ids } },
+          select: { id: true },
+        })
+      ).map((i) => i.id);
+    }
+    if (orderItemIds.length === 0) return;
+
+    const parts = await tx.orderItemPart.findMany({
+      where: { id: { in: orderItemIds }, quantity: { gt: 0 } },
+      select: { id: true, partId: true, quantity: true },
+    });
+    if (parts.length === 0) return;
+
+    const reservedByOip = await tx.reservation.groupBy({
+      by: ['orderItemPartId'],
+      where: {
+        tenantId,
+        orderItemPartId: { in: parts.map((p) => p.id) },
+      },
+      _sum: { quantity: true },
+    });
+    const reservedMap = new Map(
+      reservedByOip.map((r) => [r.orderItemPartId, r._sum.quantity ?? 0]),
+    );
+
+    const uniquePartIds = [...new Set(parts.map((p) => p.partId))];
+    const reservableByPartId = new Map<string, number>();
+
+    for (const partId of uniquePartIds) {
+      const stockResult = await tx.motion.aggregate({
+        where: { partId, tenantId },
+        _sum: { quantity: true },
+      });
+      const stockQuantity = stockResult._sum.quantity ?? 0;
+
+      const reservedActiveResult = await tx.reservation.aggregate({
+        where: {
+          tenantId,
+          orderItemPart: {
+            partId,
+            orderItem: {
+              order: {
+                status: {
+                  notIn: [OrderStatus.CLOSED, OrderStatus.CANCELLED],
+                },
+              },
+            },
+          },
+        },
+        _sum: { quantity: true },
+      });
+      reservableByPartId.set(
+        partId,
+        stockQuantity - (reservedActiveResult._sum.quantity ?? 0),
+      );
+    }
+
+    for (const oip of parts) {
+      const reserved = reservedMap.get(oip.id) ?? 0;
+      const need = Math.max(0, oip.quantity - reserved);
+      if (need <= 0) continue;
+
+      const reservable = reservableByPartId.get(oip.partId) ?? 0;
+      const toReserve = Math.min(need, reservable);
+      if (toReserve <= 0) continue;
+
+      await tx.reservation.create({
+        data: {
+          orderItemPartId: oip.id,
+          quantity: toReserve,
+          tenantId,
+          createdBy,
+        },
+      });
+      reservableByPartId.set(oip.partId, reservable - toReserve);
+    }
+  }
+
+  /**
    * Снятие резерва с запчасти
    * Если quantity не указан - удаляются все резервации
    */

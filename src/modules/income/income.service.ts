@@ -426,6 +426,12 @@ export class IncomeService {
         orderIds.forEach((oid) => allOrderIds.add(oid));
       }
       for (const orderId of allOrderIds) {
+        await this.reservationService.reserveUnreservedForOrder(
+          tx,
+          orderId,
+          tenantId,
+          ctx.userId,
+        );
         await this.orderService.trySetNotificationIfFullyReserved(tx, orderId);
       }
 
