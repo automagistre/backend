@@ -428,18 +428,24 @@ export class OrderService {
     const skipSuspendFilter = includeSuspended || !!search?.trim();
     if (!skipSuspendFilter) {
       const today = this.startOfTodayUTC();
-      const suspendFilter: Prisma.OrderWhereInput = {
-        suspends: { none: { till: { gt: today } } },
-      };
       const orders = await this.prisma.order.findMany({
-        where: { AND: [where, suspendFilter] },
+        where,
         orderBy: [{ number: 'desc' }],
       }) as OrderModel[];
 
-      const schedulingOrders = orders.filter(
+      const latestByOrderId = await this.getLatestSuspendsMap(
+        ctx,
+        orders.map((o) => o.id),
+      );
+      const visible = orders.filter((o) => {
+        const latest = latestByOrderId.get(o.id);
+        return !latest || latest.till <= today;
+      });
+
+      const schedulingOrders = visible.filter(
         (o) => o.status === OrderStatus.SCHEDULING,
       );
-      if (schedulingOrders.length === 0) return orders;
+      if (schedulingOrders.length === 0) return visible;
 
       const schedulingIdsToExclude = new Set<string>();
       for (const o of schedulingOrders) {
@@ -449,8 +455,8 @@ export class OrderService {
         }
       }
 
-      if (schedulingIdsToExclude.size === 0) return orders;
-      return orders.filter((o) => !schedulingIdsToExclude.has(o.id));
+      if (schedulingIdsToExclude.size === 0) return visible;
+      return visible.filter((o) => !schedulingIdsToExclude.has(o.id));
     }
 
     return this.prisma.order.findMany({
@@ -1595,15 +1601,36 @@ export class OrderService {
     ctx: AuthContext,
     orderId: string,
   ): Promise<{ id: string; till: Date } | null> {
-    return this.prisma.orderSuspend.findFirst({
+    const latest = await this.prisma.orderSuspend.findFirst({
       where: {
         orderId,
         tenantId: ctx.tenantId,
-        till: { gt: this.startOfTodayUTC() },
       },
       orderBy: { createdAt: 'desc' },
       select: { id: true, till: true },
     });
+    if (!latest || latest.till <= this.startOfTodayUTC()) return null;
+    return latest;
+  }
+
+  private async getLatestSuspendsMap(
+    ctx: AuthContext,
+    orderIds: string[],
+  ): Promise<Map<string, { till: Date }>> {
+    const map = new Map<string, { till: Date }>();
+    if (orderIds.length === 0) return map;
+
+    const rows = await this.prisma.orderSuspend.findMany({
+      where: { tenantId: ctx.tenantId, orderId: { in: orderIds } },
+      orderBy: { createdAt: 'desc' },
+      select: { orderId: true, till: true },
+    });
+    for (const row of rows) {
+      if (!map.has(row.orderId)) {
+        map.set(row.orderId, { till: row.till });
+      }
+    }
+    return map;
   }
 
   async getSuspends(ctx: AuthContext, orderId: string) {
