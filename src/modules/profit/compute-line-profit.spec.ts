@@ -80,7 +80,7 @@ describe('computeLineProfit', () => {
     });
   });
 
-  it('гарантия запчасть: всегда profit = −закупка', () => {
+  it('гарантия запчасть, плательщик — сотрудник: profit = 0', () => {
     expect(
       computeLineProfit({
         kind: ProfitLineKind.PART,
@@ -88,6 +88,22 @@ describe('computeLineProfit', () => {
         cost: 5000n,
         warranty: true,
         warrantyPayerKind: WarrantyPayerKind.EMPLOYEE,
+      }),
+    ).toEqual({
+      revenueAmount: 0n,
+      costAmount: 0n,
+      profitAmount: 0n,
+    });
+  });
+
+  it('гарантия запчасть ORGANIZATION: profit = −закупка', () => {
+    expect(
+      computeLineProfit({
+        kind: ProfitLineKind.PART,
+        revenue: 10000n,
+        cost: 5000n,
+        warranty: true,
+        warrantyPayerKind: WarrantyPayerKind.ORGANIZATION,
       }),
     ).toEqual({
       revenueAmount: 0n,

@@ -706,6 +706,11 @@ export class ProfitService {
       warrantyPayerKind: part.warrantyPayerKind,
     });
 
+    const effectiveCostBasis =
+      part.warranty && part.warrantyPayerKind !== WarrantyPayerKind.ORGANIZATION
+        ? ProfitCostBasis.NONE
+        : costBasis;
+
     return {
       orderItemId,
       orderId,
@@ -715,7 +720,7 @@ export class ProfitService {
       costAmount: amounts.costAmount,
       profitAmount: amounts.profitAmount,
       currencyCode,
-      costBasis,
+      costBasis: effectiveCostBasis,
       origin,
       warranty: part.warranty,
       warrantyPayerKind: part.warrantyPayerKind,

@@ -19,32 +19,20 @@ export type LineProfitAmounts = {
  * Чистая функция расчёта прибыли по одной позиции.
  * Не знает об источнике cost — только revenue/cost/warranty.
  *
- * Для работ: если плательщик — сотрудник (сам исполнитель или другой), cost
- * не показывается в прибыли — либо ЗП не начислена (плательщик=исполнитель),
- * либо начислена, но полностью компенсирована плательщиком отдельными
- * проводками (chargeWarrantyPayerCompensation). Только ORGANIZATION-платёж
- * реально уменьшает прибыль заказа.
- *
- * @see profit_calculation_system_e9c1f217.plan.md §2
+ * Гарантия: если плательщик — сотрудник, cost не идёт в прибыль заказа
+ * (удержание/компенсация отдельными проводками). Только ORGANIZATION
+ * реально уменьшает прибыль.
  */
 export function computeLineProfit(
   input: ComputeLineProfitInput,
 ): LineProfitAmounts {
-  const { kind, revenue, cost, warranty, warrantyPayerKind } = input;
+  const { revenue, cost, warranty, warrantyPayerKind } = input;
 
   if (!warranty) {
     return {
       revenueAmount: revenue,
       costAmount: cost,
       profitAmount: revenue - cost,
-    };
-  }
-
-  if (kind === ProfitLineKind.PART) {
-    return {
-      revenueAmount: 0n,
-      costAmount: cost,
-      profitAmount: -cost,
     };
   }
 
