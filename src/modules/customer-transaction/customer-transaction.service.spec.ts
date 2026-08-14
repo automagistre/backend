@@ -75,6 +75,38 @@ describe('CustomerTransactionService', () => {
     });
   });
 
+  describe('getMonthlyIncome', () => {
+    it('заполняет месяцы нулями и складывает net', async () => {
+      settings.getTimezone.mockResolvedValue('Europe/Moscow');
+      jest.mocked(prisma.customerTransaction.findMany).mockResolvedValue([
+        {
+          createdAt: new Date('2026-07-15T12:00:00+03:00'),
+          source: CustomerTransactionSource.OrderSalary,
+          amountAmount: 10000n,
+        },
+        {
+          createdAt: new Date('2026-07-20T12:00:00+03:00'),
+          source: CustomerTransactionSource.Penalty,
+          amountAmount: -1500n,
+        },
+      ] as any);
+
+      const result = await service.getMonthlyIncome(
+        ctx,
+        'person-1',
+        new Date('2026-07-01T00:00:00+03:00'),
+        new Date('2026-08-15T00:00:00+03:00'),
+      );
+
+      expect(result).toHaveLength(2);
+      expect(result[0].salaryAmount.amountMinor).toBe(10000n);
+      expect(result[0].penaltyAmount.amountMinor).toBe(-1500n);
+      expect(result[0].netAmount.amountMinor).toBe(8500n);
+      expect(result[1].salaryAmount.amountMinor).toBe(0n);
+      expect(result[1].netAmount.amountMinor).toBe(0n);
+    });
+  });
+
   describe('getSourceDisplay', () => {
     it('OrderSalary → контекст заказа для зарплаты', async () => {
       display.getOrderContextByOrderIdForSalary.mockResolvedValue('Авто | A123');

@@ -60,12 +60,16 @@ export interface EmployeeDebt {
   personId: string;
   fullName: string;
   balance: Money;
+  currentMonthNet: Money;
+  previousMonthNet: Money;
 }
 
 export interface EmployeeDebtSummary {
   items: EmployeeDebt[];
   totalOwedToEmployees: Money;
   totalOwedByEmployees: Money;
+  totalCurrentMonthNet: Money;
+  totalPreviousMonthNet: Money;
 }
 
 export interface OperationsKpi {

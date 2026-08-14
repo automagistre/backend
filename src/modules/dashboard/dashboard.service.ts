@@ -59,7 +59,7 @@ export class DashboardService {
       this.analytics.getIncomeLast7Days(tenantId, tz, now, currencyCode),
       this.analytics.getRevenueLast7Days(tenantId, tz, now, currencyCode),
       this.analytics.getWalletBalances(tenantId, currencyCode),
-      this.analytics.getEmployeeDebts(tenantId, currencyCode),
+      this.analytics.getEmployeeDebts(tenantId, currencyCode, tz, now),
       this.analytics.getOperationsKpi(tenantId),
       this.analytics.getMonthlyRevenueLast6(tenantId, tz, now, currencyCode),
       this.analytics.getWarrantyLast30Days(tenantId, now, currencyCode),

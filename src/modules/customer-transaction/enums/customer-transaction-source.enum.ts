@@ -41,6 +41,27 @@ export enum CustomerTransactionSource {
   WarrantyMarginDeduction = 15,
 }
 
+/** Начисления ЗП: по заказу, оклад и ручные проводки (премии; позже выделим отдельно). */
+export const SALARY_INCOME_SOURCES = [
+  CustomerTransactionSource.OrderSalary,
+  CustomerTransactionSource.MonthlySalary,
+  CustomerTransactionSource.Manual,
+  CustomerTransactionSource.ManualWithoutWallet,
+] as const;
+
+/** Удержания из ЗП: штраф и гарантийные пенальти. */
+export const SALARY_DEDUCTION_SOURCES = [
+  CustomerTransactionSource.Penalty,
+  CustomerTransactionSource.WarrantyDeduction,
+  CustomerTransactionSource.WarrantySalaryCompensation,
+  CustomerTransactionSource.WarrantyMarginDeduction,
+] as const;
+
+export const SALARY_NET_SOURCES = [
+  ...SALARY_INCOME_SOURCES,
+  ...SALARY_DEDUCTION_SOURCES,
+] as const;
+
 const LABELS: Record<CustomerTransactionSource, string> = {
   [CustomerTransactionSource.OrderPrepay]: 'Предоплата по заказу',
   [CustomerTransactionSource.OrderDebit]: 'Начисление по заказу',

@@ -15,6 +15,7 @@ import { PaginationArgs } from 'src/common/pagination.args';
 import { PaginatedPersons } from './inputs/paginatedPersons.type';
 import { CustomerTransactionService } from 'src/modules/customer-transaction/customer-transaction.service';
 import { PaginatedCustomerTransactions } from 'src/modules/customer-transaction/types/paginated-customer-transactions.type';
+import { PersonMonthlyIncomeModel } from 'src/modules/customer-transaction/models/person-monthly-income.model';
 import { CarModel } from 'src/modules/vehicle/models/car.model';
 import { CustomerCarRelationService } from 'src/modules/customer-car-relation/customer-car-relation.service';
 import { AuthContext } from 'src/common/decorators/auth-context.decorator';
@@ -126,6 +127,24 @@ export class PersonResolver {
       dateFrom,
       dateTo,
     });
+  }
+
+  @ResolveField(() => [PersonMonthlyIncomeModel], {
+    description:
+      'Помесячные начисления ЗП и удержания (штрафы, гарантия) за диапазон дат',
+  })
+  async monthlyIncome(
+    @AuthContext() ctx: AuthContextType,
+    @Parent() person: PersonModel,
+    @Args('dateFrom') dateFrom: Date,
+    @Args('dateTo') dateTo: Date,
+  ): Promise<PersonMonthlyIncomeModel[]> {
+    return this.customerTransactionService.getMonthlyIncome(
+      ctx,
+      person.id,
+      dateFrom,
+      dateTo,
+    );
   }
 
   @ResolveField(() => [CarModel], {

@@ -11,10 +11,19 @@ import { WalletTransactionSource } from 'src/modules/wallet/enums/wallet-transac
 import { DisplayContextService } from 'src/modules/display-context/display-context.service';
 import { CreateCustomerTransactionInput } from './inputs/create-customer-transaction.input';
 import { CreateManualCustomerTransactionInput } from './inputs/create-manual-customer-transaction.input';
-import { CustomerTransactionSource } from './enums/customer-transaction-source.enum';
+import {
+  CustomerTransactionSource,
+  SALARY_INCOME_SOURCES,
+  SALARY_NET_SOURCES,
+} from './enums/customer-transaction-source.enum';
 import { SettingsService } from 'src/modules/settings/settings.service';
 import { applyDefaultCurrency } from 'src/common/money';
 import type { AuthContext } from 'src/common/user-id.store';
+import { PersonMonthlyIncomeModel } from './models/person-monthly-income.model';
+import {
+  toZonedParts,
+  zonedToUtc,
+} from 'src/common/utils/zoned-time.util';
 
 const DEFAULT_TAKE = 25;
 const DEFAULT_SKIP = 0;
@@ -183,6 +192,69 @@ export class CustomerTransactionService {
     return result._sum.amountAmount ?? BigInt(0);
   }
 
+  /**
+   * Помесячные начисления ЗП и удержания по операнду.
+   * Месяцы без проводок в диапазоне — нули.
+   */
+  async getMonthlyIncome(
+    ctx: AuthContext,
+    operandId: string,
+    dateFrom: Date,
+    dateTo: Date,
+  ): Promise<PersonMonthlyIncomeModel[]> {
+    const [tz, currencyCode] = await Promise.all([
+      this.settingsService.getTimezone(ctx.tenantId),
+      this.settingsService.getDefaultCurrencyCode(ctx.tenantId),
+    ]);
+
+    const rows = await this.prisma.customerTransaction.findMany({
+      where: {
+        tenantId: ctx.tenantId,
+        operandId,
+        source: { in: [...SALARY_NET_SOURCES] },
+        createdAt: { gte: dateFrom, lte: dateTo },
+      },
+      select: {
+        createdAt: true,
+        source: true,
+        amountAmount: true,
+      },
+    });
+
+    const incomeSources = new Set<number>(SALARY_INCOME_SOURCES);
+    const byMonth = new Map<string, { salary: bigint; penalty: bigint }>();
+    for (const row of rows) {
+      if (!row.createdAt) continue;
+      const z = toZonedParts(row.createdAt, tz);
+      const key = `${z.year}-${String(z.month).padStart(2, '0')}`;
+      const amounts = byMonth.get(key) ?? { salary: 0n, penalty: 0n };
+      const amount = row.amountAmount ?? 0n;
+      if (incomeSources.has(row.source)) {
+        amounts.salary += amount;
+      } else {
+        amounts.penalty += amount;
+      }
+      byMonth.set(key, amounts);
+    }
+
+    const money = (amountMinor: bigint) => ({
+      amountMinor,
+      currencyCode,
+    });
+
+    return monthsInRange(dateFrom, dateTo, tz).map((month) => {
+      const z = toZonedParts(month, tz);
+      const key = `${z.year}-${String(z.month).padStart(2, '0')}`;
+      const amounts = byMonth.get(key) ?? { salary: 0n, penalty: 0n };
+      return {
+        month,
+        salaryAmount: money(amounts.salary),
+        penaltyAmount: money(amounts.penalty),
+        netAmount: money(amounts.salary + amounts.penalty),
+      };
+    });
+  }
+
   async getOperandDisplayName(operandId: string): Promise<string | null> {
     return this.displayContextService.getOperandDisplayName(operandId);
   }
@@ -305,4 +377,21 @@ export class CustomerTransactionService {
       },
     });
   }
+}
+
+function monthsInRange(from: Date, to: Date, tz: string): Date[] {
+  const start = toZonedParts(from, tz);
+  const end = toZonedParts(to, tz);
+  const months: Date[] = [];
+  let year = start.year;
+  let month = start.month;
+  while (year < end.year || (year === end.year && month <= end.month)) {
+    months.push(zonedToUtc(year, month, 1, 0, 0, 0, tz));
+    month += 1;
+    if (month > 12) {
+      month = 1;
+      year += 1;
+    }
+  }
+  return months;
 }

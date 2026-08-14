@@ -77,6 +77,16 @@ export class EmployeeDebtModel {
       'Баланс сотрудника. Положительный — компания должна сотруднику, отрицательный — сотрудник должен компании.',
   })
   balance: MoneyModel;
+
+  @Field(() => MoneyModel, {
+    description: 'Начисления ЗП минус удержания за текущий месяц (MTD)',
+  })
+  currentMonthNet: MoneyModel;
+
+  @Field(() => MoneyModel, {
+    description: 'Начисления ЗП минус удержания за прошлый календарный месяц',
+  })
+  previousMonthNet: MoneyModel;
 }
 
 @ObjectType('DashboardEmployeeDebtSummary')
@@ -89,6 +99,16 @@ export class EmployeeDebtSummaryModel {
 
   @Field(() => MoneyModel, { description: 'Сумма отрицательных балансов (как положительное число) — сотрудники должны нам' })
   totalOwedByEmployees: MoneyModel;
+
+  @Field(() => MoneyModel, {
+    description: 'Сумма net ЗП по активным сотрудникам за текущий месяц',
+  })
+  totalCurrentMonthNet: MoneyModel;
+
+  @Field(() => MoneyModel, {
+    description: 'Сумма net ЗП по активным сотрудникам за прошлый месяц',
+  })
+  totalPreviousMonthNet: MoneyModel;
 }
 
 @ObjectType('DashboardOperationsKpi')

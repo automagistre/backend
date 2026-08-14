@@ -14,9 +14,11 @@ import {
   startOfDay,
   toZonedParts,
   zonedDayKey,
+  zonedToUtc,
 } from 'src/common/utils/zoned-time.util';
 import type { Money } from 'src/common/money/money.types';
 import { add, subtract, toMoney } from 'src/common/money/money.util';
+import { SALARY_NET_SOURCES } from 'src/modules/customer-transaction/enums/customer-transaction-source.enum';
 import type {
   AvgCheckValue,
   ClientsMixValue,
@@ -280,20 +282,42 @@ export class AnalyticsService {
   async getEmployeeDebts(
     tenantId: string,
     currencyCode: string,
+    tz: string,
+    now: Date,
   ): Promise<EmployeeDebtSummary> {
+    const z = toZonedParts(now, tz);
+    const currentFrom = zonedToUtc(z.year, z.month, 1, 0, 0, 0, tz);
+    const prevMonthZeroBased = z.month - 2;
+    const prevYear = z.year + Math.floor(prevMonthZeroBased / 12);
+    const prevMonth = ((prevMonthZeroBased % 12) + 12) % 12 + 1;
+    const previousFrom = zonedToUtc(prevYear, prevMonth, 1, 0, 0, 0, tz);
+    const netIn = SALARY_NET_SOURCES.join(', ');
+
     const rows = await this.prisma.$queryRawUnsafe<
       Array<{
         employee_id: string;
         person_id: string;
         full_name: string;
         balance: bigint;
+        current_month_net: bigint;
+        previous_month_net: bigint;
       }>
     >(
       `SELECT
          e.id AS employee_id,
          e.person_id,
          TRIM(BOTH ' ' FROM (COALESCE(p.lastname, '') || ' ' || COALESCE(p.firstname, ''))) AS full_name,
-         COALESCE(SUM(ct.amount_amount), 0)::bigint AS balance
+         COALESCE(SUM(ct.amount_amount), 0)::bigint AS balance,
+         COALESCE(SUM(ct.amount_amount) FILTER (
+           WHERE ct.source IN (${netIn})
+             AND ct.created_at >= $2
+             AND ct.created_at < $3
+         ), 0)::bigint AS current_month_net,
+         COALESCE(SUM(ct.amount_amount) FILTER (
+           WHERE ct.source IN (${netIn})
+             AND ct.created_at >= $4
+             AND ct.created_at < $2
+         ), 0)::bigint AS previous_month_net
        FROM employee e
        JOIN person p ON p.id = e.person_id
        LEFT JOIN customer_transaction ct
@@ -302,6 +326,9 @@ export class AnalyticsService {
        GROUP BY e.id, e.person_id, p.lastname, p.firstname
        ORDER BY ABS(COALESCE(SUM(ct.amount_amount), 0)) DESC, full_name ASC`,
       tenantId,
+      currentFrom,
+      now,
+      previousFrom,
     );
 
     const items: EmployeeDebt[] = rows.map((r) => ({
@@ -309,19 +336,31 @@ export class AnalyticsService {
       personId: r.person_id,
       fullName: r.full_name || 'Без имени',
       balance: this.money(BigInt(r.balance), currencyCode),
+      currentMonthNet: this.money(BigInt(r.current_month_net), currencyCode),
+      previousMonthNet: this.money(BigInt(r.previous_month_net), currencyCode),
     }));
 
     let totalOwedToEmployees = this.money(0n, currencyCode);
     let totalOwedByEmployees = this.money(0n, currencyCode);
+    let totalCurrentMonthNet = this.money(0n, currencyCode);
+    let totalPreviousMonthNet = this.money(0n, currencyCode);
     for (const item of items) {
       if (item.balance.amountMinor > 0n) {
         totalOwedToEmployees = add(totalOwedToEmployees, item.balance);
       } else if (item.balance.amountMinor < 0n) {
         totalOwedByEmployees = subtract(totalOwedByEmployees, item.balance);
       }
+      totalCurrentMonthNet = add(totalCurrentMonthNet, item.currentMonthNet);
+      totalPreviousMonthNet = add(totalPreviousMonthNet, item.previousMonthNet);
     }
 
-    return { items, totalOwedToEmployees, totalOwedByEmployees };
+    return {
+      items,
+      totalOwedToEmployees,
+      totalOwedByEmployees,
+      totalCurrentMonthNet,
+      totalPreviousMonthNet,
+    };
   }
 
   // ---------- Operations KPI ----------

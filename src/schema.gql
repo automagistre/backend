@@ -1271,13 +1271,22 @@ type DashboardEmployeeDebt {
   Баланс сотрудника. Положительный — компания должна сотруднику, отрицательный — сотрудник должен компании.
   """
   balance: MoneyModel!
+
+  """Начисления ЗП минус удержания за текущий месяц (MTD)"""
+  currentMonthNet: MoneyModel!
   employeeId: ID!
   fullName: String!
   personId: ID!
+
+  """Начисления ЗП минус удержания за прошлый календарный месяц"""
+  previousMonthNet: MoneyModel!
 }
 
 type DashboardEmployeeDebtSummary {
   items: [DashboardEmployeeDebt!]!
+
+  """Сумма net ЗП по активным сотрудникам за текущий месяц"""
+  totalCurrentMonthNet: MoneyModel!
 
   """
   Сумма отрицательных балансов (как положительное число) — сотрудники должны нам
@@ -1286,6 +1295,9 @@ type DashboardEmployeeDebtSummary {
 
   """Сумма положительных балансов — мы должны сотрудникам"""
   totalOwedToEmployees: MoneyModel!
+
+  """Сумма net ЗП по активным сотрудникам за прошлый месяц"""
+  totalPreviousMonthNet: MoneyModel!
 }
 
 type DashboardIncomeLast7Days {
@@ -3001,6 +3013,11 @@ type PersonModel {
   firstname: String
   id: ID!
   lastname: String
+
+  """
+  Помесячные начисления ЗП и удержания (штрафы, гарантия) за диапазон дат
+  """
+  monthlyIncome(dateFrom: DateTime!, dateTo: DateTime!): [PersonMonthlyIncomeModel!]!
   officePhone: PhoneNumber
 
   """Баланс по проводкам (сумма customer_transaction по операнду)"""
@@ -3009,6 +3026,21 @@ type PersonModel {
   telephone: PhoneNumber
   tenantGroupId: ID!
   transactions(dateFrom: DateTime, dateTo: DateTime, skip: Int = 0, take: Int = 25): PaginatedCustomerTransactions!
+}
+
+"""Начисления ЗП и удержания за календарный месяц"""
+type PersonMonthlyIncomeModel {
+  """Первое число месяца"""
+  month: DateTime!
+
+  """Итого: начисления + удержания"""
+  netAmount: MoneyModel!
+
+  """Удержания (штрафы и гарантийные пенальти)"""
+  penaltyAmount: MoneyModel!
+
+  """Начисления ЗП (заказы, оклад, ручные премии)"""
+  salaryAmount: MoneyModel!
 }
 
 """Телефонный номер в формате +7XXX..."""
