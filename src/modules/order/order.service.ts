@@ -43,6 +43,7 @@ import {
 import { ProfitService } from 'src/modules/profit/profit.service';
 import { ProfitOrigin } from 'src/modules/profit/enums/profit-origin.enum';
 import { TireStorageService } from 'src/modules/tire-storage/tire-storage.service';
+import { CalendarService } from 'src/modules/calendar/calendar.service';
 
 const DELETE_COOLING_HOURS = 3;
 /** Совместимость со старой CRM: DiscriminatorMap OrderClose — 1 = OrderDeal, 2 = OrderCancel */
@@ -67,6 +68,8 @@ export class OrderService {
     private readonly profitService: ProfitService,
     @Inject(forwardRef(() => TireStorageService))
     private readonly tireStorageService: TireStorageService,
+    @Inject(forwardRef(() => CalendarService))
+    private readonly calendarService: CalendarService,
   ) {}
 
   async findOne(ctx: AuthContext, id: string): Promise<OrderModel | null> {
@@ -629,26 +632,11 @@ export class OrderService {
     ctx: AuthContext,
     orderId: string,
   ): Promise<Date | null> {
-    const link = await this.prisma.calendarEntryOrder.findFirst({
-      where: {
-        orderId,
-        tenantId: ctx.tenantId,
-        calendarEntry: {
-          calendarEntryDeletion: null,
-        },
-      },
-      orderBy: { id: 'desc' },
-      select: { entryId: true },
-    });
-    if (!link) {
-      return null;
-    }
-    const schedule = await this.prisma.calendarEntrySchedule.findFirst({
-      where: { entryId: link.entryId, tenantId: ctx.tenantId },
-      orderBy: { id: 'desc' },
-      select: { date: true },
-    });
-    return schedule?.date ?? null;
+    return this.calendarService.getScheduledAtForOrder(ctx, orderId);
+  }
+
+  async getCalendarEntry(ctx: AuthContext, orderId: string) {
+    return this.calendarService.getEntryForOrder(ctx, orderId);
   }
 
   private getBusinessDayRange(now: Date = new Date()): {

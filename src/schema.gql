@@ -2489,6 +2489,9 @@ type OrderModel {
   assignee: EmployeeModel
   assigneeId: ID
 
+  """Актуальная запись календаря, связанная с заказом"""
+  calendarEntry: CalendarEntryModel
+
   """Можно удалить заказ (пустой, в течение периода охлаждения)"""
   canDelete: Boolean!
   car: CarModel

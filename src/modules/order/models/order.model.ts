@@ -8,6 +8,7 @@ import { OrderPaymentModel } from './order-payment.model';
 import { OrderCloseValidationModel } from './order-close-validation.model';
 import { OrderStatus } from '../enums/order-status.enum';
 import { OrderSuspendModel } from './order-suspend.model';
+import { CalendarEntryModel } from '../../calendar/models/calendar-entry.model';
 
 @ObjectType({ description: 'Заказ' })
 export class OrderModel {
@@ -43,6 +44,12 @@ export class OrderModel {
 
   @Field(() => Date, { nullable: true })
   scheduledAt?: Date | null;
+
+  @Field(() => CalendarEntryModel, {
+    nullable: true,
+    description: 'Актуальная запись календаря, связанная с заказом',
+  })
+  calendarEntry?: CalendarEntryModel | null;
 
   @Field(() => ID, { nullable: true })
   createdBy: string | null;

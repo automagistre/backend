@@ -52,6 +52,7 @@ import {
 import type { AuthContext as AuthContextType } from 'src/common/user-id.store';
 import { AppUserModel } from '../app-user/models/app-user.model';
 import { AppUserLoader } from '../app-user/app-user.loader';
+import { CalendarEntryModel } from '../calendar/models/calendar-entry.model';
 
 @Resolver(() => OrderModel)
 @RequireTenant()
@@ -291,6 +292,17 @@ export class OrderResolver {
     @Parent() order: OrderModel,
   ): Promise<Date | null> {
     return this.orderService.getScheduledAt(ctx, order.id);
+  }
+
+  @ResolveField(() => CalendarEntryModel, { nullable: true })
+  async calendarEntry(
+    @AuthContext() ctx: AuthContextType,
+    @Parent() order: OrderModel,
+  ): Promise<CalendarEntryModel | null> {
+    return this.orderService.getCalendarEntry(
+      ctx,
+      order.id,
+    ) as Promise<CalendarEntryModel | null>;
   }
 
   @ResolveField(() => Boolean)

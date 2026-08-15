@@ -29,6 +29,7 @@ import { DisplayContextModule } from '../display-context/display-context.module'
 import { NoteModule } from '../note/note.module';
 import { ProfitModule } from '../profit/profit.module';
 import { TireStorageModule } from '../tire-storage/tire-storage.module';
+import { CalendarModule } from '../calendar/calendar.module';
 import './enums/order-item-type.enum';
 import './enums/close-deficiency.enum';
 
@@ -49,6 +50,7 @@ import './enums/close-deficiency.enum';
     NoteModule,
     ProfitModule,
     forwardRef(() => TireStorageModule),
+    forwardRef(() => CalendarModule),
   ],
   providers: [
     OrderService,

@@ -116,4 +116,39 @@ describe('CalendarService', () => {
       expect(audit.record.mock.calls[0][2].action).toBe(AuditAction.DELETE);
     });
   });
+
+  describe('getEntryForOrder', () => {
+    it('без связи возвращает null', async () => {
+      jest.mocked(prisma.calendarEntryOrder.findFirst).mockResolvedValue(null);
+      await expect(service.getEntryForOrder(ctx, 'o1')).resolves.toBeNull();
+      expect(prisma.calendarEntry.findFirst).not.toHaveBeenCalled();
+    });
+
+    it('возвращает запись по последней связи', async () => {
+      jest.mocked(prisma.calendarEntryOrder.findFirst).mockResolvedValue({
+        entryId: 'ce1',
+      } as any);
+      jest.mocked(prisma.calendarEntry.findFirst).mockResolvedValue(entryWith() as any);
+
+      const result = await service.getEntryForOrder(ctx, 'o1');
+      expect(result?.id).toBe('ce1');
+      expect(prisma.calendarEntry.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({ where: expect.objectContaining({ id: 'ce1' }) }),
+      );
+    });
+  });
+
+  describe('getScheduledAtForOrder', () => {
+    it('возвращает дату актуального расписания', async () => {
+      const date = new Date('2026-01-01T10:00:00Z');
+      jest.mocked(prisma.calendarEntryOrder.findFirst).mockResolvedValue({
+        entryId: 'ce1',
+      } as any);
+      jest.mocked(prisma.calendarEntry.findFirst).mockResolvedValue(
+        entryWith({ calendarEntrySchedule: [{ date, duration: 'PT1H' }] }) as any,
+      );
+
+      await expect(service.getScheduledAtForOrder(ctx, 'o1')).resolves.toEqual(date);
+    });
+  });
 });

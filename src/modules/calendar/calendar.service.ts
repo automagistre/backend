@@ -471,4 +471,45 @@ export class CalendarService {
     });
     return link?.orderId ?? null;
   }
+
+  async getLinkedEntryIdForOrder(
+    ctx: AuthContext,
+    orderId: string,
+  ): Promise<string | null> {
+    const { tenantId } = ctx;
+    const link = await this.prisma.calendarEntryOrder.findFirst({
+      where: {
+        orderId,
+        tenantId,
+        calendarEntry: {
+          calendarEntryDeletion: null,
+        },
+      },
+      orderBy: { id: 'desc' },
+      select: { entryId: true },
+    });
+    return link?.entryId ?? null;
+  }
+
+  async getEntryForOrder(
+    ctx: AuthContext,
+    orderId: string,
+  ): Promise<CalendarEntry | null> {
+    const entryId = await this.getLinkedEntryIdForOrder(ctx, orderId);
+    if (!entryId) {
+      return null;
+    }
+    return this.getEntry(ctx, entryId);
+  }
+
+  async getScheduledAtForOrder(
+    ctx: AuthContext,
+    orderId: string,
+  ): Promise<Date | null> {
+    const entry = (await this.getEntryForOrder(
+      ctx,
+      orderId,
+    )) as CalendarEntryWithLatest | null;
+    return entry?.calendarEntrySchedule?.[0]?.date ?? null;
+  }
 }

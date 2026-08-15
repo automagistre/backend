@@ -12,6 +12,8 @@ import { RecommendationWorkMigrationService } from 'src/modules/recommendation-m
 import { AuditLogService } from 'src/modules/audit-log/audit-log.service';
 import { EmployeeService } from 'src/modules/employee/employee.service';
 import { ProfitService } from 'src/modules/profit/profit.service';
+import { TireStorageService } from 'src/modules/tire-storage/tire-storage.service';
+import { CalendarService } from 'src/modules/calendar/calendar.service';
 import { OrderStatus } from './enums/order-status.enum';
 import { createPrismaMock, type PrismaMock } from 'src/common/testing/prisma-mock';
 import { makeCtx } from 'src/common/testing/auth-context';
@@ -38,6 +40,8 @@ describe('OrderService.getCloseValidation', () => {
       mockDeep<AuditLogService>() as unknown as AuditLogService,
       employeeService as unknown as EmployeeService,
       mockDeep<ProfitService>() as unknown as ProfitService,
+      mockDeep<TireStorageService>() as unknown as TireStorageService,
+      mockDeep<CalendarService>() as unknown as CalendarService,
     );
   });
 
@@ -329,6 +333,8 @@ describe('OrderService calendar entry order link', () => {
       auditLog as unknown as AuditLogService,
       mockDeep<EmployeeService>() as unknown as EmployeeService,
       mockDeep<ProfitService>() as unknown as ProfitService,
+      mockDeep<TireStorageService>() as unknown as TireStorageService,
+      mockDeep<CalendarService>() as unknown as CalendarService,
     );
   };
 
@@ -413,5 +419,48 @@ describe('OrderService calendar entry order link', () => {
     await expect(service.create(ctx, { entryId })).rejects.toThrow(
       'Для этой записи уже создан заказ',
     );
+  });
+});
+
+describe('OrderService.getCalendarEntry', () => {
+  let calendarService: DeepMockProxy<CalendarService>;
+  let service: OrderService;
+  const ctx = makeCtx();
+
+  beforeEach(() => {
+    calendarService = mockDeep<CalendarService>();
+    service = new OrderService(
+      createPrismaMock() as unknown as PrismaService,
+      mockDeep<WalletTransactionService>() as unknown as WalletTransactionService,
+      mockDeep<SalaryService>() as unknown as SalaryService,
+      mockDeep<CustomerTransactionService>() as unknown as CustomerTransactionService,
+      mockDeep<SettingsService>() as unknown as SettingsService,
+      mockDeep<WarehouseService>() as unknown as WarehouseService,
+      mockDeep<OrganizationService>() as unknown as OrganizationService,
+      mockDeep<TasksService>() as unknown as TasksService,
+      mockDeep<RecommendationWorkMigrationService>() as unknown as RecommendationWorkMigrationService,
+      mockDeep<AuditLogService>() as unknown as AuditLogService,
+      mockDeep<EmployeeService>() as unknown as EmployeeService,
+      mockDeep<ProfitService>() as unknown as ProfitService,
+      mockDeep<TireStorageService>() as unknown as TireStorageService,
+      calendarService as unknown as CalendarService,
+    );
+  });
+
+  it('без связи возвращает null', async () => {
+    calendarService.getEntryForOrder.mockResolvedValue(null);
+    await expect(service.getCalendarEntry(ctx, 'o1')).resolves.toBeNull();
+  });
+
+  it('возвращает актуальную запись календаря', async () => {
+    const entry = {
+      id: 'entry-1',
+      createdAt: new Date('2026-08-01'),
+      calendarEntryOrderInfo: [{ description: 'Комментарий', createdAt: new Date() }],
+    };
+    calendarService.getEntryForOrder.mockResolvedValue(entry as any);
+
+    await expect(service.getCalendarEntry(ctx, 'o1')).resolves.toEqual(entry);
+    expect(calendarService.getEntryForOrder).toHaveBeenCalledWith(ctx, 'o1');
   });
 });
