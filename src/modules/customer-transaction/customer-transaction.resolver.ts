@@ -16,6 +16,7 @@ import { AuthContext as AuthContextDecorator } from 'src/common/decorators/auth-
 import type { AuthContext as AuthContextType } from 'src/common/user-id.store';
 import { AppUserModel } from '../app-user/models/app-user.model';
 import { AppUserLoader } from '../app-user/app-user.loader';
+import { getCustomerTransactionSourceLabel } from './enums/customer-transaction-source.enum';
 
 @Resolver(() => CustomerTransactionModel)
 export class CustomerTransactionResolver {
@@ -35,6 +36,13 @@ export class CustomerTransactionResolver {
       tx.source,
       tx.sourceId,
     );
+  }
+
+  @ResolveField(() => String, {
+    description: 'Человекочитаемая метка типа проводки',
+  })
+  sourceLabel(@Parent() tx: { source: number }): string {
+    return getCustomerTransactionSourceLabel(tx.source);
   }
 
   @ResolveField(() => String, {

@@ -611,16 +611,18 @@ model CustomerTransaction {
 }
 
 model Employee {
-  id               String           @id @default(uuid()) @db.Uuid
-  personId         String           @map("person_id") @db.Uuid
-  person           Person           @relation(fields: [personId], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  ratio            Int
-  hiredAt          DateTime         @map("hired_at") @db.Timestamp(0)
-  firedAt          DateTime?        @map("fired_at") @db.Timestamp(0)
-  tenantId         String           @map("tenant_id") @db.Uuid
-  createdAt        DateTime?        @default(now()) @map("created_at") @db.Timestamptz(0)
-  createdBy        String?          @map("created_by") @db.Uuid
-  employeeSalaries  EmployeeSalary[]
+  id                      String           @id @default(uuid()) @db.Uuid
+  personId                String           @map("person_id") @db.Uuid
+  person                  Person           @relation(fields: [personId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  ratio                   Int
+  /// Гарантированный минимум ЗП в месяц (копейки). null — не применяется.
+  guaranteedMinimumAmount BigInt?          @map("guaranteed_minimum_amount")
+  hiredAt                 DateTime         @map("hired_at") @db.Timestamp(0)
+  firedAt                 DateTime?        @map("fired_at") @db.Timestamp(0)
+  tenantId                String           @map("tenant_id") @db.Uuid
+  createdAt               DateTime?        @default(now()) @map("created_at") @db.Timestamptz(0)
+  createdBy               String?          @map("created_by") @db.Uuid
+  employeeSalaries        EmployeeSalary[]
 
   @@unique([personId, firedAt], map: "uniq_person_fired")
   @@map("employee")

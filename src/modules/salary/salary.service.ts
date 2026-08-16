@@ -2,7 +2,10 @@ import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { EmployeeService } from 'src/modules/employee/employee.service';
 import { CustomerTransactionService } from 'src/modules/customer-transaction/customer-transaction.service';
-import { CustomerTransactionSource } from 'src/modules/customer-transaction/enums/customer-transaction-source.enum';
+import {
+  CustomerTransactionSource,
+  PRODUCTION_INCOME_SOURCES,
+} from 'src/modules/customer-transaction/enums/customer-transaction-source.enum';
 import { CreateCustomerTransactionInput } from 'src/modules/customer-transaction/inputs/create-customer-transaction.input';
 import { SettingsService } from 'src/modules/settings/settings.service';
 import type { AuthContext } from 'src/common/user-id.store';
@@ -16,6 +19,54 @@ import {
   AuditAction,
   AuditEntityType,
 } from 'src/modules/audit-log/enums/audit.enums';
+
+/** Границы целевого месяца для доплаты до гарантированного минимума. */
+interface MinimumWagePeriod {
+  /** 1-е число целевого месяца. */
+  start: Date;
+  /** 1-е число следующего месяца (правая граница, не включается). */
+  end: Date;
+  /** Принят до этой даты — значит отработал месяц целиком. */
+  hiredBefore: Date;
+  /** Доплата за месяц создаётся только в следующем месяце. */
+  chargeWindowEnd: Date;
+  /** `YYYY-MM` для логов и метаданных аудита. */
+  key: string;
+  /** «август 2026» для описания проводки. */
+  label: string;
+}
+
+function resolveMinimumWagePeriod(targetMonthStart: Date): MinimumWagePeriod {
+  const year = targetMonthStart.getFullYear();
+  const month = targetMonthStart.getMonth();
+  const start = new Date(year, month, 1);
+
+  return {
+    start,
+    end: new Date(year, month + 1, 1),
+    hiredBefore: new Date(year, month, 2),
+    chargeWindowEnd: new Date(year, month + 2, 1),
+    key: `${year}-${String(month + 1).padStart(2, '0')}`,
+    label: start.toLocaleDateString('ru-RU', {
+      month: 'long',
+      year: 'numeric',
+    }),
+  };
+}
+
+/** Сотрудник в объёме, достаточном для расчёта доплаты. */
+type EmployeeForMinimumWage = {
+  id: string;
+  personId: string;
+  guaranteedMinimumAmount: bigint | null;
+};
+
+interface MinimumWageShortfall {
+  /** Сумма доплаты (копейки). */
+  amount: bigint;
+  production: bigint;
+  guarantee: bigint;
+}
 
 @Injectable()
 export class SalaryService {
@@ -552,5 +603,149 @@ export class SalaryService {
     this.logger.log(
       `chargeMonthlySalaries: tenant=${ctx.tenantId} payday=${payday} charged=${charged} skipped=${skipped} failed=${failed} of ${salaries.length}`,
     );
+  }
+
+  /**
+   * Доплата до гарантированного минимума за календарный месяц
+   * `targetMonthStart` (1-е число целевого месяца).
+   * Выработка = сумма PRODUCTION_INCOME_SOURCES за месяц (штрафы/гарантии не входят).
+   * Неполный месяц (принят после 1-го / уволен до конца) — пропуск.
+   */
+  async chargeMinimumWage(
+    ctx: AuthContext,
+    targetMonthStart: Date,
+  ): Promise<void> {
+    const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
+    const period = resolveMinimumWagePeriod(targetMonthStart);
+
+    const employees = await this.prisma.employee.findMany({
+      where: {
+        tenantId: ctx.tenantId,
+        guaranteedMinimumAmount: { gt: 0n },
+        hiredAt: { lt: period.hiredBefore },
+        OR: [{ firedAt: null }, { firedAt: { gte: period.end } }],
+      },
+    });
+
+    let charged = 0;
+    let skipped = 0;
+    let failed = 0;
+
+    for (const employee of employees) {
+      try {
+        const shortfall = await this.calcMinimumWageShortfall(
+          ctx,
+          employee,
+          period,
+        );
+        if (!shortfall) {
+          skipped++;
+          continue;
+        }
+
+        await this.createMinimumWageCompensation(
+          ctx,
+          employee,
+          period,
+          shortfall,
+          defaultCurrency,
+        );
+        charged++;
+      } catch (err) {
+        failed++;
+        this.logger.error(
+          `chargeMinimumWage: employeeId=${employee.id} tenantId=${ctx.tenantId} failed`,
+          err instanceof Error ? err.stack : String(err),
+        );
+      }
+    }
+
+    this.logger.log(
+      `chargeMinimumWage: tenant=${ctx.tenantId} month=${period.key} charged=${charged} skipped=${skipped} failed=${failed} of ${employees.length}`,
+    );
+  }
+
+  /**
+   * Недоработка до гарантии за период или null, если доплата не нужна:
+   * минимум не задан, доплата уже начислена или выработка перекрыла минимум.
+   */
+  private async calcMinimumWageShortfall(
+    ctx: AuthContext,
+    employee: EmployeeForMinimumWage,
+    period: MinimumWagePeriod,
+  ): Promise<MinimumWageShortfall | null> {
+    const guarantee = employee.guaranteedMinimumAmount ?? 0n;
+    if (guarantee <= 0n) return null;
+
+    const alreadyCharged = await this.prisma.customerTransaction.findFirst({
+      where: {
+        source: CustomerTransactionSource.MinimumWageCompensation,
+        sourceId: employee.id,
+        tenantId: ctx.tenantId,
+        createdAt: { gte: period.end, lt: period.chargeWindowEnd },
+      },
+    });
+    if (alreadyCharged) return null;
+
+    const aggregate = await this.prisma.customerTransaction.aggregate({
+      where: {
+        operandId: employee.personId,
+        tenantId: ctx.tenantId,
+        source: { in: [...PRODUCTION_INCOME_SOURCES] },
+        createdAt: { gte: period.start, lt: period.end },
+      },
+      _sum: { amountAmount: true },
+    });
+
+    const production = aggregate._sum.amountAmount ?? 0n;
+    const amount = guarantee - production;
+
+    return amount > 0n ? { amount, production, guarantee } : null;
+  }
+
+  private async createMinimumWageCompensation(
+    ctx: AuthContext,
+    employee: EmployeeForMinimumWage,
+    period: MinimumWagePeriod,
+    { amount, production, guarantee }: MinimumWageShortfall,
+    currencyCode: string,
+  ): Promise<void> {
+    const description = `Доплата до гарантированного минимума за ${period.label}`;
+
+    await this.prisma.$transaction(async (tx) => {
+      await this.customerTransactionService.createWithinTransaction(
+        tx,
+        {
+          operandId: employee.personId,
+          source: CustomerTransactionSource.MinimumWageCompensation,
+          sourceId: employee.id,
+          description,
+          amount: { amountMinor: amount, currencyCode },
+        },
+        ctx.tenantId,
+        ctx.userId,
+      );
+
+      await this.auditLog.record(tx, ctx, {
+        rootEntityType: AuditEntityType.SALARY,
+        rootEntityId: employee.id,
+        entityType: AuditEntityType.SALARY,
+        entityId: employee.id,
+        action: AuditAction.SALARY_ACCRUE,
+        changes: [
+          {
+            field: 'amount',
+            oldValue: null,
+            newValue: { amountMinor: String(amount), currencyCode },
+          },
+        ],
+        entityDisplayName: description,
+        metadata: {
+          targetMonth: period.key,
+          production: String(production),
+          guarantee: String(guarantee),
+        },
+      });
+    });
   }
 }

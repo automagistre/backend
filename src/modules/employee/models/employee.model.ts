@@ -16,6 +16,12 @@ export class EmployeeModel implements Employee {
   @Field(() => Int, { description: 'Коэффициент (процент от работ)' })
   ratio: number;
 
+  @Field(() => BigInt, {
+    nullable: true,
+    description: 'Гарантированный минимум в месяц (копейки)',
+  })
+  guaranteedMinimumAmount: bigint | null;
+
   @Field(() => Date, { description: 'Дата найма' })
   hiredAt: Date;
 

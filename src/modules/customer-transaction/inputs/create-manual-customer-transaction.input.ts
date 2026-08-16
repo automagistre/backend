@@ -1,6 +1,7 @@
 import { Field, ID, InputType } from '@nestjs/graphql';
-import { IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
+import { IsEnum, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
 import { MoneyInput } from 'src/common/inputs/money.input';
+import { CustomerTransactionSource } from '../enums/customer-transaction-source.enum';
 
 @InputType()
 export class CreateManualCustomerTransactionInput {
@@ -23,12 +24,13 @@ export class CreateManualCustomerTransactionInput {
   walletId?: string | null;
 
   @IsOptional()
-  @Field(() => Number, {
+  @IsEnum(CustomerTransactionSource)
+  @Field(() => CustomerTransactionSource, {
     nullable: true,
     description:
-      'Источник проводки. 5 = Выдача зарплаты (при наличии walletId). 9 = Штраф (без счёта). Иначе Manual/ManualWithoutWallet.',
+      'Источник проводки. Payroll — выдача зарплаты (нужен walletId). Penalty — штраф (без счёта). Иначе Manual/ManualWithoutWallet.',
   })
-  source?: number | null;
+  source?: CustomerTransactionSource | null;
 
   @IsOptional()
   @IsString()

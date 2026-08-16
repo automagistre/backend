@@ -1,6 +1,7 @@
 import { mockDeep, type DeepMockProxy } from 'jest-mock-extended';
 import { EmployeeService } from './employee.service';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { SettingsService } from 'src/modules/settings/settings.service';
 import type { AuthContext } from 'src/common/user-id.store';
 
 /**
@@ -9,6 +10,7 @@ import type { AuthContext } from 'src/common/user-id.store';
  */
 describe('EmployeeService person/employee converters', () => {
   let prisma: DeepMockProxy<PrismaService>;
+  let settings: DeepMockProxy<SettingsService>;
   let service: EmployeeService;
 
   const ctx: AuthContext = {
@@ -21,7 +23,12 @@ describe('EmployeeService person/employee converters', () => {
 
   beforeEach(() => {
     prisma = mockDeep<PrismaService>();
-    service = new EmployeeService(prisma as unknown as PrismaService);
+    settings = mockDeep<SettingsService>();
+    settings.getDefaultCurrencyCode.mockResolvedValue('RUB');
+    service = new EmployeeService(
+      prisma as unknown as PrismaService,
+      settings as unknown as SettingsService,
+    );
   });
 
   it('findByPersonId ищет по personId в рамках тенанта', async () => {

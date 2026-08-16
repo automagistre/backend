@@ -39,14 +39,30 @@ export enum CustomerTransactionSource {
    * operandId = personId плательщика.
    */
   WarrantyMarginDeduction = 15,
+  /**
+   * Доплата до гарантированного минимума ЗП за календарный месяц
+   * (sourceId = employee.id, operandId = personId сотрудника).
+   * Начисляется 1-го числа следующего месяца cron'ом.
+   */
+  MinimumWageCompensation = 16,
 }
 
-/** Начисления ЗП: по заказу, оклад и ручные проводки (премии; позже выделим отдельно). */
-export const SALARY_INCOME_SOURCES = [
+/**
+ * Начисления, входящие в «выработку» для расчёта гарантированного минимума.
+ * Без MinimumWageCompensation — иначе доплата за прошлый месяц засчитывалась бы
+ * в выработку текущего.
+ */
+export const PRODUCTION_INCOME_SOURCES = [
   CustomerTransactionSource.OrderSalary,
   CustomerTransactionSource.MonthlySalary,
   CustomerTransactionSource.Manual,
   CustomerTransactionSource.ManualWithoutWallet,
+] as const;
+
+/** Начисления ЗП: по заказу, оклад, ручные проводки и доплата до минимума. */
+export const SALARY_INCOME_SOURCES = [
+  ...PRODUCTION_INCOME_SOURCES,
+  CustomerTransactionSource.MinimumWageCompensation,
 ] as const;
 
 /** Удержания из ЗП: штраф и гарантийные пенальти. */
@@ -79,13 +95,26 @@ const LABELS: Record<CustomerTransactionSource, string> = {
     'Компенсация ЗП по гарантии',
   [CustomerTransactionSource.WarrantyMarginDeduction]:
     'Удержание за простой по гарантии',
+  [CustomerTransactionSource.MinimumWageCompensation]:
+    'Доплата до гарантированного минимума',
 };
 
 export function getCustomerTransactionSourceLabel(source: number): string {
   return LABELS[source as CustomerTransactionSource] ?? `Источник ${source}`;
 }
 
+// Числовой enum даёт обратный маппинг (4 -> 'OrderSalary'), берём только прямые пары.
+const enumValuesMap = Object.fromEntries(
+  Object.entries(CustomerTransactionSource)
+    .filter(([, value]) => typeof value === 'number')
+    .map(([key, value]) => [
+      key,
+      { description: LABELS[value as CustomerTransactionSource] },
+    ]),
+);
+
 registerEnumType(CustomerTransactionSource, {
   name: 'CustomerTransactionSource',
   description: 'Источник проводки по клиенту',
+  valuesMap: enumValuesMap,
 });

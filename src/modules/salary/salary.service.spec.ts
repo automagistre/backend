@@ -634,3 +634,132 @@ describe('SalaryService.chargeWarrantyPartDeductions', () => {
     expect(customerTx.createWithinTransaction).not.toHaveBeenCalled();
   });
 });
+
+describe('SalaryService.chargeMinimumWage', () => {
+  let prisma: DeepMockProxy<PrismaService>;
+  let employee: DeepMockProxy<EmployeeService>;
+  let customerTx: DeepMockProxy<CustomerTransactionService>;
+  let settings: DeepMockProxy<SettingsService>;
+  let audit: DeepMockProxy<AuditLogService>;
+  let display: DeepMockProxy<DisplayContextService>;
+  let cogs: DeepMockProxy<CogsService>;
+  let service: SalaryService;
+
+  const ctx = makeCtx();
+  const targetMonthStart = new Date(2026, 7, 1); // август 2026
+
+  beforeEach(() => {
+    prisma = mockDeep<PrismaService>();
+    employee = mockDeep<EmployeeService>();
+    customerTx = mockDeep<CustomerTransactionService>();
+    settings = mockDeep<SettingsService>();
+    audit = mockDeep<AuditLogService>();
+    display = mockDeep<DisplayContextService>();
+    cogs = mockDeep<CogsService>();
+
+    settings.getDefaultCurrencyCode.mockResolvedValue('RUB');
+    jest.mocked(prisma.$transaction).mockImplementation(async (cb: any) => cb(prisma));
+
+    service = new SalaryService(
+      prisma as unknown as PrismaService,
+      employee as unknown as EmployeeService,
+      customerTx as unknown as CustomerTransactionService,
+      settings as unknown as SettingsService,
+      audit as unknown as AuditLogService,
+      display as unknown as DisplayContextService,
+      cogs as unknown as CogsService,
+    );
+  });
+
+  const emp = (over: Record<string, any> = {}) => ({
+    id: 'emp-1',
+    personId: 'person-1',
+    guaranteedMinimumAmount: 12000000n, // 120 000 ₽
+    hiredAt: new Date(2026, 0, 1),
+    firedAt: null,
+    ...over,
+  });
+
+  it('доначисляет разницу при недоработке', async () => {
+    jest.mocked(prisma.employee.findMany).mockResolvedValue([emp()] as any);
+    jest.mocked(prisma.customerTransaction.findFirst).mockResolvedValue(null);
+    jest.mocked(prisma.customerTransaction.aggregate).mockResolvedValue({
+      _sum: { amountAmount: 9800000n }, // 98 000 ₽
+    } as any);
+
+    await service.chargeMinimumWage(ctx, targetMonthStart);
+
+    expect(customerTx.createWithinTransaction).toHaveBeenCalledTimes(1);
+    const arg = customerTx.createWithinTransaction.mock.calls[0][1];
+    expect(arg.operandId).toBe('person-1');
+    expect(arg.source).toBe(CustomerTransactionSource.MinimumWageCompensation);
+    expect(arg.sourceId).toBe('emp-1');
+    expect(arg.amount?.amountMinor).toBe(2200000n); // 22 000 ₽
+    expect(arg.description).toMatch(/август/i);
+    expect(audit.record).toHaveBeenCalledTimes(1);
+  });
+
+  it('не доначисляет, если выработка >= минимума', async () => {
+    jest.mocked(prisma.employee.findMany).mockResolvedValue([emp()] as any);
+    jest.mocked(prisma.customerTransaction.findFirst).mockResolvedValue(null);
+    jest.mocked(prisma.customerTransaction.aggregate).mockResolvedValue({
+      _sum: { amountAmount: 13000000n },
+    } as any);
+
+    await service.chargeMinimumWage(ctx, targetMonthStart);
+
+    expect(customerTx.createWithinTransaction).not.toHaveBeenCalled();
+  });
+
+  it('идемпотентность: пропускает, если доплата уже есть в окне', async () => {
+    jest.mocked(prisma.employee.findMany).mockResolvedValue([emp()] as any);
+    jest.mocked(prisma.customerTransaction.findFirst).mockResolvedValue({
+      id: 'tx-existing',
+    } as any);
+
+    await service.chargeMinimumWage(ctx, targetMonthStart);
+
+    expect(prisma.customerTransaction.aggregate).not.toHaveBeenCalled();
+    expect(customerTx.createWithinTransaction).not.toHaveBeenCalled();
+  });
+
+  it('не выбирает сотрудника, принятого после 1-го числа месяца', async () => {
+    jest.mocked(prisma.employee.findMany).mockResolvedValue([]);
+
+    await service.chargeMinimumWage(ctx, targetMonthStart);
+
+    expect(prisma.employee.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          hiredAt: { lt: new Date(2026, 7, 2) },
+        }),
+      }),
+    );
+    expect(customerTx.createWithinTransaction).not.toHaveBeenCalled();
+  });
+
+  it('учитывает только PRODUCTION_INCOME_SOURCES (штрафы не входят в выработку)', async () => {
+    jest.mocked(prisma.employee.findMany).mockResolvedValue([emp()] as any);
+    jest.mocked(prisma.customerTransaction.findFirst).mockResolvedValue(null);
+    jest.mocked(prisma.customerTransaction.aggregate).mockResolvedValue({
+      _sum: { amountAmount: 9800000n },
+    } as any);
+
+    await service.chargeMinimumWage(ctx, targetMonthStart);
+
+    expect(prisma.customerTransaction.aggregate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          source: {
+            in: [
+              CustomerTransactionSource.OrderSalary,
+              CustomerTransactionSource.MonthlySalary,
+              CustomerTransactionSource.Manual,
+              CustomerTransactionSource.ManualWithoutWallet,
+            ],
+          },
+        }),
+      }),
+    );
+  });
+});

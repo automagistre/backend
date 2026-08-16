@@ -1,6 +1,5 @@
-import { Field, ID, Int, ObjectType } from '@nestjs/graphql';
+import { Field, ID, ObjectType } from '@nestjs/graphql';
 import {
-  IsInt,
   IsOptional,
   IsString,
   IsUUID,
@@ -8,6 +7,7 @@ import {
   MaxLength,
 } from 'class-validator';
 import { CustomerTransaction } from 'src/generated/prisma/client';
+import { CustomerTransactionSource } from '../enums/customer-transaction-source.enum';
 
 @ObjectType({ description: 'Проводка по клиенту (операнду)' })
 export class CustomerTransactionModel implements CustomerTransaction {
@@ -19,8 +19,9 @@ export class CustomerTransactionModel implements CustomerTransaction {
   })
   operandId: string;
 
-  @IsInt()
-  @Field(() => Int, { description: 'Источник проводки (enum)' })
+  @Field(() => CustomerTransactionSource, {
+    description: 'Источник проводки',
+  })
   source: number;
 
   @IsUUID()
@@ -57,10 +58,16 @@ export class CustomerTransactionModel implements CustomerTransaction {
   @Field(() => ID, { nullable: true })
   createdBy: string | null;
 
+  /** Человекочитаемая метка типа источника. */
+  @Field(() => String, {
+    description: 'Описание типа проводки (например «Зарплата по заказу»)',
+  })
+  sourceLabel?: string;
+
   /** Контекстная строка для отображения (номер заказа, название счёта и т.д.). */
   @Field(() => String, {
     description:
-      'Строка объекта для отображения. Фронт склеивает с меткой типа.',
+      'Строка объекта для отображения (номер заказа, счёт). Фронт склеивает с sourceLabel.',
   })
   sourceDisplay?: string;
 }

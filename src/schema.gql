@@ -772,6 +772,9 @@ input CreateCarRecommendationPartInput {
 }
 
 input CreateEmployeeInput {
+  """Гарантированный минимум в месяц"""
+  guaranteedMinimumAmount: MoneyInput
+
   """Дата найма"""
   hiredAt: DateTime
 
@@ -839,9 +842,9 @@ input CreateManualCustomerTransactionInput {
   operandId: ID!
 
   """
-  Источник проводки. 5 = Выдача зарплаты (при наличии walletId). 9 = Штраф (без счёта). Иначе Manual/ManualWithoutWallet.
+  Источник проводки. Payroll — выдача зарплаты (нужен walletId). Penalty — штраф (без счёта). Иначе Manual/ManualWithoutWallet.
   """
-  source: Float
+  source: CustomerTransactionSource
 
   """ID счёта. Если не указан — проводка без счёта."""
   walletId: ID
@@ -1211,15 +1214,65 @@ type CustomerTransactionModel {
   """ID заказчика (Person или Organization)"""
   operandId: String!
 
-  """Источник проводки (enum)"""
-  source: Int!
+  """Источник проводки"""
+  source: CustomerTransactionSource!
 
-  """Строка объекта для отображения. Фронт склеивает с меткой типа."""
+  """
+  Строка объекта для отображения (номер заказа, счёт). Фронт склеивает с sourceLabel.
+  """
   sourceDisplay: String!
 
   """ID источника (заказ, счет и т.д.)"""
   sourceId: String!
+
+  """Описание типа проводки (например «Зарплата по заказу»)"""
+  sourceLabel: String!
   tenantId: String!
+}
+
+"""Источник проводки по клиенту"""
+enum CustomerTransactionSource {
+  """Ручная проводка"""
+  Manual
+
+  """Ручная проводка (без счёта)"""
+  ManualWithoutWallet
+
+  """Доплата до гарантированного минимума"""
+  MinimumWageCompensation
+
+  """Начисление ежемесячного оклада"""
+  MonthlySalary
+
+  """Начисление по заказу"""
+  OrderDebit
+
+  """Списание по заказу"""
+  OrderPayment
+
+  """Предоплата по заказу"""
+  OrderPrepay
+
+  """Возврат предоплаты по заказу"""
+  OrderPrepayRefund
+
+  """Зарплата по заказу"""
+  OrderSalary
+
+  """Выдача зарплаты"""
+  Payroll
+
+  """Штраф"""
+  Penalty
+
+  """Удержание за гарантию"""
+  WarrantyDeduction
+
+  """Удержание за простой по гарантии"""
+  WarrantyMarginDeduction
+
+  """Компенсация ЗП по гарантии"""
+  WarrantySalaryCompensation
 }
 
 type DashboardAvgCheck {
@@ -1559,6 +1612,9 @@ type EmployeeModel {
 
   """Дата увольнения"""
   firedAt: DateTime
+
+  """Гарантированный минимум в месяц (копейки)"""
+  guaranteedMinimumAmount: BigInt
 
   """Дата найма"""
   hiredAt: DateTime!
@@ -2239,7 +2295,6 @@ type Mutation {
 
   """Перенести резерв между позициями заказов (сценарий "занять")"""
   transferReservation(input: TransferReservationInput!): Boolean!
-  triggerMonthlySalaries(payday: Int!): Boolean!
   updateAppealStatus(input: UpdateAppealStatusInput!): Boolean!
 
   """Обновить запись календаря"""
@@ -4091,6 +4146,11 @@ input UpdateCarRecommendationPartInput {
 }
 
 input UpdateEmployeeInput {
+  """
+  Гарантированный минимум в месяц (null — снять; не передавать — не менять)
+  """
+  guaranteedMinimumAmount: MoneyInput
+
   """Дата найма"""
   hiredAt: DateTime
 

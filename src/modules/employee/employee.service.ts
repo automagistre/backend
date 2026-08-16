@@ -9,20 +9,44 @@ import {
   UpdateEmployeeInput,
 } from './inputs/employee.input';
 import type { AuthContext } from 'src/common/user-id.store';
+import { SettingsService } from 'src/modules/settings/settings.service';
+import { applyDefaultCurrency } from 'src/common/money';
+import type { MoneyInput } from 'src/common/inputs/money.input';
 
 const DEFAULT_TAKE = 25;
 const DEFAULT_SKIP = 0;
 
 @Injectable()
 export class EmployeeService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly settingsService: SettingsService,
+  ) {}
+
+  private async resolveGuaranteedMinimum(
+    value: MoneyInput | null | undefined,
+  ): Promise<bigint | null | undefined> {
+    if (value === undefined) return undefined;
+    if (value === null) return null;
+    const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
+    const money = applyDefaultCurrency(value, defaultCurrency);
+    return money.amountMinor > 0n ? money.amountMinor : null;
+  }
 
   async create(ctx: AuthContext, data: CreateEmployeeInput) {
+    const guaranteedMinimumAmount = await this.resolveGuaranteedMinimum(
+      data.guaranteedMinimumAmount,
+    );
+
     return this.prisma.$transaction(async (tx) => {
       const employee = await tx.employee.create({
         data: {
-          ...data,
+          personId: data.personId,
+          ratio: data.ratio,
           hiredAt: data.hiredAt || new Date(),
+          ...(guaranteedMinimumAmount !== undefined
+            ? { guaranteedMinimumAmount }
+            : {}),
           tenantId: ctx.tenantId,
           createdBy: ctx.userId,
         },
@@ -46,9 +70,15 @@ export class EmployeeService {
       throw new NotFoundException('Сотрудник не найден или недоступен');
     }
 
-    const updateData = Object.fromEntries(
-      Object.entries(data).filter(([_, value]) => value !== null),
+    const { guaranteedMinimumAmount: guaranteeInput, ...rest } = data;
+    const updateData: Record<string, unknown> = Object.fromEntries(
+      Object.entries(rest).filter(([_, value]) => value !== null),
     );
+
+    if (guaranteeInput !== undefined) {
+      updateData.guaranteedMinimumAmount =
+        await this.resolveGuaranteedMinimum(guaranteeInput);
+    }
 
     return this.prisma.employee.update({
       where: { id },
