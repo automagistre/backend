@@ -11,6 +11,7 @@ import {
   IsEnum,
   IsOptional,
   IsString,
+  IsBoolean,
   IsUUID,
   Matches,
   MaxLength,
@@ -99,6 +100,11 @@ export class CreateCalendarEntryInput {
   @IsString()
   @MaxLength(255)
   description?: string;
+
+  @Field(() => Boolean, { nullable: true })
+  @IsOptional()
+  @IsBoolean()
+  isBlocker?: boolean;
 }
 
 @InputType()

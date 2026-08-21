@@ -314,6 +314,9 @@ type CalendarEntryOrderInfoModel {
   customerId: ID
   description: String
   id: ID!
+
+  """Блокировка времени (фейковая запись без клиента)"""
+  isBlocker: Boolean!
 }
 
 """Расписание записи в календаре"""
@@ -683,6 +686,7 @@ input CreateCalendarEntryInput {
   date: DateTime!
   description: String
   duration: String!
+  isBlocker: Boolean
   orderId: ID
   source: CalendarEntryCreateSource
 }
@@ -4283,6 +4287,7 @@ input UpdateCalendarEntryInput {
   description: String
   duration: String
   id: ID!
+  isBlocker: Boolean
 }
 
 input UpdateCallRoutingBindingInput {

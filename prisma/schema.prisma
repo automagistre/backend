@@ -373,6 +373,7 @@ model CalendarEntryOrderInfo {
   car           Car?           @relation(fields: [carId], references: [id], onDelete: Restrict, onUpdate: NoAction)
   description   String?
   assigneeId    String?        @map("assignee_id") @db.Uuid
+  isBlocker     Boolean        @default(false) @map("is_blocker")
   assignee      Person?        @relation("Worker", fields: [assigneeId], references: [id], onDelete: Restrict, onUpdate: NoAction)
   createdAt     DateTime?      @default(now()) @map("created_at") @db.Timestamptz(0)
   createdBy     String?        @map("created_by") @db.Uuid

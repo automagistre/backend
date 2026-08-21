@@ -111,6 +111,7 @@ type CalendarSnapshot = {
   carId: string | null;
   assigneeId: string | null;
   description: string | null;
+  isBlocker?: boolean;
 };
 
 @Injectable()
@@ -188,7 +189,7 @@ export class CalendarService {
             duration: data.duration,
           },
         },
-        ...(data.customerId || data.carId || data.assigneeId || data.description
+        ...(data.customerId || data.carId || data.assigneeId || data.description || data.isBlocker !== undefined
           ? {
               calendarEntryOrderInfo: {
                 create: {
@@ -199,6 +200,7 @@ export class CalendarService {
                   carId: data.carId,
                   assigneeId: data.assigneeId,
                   description: data.description,
+                  isBlocker: data.isBlocker ?? false,
                 },
               },
             }
@@ -225,6 +227,7 @@ export class CalendarService {
       carId: data.carId ?? null,
       assigneeId: data.assigneeId ?? null,
       description: data.description ?? null,
+      isBlocker: data.isBlocker ?? false,
     });
 
     return this.getEntry(ctx, id) as Promise<CalendarEntry>;
@@ -250,13 +253,18 @@ export class CalendarService {
       data.description !== undefined
         ? data.description
         : (currentOrderInfo?.description ?? null);
+    const nextIsBlocker =
+      data.isBlocker !== undefined
+        ? data.isBlocker
+        : (currentOrderInfo?.isBlocker ?? false);
     const nextDate = data.date ?? currentSchedule?.date;
     const nextDuration = data.duration ?? currentSchedule?.duration;
 
     const shouldCreateOrderInfo =
-      (data.assigneeId !== undefined || data.description !== undefined) &&
+      (data.assigneeId !== undefined || data.description !== undefined || data.isBlocker !== undefined) &&
       (nextAssigneeId !== (currentOrderInfo?.assigneeId ?? null) ||
-        nextDescription !== (currentOrderInfo?.description ?? null));
+        nextDescription !== (currentOrderInfo?.description ?? null) ||
+        nextIsBlocker !== (currentOrderInfo?.isBlocker ?? false));
 
     const shouldCreateSchedule =
       (data.date !== undefined || data.duration !== undefined) &&
@@ -283,6 +291,7 @@ export class CalendarService {
             carId: currentOrderInfo?.carId ?? null,
             assigneeId: nextAssigneeId,
             description: nextDescription,
+            isBlocker: nextIsBlocker,
           },
         }),
       );
@@ -317,6 +326,7 @@ export class CalendarService {
         carId: currentOrderInfo?.carId ?? null,
         assigneeId: currentOrderInfo?.assigneeId ?? null,
         description: currentOrderInfo?.description ?? null,
+        isBlocker: currentOrderInfo?.isBlocker ?? false,
       },
       {
         date: nextDate ?? null,
@@ -325,6 +335,7 @@ export class CalendarService {
         carId: currentOrderInfo?.carId ?? null,
         assigneeId: nextAssigneeId,
         description: nextDescription,
+        isBlocker: nextIsBlocker,
       },
     );
 
@@ -364,6 +375,7 @@ export class CalendarService {
           carId: orderInfo?.carId ?? null,
           assigneeId: orderInfo?.assigneeId ?? null,
           description: orderInfo?.description ?? null,
+          isBlocker: orderInfo?.isBlocker ?? false,
         },
         null,
         AuditAction.DELETE,

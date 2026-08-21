@@ -35,6 +35,11 @@ export class CalendarEntryOrderInfoModel {
   @Field(() => String, { nullable: true })
   description: string | null;
 
+  @Field(() => Boolean, {
+    description: 'Блокировка времени (фейковая запись без клиента)',
+  })
+  isBlocker: boolean;
+
   @Field(() => Date, { nullable: true })
   createdAt: Date | null;
 }
