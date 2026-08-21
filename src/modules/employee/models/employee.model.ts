@@ -2,6 +2,7 @@ import { Field, ID, Int, ObjectType } from '@nestjs/graphql';
 import { Employee } from 'src/generated/prisma/client';
 import { PersonModel } from 'src/modules/person/models/person.model';
 import { StaffPositionModel } from 'src/modules/staff-position/models/staff-position.model';
+import { EmployeeShiftPatternModel } from 'src/modules/shift/models/employee-shift-pattern.model';
 
 @ObjectType({ description: 'Сотрудник' })
 export class EmployeeModel implements Employee {
@@ -35,6 +36,16 @@ export class EmployeeModel implements Employee {
 
   @Field(() => Date, { nullable: true, description: 'Дата увольнения' })
   firedAt: Date | null;
+
+  /** Наружу идут не колонки, а собранный цикл: см. поле shift. */
+  shiftMask: string | null;
+  shiftStartsOn: Date | null;
+
+  @Field(() => EmployeeShiftPatternModel, {
+    nullable: true,
+    description: 'Цикл графика. null — сотрудник выходит только по отметкам',
+  })
+  shift: EmployeeShiftPatternModel | null;
 
   @Field(() => String)
   tenantId: string;

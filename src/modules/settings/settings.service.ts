@@ -64,6 +64,10 @@ export class SettingsService {
           settingsMap.get(SETTINGS_KEYS.workDayEnd),
         ),
       ),
+      schedulerMaxStreams: this.resolveSettingValue(
+        SETTINGS_KEYS.schedulerMaxStreams,
+        settingsMap.get(SETTINGS_KEYS.schedulerMaxStreams),
+      ),
       timezone: this.resolveSettingValue(
         SETTINGS_KEYS.timezone,
         settingsMap.get(SETTINGS_KEYS.timezone),
@@ -315,6 +319,9 @@ export class SettingsService {
     }
     if (input.workDayEnd !== undefined) {
       patch[SETTINGS_KEYS.workDayEnd] = input.workDayEnd.trim();
+    }
+    if (input.schedulerMaxStreams !== undefined) {
+      patch[SETTINGS_KEYS.schedulerMaxStreams] = input.schedulerMaxStreams;
     }
     if (input.timezone !== undefined) {
       patch[SETTINGS_KEYS.timezone] = input.timezone.trim();

@@ -620,14 +620,37 @@ model Employee {
   guaranteedMinimumAmount BigInt?                 @map("guaranteed_minimum_amount")
   hiredAt                 DateTime                @map("hired_at") @db.Timestamp(0)
   firedAt                 DateTime?               @map("fired_at") @db.Timestamp(0)
+  /// Цикл графика маской из 1 и 0: 5/2 это 1111100. null — сотрудник выходит только по отметкам.
+  shiftMask               String?                 @map("shift_mask") @db.VarChar(31)
+  /// Дата, которой соответствует первый символ маски.
+  shiftStartsOn           DateTime?               @map("shift_starts_on") @db.Date
   tenantId                String                  @map("tenant_id") @db.Uuid
   createdAt               DateTime?               @default(now()) @map("created_at") @db.Timestamptz(0)
   createdBy               String?                 @map("created_by") @db.Uuid
   employeeSalaries        EmployeeSalary[]
   staffPositions          EmployeeStaffPosition[]
+  shiftDays               EmployeeShiftDay[]
 
+  /// Согласованность маски и якоря держит CHECK chk_employee_shift_pattern.
   @@unique([personId, firedAt], map: "uniq_person_fired")
   @@map("employee")
+}
+
+/// Отклонение от цикла на конкретный день: выход вне графика, отпуск, больничный, отгул.
+model EmployeeShiftDay {
+  id         String    @id @default(uuid()) @db.Uuid
+  employeeId String    @map("employee_id") @db.Uuid
+  employee   Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  date       DateTime  @db.Date
+  kind       String    @db.VarChar(32)
+  comment    String?   @db.VarChar(255)
+  tenantId   String    @map("tenant_id") @db.Uuid
+  createdAt  DateTime? @default(now()) @map("created_at") @db.Timestamptz(0)
+  createdBy  String?   @map("created_by") @db.Uuid
+
+  @@unique([employeeId, date], map: "uniq_employee_shift_day")
+  @@index([tenantId, date], map: "idx_employee_shift_day_tenant_date")
+  @@map("employee_shift_day")
 }
 
 /// Должность сотрудника. Справочник тенанта.

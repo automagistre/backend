@@ -19,6 +19,7 @@ import {
 import type { Money } from 'src/common/money/money.types';
 import { add, subtract, toMoney } from 'src/common/money/money.util';
 import { SALARY_NET_SOURCES } from 'src/modules/customer-transaction/enums/customer-transaction-source.enum';
+import { ShiftService } from 'src/modules/shift/shift.service';
 import type {
   AvgCheckValue,
   ClientsMixValue,
@@ -48,7 +49,10 @@ import type {
  */
 @Injectable()
 export class AnalyticsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly shiftService: ShiftService,
+  ) {}
 
   private money(amountMinor: bigint, currencyCode: string): Money {
     return toMoney(amountMinor, null, currencyCode);
@@ -866,10 +870,36 @@ export class AnalyticsService {
   }
 
   /**
+   * Сколько механиков было в смене по дням.
+   *
+   * Основной источник — график: он знает и про тех, кто вышел, но записей не получил,
+   * иначе пустой день завышал бы выручку на нормо-час. За дни, когда графика ещё не вели,
+   * остаётся прежний счёт по календарю, чтобы история не обнулилась.
+   */
+  private async getMechanicsPerDay(
+    tenantId: string,
+    tz: string,
+    now: Date,
+  ): Promise<Map<string, number>> {
+    const z0 = toZonedParts(now, tz);
+    const byKey = await this.getMechanicsPerDayFromCalendar(tenantId, tz, now);
+    const fromShift = await this.shiftService.countColumnHoldersByDay(
+      tenantId,
+      new Date(Date.UTC(z0.year, z0.month - 1, z0.day - 14)),
+      new Date(Date.UTC(z0.year, z0.month - 1, z0.day - 1)),
+    );
+
+    for (const [key, count] of fromShift) {
+      if (count > 0) byKey.set(key, count);
+    }
+    return byKey;
+  }
+
+  /**
    * Кол-во механиков с назначенными записями в календаре по дням (DISTINCT assignee_id).
    * Запись = последняя версия schedule/order_info, не удалённая.
    */
-  private async getMechanicsPerDay(
+  private async getMechanicsPerDayFromCalendar(
     tenantId: string,
     tz: string,
     now: Date,

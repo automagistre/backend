@@ -18,6 +18,12 @@ import {
   toStaffPositionModel,
   type StaffPositionWithSettings,
 } from 'src/modules/staff-position/staff-position.mapper';
+import type { ShiftPatternInput } from 'src/modules/shift/inputs/shift-pattern.input';
+import {
+  assertShiftPattern,
+  parseDateKey,
+  toDateKey,
+} from 'src/modules/shift/shift.rules';
 
 const DEFAULT_TAKE = 25;
 const DEFAULT_SKIP = 0;
@@ -30,10 +36,15 @@ const EMPLOYEE_INCLUDE = {
   },
 } as const;
 
-/** Связку через линк-таблицу наружу не показываем — только список должностей. */
+/**
+ * Связку через линк-таблицу наружу не показываем — только список должностей.
+ * Маска и якорь наружу идут одним объектом: по отдельности они бессмысленны.
+ */
 function toEmployeeModel<
   T extends {
     staffPositions: { position: StaffPositionWithSettings }[];
+    shiftMask: string | null;
+    shiftStartsOn: Date | null;
   },
 >({ staffPositions, ...employee }: T) {
   return {
@@ -41,6 +52,13 @@ function toEmployeeModel<
     positions: staffPositions.map((link) =>
       toStaffPositionModel(link.position),
     ),
+    shift:
+      employee.shiftMask && employee.shiftStartsOn
+        ? {
+            mask: employee.shiftMask,
+            startsOn: toDateKey(employee.shiftStartsOn),
+          }
+        : null,
   };
 }
 
@@ -59,6 +77,25 @@ export class EmployeeService {
     const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
     const money = applyDefaultCurrency(value, defaultCurrency);
     return money.amountMinor > 0n ? money.amountMinor : null;
+  }
+
+  /** null — снять цикл, undefined — не трогать. Разбор здесь, чтобы в базу шла уже дата. */
+  private resolveShiftPattern(
+    shift: ShiftPatternInput | null | undefined,
+  ): { shiftMask: string | null; shiftStartsOn: Date | null } | undefined {
+    if (shift === undefined) return undefined;
+    if (shift === null) return { shiftMask: null, shiftStartsOn: null };
+
+    const mask = shift.mask.trim();
+    try {
+      const startsOn = parseDateKey(shift.startsOn);
+      assertShiftPattern(mask, startsOn);
+      return { shiftMask: mask, shiftStartsOn: startsOn };
+    } catch (error) {
+      throw new BadRequestException(
+        error instanceof Error ? error.message : 'Неверный график',
+      );
+    }
   }
 
   /**
@@ -108,6 +145,7 @@ export class EmployeeService {
       data.guaranteedMinimumAmount,
     );
     const positionIds = await this.resolvePositionIds(ctx, data.positionIds);
+    const shift = this.resolveShiftPattern(data.shift);
 
     return this.prisma.$transaction(async (tx) => {
       const employee = await tx.employee.create({
@@ -115,6 +153,7 @@ export class EmployeeService {
           personId: data.personId,
           ratio: data.ratio ?? null,
           hiredAt: data.hiredAt || new Date(),
+          ...(shift ?? {}),
           ...(guaranteedMinimumAmount !== undefined
             ? { guaranteedMinimumAmount }
             : {}),
@@ -149,6 +188,7 @@ export class EmployeeService {
       guaranteedMinimumAmount: guaranteeInput,
       positionIds,
       ratio,
+      shift,
       ...rest
     } = data;
     const updateData: Record<string, unknown> = Object.fromEntries(
@@ -158,6 +198,11 @@ export class EmployeeService {
     // Отдельно от фильтра выше: null здесь означает «снять процент», а не «не менять».
     if (ratio !== undefined) {
       updateData.ratio = ratio;
+    }
+
+    const nextShift = this.resolveShiftPattern(shift);
+    if (nextShift !== undefined) {
+      Object.assign(updateData, nextShift);
     }
 
     if (guaranteeInput !== undefined) {

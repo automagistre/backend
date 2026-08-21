@@ -45,6 +45,12 @@ export class SettingsModel {
   })
   workDayHours: number;
 
+  @Field(() => Int, {
+    description:
+      'Сколько колонок помещается в графике: людей в смене может быть больше, чем подъёмников',
+  })
+  schedulerMaxStreams: number;
+
   @Field(() => String, {
     description: 'Часовой пояс тенанта (например Europe/Moscow)',
   })

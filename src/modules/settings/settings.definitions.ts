@@ -8,6 +8,7 @@ export const SETTINGS_KEYS = {
   qualityControlStartHour: 'qualityControlStartHour',
   workDayStart: 'workDayStart',
   workDayEnd: 'workDayEnd',
+  schedulerMaxStreams: 'schedulerMaxStreams',
   timezone: 'timezone',
 } as const;
 
@@ -23,6 +24,7 @@ export type SettingsValueByKey = {
   [SETTINGS_KEYS.qualityControlStartHour]: number;
   [SETTINGS_KEYS.workDayStart]: string;
   [SETTINGS_KEYS.workDayEnd]: string;
+  [SETTINGS_KEYS.schedulerMaxStreams]: number;
   [SETTINGS_KEYS.timezone]: string;
 };
 
@@ -123,6 +125,21 @@ export const SETTINGS_DEFINITIONS: {
     key: SETTINGS_KEYS.workDayEnd,
     defaultValue: '21:00',
     parse: parseTime,
+  },
+  /**
+   * Потолок колонок в графике: людей в смене может быть больше, чем подъёмников.
+   * Ниже единицы график перестаёт существовать, выше тридцати — не помещается в экран.
+   */
+  [SETTINGS_KEYS.schedulerMaxStreams]: {
+    key: SETTINGS_KEYS.schedulerMaxStreams,
+    defaultValue: 10,
+    parse: (raw) => {
+      const value = parseIntNumber(raw);
+      if (value < 1 || value > 30) {
+        throw new Error('Streams must be between 1 and 30');
+      }
+      return value;
+    },
   },
   [SETTINGS_KEYS.timezone]: {
     key: SETTINGS_KEYS.timezone,

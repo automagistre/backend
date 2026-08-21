@@ -84,6 +84,16 @@ export class UpdateSettingsInput {
   @Matches(TIME_PATTERN, { message: 'workDayEnd должен быть в формате HH:MM' })
   workDayEnd?: string;
 
+  @Field(() => Int, {
+    nullable: true,
+    description: 'Сколько колонок помещается в графике',
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(30)
+  schedulerMaxStreams?: number;
+
   @Field(() => String, {
     nullable: true,
     description: 'Часовой пояс тенанта (например Europe/Moscow)',

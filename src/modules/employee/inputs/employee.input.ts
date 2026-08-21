@@ -2,6 +2,7 @@ import { Field, ID, InputType, Int } from '@nestjs/graphql';
 import { IsInt, IsOptional, Min, Max, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
 import { MoneyInput } from 'src/common/inputs/money.input';
+import { ShiftPatternInput } from 'src/modules/shift/inputs/shift-pattern.input';
 
 @InputType()
 export class CreateEmployeeInput {
@@ -37,6 +38,15 @@ export class CreateEmployeeInput {
   @IsOptional()
   @Field(() => [ID], { nullable: true, description: 'Должности сотрудника' })
   positionIds?: string[];
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => ShiftPatternInput)
+  @Field(() => ShiftPatternInput, {
+    nullable: true,
+    description: 'Цикл графика. Не передавать — сотрудник выходит по отметкам',
+  })
+  shift?: ShiftPatternInput | null;
 }
 
 @InputType()
@@ -82,4 +92,17 @@ export class UpdateEmployeeInput {
     description: 'Должности сотрудника (полный набор)',
   })
   positionIds?: string[];
+
+  /**
+   * null — снять цикл, сотрудник останется работать только по отметкам;
+   * не передавать — не менять.
+   */
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => ShiftPatternInput)
+  @Field(() => ShiftPatternInput, {
+    nullable: true,
+    description: 'Цикл графика (null — снять; не передавать — не менять)',
+  })
+  shift?: ShiftPatternInput | null;
 }

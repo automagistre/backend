@@ -786,6 +786,9 @@ input CreateEmployeeInput {
 
   """Коэффициент (процент от работ). Не передавать — процент не начисляется"""
   ratio: Int
+
+  """Цикл графика. Не передавать — сотрудник выходит по отметкам"""
+  shift: ShiftPatternInput
 }
 
 input CreateEmployeeSalaryInput {
@@ -1645,6 +1648,9 @@ type EmployeeModel {
 
   """Коэффициент (процент от работ). null — процент не начисляется"""
   ratio: Int
+
+  """Цикл графика. null — сотрудник выходит только по отметкам"""
+  shift: EmployeeShiftPatternModel
   tenantId: String!
 }
 
@@ -1660,6 +1666,15 @@ type EmployeeSalaryModel {
 
   """День месяца начисления (1-31)"""
   payday: Int!
+}
+
+"""Цикл графика сотрудника"""
+type EmployeeShiftPatternModel {
+  """Маска цикла из 1 и 0: 5/2 это 1111100"""
+  mask: String!
+
+  """Дата первого символа маски, ГГГГ-ММ-ДД"""
+  startsOn: String!
 }
 
 input ExecutorInput {
@@ -2112,6 +2127,9 @@ type Mutation {
   """
   chargeOrderSalary(orderId: ID!): Boolean!
 
+  """Снять отметки: дни возвращаются в цикл"""
+  clearShiftDays(input: ShiftDaysRangeInput!): [ShiftDayModel!]!
+
   """Закрыть заказ"""
   closeOrder(input: CloseOrderInput!): OrderModel!
 
@@ -2303,6 +2321,9 @@ type Mutation {
 
   """Вернуть работу в рекомендацию"""
   returnWorkToRecommendation(input: ReturnWorkToRecommendationInput!): ReturnWorkToRecommendationPayload!
+
+  """Проставить отметку на диапазон дней"""
+  setShiftDays(input: SetShiftDaysInput!): [ShiftDayModel!]!
   siteCreateAppealCalculator(input: SiteCreateAppealCalculatorInput!): SiteCreateAppealOutput!
   siteCreateAppealCall(input: SiteCreateAppealCallInput!): SiteCreateAppealOutput!
   siteCreateAppealCooperation(input: SiteCreateAppealCooperationInput!): SiteCreateAppealOutput!
@@ -3369,6 +3390,17 @@ type Query {
 
   """Настройки приложения"""
   settings: SettingsModel!
+
+  """График сотрудников за период: цикл и отметки уже сведены"""
+  shiftDays(
+    employeeId: String
+
+    """ГГГГ-ММ-ДД"""
+    from: String!
+
+    """ГГГГ-ММ-ДД"""
+    to: String!
+  ): [ShiftDayModel!]!
   siteMaintenances(vehicleId: ID!): [SiteMaintenance!]!
   siteReviews(after: String, first: Int = 10): SiteReviewConnection!
   siteStats: SiteStats!
@@ -3571,6 +3603,18 @@ type ServiceSuggestionModel {
   name: String!
 }
 
+input SetShiftDaysInput {
+  comment: String
+  employeeId: ID!
+
+  """Первый день диапазона, ГГГГ-ММ-ДД"""
+  from: String!
+  kind: ShiftDayKind!
+
+  """Последний день диапазона, ГГГГ-ММ-ДД"""
+  to: String!
+}
+
 """Настройки приложения (tenant-scoped в будущем)"""
 type SettingsModel {
   """Валюта по умолчанию (например для проводок, цен)"""
@@ -3586,6 +3630,11 @@ type SettingsModel {
 
   """Час начала рабочего дня для планирования QC-задач (0-23)"""
   qualityControlStartHour: Int!
+
+  """
+  Сколько колонок помещается в графике: людей в смене может быть больше, чем подъёмников
+  """
+  schedulerMaxStreams: Int!
 
   """
   Порог задержки поставки в днях: если updatedAt поставки старше — считать «задержка»
@@ -3606,6 +3655,50 @@ type SettingsModel {
 
   """Начало рабочего дня (HH:MM)"""
   workDayStart: String!
+}
+
+"""Тип отметки в графике работы"""
+enum ShiftDayKind {
+  DAY_OFF
+  SICK
+  VACATION
+  WORK
+}
+
+"""День графика сотрудника"""
+type ShiftDayModel {
+  comment: String
+
+  """Дата дня, ГГГГ-ММ-ДД"""
+  date: String!
+  employeeId: ID!
+
+  """Отметка на день. null — день идёт по циклу"""
+  kind: ShiftDayKind
+
+  """Занимает колонку в календаре: в смене и должность это позволяет"""
+  occupiesColumn: Boolean!
+
+  """Сотрудник в смене"""
+  working: Boolean!
+}
+
+input ShiftDaysRangeInput {
+  employeeId: ID!
+
+  """Первый день диапазона, ГГГГ-ММ-ДД"""
+  from: String!
+
+  """Последний день диапазона, ГГГГ-ММ-ДД"""
+  to: String!
+}
+
+input ShiftPatternInput {
+  """Маска цикла из 1 и 0: 5/2 это 1111100"""
+  mask: String!
+
+  """Дата первого символа маски, ГГГГ-ММ-ДД"""
+  startsOn: String!
 }
 
 input SiteCalculatorWorkInput {
@@ -4292,6 +4385,9 @@ input UpdateEmployeeInput {
 
   """Коэффициент (процент от работ; null — снять)"""
   ratio: Int
+
+  """Цикл графика (null — снять; не передавать — не менять)"""
+  shift: ShiftPatternInput
 }
 
 input UpdateExpenseInput {
@@ -4581,6 +4677,9 @@ input UpdateSettingsInput {
 
   """Час начала рабочего дня для QC-задач (0-23)"""
   qualityControlStartHour: Int
+
+  """Сколько колонок помещается в графике"""
+  schedulerMaxStreams: Int
 
   """Порог задержки поставки в днях"""
   supplyExpiryDays: Int
