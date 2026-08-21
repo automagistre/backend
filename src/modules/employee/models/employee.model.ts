@@ -1,6 +1,7 @@
 import { Field, ID, Int, ObjectType } from '@nestjs/graphql';
 import { Employee } from 'src/generated/prisma/client';
 import { PersonModel } from 'src/modules/person/models/person.model';
+import { StaffPositionModel } from 'src/modules/staff-position/models/staff-position.model';
 
 @ObjectType({ description: 'Сотрудник' })
 export class EmployeeModel implements Employee {
@@ -13,8 +14,15 @@ export class EmployeeModel implements Employee {
   @Field(() => PersonModel, { description: 'Персона (сотрудник)' })
   person: PersonModel;
 
-  @Field(() => Int, { description: 'Коэффициент (процент от работ)' })
-  ratio: number;
+  @Field(() => Int, {
+    nullable: true,
+    description:
+      'Коэффициент (процент от работ). null — процент не начисляется',
+  })
+  ratio: number | null;
+
+  @Field(() => [StaffPositionModel], { description: 'Должности' })
+  positions: StaffPositionModel[];
 
   @Field(() => BigInt, {
     nullable: true,

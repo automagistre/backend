@@ -233,16 +233,16 @@ model AppUser {
 }
 
 model Vehicle {
-  id             String       @id @default(uuid()) @db.Uuid
-  manufacturerId String       @map("manufacturer_id") @db.Uuid
-  manufacturer   Manufacturer @relation(fields: [manufacturerId], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  name           String       @db.VarChar(255)
-  localizedName  String?      @map("localized_name") @db.VarChar(255)
-  caseName       String?      @map("case_name") @db.VarChar(255)
-  yearFrom       Int?         @map("year_from") @db.SmallInt
-  yearTill       Int?         @map("year_till") @db.SmallInt
-  createdAt      DateTime?    @default(now()) @map("created_at") @db.Timestamptz(0)
-  createdBy      String?      @map("created_by") @db.Uuid
+  id             String        @id @default(uuid()) @db.Uuid
+  manufacturerId String        @map("manufacturer_id") @db.Uuid
+  manufacturer   Manufacturer  @relation(fields: [manufacturerId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  name           String        @db.VarChar(255)
+  localizedName  String?       @map("localized_name") @db.VarChar(255)
+  caseName       String?       @map("case_name") @db.VarChar(255)
+  yearFrom       Int?          @map("year_from") @db.SmallInt
+  yearTill       Int?          @map("year_till") @db.SmallInt
+  createdAt      DateTime?     @default(now()) @map("created_at") @db.Timestamptz(0)
+  createdBy      String?       @map("created_by") @db.Uuid
   Car            Car[]
   McEquipment    McEquipment[]
 
@@ -280,28 +280,28 @@ model Car {
 }
 
 model CarRecommendation {
-  id                String                  @id @default(uuid()) @db.Uuid
-  carId             String?                 @map("car_id") @db.Uuid
-  car               Car?                    @relation(fields: [carId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  service           String                  @db.VarChar(255)
+  id                 String                  @id @default(uuid()) @db.Uuid
+  carId              String?                 @map("car_id") @db.Uuid
+  car                Car?                    @relation(fields: [carId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  service            String                  @db.VarChar(255)
   /// AUTOSERVICE | CONTRACTOR — вид будущей работы, переносится при реализации
-  kind              String                  @default("AUTOSERVICE") @db.VarChar(16)
+  kind               String                  @default("AUTOSERVICE") @db.VarChar(16)
   /// Диагност — кто порекомендовал (всегда персона)
-  executorKind      String?                 @map("executor_kind") @db.VarChar(16)
-  executorId        String?                 @map("executor_id") @db.Uuid
+  executorKind       String?                 @map("executor_kind") @db.VarChar(16)
+  executorId         String?                 @map("executor_id") @db.Uuid
   /// Диагностика проведена не нами (сторонний сервис / со слов клиента) — диагност пуст
-  externalDiagnostic Boolean                @default(false) @map("external_diagnostic")
+  externalDiagnostic Boolean                 @default(false) @map("external_diagnostic")
   /// Будущий исполнитель-подрядчик (только для kind=CONTRACTOR)
-  contractorKind    String?                 @map("contractor_kind") @db.VarChar(16)
-  contractorId      String?                 @map("contractor_id") @db.Uuid
-  expiredAt         DateTime?               @map("expired_at") @db.Timestamp(0)
-  realization       String?                 @db.Uuid
-  tenantGroupId     String                  @map("tenant_group_id") @db.Uuid
-  priceAmount       BigInt?                 @map("price_amount")
-  priceCurrencyCode String?                 @map("price_currency_code") @db.VarChar(3)
-  createdAt         DateTime?               @default(now()) @map("created_at") @db.Timestamptz(0)
-  createdBy         String?                 @map("created_by") @db.Uuid
-  parts             CarRecommendationPart[]
+  contractorKind     String?                 @map("contractor_kind") @db.VarChar(16)
+  contractorId       String?                 @map("contractor_id") @db.Uuid
+  expiredAt          DateTime?               @map("expired_at") @db.Timestamp(0)
+  realization        String?                 @db.Uuid
+  tenantGroupId      String                  @map("tenant_group_id") @db.Uuid
+  priceAmount        BigInt?                 @map("price_amount")
+  priceCurrencyCode  String?                 @map("price_currency_code") @db.VarChar(3)
+  createdAt          DateTime?               @default(now()) @map("created_at") @db.Timestamptz(0)
+  createdBy          String?                 @map("created_by") @db.Uuid
+  parts              CarRecommendationPart[]
 
   @@index([carId], map: "idx_8e4baaf2c3c6f69f")
   @@map("car_recommendation")
@@ -396,18 +396,18 @@ model CalendarEntrySchedule {
 }
 
 model AppealCalculator {
-  id        String    @id @default(uuid()) @db.Uuid
-  name      String    @db.VarChar(255)
-  note      String?   @db.VarChar(255)
-  phone     String    @db.VarChar(35)
-  date      DateTime? @db.Date
-  equipmentId String  @map("equipment_id") @db.Uuid
-  mileage   Int
-  total     BigInt
-  works     Json      @db.Json
-  tenantId  String    @map("tenant_id") @db.Uuid
-  createdAt DateTime? @default(now()) @map("created_at") @db.Timestamptz(0)
-  createdBy String?   @map("created_by") @db.Uuid
+  id          String    @id @default(uuid()) @db.Uuid
+  name        String    @db.VarChar(255)
+  note        String?   @db.VarChar(255)
+  phone       String    @db.VarChar(35)
+  date        DateTime? @db.Date
+  equipmentId String    @map("equipment_id") @db.Uuid
+  mileage     Int
+  total       BigInt
+  works       Json      @db.Json
+  tenantId    String    @map("tenant_id") @db.Uuid
+  createdAt   DateTime? @default(now()) @map("created_at") @db.Timestamptz(0)
+  createdBy   String?   @map("created_by") @db.Uuid
 
   @@map("appeal_calculator")
 }
@@ -611,33 +611,78 @@ model CustomerTransaction {
 }
 
 model Employee {
-  id                      String           @id @default(uuid()) @db.Uuid
-  personId                String           @map("person_id") @db.Uuid
-  person                  Person           @relation(fields: [personId], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  ratio                   Int
+  id                      String                  @id @default(uuid()) @db.Uuid
+  personId                String                  @map("person_id") @db.Uuid
+  person                  Person                  @relation(fields: [personId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  /// Процент от работ. null — процент не начисляется.
+  ratio                   Int?
   /// Гарантированный минимум ЗП в месяц (копейки). null — не применяется.
-  guaranteedMinimumAmount BigInt?          @map("guaranteed_minimum_amount")
-  hiredAt                 DateTime         @map("hired_at") @db.Timestamp(0)
-  firedAt                 DateTime?        @map("fired_at") @db.Timestamp(0)
-  tenantId                String           @map("tenant_id") @db.Uuid
-  createdAt               DateTime?        @default(now()) @map("created_at") @db.Timestamptz(0)
-  createdBy               String?          @map("created_by") @db.Uuid
+  guaranteedMinimumAmount BigInt?                 @map("guaranteed_minimum_amount")
+  hiredAt                 DateTime                @map("hired_at") @db.Timestamp(0)
+  firedAt                 DateTime?               @map("fired_at") @db.Timestamp(0)
+  tenantId                String                  @map("tenant_id") @db.Uuid
+  createdAt               DateTime?               @default(now()) @map("created_at") @db.Timestamptz(0)
+  createdBy               String?                 @map("created_by") @db.Uuid
   employeeSalaries        EmployeeSalary[]
+  staffPositions          EmployeeStaffPosition[]
 
   @@unique([personId, firedAt], map: "uniq_person_fired")
   @@map("employee")
 }
 
+/// Должность сотрудника. Справочник тенанта.
+model StaffPosition {
+  id         String                  @id @default(uuid()) @db.Uuid
+  name       String                  @db.VarChar(255)
+  /// Порядок в справочнике и в графике.
+  sortOrder  Int                     @default(0) @map("sort_order")
+  /// Мягкое удаление: должность больше не выбрать, но история найма остаётся читаемой.
+  archivedAt DateTime?               @map("archived_at") @db.Timestamptz(0)
+  tenantId   String                  @map("tenant_id") @db.Uuid
+  createdAt  DateTime?               @default(now()) @map("created_at") @db.Timestamptz(0)
+  createdBy  String?                 @map("created_by") @db.Uuid
+  settings   StaffPositionSetting[]
+  employees  EmployeeStaffPosition[]
+
+  /// Уникальность имени — частичный индекс uniq_staff_position_tenant_name
+  /// (tenant_id, name) WHERE archived_at IS NULL: архивная «Механик» не мешает завести новую.
+  @@index([tenantId, sortOrder], map: "idx_staff_position_tenant_sort")
+  @@map("staff_position")
+}
+
+/// Настройка должности из каталога в коде.
+/// Строка есть — настройка задана, value хранит типизированное значение.
+model StaffPositionSetting {
+  positionId String        @map("position_id") @db.Uuid
+  position   StaffPosition @relation(fields: [positionId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  key        String        @db.VarChar(128)
+  value      Json          @db.JsonB
+
+  @@id([positionId, key])
+  @@map("staff_position_setting")
+}
+
+model EmployeeStaffPosition {
+  employeeId String        @map("employee_id") @db.Uuid
+  employee   Employee      @relation(fields: [employeeId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  positionId String        @map("position_id") @db.Uuid
+  position   StaffPosition @relation(fields: [positionId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@id([employeeId, positionId])
+  @@index([positionId], map: "idx_employee_staff_position_position")
+  @@map("employee_staff_position")
+}
+
 model EmployeeSalary {
-  id                  String              @id @default(uuid()) @db.Uuid
-  employeeId          String              @map("employee_id") @db.Uuid
-  employee            Employee            @relation(fields: [employeeId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  payday              Int
-  amount              BigInt
-  tenantId            String              @map("tenant_id") @db.Uuid
-  createdAt           DateTime?           @default(now()) @map("created_at") @db.Timestamptz(0)
-  createdBy           String?             @map("created_by") @db.Uuid
-  employeeSalaryEnd   EmployeeSalaryEnd?
+  id                String             @id @default(uuid()) @db.Uuid
+  employeeId        String             @map("employee_id") @db.Uuid
+  employee          Employee           @relation(fields: [employeeId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  payday            Int
+  amount            BigInt
+  tenantId          String             @map("tenant_id") @db.Uuid
+  createdAt         DateTime?          @default(now()) @map("created_at") @db.Timestamptz(0)
+  createdBy         String?            @map("created_by") @db.Uuid
+  employeeSalaryEnd EmployeeSalaryEnd?
 
   @@map("employee_salary")
 }
@@ -664,6 +709,7 @@ model Expense {
 
   @@map("expense")
 }
+
 // model google_review_token {
 //   id         String    @id @default(uuid()) @db.Uuid
 //   payload    Json      @db.Json
@@ -690,27 +736,27 @@ model IncomeAccrue {
   id                 String    @id @default(uuid()) @db.Uuid
   incomeId           String?   @unique(map: "uniq_425dfa41640ed2c0") @map("income_id") @db.Uuid
   tenantId           String    @map("tenant_id") @db.Uuid
-  amountAmount       BigInt?  @map("amount_amount")
-  amountCurrencyCode String?  @map("amount_currency_code") @db.VarChar(3)
+  amountAmount       BigInt?   @map("amount_amount")
+  amountCurrencyCode String?   @map("amount_currency_code") @db.VarChar(3)
   createdAt          DateTime? @default(now()) @map("created_at") @db.Timestamptz(0)
-  createdBy          String?  @map("created_by") @db.Uuid
-  income             Income?  @relation(fields: [incomeId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_425dfa41640ed2c0")
+  createdBy          String?   @map("created_by") @db.Uuid
+  income             Income?   @relation(fields: [incomeId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_425dfa41640ed2c0")
 
   @@map("income_accrue")
 }
 
 model IncomePart {
-  id                 String    @id @default(uuid()) @db.Uuid
-  incomeId           String?   @map("income_id") @db.Uuid
-  partId             String    @map("part_id") @db.Uuid
-  part               Part      @relation(fields: [partId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  quantity           Int
-  tenantId           String    @map("tenant_id") @db.Uuid
+  id                String    @id @default(uuid()) @db.Uuid
+  incomeId          String?   @map("income_id") @db.Uuid
+  partId            String    @map("part_id") @db.Uuid
+  part              Part      @relation(fields: [partId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  quantity          Int
+  tenantId          String    @map("tenant_id") @db.Uuid
   priceAmount       BigInt?   @map("price_amount")
-  priceCurrencyCode  String?   @map("price_currency_code") @db.VarChar(3)
-  createdAt          DateTime? @default(now()) @map("created_at") @db.Timestamptz(0)
-  createdBy          String?   @map("created_by") @db.Uuid
-  income             Income?   @relation(fields: [incomeId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_834566e8640ed2c0")
+  priceCurrencyCode String?   @map("price_currency_code") @db.VarChar(3)
+  createdAt         DateTime? @default(now()) @map("created_at") @db.Timestamptz(0)
+  createdBy         String?   @map("created_by") @db.Uuid
+  income            Income?   @relation(fields: [incomeId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_834566e8640ed2c0")
 
   @@index([incomeId], map: "idx_834566e8640ed2c0")
   @@map("income_part")
@@ -743,38 +789,38 @@ model IncomePart {
 // }
 
 model McEquipment {
-  id                          String    @id @default(uuid()) @db.Uuid
-  vehicleId                   String    @map("vehicle_id") @db.Uuid
-  vehicle                     Vehicle   @relation(fields: [vehicleId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  period                      Int
-  tenantId                    String    @map("tenant_id") @db.Uuid
-  equipmentTransmission       Int       @map("equipment_transmission") @db.SmallInt
-  equipmentWheelDrive         Int       @map("equipment_wheel_drive") @db.SmallInt
-  equipmentEngineName         String?   @map("equipment_engine_name") @db.VarChar(255)
-  equipmentEngineType         Int       @map("equipment_engine_type") @db.SmallInt
-  equipmentEngineAirIntake    Int       @map("equipment_engine_air_intake") @db.SmallInt
-  equipmentEngineInjection   Int       @map("equipment_engine_injection") @db.SmallInt
-  equipmentEngineCapacity    String    @map("equipment_engine_capacity") @db.VarChar(255)
-  createdAt                   DateTime? @default(now()) @map("created_at") @db.Timestamptz(0)
-  createdBy                   String?   @map("created_by") @db.Uuid
-  lines                       McLine[]
+  id                       String    @id @default(uuid()) @db.Uuid
+  vehicleId                String    @map("vehicle_id") @db.Uuid
+  vehicle                  Vehicle   @relation(fields: [vehicleId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  period                   Int
+  tenantId                 String    @map("tenant_id") @db.Uuid
+  equipmentTransmission    Int       @map("equipment_transmission") @db.SmallInt
+  equipmentWheelDrive      Int       @map("equipment_wheel_drive") @db.SmallInt
+  equipmentEngineName      String?   @map("equipment_engine_name") @db.VarChar(255)
+  equipmentEngineType      Int       @map("equipment_engine_type") @db.SmallInt
+  equipmentEngineAirIntake Int       @map("equipment_engine_air_intake") @db.SmallInt
+  equipmentEngineInjection Int       @map("equipment_engine_injection") @db.SmallInt
+  equipmentEngineCapacity  String    @map("equipment_engine_capacity") @db.VarChar(255)
+  createdAt                DateTime? @default(now()) @map("created_at") @db.Timestamptz(0)
+  createdBy                String?   @map("created_by") @db.Uuid
+  lines                    McLine[]
 
   @@map("mc_equipment")
 }
 
 model McLine {
-  id           String       @id @default(uuid()) @db.Uuid
-  equipmentId  String?      @map("equipment_id") @db.Uuid
-  workId       String?      @map("work_id") @db.Uuid
-  period       Int
-  recommended  Boolean
-  position     Int
-  tenantId     String       @map("tenant_id") @db.Uuid
-  createdAt    DateTime?    @default(now()) @map("created_at") @db.Timestamptz(0)
-  createdBy    String?      @map("created_by") @db.Uuid
-  equipment    McEquipment? @relation(fields: [equipmentId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_b37ebc5f517fe9fe")
-  work         McWork?      @relation(fields: [workId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_b37ebc5fbb3453db")
-  parts        McPart[]
+  id          String       @id @default(uuid()) @db.Uuid
+  equipmentId String?      @map("equipment_id") @db.Uuid
+  workId      String?      @map("work_id") @db.Uuid
+  period      Int
+  recommended Boolean
+  position    Int
+  tenantId    String       @map("tenant_id") @db.Uuid
+  createdAt   DateTime?    @default(now()) @map("created_at") @db.Timestamptz(0)
+  createdBy   String?      @map("created_by") @db.Uuid
+  equipment   McEquipment? @relation(fields: [equipmentId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_b37ebc5f517fe9fe")
+  work        McWork?      @relation(fields: [workId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_b37ebc5fbb3453db")
+  parts       McPart[]
 
   @@index([equipmentId], map: "idx_b37ebc5f517fe9fe")
   @@index([workId], map: "idx_b37ebc5fbb3453db")
@@ -782,32 +828,32 @@ model McLine {
 }
 
 model McPart {
-  id          String   @id @default(uuid()) @db.Uuid
-  lineId      String?  @map("line_id") @db.Uuid
-  partId      String   @map("part_id") @db.Uuid
-  part        Part     @relation(fields: [partId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  id          String    @id @default(uuid()) @db.Uuid
+  lineId      String?   @map("line_id") @db.Uuid
+  partId      String    @map("part_id") @db.Uuid
+  part        Part      @relation(fields: [partId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   quantity    Int
   recommended Boolean
-  tenantId    String   @map("tenant_id") @db.Uuid
+  tenantId    String    @map("tenant_id") @db.Uuid
   createdAt   DateTime? @default(now()) @map("created_at") @db.Timestamptz(0)
   createdBy   String?   @map("created_by") @db.Uuid
-  line        McLine?  @relation(fields: [lineId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_2b65786f4d7b7542")
+  line        McLine?   @relation(fields: [lineId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_2b65786f4d7b7542")
 
   @@index([lineId], map: "idx_2b65786f4d7b7542")
   @@map("mc_part")
 }
 
 model McWork {
-  id                  String    @id @default(uuid()) @db.Uuid
-  name                String    @db.VarChar(255)
-  description         String?   @db.VarChar(255)
-  comment             String?   @db.VarChar(255)
-  tenantId            String    @map("tenant_id") @db.Uuid
-  priceAmount         BigInt?   @map("price_amount")
-  priceCurrencyCode   String?   @map("price_currency_code") @db.VarChar(3)
-  createdAt           DateTime? @default(now()) @map("created_at") @db.Timestamptz(0)
-  createdBy           String?   @map("created_by") @db.Uuid
-  lines               McLine[]
+  id                String    @id @default(uuid()) @db.Uuid
+  name              String    @db.VarChar(255)
+  description       String?   @db.VarChar(255)
+  comment           String?   @db.VarChar(255)
+  tenantId          String    @map("tenant_id") @db.Uuid
+  priceAmount       BigInt?   @map("price_amount")
+  priceCurrencyCode String?   @map("price_currency_code") @db.VarChar(3)
+  createdAt         DateTime? @default(now()) @map("created_at") @db.Timestamptz(0)
+  createdBy         String?   @map("created_by") @db.Uuid
+  lines             McLine[]
 
   @@map("mc_work")
 }
@@ -924,53 +970,53 @@ model OrderItemGroup {
 }
 
 model OrderItemService {
-  id                   String    @id @default(uuid()) @db.Uuid
-  orderItem            OrderItem @relation(fields: [id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  service              String    @db.VarChar(255)
+  id                    String    @id @default(uuid()) @db.Uuid
+  orderItem             OrderItem @relation(fields: [id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  service               String    @db.VarChar(255)
   /// AUTOSERVICE | CONTRACTOR — вид работы (своя/подрядная)
-  kind                 String    @default("AUTOSERVICE") @db.VarChar(16)
-  executorKind         String?   @map("executor_kind") @db.VarChar(16)
-  executorId           String?   @map("executor_id") @db.Uuid
-  warranty             Boolean
+  kind                  String    @default("AUTOSERVICE") @db.VarChar(16)
+  executorKind          String?   @map("executor_kind") @db.VarChar(16)
+  executorId            String?   @map("executor_id") @db.Uuid
+  warranty              Boolean
   /// EMPLOYEE | ORGANIZATION — кто несёт стоимость гарантийной работы
-  warrantyPayerKind    String?   @map("warranty_payer_kind") @db.VarChar(16)
+  warrantyPayerKind     String?   @map("warranty_payer_kind") @db.VarChar(16)
   /// person_id сотрудника-плательщика (обязателен при warrantyPayerKind=EMPLOYEE)
-  warrantyPayerPersonId String?  @map("warranty_payer_person_id") @db.Uuid
-  priceAmount          BigInt?   @map("price_amount")
-  priceCurrencyCode    String?   @map("price_currency_code") @db.VarChar(3)
-  discountAmount       BigInt?   @map("discount_amount")
-  discountCurrencyCode String?   @map("discount_currency_code") @db.VarChar(3)
+  warrantyPayerPersonId String?   @map("warranty_payer_person_id") @db.Uuid
+  priceAmount           BigInt?   @map("price_amount")
+  priceCurrencyCode     String?   @map("price_currency_code") @db.VarChar(3)
+  discountAmount        BigInt?   @map("discount_amount")
+  discountCurrencyCode  String?   @map("discount_currency_code") @db.VarChar(3)
   /// Себестоимость подрядной работы (kind=CONTRACTOR)
-  costAmount           BigInt?   @map("cost_amount")
-  costCurrencyCode     String?   @map("cost_currency_code") @db.VarChar(3)
-  costWallet           Wallet?   @relation(fields: [costWalletId], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  costWalletId         String?   @map("cost_wallet_id") @db.Uuid
-  createdAt            DateTime? @default(now()) @map("created_at") @db.Timestamptz(0)
-  createdBy            String?   @map("created_by") @db.Uuid
+  costAmount            BigInt?   @map("cost_amount")
+  costCurrencyCode      String?   @map("cost_currency_code") @db.VarChar(3)
+  costWallet            Wallet?   @relation(fields: [costWalletId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  costWalletId          String?   @map("cost_wallet_id") @db.Uuid
+  createdAt             DateTime? @default(now()) @map("created_at") @db.Timestamptz(0)
+  createdBy             String?   @map("created_by") @db.Uuid
 
   @@map("order_item_service")
 }
 
 model OrderItemPart {
-  id                   String        @id @default(uuid()) @db.Uuid
-  orderItem            OrderItem     @relation(fields: [id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  part                 Part          @relation(fields: [partId], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  partId               String        @map("part_id") @db.Uuid
-  supplier             Organization? @relation(fields: [supplierId], references: [id], onDelete: SetNull, onUpdate: NoAction)
-  supplierId           String?       @map("supplier_id") @db.Uuid
-  quantity             Int
-  warranty             Boolean
+  id                    String        @id @default(uuid()) @db.Uuid
+  orderItem             OrderItem     @relation(fields: [id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  part                  Part          @relation(fields: [partId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  partId                String        @map("part_id") @db.Uuid
+  supplier              Organization? @relation(fields: [supplierId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  supplierId            String?       @map("supplier_id") @db.Uuid
+  quantity              Int
+  warranty              Boolean
   /// EMPLOYEE | ORGANIZATION — кто несёт стоимость гарантийной запчасти
-  warrantyPayerKind    String?       @map("warranty_payer_kind") @db.VarChar(16)
+  warrantyPayerKind     String?       @map("warranty_payer_kind") @db.VarChar(16)
   /// person_id сотрудника-плательщика (обязателен при warrantyPayerKind=EMPLOYEE)
-  warrantyPayerPersonId String?      @map("warranty_payer_person_id") @db.Uuid
-  priceAmount          BigInt?       @map("price_amount")
-  priceCurrencyCode    String?       @map("price_currency_code") @db.VarChar(3)
-  discountAmount       BigInt?       @map("discount_amount")
-  discountCurrencyCode String?       @map("discount_currency_code") @db.VarChar(3)
-  createdAt            DateTime?     @default(now()) @map("created_at") @db.Timestamptz(0)
-  createdBy            String?       @map("created_by") @db.Uuid
-  reservations         Reservation[]
+  warrantyPayerPersonId String?       @map("warranty_payer_person_id") @db.Uuid
+  priceAmount           BigInt?       @map("price_amount")
+  priceCurrencyCode     String?       @map("price_currency_code") @db.VarChar(3)
+  discountAmount        BigInt?       @map("discount_amount")
+  discountCurrencyCode  String?       @map("discount_currency_code") @db.VarChar(3)
+  createdAt             DateTime?     @default(now()) @map("created_at") @db.Timestamptz(0)
+  createdBy             String?       @map("created_by") @db.Uuid
+  reservations          Reservation[]
 
   @@index([partId])
   @@map("order_item_part")
@@ -978,30 +1024,30 @@ model OrderItemPart {
 
 /// Снапшот прибыли по позиции заказа на момент закрытия (этап 3 profit system).
 model OrderItemProfit {
-  id            String       @id @default(uuid()) @db.Uuid
-  orderItemId   String?      @unique @map("order_item_id") @db.Uuid
-  orderItem     OrderItem?   @relation(fields: [orderItemId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  id                String       @id @default(uuid()) @db.Uuid
+  orderItemId       String?      @unique @map("order_item_id") @db.Uuid
+  orderItem         OrderItem?   @relation(fields: [orderItemId], references: [id], onDelete: Cascade, onUpdate: NoAction)
   /// Договор хранения (для kind=STORAGE)
-  storageId     String?      @unique @map("storage_id") @db.Uuid
-  storage       TireStorage? @relation(fields: [storageId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  orderId       String       @map("order_id") @db.Uuid
-  order         Order        @relation(fields: [orderId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  tenantId      String       @map("tenant_id") @db.Uuid
+  storageId         String?      @unique @map("storage_id") @db.Uuid
+  storage           TireStorage? @relation(fields: [storageId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  orderId           String       @map("order_id") @db.Uuid
+  order             Order        @relation(fields: [orderId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  tenantId          String       @map("tenant_id") @db.Uuid
   /// SERVICE | PART | STORAGE
-  kind          String       @db.VarChar(16)
-  revenueAmount BigInt       @map("revenue_amount")
-  costAmount    BigInt       @map("cost_amount")
-  profitAmount  BigInt       @map("profit_amount")
-  currencyCode  String       @map("currency_code") @db.VarChar(3)
+  kind              String       @db.VarChar(16)
+  revenueAmount     BigInt       @map("revenue_amount")
+  costAmount        BigInt       @map("cost_amount")
+  profitAmount      BigInt       @map("profit_amount")
+  currencyCode      String       @map("currency_code") @db.VarChar(3)
   /// LAST_INCOME | SALARY | CONTRACTOR | NONE
-  costBasis     String       @map("cost_basis") @db.VarChar(16)
+  costBasis         String       @map("cost_basis") @db.VarChar(16)
   /// LIVE | LEGACY_BACKFILL
-  origin        String       @db.VarChar(16)
-  warranty      Boolean
+  origin            String       @db.VarChar(16)
+  warranty          Boolean
   /// EMPLOYEE | ORGANIZATION — кто несёт стоимость гарантийной позиции
-  warrantyPayerKind String?  @map("warranty_payer_kind") @db.VarChar(16)
-  closedAt      DateTime     @map("closed_at") @db.Timestamptz(0)
-  createdAt     DateTime?    @default(now()) @map("created_at") @db.Timestamptz(0)
+  warrantyPayerKind String?      @map("warranty_payer_kind") @db.VarChar(16)
+  closedAt          DateTime     @map("closed_at") @db.Timestamptz(0)
+  createdAt         DateTime?    @default(now()) @map("created_at") @db.Timestamptz(0)
 
   @@index([orderId], map: "idx_order_item_profit_order_id")
   @@index([tenantId, closedAt], map: "idx_order_item_profit_tenant_closed")
@@ -1039,27 +1085,27 @@ model OrderSuspend {
 
 // /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model Order {
-  id          String         @id @default(uuid()) @db.Uuid
-  number      Int
-  status      Int            @default(1) @map("status") @db.SmallInt
-  car         Car?           @relation(fields: [carId], references: [id], onDelete: SetNull, onUpdate: NoAction)
-  carId       String?        @map("car_id") @db.Uuid
-  customer    Person?        @relation("CustomerOrder", fields: [customerId], references: [id], onDelete: SetNull, onUpdate: NoAction)
-  customerId  String?        @map("customer_id") @db.Uuid
-  assignee    Person?        @relation("AssigneeOrder", fields: [assigneeId], references: [id], onDelete: SetNull, onUpdate: NoAction)
-  assigneeId  String?        @map("assignee_id") @db.Uuid
-  mileage     Int?
-  description String?
-  tenantId    String         @map("tenant_id") @db.Uuid
-  createdAt   DateTime?      @default(now()) @map("created_at") @db.Timestamptz(0)
-  createdBy   String?        @map("created_by") @db.Uuid
-  items         OrderItem[]
-  payments      OrderPayment[]
-  close         OrderClose?    @relation("OrderCloseOrder")
-  suspends      OrderSuspend[]
-  tasks         Task[]
-  itemProfits   OrderItemProfit[]
-  tireStorages  TireStorage[]
+  id           String            @id @default(uuid()) @db.Uuid
+  number       Int
+  status       Int               @default(1) @map("status") @db.SmallInt
+  car          Car?              @relation(fields: [carId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  carId        String?           @map("car_id") @db.Uuid
+  customer     Person?           @relation("CustomerOrder", fields: [customerId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  customerId   String?           @map("customer_id") @db.Uuid
+  assignee     Person?           @relation("AssigneeOrder", fields: [assigneeId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  assigneeId   String?           @map("assignee_id") @db.Uuid
+  mileage      Int?
+  description  String?
+  tenantId     String            @map("tenant_id") @db.Uuid
+  createdAt    DateTime?         @default(now()) @map("created_at") @db.Timestamptz(0)
+  createdBy    String?           @map("created_by") @db.Uuid
+  items        OrderItem[]
+  payments     OrderPayment[]
+  close        OrderClose?       @relation("OrderCloseOrder")
+  suspends     OrderSuspend[]
+  tasks        Task[]
+  itemProfits  OrderItemProfit[]
+  tireStorages TireStorage[]
 
   @@unique([number, tenantId], map: "uniq_e52ffdee96901f549033212a")
   @@index([assigneeId], map: "idx_e52ffdee6b20ba36")
@@ -1070,35 +1116,35 @@ model Order {
 
 /// Договор сезонного хранения шин/дисков (не работа — отдельный финансовый поток)
 model TireStorage {
-  id                 String            @id @default(uuid()) @db.Uuid
+  id                 String           @id @default(uuid()) @db.Uuid
   number             Int
-  tenantGroupId      String            @map("tenant_group_id") @db.Uuid
+  tenantGroupId      String           @map("tenant_group_id") @db.Uuid
   /// Клиент: person.id | organization.id (без FK — как orders.customer_id)
-  customerId         String            @map("customer_id") @db.Uuid
-  carId              String?           @map("car_id") @db.Uuid
-  car                Car?              @relation(fields: [carId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  customerId         String           @map("customer_id") @db.Uuid
+  carId              String?          @map("car_id") @db.Uuid
+  car                Car?             @relation(fields: [carId], references: [id], onDelete: SetNull, onUpdate: NoAction)
   /// Заказ, в котором договор введён и оплачивается
-  orderId            String?           @map("order_id") @db.Uuid
-  order              Order?            @relation(fields: [orderId], references: [id], onDelete: SetNull, onUpdate: NoAction)
-  amountAmount       BigInt            @map("amount_amount")
-  amountCurrencyCode String            @map("amount_currency_code") @db.VarChar(3)
+  orderId            String?          @map("order_id") @db.Uuid
+  order              Order?           @relation(fields: [orderId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  amountAmount       BigInt           @map("amount_amount")
+  amountCurrencyCode String           @map("amount_currency_code") @db.VarChar(3)
   width              Int
   height             Int
   radius             Int
-  manufacturer       String            @db.VarChar(255)
-  quantity           Int               @default(4)
-  onDisks            Boolean           @default(false) @map("on_disks")
+  manufacturer       String           @db.VarChar(255)
+  quantity           Int              @default(4)
+  onDisks            Boolean          @default(false) @map("on_disks")
   /// SUMMER | WINTER
-  season             String            @db.VarChar(16)
+  season             String           @db.VarChar(16)
   /// ENTERED | IN_WAREHOUSE | AWAITING_SHOP | IN_SHOP | CLOSED | DISPOSED
-  status             String            @default("ENTERED") @db.VarChar(16)
-  acceptedAt         DateTime?         @map("accepted_at") @db.Timestamptz(0)
-  expiresAt          DateTime?         @map("expires_at") @db.Timestamptz(0)
-  closedAt           DateTime?         @map("closed_at") @db.Timestamptz(0)
-  closedById         String?           @map("closed_by_id") @db.Uuid
-  note               String?           @db.VarChar(255)
-  createdAt          DateTime?         @default(now()) @map("created_at") @db.Timestamptz(0)
-  createdBy          String?           @map("created_by") @db.Uuid
+  status             String           @default("ENTERED") @db.VarChar(16)
+  acceptedAt         DateTime?        @map("accepted_at") @db.Timestamptz(0)
+  expiresAt          DateTime?        @map("expires_at") @db.Timestamptz(0)
+  closedAt           DateTime?        @map("closed_at") @db.Timestamptz(0)
+  closedById         String?          @map("closed_by_id") @db.Uuid
+  note               String?          @db.VarChar(255)
+  createdAt          DateTime?        @default(now()) @map("created_at") @db.Timestamptz(0)
+  createdBy          String?          @map("created_by") @db.Uuid
   profit             OrderItemProfit?
 
   @@unique([number, tenantGroupId], map: "uniq_tire_storage_number_tenant_group")
@@ -1119,7 +1165,7 @@ model Task {
   order                    Order?      @relation(fields: [orderId], references: [id], onDelete: SetNull, onUpdate: NoAction)
   customerId               String?     @map("customer_id") @db.Uuid
   customer                 Person?     @relation("TaskCustomer", fields: [customerId], references: [id], onDelete: SetNull, onUpdate: NoAction)
-  assigneeUserId            String?     @map("assignee_user_id") @db.Uuid
+  assigneeUserId           String?     @map("assignee_user_id") @db.Uuid
   scheduledAt              DateTime?   @map("scheduled_at") @db.Timestamptz(0)
   completedAt              DateTime?   @map("completed_at") @db.Timestamptz(0)
   archivedAt               DateTime?   @map("archived_at") @db.Timestamptz(0)
@@ -1131,8 +1177,8 @@ model Task {
   updatedAt                DateTime?   @updatedAt @map("updated_at") @db.Timestamptz(0)
   createdBy                String?     @map("created_by") @db.Uuid
 
-  @@index([tenantId, type, status, scheduledAt], map: "idx_task_tenant_type_status_scheduled")
   @@unique([tenantId, orderId, type], map: "uniq_task_tenant_order_type")
+  @@index([tenantId, type, status, scheduledAt], map: "idx_task_tenant_type_status_scheduled")
   @@index([orderId], map: "idx_task_order_id")
   @@index([customerId], map: "idx_task_customer_id")
   @@map("task")
@@ -1234,16 +1280,16 @@ model PartRequiredAvailability {
 }
 
 model PartSupply {
-  id          String    @id @default(uuid()) @db.Uuid
-  partId      String    @map("part_id") @db.Uuid
-  part        Part      @relation(fields: [partId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  supplierId  String    @map("supplier_id") @db.Uuid
-  quantity    Int
-  source      Int       @db.SmallInt
-  sourceId    String    @map("source_id") @db.Uuid
-  tenantId    String    @map("tenant_id") @db.Uuid
-  createdAt   DateTime? @default(now()) @map("created_at") @db.Timestamptz(0)
-  createdBy   String?   @map("created_by") @db.Uuid
+  id         String    @id @default(uuid()) @db.Uuid
+  partId     String    @map("part_id") @db.Uuid
+  part       Part      @relation(fields: [partId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  supplierId String    @map("supplier_id") @db.Uuid
+  quantity   Int
+  source     Int       @db.SmallInt
+  sourceId   String    @map("source_id") @db.Uuid
+  tenantId   String    @map("tenant_id") @db.Uuid
+  createdAt  DateTime? @default(now()) @map("created_at") @db.Timestamptz(0)
+  createdBy  String?   @map("created_by") @db.Uuid
 
   @@index([partId])
   @@index([supplierId])
@@ -1452,20 +1498,20 @@ model WarehouseParent {
 }
 
 model AuditLogEvent {
-  id                String    @id @db.Uuid
-  scope             String    @db.VarChar(16)
-  tenantId          String?   @map("tenant_id") @db.Uuid
-  tenantGroupId     String?   @map("tenant_group_id") @db.Uuid
-  rootEntityType    String    @map("root_entity_type") @db.VarChar(64)
-  rootEntityId      String    @map("root_entity_id") @db.Uuid
-  entityType        String    @map("entity_type") @db.VarChar(64)
-  entityId          String    @map("entity_id") @db.Uuid
-  action            String    @db.VarChar(32)
-  actorId           String?   @map("actor_id") @db.Uuid
-  entityDisplayName String?   @map("entity_display_name") @db.VarChar(255)
+  id                String   @id @db.Uuid
+  scope             String   @db.VarChar(16)
+  tenantId          String?  @map("tenant_id") @db.Uuid
+  tenantGroupId     String?  @map("tenant_group_id") @db.Uuid
+  rootEntityType    String   @map("root_entity_type") @db.VarChar(64)
+  rootEntityId      String   @map("root_entity_id") @db.Uuid
+  entityType        String   @map("entity_type") @db.VarChar(64)
+  entityId          String   @map("entity_id") @db.Uuid
+  action            String   @db.VarChar(32)
+  actorId           String?  @map("actor_id") @db.Uuid
+  entityDisplayName String?  @map("entity_display_name") @db.VarChar(255)
   changes           Json?
   metadata          Json?
-  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
   @@index([rootEntityType, rootEntityId, id], map: "idx_audit_root")
   @@index([entityType, entityId, id], map: "idx_audit_entity")

@@ -781,8 +781,11 @@ input CreateEmployeeInput {
   """ID персоны"""
   personId: String!
 
-  """Коэффициент (процент от работ)"""
-  ratio: Int! = 100
+  """Должности сотрудника"""
+  positionIds: [ID!]
+
+  """Коэффициент (процент от работ). Не передавать — процент не начисляется"""
+  ratio: Int
 }
 
 input CreateEmployeeSalaryInput {
@@ -1102,6 +1105,14 @@ input CreateReviewInput {
 
   """Текст отзыва"""
   text: String!
+}
+
+input CreateStaffPositionInput {
+  """Название"""
+  name: String!
+
+  """Порядок в справочнике и в графике"""
+  sortOrder: Int = 0
 }
 
 input CreateTaskInput {
@@ -1629,8 +1640,11 @@ type EmployeeModel {
   """ID персоны"""
   personId: String!
 
-  """Коэффициент (процент от работ)"""
-  ratio: Int!
+  """Должности"""
+  positions: [StaffPositionModel!]!
+
+  """Коэффициент (процент от работ). null — процент не начисляется"""
+  ratio: Int
   tenantId: String!
 }
 
@@ -2176,6 +2190,9 @@ type Mutation {
   """Создать отзыв"""
   createReview(input: CreateReviewInput!): ReviewModel!
 
+  """Создать должность"""
+  createStaffPosition(input: CreateStaffPositionInput!): StaffPositionModel!
+
   """Создать задачу"""
   createTask(input: CreateTaskInput!): TaskModel!
 
@@ -2234,6 +2251,9 @@ type Mutation {
 
   """Удалить отзыв"""
   deleteReview(id: String!): ReviewModel!
+
+  """Удалить должность. Если её уже носили — архивировать вместо удаления"""
+  deleteStaffPosition(id: String!): StaffPositionModel!
 
   """Удалить задачу"""
   deleteTask(id: ID!): Boolean!
@@ -2295,6 +2315,9 @@ type Mutation {
 
   """Перенести резерв между позициями заказов (сценарий "занять")"""
   transferReservation(input: TransferReservationInput!): Boolean!
+
+  """Вернуть должность из архива"""
+  unarchiveStaffPosition(id: String!): StaffPositionModel!
   updateAppealStatus(input: UpdateAppealStatusInput!): Boolean!
 
   """Обновить запись календаря"""
@@ -2352,6 +2375,9 @@ type Mutation {
 
   """Обновить настройки приложения"""
   updateSettings(input: UpdateSettingsInput!): SettingsModel!
+
+  """Обновить должность"""
+  updateStaffPosition(input: UpdateStaffPositionInput!): StaffPositionModel!
 
   """Обновить задачу (статус, результат, теги и др.)"""
   updateTask(input: UpdateTaskInput!): TaskModel!
@@ -2859,6 +2885,11 @@ type PaginatedReviews {
   total: Int!
 }
 
+type PaginatedStaffPositions {
+  items: [StaffPositionModel!]!
+  total: Int!
+}
+
 type PaginatedTireStorages {
   items: [TireStorageModel!]!
   total: Int!
@@ -3344,6 +3375,15 @@ type Query {
   siteVehicle(id: ID!): SiteVehicle!
   siteVehicles(manufacturerId: ID!): [SiteVehicle!]!
 
+  """Должность по ID"""
+  staffPosition(id: String!): StaffPositionModel
+
+  """Каталог настроек должности, сгруппированный для интерфейса"""
+  staffPositionSettingGroups: [StaffPositionSettingGroupModel!]!
+
+  """Справочник должностей"""
+  staffPositions(includeArchived: Boolean = false, search: String, skip: Int = 0, take: Int = 25): PaginatedStaffPositions!
+
   """Список поставщиков; опциональный поиск по имени/телефону/email."""
   suppliers(search: String, take: Float): [Counterparty!]!
 
@@ -3776,6 +3816,96 @@ enum SortDirection {
   DESC
 }
 
+"""Должность сотрудника"""
+type StaffPositionModel {
+  """Дата архивации. null — должность активна"""
+  archivedAt: DateTime
+  createdAt: DateTime
+  id: ID!
+
+  """Название"""
+  name: String!
+
+  """Заданные настройки из каталога"""
+  settings: [StaffPositionSettingValueModel!]!
+
+  """Порядок в справочнике и в графике"""
+  sortOrder: Int!
+  tenantId: String!
+}
+
+"""Описание настройки должности из каталога"""
+type StaffPositionSettingDefinitionModel {
+  """Подсказка под иконкой info"""
+  hint: String!
+
+  """Мастер группы: пока выключен, остальные настройки группы не действуют"""
+  isMaster: Boolean!
+  key: StaffPositionSettingKey!
+  label: String!
+
+  """Варианты для типа ENUM"""
+  options: [StaffPositionSettingOptionModel!]
+  type: StaffPositionSettingType!
+}
+
+"""Группа настроек должности"""
+enum StaffPositionSettingGroup {
+  CALENDAR
+  WORK
+}
+
+"""Группа настроек должности"""
+type StaffPositionSettingGroupModel {
+  """Подсказка под иконкой info"""
+  hint: String!
+  key: StaffPositionSettingGroup!
+  label: String!
+
+  """Настройки группы, мастер идёт первым"""
+  settings: [StaffPositionSettingDefinitionModel!]!
+}
+
+"""Значение настройки должности"""
+input StaffPositionSettingInput {
+  key: StaffPositionSettingKey!
+
+  """Значение по типу настройки из каталога"""
+  value: JSON!
+}
+
+"""Ключ настройки должности из каталога"""
+enum StaffPositionSettingKey {
+  CALENDAR_COLOR
+  CALENDAR_EXCLUDE_FROM_AUTO_ASSIGN
+  CALENDAR_PARTICIPANT
+  WORK_EXECUTOR
+}
+
+"""Вариант значения настройки типа ENUM"""
+type StaffPositionSettingOptionModel {
+  """Токен палитры для образца цвета рядом с вариантом"""
+  color: String
+  label: String!
+  value: String!
+}
+
+"""Тип значения настройки должности"""
+enum StaffPositionSettingType {
+  BOOLEAN
+  ENUM
+  INT
+  STRING
+}
+
+"""Значение настройки должности"""
+type StaffPositionSettingValueModel {
+  key: StaffPositionSettingKey!
+
+  """Типизированное значение: булево, токен цвета, число"""
+  value: JSON!
+}
+
 type Subscription {
   carRecommendationsUpdated(carId: ID!): [CarRecommendationModel!]!
   incomingCall: CallModel!
@@ -4157,7 +4287,10 @@ input UpdateEmployeeInput {
   """ID сотрудника"""
   id: ID!
 
-  """Коэффициент (процент от работ)"""
+  """Должности сотрудника (полный набор)"""
+  positionIds: [ID!]
+
+  """Коэффициент (процент от работ; null — снять)"""
   ratio: Int
 }
 
@@ -4460,6 +4593,20 @@ input UpdateSettingsInput {
 
   """Начало рабочего дня (HH:MM)"""
   workDayStart: String
+}
+
+input UpdateStaffPositionInput {
+  """ID должности"""
+  id: ID!
+
+  """Название"""
+  name: String
+
+  """Настройки из каталога (полный набор)"""
+  settings: [StaffPositionSettingInput!]
+
+  """Порядок в справочнике и в графике"""
+  sortOrder: Int
 }
 
 input UpdateTaskInput {

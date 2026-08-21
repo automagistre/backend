@@ -16,6 +16,7 @@ import { CarModule } from './modules/vehicle/car.module';
 import { CalendarModule } from './modules/calendar/calendar.module';
 import { OrganizationModule } from './modules/organization/organization.module';
 import { EmployeeModule } from './modules/employee/employee.module';
+import { StaffPositionModule } from './modules/staff-position/staff-position.module';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { AuthModule } from './modules/auth/auth.module';
 import { OrderModule } from './modules/order/order.module';
@@ -73,6 +74,7 @@ import authConfig from './config/auth.config';
     CarModule,
     OrganizationModule,
     EmployeeModule,
+    StaffPositionModule,
     CalendarModule,
     AuthModule,
     OrderModule,

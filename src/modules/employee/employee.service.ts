@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -12,9 +13,36 @@ import type { AuthContext } from 'src/common/user-id.store';
 import { SettingsService } from 'src/modules/settings/settings.service';
 import { applyDefaultCurrency } from 'src/common/money';
 import type { MoneyInput } from 'src/common/inputs/money.input';
+import {
+  STAFF_POSITION_INCLUDE,
+  toStaffPositionModel,
+  type StaffPositionWithSettings,
+} from 'src/modules/staff-position/staff-position.mapper';
 
 const DEFAULT_TAKE = 25;
 const DEFAULT_SKIP = 0;
+
+const EMPLOYEE_INCLUDE = {
+  person: true,
+  staffPositions: {
+    include: { position: { include: STAFF_POSITION_INCLUDE } },
+    orderBy: { position: { sortOrder: 'asc' as const } },
+  },
+} as const;
+
+/** Связку через линк-таблицу наружу не показываем — только список должностей. */
+function toEmployeeModel<
+  T extends {
+    staffPositions: { position: StaffPositionWithSettings }[];
+  },
+>({ staffPositions, ...employee }: T) {
+  return {
+    ...employee,
+    positions: staffPositions.map((link) =>
+      toStaffPositionModel(link.position),
+    ),
+  };
+}
 
 @Injectable()
 export class EmployeeService {
@@ -33,32 +61,79 @@ export class EmployeeService {
     return money.amountMinor > 0n ? money.amountMinor : null;
   }
 
+  /**
+   * Новые назначения — только активные должности.
+   * Уже висящие на сотруднике архивные оставляем: иначе карточка уволенного
+   * не сохранится и сотрёт, кем он работал.
+   */
+  private async resolvePositionIds(
+    ctx: AuthContext,
+    positionIds: string[] | null | undefined,
+    alreadyAssignedIds: string[] = [],
+  ): Promise<string[]> {
+    const unique = [...new Set(positionIds ?? [])];
+    if (unique.length === 0) return [];
+
+    const alreadyAssigned = new Set(alreadyAssignedIds);
+    const freshIds = unique.filter((id) => !alreadyAssigned.has(id));
+    const keptIds = unique.filter((id) => alreadyAssigned.has(id));
+
+    const [freshCount, keptCount] = await Promise.all([
+      freshIds.length === 0
+        ? Promise.resolve(0)
+        : this.prisma.staffPosition.count({
+            where: {
+              id: { in: freshIds },
+              tenantId: ctx.tenantId,
+              archivedAt: null,
+            },
+          }),
+      keptIds.length === 0
+        ? Promise.resolve(0)
+        : this.prisma.staffPosition.count({
+            where: { id: { in: keptIds }, tenantId: ctx.tenantId },
+          }),
+    ]);
+
+    if (freshCount !== freshIds.length || keptCount !== keptIds.length) {
+      throw new BadRequestException(
+        'Должность не найдена или находится в архиве',
+      );
+    }
+    return unique;
+  }
+
   async create(ctx: AuthContext, data: CreateEmployeeInput) {
     const guaranteedMinimumAmount = await this.resolveGuaranteedMinimum(
       data.guaranteedMinimumAmount,
     );
+    const positionIds = await this.resolvePositionIds(ctx, data.positionIds);
 
     return this.prisma.$transaction(async (tx) => {
       const employee = await tx.employee.create({
         data: {
           personId: data.personId,
-          ratio: data.ratio,
+          ratio: data.ratio ?? null,
           hiredAt: data.hiredAt || new Date(),
           ...(guaranteedMinimumAmount !== undefined
             ? { guaranteedMinimumAmount }
             : {}),
           tenantId: ctx.tenantId,
           createdBy: ctx.userId,
+          staffPositions: {
+            create: positionIds.map((positionId) => ({ positionId })),
+          },
         },
       });
       await tx.person.update({
         where: { id: data.personId },
         data: { contractor: true },
       });
-      return tx.employee.findUniqueOrThrow({
+      const created = await tx.employee.findUniqueOrThrow({
         where: { id: employee.id },
-        include: { person: true },
+        include: EMPLOYEE_INCLUDE,
       });
+      return toEmployeeModel(created);
     });
   }
 
@@ -70,22 +145,63 @@ export class EmployeeService {
       throw new NotFoundException('Сотрудник не найден или недоступен');
     }
 
-    const { guaranteedMinimumAmount: guaranteeInput, ...rest } = data;
+    const {
+      guaranteedMinimumAmount: guaranteeInput,
+      positionIds,
+      ratio,
+      ...rest
+    } = data;
     const updateData: Record<string, unknown> = Object.fromEntries(
-      Object.entries(rest).filter(([_, value]) => value !== null),
+      Object.entries(rest).filter(([, value]) => value !== null),
     );
+
+    // Отдельно от фильтра выше: null здесь означает «снять процент», а не «не менять».
+    if (ratio !== undefined) {
+      updateData.ratio = ratio;
+    }
 
     if (guaranteeInput !== undefined) {
       updateData.guaranteedMinimumAmount =
         await this.resolveGuaranteedMinimum(guaranteeInput);
     }
 
-    return this.prisma.employee.update({
-      where: { id },
-      data: updateData,
-      include: {
-        person: true,
-      },
+    const currentLinks =
+      positionIds === undefined
+        ? []
+        : await this.prisma.employeeStaffPosition.findMany({
+            where: { employeeId: id },
+            select: { positionId: true },
+          });
+    const nextPositionIds =
+      positionIds === undefined
+        ? undefined
+        : await this.resolvePositionIds(
+            ctx,
+            positionIds,
+            currentLinks.map((link) => link.positionId),
+          );
+
+    return this.prisma.$transaction(async (tx) => {
+      if (nextPositionIds !== undefined) {
+        await tx.employeeStaffPosition.deleteMany({
+          where: { employeeId: id },
+        });
+        if (nextPositionIds.length > 0) {
+          await tx.employeeStaffPosition.createMany({
+            data: nextPositionIds.map((positionId) => ({
+              employeeId: id,
+              positionId,
+            })),
+          });
+        }
+      }
+
+      const employee = await tx.employee.update({
+        where: { id },
+        data: updateData,
+        include: EMPLOYEE_INCLUDE,
+      });
+      return toEmployeeModel(employee);
     });
   }
 
@@ -116,7 +232,7 @@ export class EmployeeService {
         : {}),
     };
 
-    const where: any = {
+    const where = {
       tenantId: ctx.tenantId,
       ...(includeFired ? {} : { firedAt: null }),
       person: personFilter,
@@ -127,9 +243,7 @@ export class EmployeeService {
         where,
         take: +take,
         skip: +skip,
-        include: {
-          person: true,
-        },
+        include: EMPLOYEE_INCLUDE,
         orderBy: {
           person: {
             lastname: 'asc',
@@ -139,34 +253,32 @@ export class EmployeeService {
       this.prisma.employee.count({ where }),
     ]);
 
-    return { items, total };
+    return { items: items.map(toEmployeeModel), total };
   }
 
   async findOne(ctx: AuthContext, id: string) {
-    return this.prisma.employee.findFirst({
+    const employee = await this.prisma.employee.findFirst({
       where: {
         id,
         tenantId: ctx.tenantId,
         person: { tenantGroupId: ctx.tenantGroupId },
       },
-      include: {
-        person: true,
-      },
+      include: EMPLOYEE_INCLUDE,
     });
+    return employee ? toEmployeeModel(employee) : null;
   }
 
   async findByPersonId(ctx: AuthContext, personId: string) {
-    return this.prisma.employee.findFirst({
+    const employee = await this.prisma.employee.findFirst({
       where: {
         personId,
         tenantId: ctx.tenantId,
         person: { tenantGroupId: ctx.tenantGroupId },
       },
       orderBy: { firedAt: { sort: 'asc', nulls: 'first' } },
-      include: {
-        person: true,
-      },
+      include: EMPLOYEE_INCLUDE,
     });
+    return employee ? toEmployeeModel(employee) : null;
   }
 
   async resolvePersonIdByEmployeeId(
@@ -204,16 +316,18 @@ export class EmployeeService {
         where: { id: existing.personId },
         data: { contractor: false },
       });
-      return tx.employee.findUniqueOrThrow({
+      const fired = await tx.employee.findUniqueOrThrow({
         where: { id },
-        include: { person: true },
+        include: EMPLOYEE_INCLUDE,
       });
+      return toEmployeeModel(fired);
     });
   }
 
   async remove(ctx: AuthContext, id: string) {
     const existing = await this.prisma.employee.findFirst({
       where: { id, tenantId: ctx.tenantId },
+      include: EMPLOYEE_INCLUDE,
     });
     if (!existing) {
       throw new NotFoundException('Сотрудник не найден или недоступен');
@@ -236,8 +350,7 @@ export class EmployeeService {
       );
     }
 
-    return this.prisma.employee.delete({
-      where: { id },
-    });
+    await this.prisma.employee.delete({ where: { id } });
+    return toEmployeeModel(existing);
   }
 }
