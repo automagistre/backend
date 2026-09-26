@@ -275,7 +275,9 @@ export class TireStorageService {
       }
     }
 
-    const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
+    const defaultCurrency = await this.settingsService.getDefaultCurrencyCode(
+      ctx.tenantId,
+    );
     let amountMinor = 0n;
     let amountCurrencyCode = defaultCurrency;
     if (input.amount) {
@@ -298,7 +300,11 @@ export class TireStorageService {
 
     const now = new Date();
     const acceptedAt =
-      isManual && input.acceptedAt ? new Date(input.acceptedAt) : isManual ? now : null;
+      isManual && input.acceptedAt
+        ? new Date(input.acceptedAt)
+        : isManual
+          ? now
+          : null;
     const expiresAt = acceptedAt
       ? (() => {
           const d = new Date(acceptedAt);
@@ -352,7 +358,8 @@ export class TireStorageService {
 
     const isEntered = exists.status === TireStorageStatus.ENTERED;
     const isManualWarehouse =
-      exists.status === TireStorageStatus.IN_WAREHOUSE && exists.orderId == null;
+      exists.status === TireStorageStatus.IN_WAREHOUSE &&
+      exists.orderId == null;
 
     if (!isEntered && !isManualWarehouse) {
       throw new BadRequestException(
@@ -400,14 +407,17 @@ export class TireStorageService {
     if (input.width != null) data.width = input.width;
     if (input.height != null) data.height = input.height;
     if (input.radius != null) data.radius = input.radius;
-    if (input.manufacturer != null) data.manufacturer = input.manufacturer.trim();
+    if (input.manufacturer != null)
+      data.manufacturer = input.manufacturer.trim();
     if (input.quantity != null) data.quantity = input.quantity;
     if (input.onDisks != null) data.onDisks = input.onDisks;
     if (input.season != null) data.season = input.season;
     if (input.note !== undefined) data.note = input.note?.trim() || null;
 
     if (input.acceptedAt !== undefined) {
-      const acceptedAt = input.acceptedAt ? new Date(input.acceptedAt) : new Date();
+      const acceptedAt = input.acceptedAt
+        ? new Date(input.acceptedAt)
+        : new Date();
       const expiresAt = new Date(acceptedAt);
       expiresAt.setMonth(expiresAt.getMonth() + STORAGE_MONTHS);
       data.acceptedAt = acceptedAt;
@@ -415,11 +425,14 @@ export class TireStorageService {
     }
 
     if (input.amount) {
-      const defaultCurrency =
-        await this.settingsService.getDefaultCurrencyCode();
+      const defaultCurrency = await this.settingsService.getDefaultCurrencyCode(
+        ctx.tenantId,
+      );
       const amount = applyDefaultCurrency(input.amount, defaultCurrency);
       if (amount.amountMinor < 0n) {
-        throw new BadRequestException('Сумма договора не может быть отрицательной');
+        throw new BadRequestException(
+          'Сумма договора не может быть отрицательной',
+        );
       }
       if (amount.amountMinor <= 0n && !isManualWarehouse) {
         throw new BadRequestException('Сумма договора должна быть больше нуля');
@@ -606,7 +619,9 @@ export class TireStorageService {
     ctx: AuthContext,
     orderId: string,
     closedAt: Date,
-  ): Promise<{ id: string; amountAmount: bigint; amountCurrencyCode: string }[]> {
+  ): Promise<
+    { id: string; amountAmount: bigint; amountCurrencyCode: string }[]
+  > {
     const expiresAt = new Date(closedAt);
     expiresAt.setMonth(expiresAt.getMonth() + STORAGE_MONTHS);
 
@@ -660,7 +675,9 @@ export class TireStorageService {
     tx: Prisma.TransactionClient,
     ctx: AuthContext,
     orderId: string,
-  ): Promise<{ id: string; amountAmount: bigint; amountCurrencyCode: string }[]> {
+  ): Promise<
+    { id: string; amountAmount: bigint; amountCurrencyCode: string }[]
+  > {
     return tx.tireStorage.findMany({
       where: {
         tenantGroupId: ctx.tenantGroupId,

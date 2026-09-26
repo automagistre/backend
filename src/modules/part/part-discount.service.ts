@@ -15,7 +15,9 @@ export class PartDiscountService {
   async create(
     createPartDiscountDto: CreatePartDiscountDto,
   ): Promise<PartDiscount> {
-    const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
+    const defaultCurrency = await this.settingsService.getDefaultCurrencyCode(
+      createPartDiscountDto.tenantId,
+    );
     return this.prisma.partDiscount.create({
       data: {
         partId: createPartDiscountDto.partId,

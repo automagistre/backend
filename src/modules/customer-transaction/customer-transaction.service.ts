@@ -20,10 +20,7 @@ import { SettingsService } from 'src/modules/settings/settings.service';
 import { applyDefaultCurrency } from 'src/common/money';
 import type { AuthContext } from 'src/common/user-id.store';
 import { PersonMonthlyIncomeModel } from './models/person-monthly-income.model';
-import {
-  toZonedParts,
-  zonedToUtc,
-} from 'src/common/utils/zoned-time.util';
+import { toZonedParts, zonedToUtc } from 'src/common/utils/zoned-time.util';
 
 const DEFAULT_TAKE = 25;
 const DEFAULT_SKIP = 0;
@@ -67,7 +64,8 @@ export class CustomerTransactionService {
     tenantId: string,
     createdBy: string,
   ) {
-    const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
+    const defaultCurrency =
+      await this.settingsService.getDefaultCurrencyCode(tenantId);
     const moneyData =
       data.amount != null
         ? applyDefaultCurrency(data.amount, defaultCurrency)
@@ -92,7 +90,9 @@ export class CustomerTransactionService {
    */
   async create(ctx: AuthContext, data: CreateCustomerTransactionInput) {
     const { tenantId, userId } = ctx;
-    const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
+    const defaultCurrency = await this.settingsService.getDefaultCurrencyCode(
+      ctx.tenantId,
+    );
     const moneyData =
       data.amount != null
         ? applyDefaultCurrency(data.amount, defaultCurrency)
@@ -179,8 +179,7 @@ export class CustomerTransactionService {
     ]);
 
     return [...orderLinked, ...warrantyLinked].sort(
-      (a, b) =>
-        (b.createdAt?.getTime() ?? 0) - (a.createdAt?.getTime() ?? 0),
+      (a, b) => (b.createdAt?.getTime() ?? 0) - (a.createdAt?.getTime() ?? 0),
     );
   }
 
@@ -302,7 +301,9 @@ export class CustomerTransactionService {
     input: CreateManualCustomerTransactionInput,
   ) {
     const { tenantId, userId } = ctx;
-    const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
+    const defaultCurrency = await this.settingsService.getDefaultCurrencyCode(
+      ctx.tenantId,
+    );
     const { amountMinor: amountAmount, currencyCode: amountCurrencyCode } =
       applyDefaultCurrency(input.amount, defaultCurrency);
 

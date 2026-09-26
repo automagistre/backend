@@ -12,7 +12,9 @@ export class PartPriceService {
     private readonly settingsService: SettingsService,
   ) {}
   async create(createPartPriceDto: CreatePartPriceDto): Promise<PartPrice> {
-    const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
+    const defaultCurrency = await this.settingsService.getDefaultCurrencyCode(
+      createPartPriceDto.tenantId,
+    );
     return this.prisma.partPrice.create({
       data: {
         partId: createPartPriceDto.partId,

@@ -37,7 +37,9 @@ export class EmployeeSalaryService {
       throw new NotFoundException('Employee not found');
     }
 
-    const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
+    const defaultCurrency = await this.settingsService.getDefaultCurrencyCode(
+      ctx.tenantId,
+    );
     const money = applyDefaultCurrency(input.amount, defaultCurrency);
 
     return this.prisma.employeeSalary.create({

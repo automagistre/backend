@@ -48,8 +48,8 @@ export class TenantGuard implements CanActivate {
       return true;
     }
 
-    // Приоритет: декоратор на методе > декоратор на классе
-    // @RequireTenant() требует tenant, @SkipTenant() пропускает проверку
+    // Приоритет: декоратор на методе > декоратор на классе.
+    // Без декораторов tenant обязателен: пропуск проверки — только явный @SkipTenant().
     const requireOnHandler = this.reflector.get<boolean>(
       REQUIRE_TENANT_KEY,
       handler,
@@ -58,8 +58,7 @@ export class TenantGuard implements CanActivate {
     const requireOnClass = this.reflector.get<boolean>(REQUIRE_TENANT_KEY, cls);
     const skipOnClass = this.reflector.get<boolean>(SKIP_TENANT_KEY, cls);
 
-    // Определяем итоговое поведение: метод переопределяет класс
-    let requireTenant = false;
+    let requireTenant = true;
     if (requireOnHandler !== undefined) {
       requireTenant = requireOnHandler;
     } else if (skipOnHandler !== undefined) {
@@ -91,6 +90,7 @@ export class TenantGuard implements CanActivate {
     }
 
     if (!requireTenant) {
+      await this.resolveTenantFromPublicId(req);
       return true;
     }
 

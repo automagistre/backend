@@ -7,6 +7,7 @@ import {
   ParseIntPipe,
   Post,
 } from '@nestjs/common';
+import { SkipThrottle } from '@nestjs/throttler';
 import { Public } from 'src/modules/auth/decorators/public.decorator';
 import {
   InteractiveResponse,
@@ -23,11 +24,10 @@ import {
  * tenant.public_id). Старый CRM-эндпоинт `/{tenant}/uiscom/interactive`
  * выводим из эксплуатации после стабилизации Phase 2.
  */
+@SkipThrottle()
 @Controller(['integrations/uis', 'api/integrations/uis'])
 export class UisInteractiveController {
-  constructor(
-    private readonly uisInteractiveService: UisInteractiveService,
-  ) {}
+  constructor(private readonly uisInteractiveService: UisInteractiveService) {}
 
   @Public()
   @Post(':publicId/interactive')

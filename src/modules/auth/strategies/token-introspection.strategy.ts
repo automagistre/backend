@@ -62,6 +62,8 @@ export class TokenIntrospectionStrategy extends PassportStrategy(
         email?: string;
         name?: string;
         preferred_username?: string;
+        azp?: string;
+        client_id?: string;
         realm_access?: { roles?: string[] };
         resource_access?: Record<string, { roles?: string[] }>;
       };
@@ -77,7 +79,9 @@ export class TokenIntrospectionStrategy extends PassportStrategy(
 
       // Service-account токены (client_credentials) не имеют email.
       // Обычные пользовательские токены email обязан содержать.
-      const isServiceAccount = !result.email && !!result.preferred_username?.startsWith('service-account-');
+      const isServiceAccount =
+        !result.email &&
+        !!result.preferred_username?.startsWith('service-account-');
       if (!result.email && !isServiceAccount) {
         throw new UnauthorizedException(
           'Токен не содержит необходимых данных. Войдите снова.',
@@ -94,6 +98,8 @@ export class TokenIntrospectionStrategy extends PassportStrategy(
         preferred_username: result.preferred_username,
         roles: apiRoles.length > 0 ? apiRoles : undefined,
         realm_roles: realmRoles.length > 0 ? realmRoles : undefined,
+        clientId: result.azp ?? result.client_id,
+        isServiceAccount,
       };
     } catch (error) {
       if (

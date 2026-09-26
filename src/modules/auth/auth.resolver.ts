@@ -1,8 +1,9 @@
-import { Args, Mutation, Resolver, ObjectType, Field } from '@nestjs/graphql';
+import { Args, Mutation, Resolver } from '@nestjs/graphql';
 import { AuthService } from './auth.service';
 import { LoginDto, RefreshDto, PasswordLoginDto } from './dto/auth.dto';
 import { Public } from './decorators/public.decorator';
 import { Tokens } from './models/tokens.model';
+import { StrictThrottle } from 'src/common/decorators/strict-throttle.decorator';
 
 // We need to define the GraphQL types that correspond to our DTOs.
 // In a real app, you might use @nestjs/graphql decorators to auto-generate this.
@@ -14,6 +15,7 @@ export class AuthResolver {
   constructor(private readonly authService: AuthService) {}
 
   @Public()
+  @StrictThrottle()
   @Mutation(() => Tokens)
   async login(@Args('input') loginDto: LoginDto): Promise<Tokens> {
     return this.authService.exchangeCodeForTokens(
@@ -23,6 +25,7 @@ export class AuthResolver {
   }
 
   @Public()
+  @StrictThrottle()
   @Mutation(() => Tokens)
   async passwordLogin(
     @Args('input') passwordLoginDto: PasswordLoginDto,

@@ -26,6 +26,7 @@ RUN apk add --no-cache openssl && \
     adduser --system --uid 1001 nodejs
 
 WORKDIR /usr/src/app
+ENV NODE_ENV=production
 
 COPY --from=builder --chown=nodejs:nodejs /usr/src/app/package.json ./
 COPY --from=builder --chown=nodejs:nodejs /usr/src/app/node_modules ./node_modules

@@ -1,10 +1,8 @@
 import { Args, ID, Int, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { Public } from 'src/modules/auth/decorators/public.decorator';
+import { StrictThrottle } from 'src/common/decorators/strict-throttle.decorator';
 import { WwwService } from './www.service';
-import {
-  WwwTenant,
-  WwwTenantContext,
-} from './decorators/www-tenant.decorator';
+import { WwwTenant, WwwTenantContext } from './decorators/www-tenant.decorator';
 import { WwwStats } from './models/www-stats.model';
 import { WwwReviewConnection } from './models/www-review.model';
 import { WwwVehicle } from './models/www-vehicle.model';
@@ -72,6 +70,7 @@ export class WwwResolver {
   // Mutations: создание обращений с www-форм
   // ──────────────────────────────────────────────────────────────────────
 
+  @StrictThrottle(5)
   @Mutation(() => WwwCreateAppealOutput, { name: 'siteCreateAppealCalculator' })
   async createAppealCalculator(
     @WwwTenant() ctx: WwwTenantContext,
@@ -80,6 +79,7 @@ export class WwwResolver {
     return this.wwwService.createAppealCalculator(ctx, input);
   }
 
+  @StrictThrottle(5)
   @Mutation(() => WwwCreateAppealOutput, { name: 'siteCreateAppealSchedule' })
   async createAppealSchedule(
     @WwwTenant() ctx: WwwTenantContext,
@@ -88,7 +88,10 @@ export class WwwResolver {
     return this.wwwService.createAppealSchedule(ctx, input);
   }
 
-  @Mutation(() => WwwCreateAppealOutput, { name: 'siteCreateAppealCooperation' })
+  @StrictThrottle(5)
+  @Mutation(() => WwwCreateAppealOutput, {
+    name: 'siteCreateAppealCooperation',
+  })
   async createAppealCooperation(
     @WwwTenant() ctx: WwwTenantContext,
     @Args('input') input: WwwCreateAppealCooperationInput,
@@ -96,6 +99,7 @@ export class WwwResolver {
     return this.wwwService.createAppealCooperation(ctx, input);
   }
 
+  @StrictThrottle(5)
   @Mutation(() => WwwCreateAppealOutput, { name: 'siteCreateAppealQuestion' })
   async createAppealQuestion(
     @WwwTenant() ctx: WwwTenantContext,
@@ -104,7 +108,10 @@ export class WwwResolver {
     return this.wwwService.createAppealQuestion(ctx, input);
   }
 
-  @Mutation(() => WwwCreateAppealOutput, { name: 'siteCreateAppealTireFitting' })
+  @StrictThrottle(5)
+  @Mutation(() => WwwCreateAppealOutput, {
+    name: 'siteCreateAppealTireFitting',
+  })
   async createAppealTireFitting(
     @WwwTenant() ctx: WwwTenantContext,
     @Args('input') input: WwwCreateAppealTireFittingInput,
@@ -112,6 +119,7 @@ export class WwwResolver {
     return this.wwwService.createAppealTireFitting(ctx, input);
   }
 
+  @StrictThrottle(5)
   @Mutation(() => WwwCreateAppealOutput, { name: 'siteCreateAppealCall' })
   async createAppealCall(
     @WwwTenant() ctx: WwwTenantContext,

@@ -101,7 +101,9 @@ export class ProcurementService {
     }
 
     const partIds = parts.map((p) => p.id);
-    const supplyExpiryDays = await this.settingsService.getSupplyExpiryDays();
+    const supplyExpiryDays = await this.settingsService.getSupplyExpiryDays(
+      ctx.tenantId,
+    );
     const [
       stockMap,
       orderedMap,

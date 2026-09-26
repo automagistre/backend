@@ -203,14 +203,11 @@ export class ReservationService {
           .trim();
 
         const manufacturer = (order.car as any)?.vehicle?.manufacturer?.name as
-          | string
-          | undefined;
+          string | undefined;
         const modelName = (order.car as any)?.vehicle?.name as
-          | string
-          | undefined;
+          string | undefined;
         const caseName = (order.car as any)?.vehicle?.caseName as
-          | string
-          | undefined;
+          string | undefined;
         const carName = [manufacturer, modelName, caseName]
           .filter(Boolean)
           .join(' ')
@@ -255,7 +252,7 @@ export class ReservationService {
     toOrderId: string | null;
   }> {
     const { fromOrderItemPartId, toOrderItemPartId, quantity } = input;
-    const tenantId = input.tenantId ?? ctx.tenantId;
+    const { tenantId } = ctx;
 
     const fromOrderId =
       await this.getOrderIdByOrderItemPartId(fromOrderItemPartId);
@@ -370,7 +367,7 @@ export class ReservationService {
     input: ReservePartInput,
   ): Promise<Reservation> {
     const { orderItemPartId, quantity } = input;
-    const tenantId = input.tenantId ?? ctx.tenantId;
+    const { tenantId } = ctx;
 
     const orderId = await this.getOrderIdByOrderItemPartId(orderItemPartId);
     if (orderId) {

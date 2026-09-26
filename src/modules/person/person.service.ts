@@ -191,7 +191,7 @@ export class PersonService {
 
     const updated = await this.prisma.person.update({
       where: { id },
-      data,
+      data: { ...data, tenantGroupId: ctx.tenantGroupId },
     });
 
     await this.auditPerson(ctx, id, existing, updated);

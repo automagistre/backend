@@ -158,7 +158,9 @@ export class OrderService {
       where: { id: input.walletId, tenantId },
     });
     if (!wallet) throw new NotFoundException('Счёт не найден');
-    const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
+    const defaultCurrency = await this.settingsService.getDefaultCurrencyCode(
+      ctx.tenantId,
+    );
     const { amountMinor, currencyCode } = applyDefaultCurrency(
       input.amount,
       defaultCurrency,
@@ -210,7 +212,7 @@ export class OrderService {
     );
     const { amountMinor } = applyDefaultCurrency(
       input.amount,
-      await this.settingsService.getDefaultCurrencyCode(),
+      await this.settingsService.getDefaultCurrencyCode(ctx.tenantId),
     );
     const refundAmount = amountMinor > 0n ? amountMinor : -amountMinor;
     if (refundAmount > prepaymentTotal) {
@@ -218,7 +220,9 @@ export class OrderService {
         `Сумма возврата не может превышать сумму предоплат по заказу`,
       );
     }
-    const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
+    const defaultCurrency = await this.settingsService.getDefaultCurrencyCode(
+      ctx.tenantId,
+    );
     const { currencyCode } = applyDefaultCurrency(
       input.amount,
       defaultCurrency,
@@ -431,10 +435,10 @@ export class OrderService {
     const skipSuspendFilter = includeSuspended || !!search?.trim();
     if (!skipSuspendFilter) {
       const today = this.startOfTodayUTC();
-      const orders = await this.prisma.order.findMany({
+      const orders = (await this.prisma.order.findMany({
         where,
         orderBy: [{ number: 'desc' }],
-      }) as OrderModel[];
+      })) as OrderModel[];
 
       const latestByOrderId = await this.getLatestSuspendsMap(
         ctx,
@@ -453,7 +457,10 @@ export class OrderService {
       const schedulingIdsToExclude = new Set<string>();
       for (const o of schedulingOrders) {
         const scheduledAt = await this.getScheduledAt(ctx, o.id);
-        if (scheduledAt && this.startOfDayUTC(scheduledAt) >= this.startOfTomorrowUTC()) {
+        if (
+          scheduledAt &&
+          this.startOfDayUTC(scheduledAt) >= this.startOfTomorrowUTC()
+        ) {
           schedulingIdsToExclude.add(o.id);
         }
       }
@@ -661,9 +668,7 @@ export class OrderService {
   ): string {
     const reasonLabel = getOrderCancelReasonLabel(reasonCode);
     const comment = reasonComment?.trim();
-    return comment
-      ? `${reasonLabel}. ${comment}`
-      : reasonLabel;
+    return comment ? `${reasonLabel}. ${comment}` : reasonLabel;
   }
 
   async create(ctx: AuthContext, input: CreateOrderInput): Promise<OrderModel> {
@@ -885,7 +890,11 @@ export class OrderService {
     const items = order.items as ItemWithServiceAndPart[];
 
     const hasServiceWithoutWorker = (item: ItemWithServiceAndPart): boolean => {
-      if (item.type === '1' && item.service && item.service.executorId == null) {
+      if (
+        item.type === '1' &&
+        item.service &&
+        item.service.executorId == null
+      ) {
         return true;
       }
       return item.children?.some(hasServiceWithoutWorker) ?? false;
@@ -896,7 +905,9 @@ export class OrderService {
 
     // Подрядные работы без себестоимости блокируют закрытие:
     // без неё нет проводки оплаты подрядчику и корректной прибыли.
-    const hasContractorWithoutCost = (item: ItemWithServiceAndPart): boolean => {
+    const hasContractorWithoutCost = (
+      item: ItemWithServiceAndPart,
+    ): boolean => {
       if (
         item.type === '1' &&
         item.service?.kind === 'CONTRACTOR' &&
@@ -914,7 +925,9 @@ export class OrderService {
     // он должен быть действующим и иметь ставку (для удержаний по ЗП).
     const employeePayerPersonIds = new Set<string>();
 
-    const collectEmployeePayerPersonIds = (item: ItemWithServiceAndPart): void => {
+    const collectEmployeePayerPersonIds = (
+      item: ItemWithServiceAndPart,
+    ): void => {
       if (
         item.service?.warranty &&
         item.service.warrantyPayerKind === WarrantyPayerKind.EMPLOYEE &&
@@ -937,7 +950,10 @@ export class OrderService {
       await Promise.all(
         Array.from(employeePayerPersonIds).map(
           async (personId) =>
-            [personId, await this.employeeService.findByPersonId(ctx, personId)] as const,
+            [
+              personId,
+              await this.employeeService.findByPersonId(ctx, personId),
+            ] as const,
         ),
       ),
     );
@@ -1323,7 +1339,9 @@ export class OrderService {
     }
 
     const payments = input.payments ?? [];
-    const currencyCode = await this.settingsService.getDefaultCurrencyCode();
+    const currencyCode = await this.settingsService.getDefaultCurrencyCode(
+      ctx.tenantId,
+    );
     for (const p of payments) {
       const { amountMinor } = applyDefaultCurrency(p.amount, currencyCode);
       if (amountMinor <= 0n) {
@@ -1634,7 +1652,10 @@ export class OrderService {
 
     if (order.status === OrderStatus.SCHEDULING) {
       const scheduledAt = await this.getScheduledAt(ctx, order.id);
-      if (scheduledAt && this.startOfDayUTC(scheduledAt) >= this.startOfTomorrowUTC())
+      if (
+        scheduledAt &&
+        this.startOfDayUTC(scheduledAt) >= this.startOfTomorrowUTC()
+      )
         return true;
     }
 
@@ -1650,7 +1671,10 @@ export class OrderService {
 
     if (order.status === OrderStatus.SCHEDULING) {
       const scheduledAt = await this.getScheduledAt(ctx, order.id);
-      if (scheduledAt && this.startOfDayUTC(scheduledAt) >= this.startOfTomorrowUTC())
+      if (
+        scheduledAt &&
+        this.startOfDayUTC(scheduledAt) >= this.startOfTomorrowUTC()
+      )
         return this.startOfDayUTC(scheduledAt);
     }
 

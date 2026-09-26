@@ -40,6 +40,7 @@ describe('ProfitService.snapshotOrder', () => {
   const tx = {
     order: { findFirst: jest.fn() },
     orderItem: { findMany: jest.fn() },
+    tireStorage: { findMany: jest.fn().mockResolvedValue([]) },
     orderItemProfit: { deleteMany: jest.fn(), createMany: jest.fn() },
   } as any;
 

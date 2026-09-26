@@ -11,6 +11,9 @@ export class TransferReservationInput {
   @Field(() => Int)
   quantity: number;
 
-  @Field(() => ID, { nullable: true })
+  @Field(() => ID, {
+    nullable: true,
+    deprecationReason: 'Игнорируется: тенант берётся из X-Tenant-Id',
+  })
   tenantId?: string;
 }

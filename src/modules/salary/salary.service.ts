@@ -92,7 +92,9 @@ export class SalaryService {
     });
     if (alreadyCharged) return;
 
-    const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
+    const defaultCurrency = await this.settingsService.getDefaultCurrencyCode(
+      ctx.tenantId,
+    );
     const items = await this.prisma.orderItem.findMany({
       where: { orderId },
       include: { service: true },
@@ -147,7 +149,9 @@ export class SalaryService {
     if (toCreate.length === 0) return;
 
     const total = sum(
-      toCreate.map((d) => applyDefaultCurrency(d.amount ?? {}, defaultCurrency)),
+      toCreate.map((d) =>
+        applyDefaultCurrency(d.amount ?? {}, defaultCurrency),
+      ),
       defaultCurrency,
     );
 
@@ -205,7 +209,9 @@ export class SalaryService {
     ctx: AuthContext,
     orderId: string,
   ): Promise<void> {
-    const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
+    const defaultCurrency = await this.settingsService.getDefaultCurrencyCode(
+      ctx.tenantId,
+    );
     const items = await this.prisma.orderItem.findMany({
       where: {
         orderId,
@@ -297,7 +303,9 @@ export class SalaryService {
     ctx: AuthContext,
     orderId: string,
   ): Promise<void> {
-    const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
+    const defaultCurrency = await this.settingsService.getDefaultCurrencyCode(
+      ctx.tenantId,
+    );
     const items = await this.prisma.orderItem.findMany({
       where: {
         orderId,
@@ -445,7 +453,9 @@ export class SalaryService {
     ctx: AuthContext,
     orderId: string,
   ): Promise<void> {
-    const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
+    const defaultCurrency = await this.settingsService.getDefaultCurrencyCode(
+      ctx.tenantId,
+    );
 
     const items = await this.prisma.orderItem.findMany({
       where: {
@@ -522,7 +532,9 @@ export class SalaryService {
   }
 
   async chargeMonthlySalaries(ctx: AuthContext, payday: number): Promise<void> {
-    const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
+    const defaultCurrency = await this.settingsService.getDefaultCurrencyCode(
+      ctx.tenantId,
+    );
 
     const now = new Date();
     const lastDayOfMonth = new Date(
@@ -615,7 +627,9 @@ export class SalaryService {
     ctx: AuthContext,
     targetMonthStart: Date,
   ): Promise<void> {
-    const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
+    const defaultCurrency = await this.settingsService.getDefaultCurrencyCode(
+      ctx.tenantId,
+    );
     const period = resolveMinimumWagePeriod(targetMonthStart);
 
     const employees = await this.prisma.employee.findMany({

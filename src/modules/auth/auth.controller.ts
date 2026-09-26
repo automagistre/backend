@@ -7,12 +7,14 @@ import {
   PasswordLoginDto,
 } from './dto/auth.dto';
 import { Public } from './decorators/public.decorator';
+import { StrictThrottle } from 'src/common/decorators/strict-throttle.decorator';
 
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Public()
+  @StrictThrottle()
   @Post('login')
   @HttpCode(HttpStatus.OK)
   login(@Body() loginDto: LoginDto): Promise<TokensDto> {
@@ -23,6 +25,7 @@ export class AuthController {
   }
 
   @Public()
+  @StrictThrottle()
   @Post('password-login')
   @HttpCode(HttpStatus.OK)
   passwordLogin(

@@ -28,4 +28,14 @@ export interface JwtPayload {
    * realm_access roles
    */
   realm_roles?: string[];
+
+  /**
+   * Keycloak client, выпустивший токен (azp / client_id)
+   */
+  clientId?: string;
+
+  /**
+   * Токен service-account (client_credentials), а не пользователя
+   */
+  isServiceAccount?: boolean;
 }

@@ -39,9 +39,7 @@ import type { PeriodProfitModel } from './models/period-profit.model';
 import type { PeriodProfitSummaryModel } from './models/period-profit-summary.model';
 import type { PeriodOrderProfitModel } from './models/period-order-profit.model';
 
-type EmployeeRow = Awaited<
-  ReturnType<EmployeeService['findByPersonId']>
->;
+type EmployeeRow = Awaited<ReturnType<EmployeeService['findByPersonId']>>;
 
 type LegacySnapshotContext = {
   salaryByPerson: Map<string, bigint>;
@@ -78,7 +76,9 @@ export class ProfitService {
       throw new NotFoundException(`Заказ с ID ${orderId} не найден`);
     }
 
-    const currencyCode = await this.settingsService.getDefaultCurrencyCode();
+    const currencyCode = await this.settingsService.getDefaultCurrencyCode(
+      ctx.tenantId,
+    );
     const items = await tx.orderItem.findMany({
       where: { orderId, tenantId: ctx.tenantId },
       include: { service: true, part: true },
@@ -314,37 +314,43 @@ export class ProfitService {
       },
     };
 
-    const [totalAgg, worksAgg, partsAgg, storageAgg, contractorAgg, ordersCount] =
-      await Promise.all([
-        this.prisma.orderItemProfit.aggregate({
-          where,
-          _sum: {
-            revenueAmount: true,
-            costAmount: true,
-            profitAmount: true,
-          },
-        }),
-        this.prisma.orderItemProfit.aggregate({
-          where: { ...where, kind: ProfitLineKind.SERVICE },
-          _sum: { profitAmount: true },
-        }),
-        this.prisma.orderItemProfit.aggregate({
-          where: { ...where, kind: ProfitLineKind.PART },
-          _sum: { profitAmount: true },
-        }),
-        this.prisma.orderItemProfit.aggregate({
-          where: { ...where, kind: ProfitLineKind.STORAGE },
-          _sum: { profitAmount: true },
-        }),
-        this.prisma.orderItemProfit.aggregate({
-          where: contractorWhere,
-          _sum: { profitAmount: true },
-        }),
-        this.prisma.orderItemProfit.groupBy({
-          by: ['orderId'],
-          where,
-        }),
-      ]);
+    const [
+      totalAgg,
+      worksAgg,
+      partsAgg,
+      storageAgg,
+      contractorAgg,
+      ordersCount,
+    ] = await Promise.all([
+      this.prisma.orderItemProfit.aggregate({
+        where,
+        _sum: {
+          revenueAmount: true,
+          costAmount: true,
+          profitAmount: true,
+        },
+      }),
+      this.prisma.orderItemProfit.aggregate({
+        where: { ...where, kind: ProfitLineKind.SERVICE },
+        _sum: { profitAmount: true },
+      }),
+      this.prisma.orderItemProfit.aggregate({
+        where: { ...where, kind: ProfitLineKind.PART },
+        _sum: { profitAmount: true },
+      }),
+      this.prisma.orderItemProfit.aggregate({
+        where: { ...where, kind: ProfitLineKind.STORAGE },
+        _sum: { profitAmount: true },
+      }),
+      this.prisma.orderItemProfit.aggregate({
+        where: contractorWhere,
+        _sum: { profitAmount: true },
+      }),
+      this.prisma.orderItemProfit.groupBy({
+        by: ['orderId'],
+        where,
+      }),
+    ]);
 
     return {
       grossRevenueAmount: totalAgg._sum.revenueAmount ?? 0n,
@@ -366,7 +372,11 @@ export class ProfitService {
     skip = 0,
   ): Promise<{ items: PeriodOrderProfitModel[]; total: number }> {
     const tz = await this.settingsService.getTimezone(ctx.tenantId);
-    const { from, toExclusive } = this.resolvePeriodBounds(dateFrom, dateTo, tz);
+    const { from, toExclusive } = this.resolvePeriodBounds(
+      dateFrom,
+      dateTo,
+      tz,
+    );
     const profitWhere: Prisma.OrderItemProfitWhereInput = {
       tenantId: ctx.tenantId,
       closedAt: { gte: from, lt: toExclusive },
@@ -482,7 +492,9 @@ export class ProfitService {
       throw new BadRequestException('Заказ не закрыт как сделка');
     }
     if (order.close.orderCancel) {
-      throw new BadRequestException('Отменённый заказ не имеет снапшота прибыли');
+      throw new BadRequestException(
+        'Отменённый заказ не имеет снапшота прибыли',
+      );
     }
 
     const closedAt = order.close.orderDeal.createdAt ?? new Date();
@@ -625,7 +637,8 @@ export class ProfitService {
     });
 
     const effectiveCostBasis =
-      service.warranty && service.warrantyPayerKind !== WarrantyPayerKind.ORGANIZATION
+      service.warranty &&
+      service.warrantyPayerKind !== WarrantyPayerKind.ORGANIZATION
         ? ProfitCostBasis.NONE
         : costBasis;
 
@@ -663,8 +676,7 @@ export class ProfitService {
     origin: ProfitOrigin,
     currencyCode: string,
   ): Promise<Prisma.OrderItemProfitCreateManyInput> {
-    const unitNet =
-      (part.priceAmount ?? 0n) - (part.discountAmount ?? 0n);
+    const unitNet = (part.priceAmount ?? 0n) - (part.discountAmount ?? 0n);
     const revenue = (unitNet * BigInt(part.quantity)) / 100n;
 
     if (origin === ProfitOrigin.LEGACY_BACKFILL && part.warranty) {
@@ -818,15 +830,7 @@ export class ProfitService {
     const lastIncludedDay = addDays(bounds.toExclusive, -1);
     const zTo = toZonedParts(lastIncludedDay, tz);
     return {
-      from: zonedToUtc(
-        zFrom.year + years,
-        zFrom.month,
-        zFrom.day,
-        0,
-        0,
-        0,
-        tz,
-      ),
+      from: zonedToUtc(zFrom.year + years, zFrom.month, zFrom.day, 0, 0, 0, tz),
       toExclusive: addDays(
         zonedToUtc(zTo.year + years, zTo.month, zTo.day, 0, 0, 0, tz),
         1,

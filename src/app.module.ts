@@ -18,7 +18,7 @@ import { OrganizationModule } from './modules/organization/organization.module';
 import { EmployeeModule } from './modules/employee/employee.module';
 import { StaffPositionModule } from './modules/staff-position/staff-position.module';
 import { ShiftModule } from './modules/shift/shift.module';
-import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
+import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { AuthModule } from './modules/auth/auth.module';
 import { OrderModule } from './modules/order/order.module';
 import { ReservationModule } from './modules/reservation/reservation.module';
@@ -48,12 +48,29 @@ import { ProfitModule } from './modules/profit/profit.module';
 import { TireStorageModule } from './modules/tire-storage/tire-storage.module';
 import { DevAuthGuard } from './modules/auth/guards/dev-auth.guard';
 import { TenantGuard } from './common/guards/tenant.guard';
+import { GqlThrottlerGuard } from './common/guards/gql-throttler.guard';
 import { Reflector } from '@nestjs/core';
+import { ThrottlerModule } from '@nestjs/throttler';
+import { LoggerModule } from 'nestjs-pino';
+import { SentryGlobalFilter, SentryModule } from '@sentry/nestjs/setup';
+import { getLoggerConfig } from './config/logger.config';
+import { HealthModule } from './modules/health/health.module';
 import authConfig from './config/auth.config';
 
 @Module({
   imports: [
+    SentryModule.forRoot(),
+    LoggerModule.forRoot(getLoggerConfig()),
     ScheduleModule.forRoot(),
+    ThrottlerModule.forRoot({
+      throttlers: [
+        {
+          ttl: 60_000,
+          limit: Number(process.env.THROTTLE_LIMIT_PER_MINUTE) || 600,
+        },
+      ],
+      errorMessage: 'Слишком много запросов, попробуйте позже',
+    }),
     ConfigModule.forRoot({
       isGlobal: true,
       load: [authConfig],
@@ -103,14 +120,23 @@ import authConfig from './config/auth.config';
     DashboardModule,
     ProfitModule,
     TireStorageModule,
+    HealthModule,
   ],
   providers: [
+    {
+      provide: APP_FILTER,
+      useClass: SentryGlobalFilter,
+    },
     {
       provide: APP_GUARD,
       useFactory: (reflector: Reflector, configService: ConfigService) => {
         return new DevAuthGuard(reflector, configService);
       },
       inject: [Reflector, ConfigService],
+    },
+    {
+      provide: APP_GUARD,
+      useClass: GqlThrottlerGuard,
     },
     {
       provide: APP_GUARD,

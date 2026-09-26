@@ -219,7 +219,9 @@ export class IncomeService {
   ): Promise<IncomePartModel> {
     await this.ensureIncomeEditable(ctx, input.incomeId);
     const { tenantId, userId } = ctx;
-    const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
+    const defaultCurrency = await this.settingsService.getDefaultCurrencyCode(
+      ctx.tenantId,
+    );
     const priceData = applyDefaultCurrency(input.price, defaultCurrency);
 
     if (input.quantity <= 0) {
@@ -258,7 +260,9 @@ export class IncomeService {
       );
     }
 
-    const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
+    const defaultCurrency = await this.settingsService.getDefaultCurrencyCode(
+      ctx.tenantId,
+    );
     const updateData: {
       quantity?: number;
       priceAmount?: bigint;

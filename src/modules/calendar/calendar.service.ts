@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { CalendarEntry, Prisma } from 'src/generated/prisma/client';
 import { v6 as uuidv6 } from 'uuid';
 import { PrismaService } from 'src/prisma/prisma.service';
@@ -189,7 +189,11 @@ export class CalendarService {
             duration: data.duration,
           },
         },
-        ...(data.customerId || data.carId || data.assigneeId || data.description || data.isBlocker !== undefined
+        ...(data.customerId ||
+        data.carId ||
+        data.assigneeId ||
+        data.description ||
+        data.isBlocker !== undefined
           ? {
               calendarEntryOrderInfo: {
                 create: {
@@ -261,7 +265,9 @@ export class CalendarService {
     const nextDuration = data.duration ?? currentSchedule?.duration;
 
     const shouldCreateOrderInfo =
-      (data.assigneeId !== undefined || data.description !== undefined || data.isBlocker !== undefined) &&
+      (data.assigneeId !== undefined ||
+        data.description !== undefined ||
+        data.isBlocker !== undefined) &&
       (nextAssigneeId !== (currentOrderInfo?.assigneeId ?? null) ||
         nextDescription !== (currentOrderInfo?.description ?? null) ||
         nextIsBlocker !== (currentOrderInfo?.isBlocker ?? false));
@@ -349,6 +355,10 @@ export class CalendarService {
     const { tenantId, userId } = ctx;
 
     const existing = await this.findEntryById(ctx, data.id);
+    // Удаление глобальное (фильтр calendarEntryDeletion: null без тенанта) — чужой id недопустим
+    if (!existing) {
+      throw new NotFoundException('Запись календаря не найдена');
+    }
 
     await this.prisma.calendarEntryDeletion.create({
       data: {
@@ -362,26 +372,24 @@ export class CalendarService {
       },
     });
 
-    if (existing) {
-      const schedule = existing.calendarEntrySchedule[0];
-      const orderInfo = existing.calendarEntryOrderInfo[0];
-      await this.auditCalendarEntry(
-        ctx,
-        data.id,
-        {
-          date: schedule?.date ?? null,
-          duration: schedule?.duration ?? null,
-          customerId: orderInfo?.customerId ?? null,
-          carId: orderInfo?.carId ?? null,
-          assigneeId: orderInfo?.assigneeId ?? null,
-          description: orderInfo?.description ?? null,
-          isBlocker: orderInfo?.isBlocker ?? false,
-        },
-        null,
-        AuditAction.DELETE,
-        { reason: data.reason, description: data.description },
-      );
-    }
+    const schedule = existing.calendarEntrySchedule[0];
+    const orderInfo = existing.calendarEntryOrderInfo[0];
+    await this.auditCalendarEntry(
+      ctx,
+      data.id,
+      {
+        date: schedule?.date ?? null,
+        duration: schedule?.duration ?? null,
+        customerId: orderInfo?.customerId ?? null,
+        carId: orderInfo?.carId ?? null,
+        assigneeId: orderInfo?.assigneeId ?? null,
+        description: orderInfo?.description ?? null,
+        isBlocker: orderInfo?.isBlocker ?? false,
+      },
+      null,
+      AuditAction.DELETE,
+      { reason: data.reason, description: data.description },
+    );
   }
 
   async getEntriesByDate(ctx: AuthContext, date: Date) {

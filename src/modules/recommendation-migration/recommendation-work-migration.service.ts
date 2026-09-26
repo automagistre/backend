@@ -119,7 +119,9 @@ export class RecommendationWorkMigrationService {
 
     const workerPersonId = order.assigneeId ?? null;
 
-    const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
+    const defaultCurrency = await this.settingsService.getDefaultCurrencyCode(
+      ctx.tenantId,
+    );
 
     const results: RealizeCarRecommendationPayload[] = [];
 
@@ -303,7 +305,11 @@ export class RecommendationWorkMigrationService {
       /** Логировать как явный «Возврат в рекомендации» (одно событие на сторону). */
       auditAsReturn?: boolean;
     },
-  ): Promise<{ orderId: string; recommendationId: string; carId: string | null }> {
+  ): Promise<{
+    orderId: string;
+    recommendationId: string;
+    carId: string | null;
+  }> {
     const {
       orderItemServiceId,
       deleteOrderItem = true,
@@ -328,7 +334,9 @@ export class RecommendationWorkMigrationService {
     });
 
     if (!orderItem || !orderItem.service) {
-      throw new NotFoundException(`Работа с ID ${orderItemServiceId} не найдена`);
+      throw new NotFoundException(
+        `Работа с ID ${orderItemServiceId} не найдена`,
+      );
     }
 
     if (!orderItem.orderId) {
@@ -402,7 +410,9 @@ export class RecommendationWorkMigrationService {
         : null,
     );
 
-    const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
+    const defaultCurrency = await this.settingsService.getDefaultCurrencyCode(
+      ctx.tenantId,
+    );
     let resultRecommendationId: string;
 
     // Подрядность и подрядчик синхронизируются из работы; диагност не трогается.
@@ -453,11 +463,7 @@ export class RecommendationWorkMigrationService {
           auditNested,
         );
       }
-    } else if (
-      recommendation &&
-      workParts.length === 0 &&
-      isSameServiceName
-    ) {
+    } else if (recommendation && workParts.length === 0 && isSameServiceName) {
       resultRecommendationId = recommendation.id;
       await this.recommendationService.updateRecommendation(
         ctx,

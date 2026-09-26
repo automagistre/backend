@@ -2,6 +2,7 @@ import {
   ConflictException,
   ForbiddenException,
   NotFoundException,
+  UseGuards,
 } from '@nestjs/common';
 import {
   Args,
@@ -14,10 +15,8 @@ import {
   Resolver,
 } from '@nestjs/graphql';
 import type { AuthContext } from 'src/common/user-id.store';
-// TODO(lk-auth): временно отключён публичный доступ к me*-эндпоинтам.
-// Вернуть @Public() (или ввести LkTenantGuard с service-account JWT) при
-// возобновлении задачи LK. См. agent-core-lk-auth-hardening.
-// import { Public } from 'src/modules/auth/decorators/public.decorator';
+import { SkipTenant } from 'src/common/decorators/skip-tenant.decorator';
+import { LkServiceGuard } from 'src/modules/auth/guards/lk-service.guard';
 import { CustomerCarRelationService } from 'src/modules/customer-car-relation/customer-car-relation.service';
 import { OrderService } from 'src/modules/order/order.service';
 import { PersonService } from 'src/modules/person/person.service';
@@ -28,11 +27,7 @@ import {
 } from 'src/modules/www/decorators/www-tenant.decorator';
 import { MeProfileUpdateInput } from './inputs/me-profile-update.input';
 import { MeCar, toMeCar } from './models/me-car.model';
-import {
-  MeOrderList,
-  MeOrdersArgs,
-  toMeOrder,
-} from './models/me-order.model';
+import { MeOrderList, MeOrdersArgs, toMeOrder } from './models/me-order.model';
 import { MePerson, toMePerson } from './models/me-person.model';
 import {
   MeRecommendation,
@@ -60,8 +55,13 @@ const ME_PHONE_HEADER = 'x-me-customer-phone';
  *
  * Все CRUD-операции делегируются в существующие сервисы (PersonService, OrderService,
  * CustomerCarRelationService) — отдельных «клиентских» сервисов не вводим.
+ *
+ * Доступ только service-account токену BFF (`LkServiceGuard`): пока клиент
+ * определяется заголовком телефона, JWT сотрудника сюда пускать нельзя.
+ * Tenant — по `X-Tenant-Public-Id` (`@SkipTenant`: у service-account нет tenant_permission).
  */
-// @Public() — временно отключён (см. TODO(lk-auth) выше)
+@SkipTenant()
+@UseGuards(LkServiceGuard)
 @Resolver(() => MePerson)
 export class MeResolver {
   constructor(
@@ -267,7 +267,8 @@ function phoneCandidates(raw: string): string[] {
   const digits = raw.replace(/\D/g, '');
   let core: string | null = null;
   if (digits.length === 11 && digits[0] === '7') core = digits;
-  else if (digits.length === 11 && digits[0] === '8') core = '7' + digits.slice(1);
+  else if (digits.length === 11 && digits[0] === '8')
+    core = '7' + digits.slice(1);
   else if (digits.length === 10) core = '7' + digits;
 
   if (!core) return [];

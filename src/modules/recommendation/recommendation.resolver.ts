@@ -76,7 +76,9 @@ export class RecommendationResolver {
     @AuthContext() ctx: AuthContextType,
     @Args('input') input: CreateCarRecommendationInput,
   ) {
-    const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
+    const defaultCurrency = await this.settingsService.getDefaultCurrencyCode(
+      ctx.tenantId,
+    );
     const priceData = input.price
       ? applyDefaultCurrency(input.price, defaultCurrency)
       : { amountMinor: 0n, currencyCode: defaultCurrency };
@@ -127,8 +129,9 @@ export class RecommendationResolver {
       data.expiredAt = input.expiredAt;
     }
     if (input.price !== undefined) {
-      const defaultCurrency =
-        await this.settingsService.getDefaultCurrencyCode();
+      const defaultCurrency = await this.settingsService.getDefaultCurrencyCode(
+        ctx.tenantId,
+      );
       const priceData = applyDefaultCurrency(input.price, defaultCurrency);
       data.priceAmount = priceData.amountMinor;
       data.priceCurrencyCode = priceData.currencyCode;
@@ -173,7 +176,9 @@ export class RecommendationResolver {
     @AuthContext() ctx: AuthContextType,
     @Args('input') input: CreateCarRecommendationPartInput,
   ) {
-    const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
+    const defaultCurrency = await this.settingsService.getDefaultCurrencyCode(
+      ctx.tenantId,
+    );
     const priceData = input.price
       ? applyDefaultCurrency(input.price, defaultCurrency)
       : { amountMinor: 0n, currencyCode: defaultCurrency };
@@ -213,8 +218,9 @@ export class RecommendationResolver {
       data.quantity = input.quantity;
     }
     if (input.price !== undefined) {
-      const defaultCurrency =
-        await this.settingsService.getDefaultCurrencyCode();
+      const defaultCurrency = await this.settingsService.getDefaultCurrencyCode(
+        ctx.tenantId,
+      );
       const priceData = applyDefaultCurrency(input.price, defaultCurrency);
       data.priceAmount = priceData.amountMinor;
       data.priceCurrencyCode = priceData.currencyCode;

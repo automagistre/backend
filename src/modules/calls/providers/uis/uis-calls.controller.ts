@@ -7,9 +7,11 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
+import { SkipThrottle } from '@nestjs/throttler';
 import { Public } from 'src/modules/auth/decorators/public.decorator';
 import { UisCallsWebhookService } from './uis-calls-webhook.service';
 
+@SkipThrottle()
 @Controller(['integrations/uis', 'api/integrations/uis'])
 export class UisCallsController {
   constructor(

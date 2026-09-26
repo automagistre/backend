@@ -241,7 +241,7 @@ export class RecommendationService {
         priceAmount: normalizeMoneyAmount(input.priceAmount),
         priceCurrencyCode:
           input.priceCurrencyCode ??
-          (await this.settingsService.getDefaultCurrencyCode()),
+          (await this.settingsService.getDefaultCurrencyCode(ctx.tenantId)),
         tenantGroupId: ctx.tenantGroupId,
         createdBy: ctx.userId,
       },
@@ -420,7 +420,7 @@ export class RecommendationService {
         priceAmount: normalizeMoneyAmount(input.priceAmount),
         priceCurrencyCode:
           input.priceCurrencyCode ??
-          (await this.settingsService.getDefaultCurrencyCode()),
+          (await this.settingsService.getDefaultCurrencyCode(ctx.tenantId)),
         tenantGroupId: ctx.tenantGroupId,
         createdBy: ctx.userId,
       },

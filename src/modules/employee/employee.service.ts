@@ -70,11 +70,13 @@ export class EmployeeService {
   ) {}
 
   private async resolveGuaranteedMinimum(
+    tenantId: string,
     value: MoneyInput | null | undefined,
   ): Promise<bigint | null | undefined> {
     if (value === undefined) return undefined;
     if (value === null) return null;
-    const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
+    const defaultCurrency =
+      await this.settingsService.getDefaultCurrencyCode(tenantId);
     const money = applyDefaultCurrency(value, defaultCurrency);
     return money.amountMinor > 0n ? money.amountMinor : null;
   }
@@ -142,6 +144,7 @@ export class EmployeeService {
 
   async create(ctx: AuthContext, data: CreateEmployeeInput) {
     const guaranteedMinimumAmount = await this.resolveGuaranteedMinimum(
+      ctx.tenantId,
       data.guaranteedMinimumAmount,
     );
     const positionIds = await this.resolvePositionIds(ctx, data.positionIds);
@@ -206,8 +209,10 @@ export class EmployeeService {
     }
 
     if (guaranteeInput !== undefined) {
-      updateData.guaranteedMinimumAmount =
-        await this.resolveGuaranteedMinimum(guaranteeInput);
+      updateData.guaranteedMinimumAmount = await this.resolveGuaranteedMinimum(
+        ctx.tenantId,
+        guaranteeInput,
+      );
     }
 
     const currentLinks =

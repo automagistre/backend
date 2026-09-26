@@ -4,7 +4,9 @@ export default registerAs('auth', () => ({
   devMode: process.env.NODE_ENV !== 'production',
   skipCheck: process.env.AUTH_SKIP_CHECK === 'true',
   jwt: {
-    secret: process.env.JWT_SECRET || 'default-secret',
+    secret:
+      process.env.JWT_SECRET ||
+      (process.env.NODE_ENV === 'development' ? 'dev-secret' : undefined),
     audience: process.env.JWT_AUDIENCE,
     issuer: process.env.JWT_ISSUER,
     accessTokenTtl: parseInt(process.env.JWT_ACCESS_TOKEN_TTL ?? '3600', 10),
@@ -25,4 +27,8 @@ export default registerAs('auth', () => ({
   password: {
     enabled: process.env.PASSWORD_AUTH_ENABLED === 'true',
   },
+  lkServiceClientIds: (process.env.LK_SERVICE_CLIENT_IDS ?? 'automagistre-edge')
+    .split(',')
+    .map((id) => id.trim())
+    .filter(Boolean),
 }));

@@ -64,8 +64,9 @@ export class PartResolver {
 
     const part = await this.partService.create(ctx, data as CreatePartInput);
     if (price != null) {
-      const defaultCurrency =
-        await this.settingsService.getDefaultCurrencyCode();
+      const defaultCurrency = await this.settingsService.getDefaultCurrencyCode(
+        ctx.tenantId,
+      );
       const priceData = applyDefaultCurrency(price, defaultCurrency);
       const created = await this.partPriceService.create({
         partId: part.id,
@@ -88,8 +89,9 @@ export class PartResolver {
       });
     }
     if (discount != null) {
-      const defaultCurrency =
-        await this.settingsService.getDefaultCurrencyCode();
+      const defaultCurrency = await this.settingsService.getDefaultCurrencyCode(
+        ctx.tenantId,
+      );
       const discountData = applyDefaultCurrency(discount, defaultCurrency);
       const created = await this.partDiscountService.create({
         partId: part.id,
@@ -132,7 +134,9 @@ export class PartResolver {
     const { price, discount, ...data } = input;
 
     const part = await this.partService.update(ctx, data);
-    const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
+    const defaultCurrency = await this.settingsService.getDefaultCurrencyCode(
+      ctx.tenantId,
+    );
 
     if (price != null) {
       const priceData = applyDefaultCurrency(price, defaultCurrency);

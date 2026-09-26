@@ -19,7 +19,9 @@ export class WalletService {
   ) {}
 
   async create(ctx: AuthContext, data: CreateWalletInput) {
-    const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
+    const defaultCurrency = await this.settingsService.getDefaultCurrencyCode(
+      ctx.tenantId,
+    );
     return this.prisma.wallet.create({
       data: {
         name: data.name,

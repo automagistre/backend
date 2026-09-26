@@ -77,13 +77,9 @@ export class SettingsService {
 
   /** Валюта по умолчанию (проводки, цены). */
   async getDefaultCurrencyCode(
-    tenantId?: string,
+    tenantId: string,
     tx?: Prisma.TransactionClient,
   ): Promise<string> {
-    if (!tenantId) {
-      return SETTINGS_DEFINITIONS[SETTINGS_KEYS.defaultCurrencyCode]
-        .defaultValue;
-    }
     return this.getSettingValue(
       tenantId,
       SETTINGS_KEYS.defaultCurrencyCode,
@@ -93,23 +89,17 @@ export class SettingsService {
 
   /** Минимальная наценка (коэффициент, например 1.25 = 25%). */
   async getMinMarkupRatio(
-    tenantId?: string,
+    tenantId: string,
     tx?: Prisma.TransactionClient,
   ): Promise<number> {
-    if (!tenantId) {
-      return SETTINGS_DEFINITIONS[SETTINGS_KEYS.minMarkupRatio].defaultValue;
-    }
     return this.getSettingValue(tenantId, SETTINGS_KEYS.minMarkupRatio, tx);
   }
 
   /** Порог задержки поставки в днях: updatedAt < now - N дней → задержка. */
   async getSupplyExpiryDays(
-    tenantId?: string,
+    tenantId: string,
     tx?: Prisma.TransactionClient,
   ): Promise<number> {
-    if (!tenantId) {
-      return SETTINGS_DEFINITIONS[SETTINGS_KEYS.supplyExpiryDays].defaultValue;
-    }
     return this.getSettingValue(tenantId, SETTINGS_KEYS.supplyExpiryDays, tx);
   }
 
@@ -151,15 +141,9 @@ export class SettingsService {
 
   /** Длительность рабочего дня в минутах (вычисляется из start/end). */
   async getWorkDayMinutes(
-    tenantId?: string,
+    tenantId: string,
     tx?: Prisma.TransactionClient,
   ): Promise<number> {
-    if (!tenantId) {
-      return (
-        timeToMinutes(SETTINGS_DEFINITIONS[SETTINGS_KEYS.workDayEnd].defaultValue) -
-        timeToMinutes(SETTINGS_DEFINITIONS[SETTINGS_KEYS.workDayStart].defaultValue)
-      );
-    }
     const [start, end] = await Promise.all([
       this.getWorkDayStart(tenantId, tx),
       this.getWorkDayEnd(tenantId, tx),

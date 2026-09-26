@@ -114,7 +114,6 @@ export class ReservationResolver {
     const reservation = await this.reservationService.reserve(ctx, {
       orderItemPartId: input.orderItemPartId,
       quantity: input.quantity,
-      tenantId: input.tenantId,
     });
     await this.publishOrderUpdated(
       ctx,
@@ -167,7 +166,6 @@ export class ReservationResolver {
         fromOrderItemPartId: input.fromOrderItemPartId,
         toOrderItemPartId: input.toOrderItemPartId,
         quantity: input.quantity,
-        tenantId: input.tenantId,
       });
     await this.publishOrderUpdated(ctx, fromOrderId);
     if (toOrderId !== fromOrderId) {

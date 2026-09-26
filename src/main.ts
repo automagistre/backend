@@ -1,20 +1,31 @@
+import './instrument';
 import { NestFactory } from '@nestjs/core';
 import {
   FastifyAdapter,
   NestFastifyApplication,
 } from '@nestjs/platform-fastify';
 import { AppModule } from './app.module';
+import { Logger } from 'nestjs-pino';
 import type { FastifyInstance } from 'fastify';
+import { assertSafeRuntimeConfig, corsOptions } from './config/runtime-safety';
 
 async function bootstrap() {
+  assertSafeRuntimeConfig();
+
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
-    new FastifyAdapter(),
+    // Реальный IP клиента для rate limit: перед backend один прокси (Traefik)
+    new FastifyAdapter({
+      trustProxy: Number(process.env.TRUST_PROXY_HOPS ?? 1),
+    }),
+    { bufferLogs: true },
   );
 
-  app.enableCors();
+  app.useLogger(app.get(Logger));
 
-  registerWwwGateway(app.getHttpAdapter().getInstance() as FastifyInstance);
+  app.enableCors(corsOptions());
+
+  registerWwwGateway(app.getHttpAdapter().getInstance());
 
   await app.listen(3000, '0.0.0.0');
 }
@@ -39,7 +50,7 @@ function registerWwwGateway(fastify: FastifyInstance): void {
         method: 'POST',
         url: '/api/v1/graphql',
         headers: headers as unknown as Record<string, string>,
-        payload: request.body as unknown as string,
+        payload: request.body as string,
       });
 
       reply

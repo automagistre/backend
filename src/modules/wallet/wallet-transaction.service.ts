@@ -101,9 +101,11 @@ export class WalletTransactionService {
   }
 
   private async normalizeAmount(
+    tenantId: string,
     input: CreateWalletTransactionInput,
   ): Promise<Money> {
-    const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
+    const defaultCurrency =
+      await this.settingsService.getDefaultCurrencyCode(tenantId);
     return applyDefaultCurrency(input.amount, defaultCurrency);
   }
 
@@ -115,7 +117,7 @@ export class WalletTransactionService {
     const { tenantId, userId } = ctx;
     const wallet = await this.findOne(ctx, data.walletId);
     if (!wallet) throw new NotFoundException('Счёт не найден');
-    const amount = await this.normalizeAmount(data);
+    const amount = await this.normalizeAmount(tenantId, data);
     const created = await this.prisma.walletTransaction.create({
       data: {
         walletId: data.walletId,
@@ -152,7 +154,7 @@ export class WalletTransactionService {
     tenantId: string,
     createdBy: string,
   ) {
-    const amount = await this.normalizeAmount(data);
+    const amount = await this.normalizeAmount(tenantId, data);
     const created = await tx.walletTransaction.create({
       data: {
         walletId: data.walletId,
@@ -294,7 +296,7 @@ export class WalletTransactionService {
 
     const currencyCode =
       source.costCurrencyCode ??
-      (await this.settingsService.getDefaultCurrencyCode());
+      (await this.settingsService.getDefaultCurrencyCode(ctx.tenantId));
     // Оплата подрядчику — расход: сумма в проводке отрицательная.
     const amountMinor = -source.costAmount!;
     const description = `Оплата подрядчику: ${source.serviceName}`;

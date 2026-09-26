@@ -3560,7 +3560,7 @@ type ReservationModel {
 input ReservePartInput {
   orderItemPartId: ID!
   quantity: Int!
-  tenantId: ID
+  tenantId: ID @deprecated(reason: "Игнорируется: тенант берётся из X-Tenant-Id")
 }
 
 input ReturnWorkToRecommendationInput {
@@ -4244,7 +4244,7 @@ type Tokens {
 input TransferReservationInput {
   fromOrderItemPartId: ID!
   quantity: Int!
-  tenantId: ID
+  tenantId: ID @deprecated(reason: "Игнорируется: тенант берётся из X-Tenant-Id")
   toOrderItemPartId: ID!
 }
 

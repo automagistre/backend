@@ -5,7 +5,10 @@ import { OrderService } from '../order/order.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { AuditLogService } from 'src/modules/audit-log/audit-log.service';
 import { AuditAction } from 'src/modules/audit-log/enums/audit.enums';
-import { createPrismaMock, type PrismaMock } from 'src/common/testing/prisma-mock';
+import {
+  createPrismaMock,
+  type PrismaMock,
+} from 'src/common/testing/prisma-mock';
 import { makeCtx } from 'src/common/testing/auth-context';
 
 describe('ReservationService', () => {
@@ -59,7 +62,9 @@ describe('ReservationService', () => {
 
     it('бросает, если недостаточно доступного остатка', async () => {
       stub();
-      jest.mocked(prisma.motion.aggregate).mockResolvedValue({ _sum: { quantity: 10 } } as any);
+      jest
+        .mocked(prisma.motion.aggregate)
+        .mockResolvedValue({ _sum: { quantity: 10 } } as any);
       jest.mocked(prisma.reservation.aggregate).mockResolvedValue({
         _sum: { quantity: 8 },
       } as any);
@@ -71,11 +76,15 @@ describe('ReservationService', () => {
 
     it('создаёт резерв и пишет аудит RESERVE при достатке', async () => {
       stub();
-      jest.mocked(prisma.motion.aggregate).mockResolvedValue({ _sum: { quantity: 10 } } as any);
+      jest
+        .mocked(prisma.motion.aggregate)
+        .mockResolvedValue({ _sum: { quantity: 10 } } as any);
       jest.mocked(prisma.reservation.aggregate).mockResolvedValue({
         _sum: { quantity: 3 },
       } as any);
-      jest.mocked(prisma.reservation.create).mockResolvedValue({ id: 'r1' } as any);
+      jest
+        .mocked(prisma.reservation.create)
+        .mockResolvedValue({ id: 'r1' } as any);
 
       await service.reserve(ctx, { orderItemPartId: 'oip1', quantity: 5 });
 
@@ -95,7 +104,9 @@ describe('ReservationService', () => {
         { id: 'a', quantity: 3 },
         { id: 'b', quantity: 4 },
       ] as any);
-      jest.mocked(prisma.reservation.deleteMany).mockResolvedValue({ count: 1 } as any);
+      jest
+        .mocked(prisma.reservation.deleteMany)
+        .mockResolvedValue({ count: 1 } as any);
 
       const released = await service.release(ctx, {
         orderItemPartId: 'oip1',

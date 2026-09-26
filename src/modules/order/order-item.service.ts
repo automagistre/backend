@@ -27,7 +27,10 @@ import {
 } from 'src/generated/prisma/client';
 import { OrderItemType } from './enums/order-item-type.enum';
 import { OrderItemServiceKind } from './enums/order-item-service-kind.enum';
-import { expandWarrantyItemIds, isContractorService } from './warranty-payer.resolve';
+import {
+  expandWarrantyItemIds,
+  isContractorService,
+} from './warranty-payer.resolve';
 import { executorToDb, PartyKind } from 'src/common/party';
 import { WalletTransactionService } from 'src/modules/wallet/wallet-transaction.service';
 import { v6 as uuidv6 } from 'uuid';
@@ -265,7 +268,11 @@ export class OrderItemService {
         entityId: input.id,
         action: AuditAction.UPDATE,
         before: { ...orderItem.group, parentId: orderItem.parentId },
-        after: { ...orderItem.group, ...updateData, parentId: orderItem.parentId },
+        after: {
+          ...orderItem.group,
+          ...updateData,
+          parentId: orderItem.parentId,
+        },
         entityDisplayName: updateData.name ?? orderItem.group?.name ?? null,
       });
     }
@@ -353,10 +360,16 @@ export class OrderItemService {
     }
     if (payerKind === WarrantyPayerKind.EMPLOYEE) {
       if (!payerPersonId) {
-        throw new BadRequestException('Укажите сотрудника-плательщика гарантии');
+        throw new BadRequestException(
+          'Укажите сотрудника-плательщика гарантии',
+        );
       }
       const employee = await this.prisma.employee.findFirst({
-        where: { personId: payerPersonId, firedAt: null, tenantId: ctx.tenantId },
+        where: {
+          personId: payerPersonId,
+          firedAt: null,
+          tenantId: ctx.tenantId,
+        },
         select: { id: true },
       });
       if (!employee) {
@@ -389,7 +402,10 @@ export class OrderItemService {
       return { warrantyPayerKind: null, warrantyPayerPersonId: null };
     }
     if (params.isContractorWork) {
-      return { warrantyPayerKind: WarrantyPayerKind.ORGANIZATION, warrantyPayerPersonId: null };
+      return {
+        warrantyPayerKind: WarrantyPayerKind.ORGANIZATION,
+        warrantyPayerPersonId: null,
+      };
     }
     await this.validatePayerSelection(
       ctx,
@@ -401,7 +417,9 @@ export class OrderItemService {
     return {
       warrantyPayerKind: kind,
       warrantyPayerPersonId:
-        kind === WarrantyPayerKind.EMPLOYEE ? (params.payerPersonId ?? null) : null,
+        kind === WarrantyPayerKind.EMPLOYEE
+          ? (params.payerPersonId ?? null)
+          : null,
     };
   }
 
@@ -411,7 +429,9 @@ export class OrderItemService {
   ): Promise<OrderItemModel> {
     const { tenantId, userId } = ctx;
     await this.orderService.validateOrderEditable(ctx, input.orderId);
-    const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
+    const defaultCurrency = await this.settingsService.getDefaultCurrencyCode(
+      ctx.tenantId,
+    );
     const priceData = input.price
       ? applyDefaultCurrency(input.price, defaultCurrency)
       : { amountMinor: 0n, currencyCode: defaultCurrency };
@@ -530,7 +550,9 @@ export class OrderItemService {
       }
     }
 
-    const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
+    const defaultCurrency = await this.settingsService.getDefaultCurrencyCode(
+      ctx.tenantId,
+    );
     const priceData = input.price
       ? applyDefaultCurrency(input.price, defaultCurrency)
       : { amountMinor: 0n, currencyCode: defaultCurrency };
@@ -645,7 +667,9 @@ export class OrderItemService {
       throw new NotFoundException(`Запчасть с ID ${missingId} не найдена`);
     }
 
-    const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
+    const defaultCurrency = await this.settingsService.getDefaultCurrencyCode(
+      ctx.tenantId,
+    );
     const orderItemsData: Prisma.OrderItemCreateManyInput[] = [];
     const orderItemPartsData: Prisma.OrderItemPartCreateManyInput[] = [];
     const result: { orderItemPartId: string; quantity: number }[] = [];
@@ -752,8 +776,9 @@ export class OrderItemService {
     if (input.partId !== undefined) updateData.partId = input.partId;
     if (input.quantity !== undefined) updateData.quantity = input.quantity;
     if (input.price !== undefined) {
-      const defaultCurrency =
-        await this.settingsService.getDefaultCurrencyCode();
+      const defaultCurrency = await this.settingsService.getDefaultCurrencyCode(
+        ctx.tenantId,
+      );
       const priceData =
         input.price != null
           ? applyDefaultCurrency(input.price, defaultCurrency)
@@ -762,8 +787,9 @@ export class OrderItemService {
       updateData.priceCurrencyCode = priceData.currencyCode;
     }
     if (input.discount !== undefined) {
-      const defaultCurrency =
-        await this.settingsService.getDefaultCurrencyCode();
+      const defaultCurrency = await this.settingsService.getDefaultCurrencyCode(
+        ctx.tenantId,
+      );
       const discountData =
         input.discount != null
           ? applyDefaultCurrency(input.discount, defaultCurrency)
@@ -877,7 +903,9 @@ export class OrderItemService {
 
     await this.orderService.validateOrderEditable(ctx, orderItem.orderId!);
 
-    const defaultCurrency = await this.settingsService.getDefaultCurrencyCode();
+    const defaultCurrency = await this.settingsService.getDefaultCurrencyCode(
+      ctx.tenantId,
+    );
 
     // Обновляем только переданные поля
     const updateData: any = {};
@@ -1100,7 +1128,11 @@ export class OrderItemService {
           affectedServiceIds.push(child.id);
         }
         // Рекурсивно обрабатываем внуков
-        await this.deleteChildReservations(child.id, client, affectedServiceIds);
+        await this.deleteChildReservations(
+          child.id,
+          client,
+          affectedServiceIds,
+        );
       }
     }
 
@@ -1215,17 +1247,24 @@ export class OrderItemService {
       },
     });
 
-    const requestedItems = items.filter((item) => input.itemIds.includes(item.id));
+    const requestedItems = items.filter((item) =>
+      input.itemIds.includes(item.id),
+    );
     if (requestedItems.length === 0) {
       throw new NotFoundException('Позиции не найдены');
     }
 
     const serviceItems = items.filter(
-      (item): item is typeof item & { service: NonNullable<(typeof item)['service']> } =>
-        item.service != null,
+      (
+        item,
+      ): item is typeof item & {
+        service: NonNullable<(typeof item)['service']>;
+      } => item.service != null,
     );
     const partItems = items.filter(
-      (item): item is typeof item & { part: NonNullable<(typeof item)['part']> } =>
+      (
+        item,
+      ): item is typeof item & { part: NonNullable<(typeof item)['part']> } =>
         item.part != null,
     );
 
@@ -1244,7 +1283,11 @@ export class OrderItemService {
 
         await tx.orderItemService.update({
           where: { id: item.id },
-          data: { warranty: input.warranty, warrantyPayerKind, warrantyPayerPersonId },
+          data: {
+            warranty: input.warranty,
+            warrantyPayerKind,
+            warrantyPayerPersonId,
+          },
         });
 
         await this.auditLog.record(tx, ctx, {
@@ -1286,7 +1329,11 @@ export class OrderItemService {
 
         await tx.orderItemPart.update({
           where: { id: item.id },
-          data: { warranty: input.warranty, warrantyPayerKind, warrantyPayerPersonId },
+          data: {
+            warranty: input.warranty,
+            warrantyPayerKind,
+            warrantyPayerPersonId,
+          },
         });
 
         await this.auditLog.record(tx, ctx, {
@@ -1308,7 +1355,12 @@ export class OrderItemService {
       }
 
       if (input.warranty) {
-        const note = await this.noteService.createWarrantyNote(ctx, tx, input.orderId, reason);
+        const note = await this.noteService.createWarrantyNote(
+          ctx,
+          tx,
+          input.orderId,
+          reason,
+        );
         noteId = note.id;
       }
     });
