@@ -41,7 +41,8 @@ export class SettingsModel {
   workDayEnd: string;
 
   @Field(() => Float, {
-    description: 'Длина рабочего дня в часах — вычисляется из workDayStart/workDayEnd',
+    description:
+      'Длина рабочего дня в часах — вычисляется из workDayStart/workDayEnd',
   })
   workDayHours: number;
 
@@ -55,6 +56,28 @@ export class SettingsModel {
     description: 'Часовой пояс тенанта (например Europe/Moscow)',
   })
   timezone: string;
+
+  @Field(() => Boolean, {
+    description: 'Модуль «Заявки»: показывать в навигации',
+  })
+  moduleAppealsEnabled: boolean;
+
+  @Field(() => Boolean, {
+    description:
+      'Модуль «Контроль качества»: создание задач при закрытии заказа и доска задач',
+  })
+  moduleQualityControlEnabled: boolean;
+
+  @Field(() => Boolean, {
+    description: 'Модуль «Сайт»: показывать в навигации',
+  })
+  moduleSiteEnabled: boolean;
+
+  @Field(() => Boolean, {
+    description:
+      'Есть активная привязка телефонии (UIS): модуль «Звонки» доступен',
+  })
+  callsConfigured?: boolean;
 
   @Field(() => TenantRequisitesModel, {
     nullable: true,

@@ -29,6 +29,11 @@ export class SettingsResolver {
     return this.settingsService.updateSettings(ctx.tenantId, ctx.userId, input);
   }
 
+  @ResolveField(() => Boolean)
+  async callsConfigured(@AuthContext() ctx: AuthContextType): Promise<boolean> {
+    return this.settingsService.hasActiveCallRouting(ctx.tenantId);
+  }
+
   @ResolveField(() => TenantRequisitesModel, { nullable: true })
   async tenantRequisites(
     @AuthContext() ctx: AuthContextType,

@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { SYSTEM_USER_ID } from 'src/common/user-id.store';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { SettingsService } from '../settings/settings.service';
 import { TasksService } from './tasks.service';
 
 const TASKS_ARCHIVE_CRON = '17 1 * * *';
@@ -12,6 +13,7 @@ export class TasksScheduler {
 
   constructor(
     private readonly tasksService: TasksService,
+    private readonly settingsService: SettingsService,
     private readonly prisma: PrismaService,
   ) {}
 
@@ -23,6 +25,9 @@ export class TasksScheduler {
 
     for (const tenant of tenants) {
       try {
+        if (!(await this.settingsService.isQualityControlEnabled(tenant.id))) {
+          continue;
+        }
         const archivedCount =
           await this.tasksService.archiveSuccessfulQualityControlTasksForTenant(
             {

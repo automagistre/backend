@@ -1,5 +1,6 @@
 import { Field, Float, InputType, Int } from '@nestjs/graphql';
 import {
+  IsBoolean,
   IsInt,
   IsNumber,
   IsOptional,
@@ -72,7 +73,9 @@ export class UpdateSettingsInput {
   })
   @IsOptional()
   @IsString()
-  @Matches(TIME_PATTERN, { message: 'workDayStart должен быть в формате HH:MM' })
+  @Matches(TIME_PATTERN, {
+    message: 'workDayStart должен быть в формате HH:MM',
+  })
   workDayStart?: string;
 
   @Field(() => String, {
@@ -102,4 +105,22 @@ export class UpdateSettingsInput {
   @IsString()
   @Length(1, 64)
   timezone?: string;
+
+  @Field(() => Boolean, { nullable: true, description: 'Модуль «Заявки»' })
+  @IsOptional()
+  @IsBoolean()
+  moduleAppealsEnabled?: boolean;
+
+  @Field(() => Boolean, {
+    nullable: true,
+    description: 'Модуль «Контроль качества»',
+  })
+  @IsOptional()
+  @IsBoolean()
+  moduleQualityControlEnabled?: boolean;
+
+  @Field(() => Boolean, { nullable: true, description: 'Модуль «Сайт»' })
+  @IsOptional()
+  @IsBoolean()
+  moduleSiteEnabled?: boolean;
 }

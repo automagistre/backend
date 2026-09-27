@@ -3621,11 +3621,25 @@ input SetShiftDaysInput {
 
 """Настройки приложения (tenant-scoped в будущем)"""
 type SettingsModel {
+  """Есть активная привязка телефонии (UIS): модуль «Звонки» доступен"""
+  callsConfigured: Boolean!
+
   """Валюта по умолчанию (например для проводок, цен)"""
   defaultCurrencyCode: String!
 
   """Минимальная наценка (коэффициент, например 1.25 = 25%)"""
   minMarkupRatio: Float!
+
+  """Модуль «Заявки»: показывать в навигации"""
+  moduleAppealsEnabled: Boolean!
+
+  """
+  Модуль «Контроль качества»: создание задач при закрытии заказа и доска задач
+  """
+  moduleQualityControlEnabled: Boolean!
+
+  """Модуль «Сайт»: показывать в навигации"""
+  moduleSiteEnabled: Boolean!
 
   """
   Через сколько дней после закрытия заказа задача контроля качества попадает на доску
@@ -4676,6 +4690,15 @@ input UpdateSettingsInput {
 
   """Минимальная наценка (коэффициент, например 1.25)"""
   minMarkupRatio: Float
+
+  """Модуль «Заявки»"""
+  moduleAppealsEnabled: Boolean
+
+  """Модуль «Контроль качества»"""
+  moduleQualityControlEnabled: Boolean
+
+  """Модуль «Сайт»"""
+  moduleSiteEnabled: Boolean
 
   """Через сколько дней после закрытия заказа создавать QC-задачу"""
   qualityControlDelayDays: Int

@@ -10,6 +10,9 @@ export const SETTINGS_KEYS = {
   workDayEnd: 'workDayEnd',
   schedulerMaxStreams: 'schedulerMaxStreams',
   timezone: 'timezone',
+  moduleAppealsEnabled: 'moduleAppealsEnabled',
+  moduleQualityControlEnabled: 'moduleQualityControlEnabled',
+  moduleSiteEnabled: 'moduleSiteEnabled',
 } as const;
 
 export type SettingKey = (typeof SETTINGS_KEYS)[keyof typeof SETTINGS_KEYS];
@@ -26,6 +29,9 @@ export type SettingsValueByKey = {
   [SETTINGS_KEYS.workDayEnd]: string;
   [SETTINGS_KEYS.schedulerMaxStreams]: number;
   [SETTINGS_KEYS.timezone]: string;
+  [SETTINGS_KEYS.moduleAppealsEnabled]: boolean;
+  [SETTINGS_KEYS.moduleQualityControlEnabled]: boolean;
+  [SETTINGS_KEYS.moduleSiteEnabled]: boolean;
 };
 
 type SettingDefinition<K extends SettingKey> = {
@@ -58,6 +64,13 @@ const parseIntNumber = (raw: Prisma.JsonValue): number => {
     throw new Error('Expected integer setting value');
   }
   return parsed;
+};
+
+const parseBoolean = (raw: Prisma.JsonValue): boolean => {
+  if (typeof raw !== 'boolean') {
+    throw new Error('Expected boolean setting value');
+  }
+  return raw;
 };
 
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -145,6 +158,22 @@ export const SETTINGS_DEFINITIONS: {
     key: SETTINGS_KEYS.timezone,
     defaultValue: 'Europe/Moscow',
     parse: (raw) => parseString(raw),
+  },
+  /** Модули включены по умолчанию: у существующих тенантов ничего не пропадает. */
+  [SETTINGS_KEYS.moduleAppealsEnabled]: {
+    key: SETTINGS_KEYS.moduleAppealsEnabled,
+    defaultValue: true,
+    parse: parseBoolean,
+  },
+  [SETTINGS_KEYS.moduleQualityControlEnabled]: {
+    key: SETTINGS_KEYS.moduleQualityControlEnabled,
+    defaultValue: true,
+    parse: parseBoolean,
+  },
+  [SETTINGS_KEYS.moduleSiteEnabled]: {
+    key: SETTINGS_KEYS.moduleSiteEnabled,
+    defaultValue: true,
+    parse: parseBoolean,
   },
 };
 

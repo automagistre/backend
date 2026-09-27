@@ -72,7 +72,39 @@ export class SettingsService {
         SETTINGS_KEYS.timezone,
         settingsMap.get(SETTINGS_KEYS.timezone),
       ),
+      moduleAppealsEnabled: this.resolveSettingValue(
+        SETTINGS_KEYS.moduleAppealsEnabled,
+        settingsMap.get(SETTINGS_KEYS.moduleAppealsEnabled),
+      ),
+      moduleQualityControlEnabled: this.resolveSettingValue(
+        SETTINGS_KEYS.moduleQualityControlEnabled,
+        settingsMap.get(SETTINGS_KEYS.moduleQualityControlEnabled),
+      ),
+      moduleSiteEnabled: this.resolveSettingValue(
+        SETTINGS_KEYS.moduleSiteEnabled,
+        settingsMap.get(SETTINGS_KEYS.moduleSiteEnabled),
+      ),
     };
+  }
+
+  async isQualityControlEnabled(
+    tenantId: string,
+    tx?: Prisma.TransactionClient,
+  ): Promise<boolean> {
+    return this.getSettingValue(
+      tenantId,
+      SETTINGS_KEYS.moduleQualityControlEnabled,
+      tx,
+    );
+  }
+
+  /** Модуль «Звонки» доступен, если настроена хотя бы одна активная привязка телефонии. */
+  async hasActiveCallRouting(tenantId: string): Promise<boolean> {
+    const binding = await this.prisma.callRoutingBinding.findFirst({
+      where: { tenantId, isActive: true },
+      select: { id: true },
+    });
+    return binding !== null;
   }
 
   /** Валюта по умолчанию (проводки, цены). */
@@ -309,6 +341,16 @@ export class SettingsService {
     }
     if (input.timezone !== undefined) {
       patch[SETTINGS_KEYS.timezone] = input.timezone.trim();
+    }
+    if (input.moduleAppealsEnabled !== undefined) {
+      patch[SETTINGS_KEYS.moduleAppealsEnabled] = input.moduleAppealsEnabled;
+    }
+    if (input.moduleQualityControlEnabled !== undefined) {
+      patch[SETTINGS_KEYS.moduleQualityControlEnabled] =
+        input.moduleQualityControlEnabled;
+    }
+    if (input.moduleSiteEnabled !== undefined) {
+      patch[SETTINGS_KEYS.moduleSiteEnabled] = input.moduleSiteEnabled;
     }
 
     return patch;

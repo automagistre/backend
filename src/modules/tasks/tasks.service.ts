@@ -265,6 +265,12 @@ export class TasksService {
       return;
     }
 
+    if (
+      !(await this.settingsService.isQualityControlEnabled(ctx.tenantId, tx))
+    ) {
+      return;
+    }
+
     const existing = await tx.task.findFirst({
       where: {
         tenantId: ctx.tenantId,
@@ -328,6 +334,12 @@ export class TasksService {
     ctx: AuthContext,
     input?: BackfillQualityControlTasksInput,
   ): Promise<number> {
+    if (!(await this.settingsService.isQualityControlEnabled(ctx.tenantId))) {
+      throw new BadRequestException(
+        'Модуль «Контроль качества» отключён в настройках',
+      );
+    }
+
     const days = input?.days ?? BACKFILL_DEFAULT_DAYS;
     const limit = input?.limit ?? BACKFILL_DEFAULT_LIMIT;
     const since = this.addDays(new Date(), -days);
