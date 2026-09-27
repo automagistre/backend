@@ -13,7 +13,28 @@ export const SETTINGS_KEYS = {
   moduleAppealsEnabled: 'moduleAppealsEnabled',
   moduleQualityControlEnabled: 'moduleQualityControlEnabled',
   moduleSiteEnabled: 'moduleSiteEnabled',
+  brandLogoUrl: 'brandLogoUrl',
+  brandSite: 'brandSite',
+  brandEmail: 'brandEmail',
+  brandTelephones: 'brandTelephones',
+  brandServiceAddress: 'brandServiceAddress',
+  brandContractCity: 'brandContractCity',
+  brandGuarantyUrl: 'brandGuarantyUrl',
+  brandPrintFooterImageUrl: 'brandPrintFooterImageUrl',
 } as const;
+
+/** Торговая марка сервиса: пустое значение хранится отсутствием строки. */
+export const BRAND_TEXT_KEYS = [
+  SETTINGS_KEYS.brandLogoUrl,
+  SETTINGS_KEYS.brandSite,
+  SETTINGS_KEYS.brandEmail,
+  SETTINGS_KEYS.brandServiceAddress,
+  SETTINGS_KEYS.brandContractCity,
+  SETTINGS_KEYS.brandGuarantyUrl,
+  SETTINGS_KEYS.brandPrintFooterImageUrl,
+] as const;
+
+export type BrandTextKey = (typeof BRAND_TEXT_KEYS)[number];
 
 export type SettingKey = (typeof SETTINGS_KEYS)[keyof typeof SETTINGS_KEYS];
 
@@ -32,7 +53,8 @@ export type SettingsValueByKey = {
   [SETTINGS_KEYS.moduleAppealsEnabled]: boolean;
   [SETTINGS_KEYS.moduleQualityControlEnabled]: boolean;
   [SETTINGS_KEYS.moduleSiteEnabled]: boolean;
-};
+  [SETTINGS_KEYS.brandTelephones]: string[];
+} & Record<BrandTextKey, string | null>;
 
 type SettingDefinition<K extends SettingKey> = {
   key: K;
@@ -71,6 +93,20 @@ const parseBoolean = (raw: Prisma.JsonValue): boolean => {
     throw new Error('Expected boolean setting value');
   }
   return raw;
+};
+
+const parseOptionalString = (raw: Prisma.JsonValue): string | null => {
+  if (typeof raw !== 'string') {
+    throw new Error('Expected string setting value');
+  }
+  return raw.trim() || null;
+};
+
+const parseStringList = (raw: Prisma.JsonValue): string[] => {
+  if (!Array.isArray(raw) || raw.some((item) => typeof item !== 'string')) {
+    throw new Error('Expected list of strings');
+  }
+  return (raw as string[]).map((item) => item.trim()).filter(Boolean);
 };
 
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -175,7 +211,24 @@ export const SETTINGS_DEFINITIONS: {
     defaultValue: true,
     parse: parseBoolean,
   },
+  [SETTINGS_KEYS.brandTelephones]: {
+    key: SETTINGS_KEYS.brandTelephones,
+    defaultValue: [],
+    parse: parseStringList,
+  },
+  ...brandTextDefinitions(),
 };
+
+function brandTextDefinitions(): {
+  [K in BrandTextKey]: SettingDefinition<K>;
+} {
+  return Object.fromEntries(
+    BRAND_TEXT_KEYS.map((key) => [
+      key,
+      { key, defaultValue: null, parse: parseOptionalString },
+    ]),
+  ) as { [K in BrandTextKey]: SettingDefinition<K> };
+}
 
 export function isSettingKey(value: string): value is SettingKey {
   return (SETTING_KEYS_LIST as string[]).includes(value);

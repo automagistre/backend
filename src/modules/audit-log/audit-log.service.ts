@@ -74,10 +74,17 @@ export class AuditLogService {
     const def = getAuditEntityDef(params.entityType);
     if (!def) return;
 
-    const action = params.action ?? this.inferAction(params.before, params.after);
+    const action =
+      params.action ?? this.inferAction(params.before, params.after);
     const changes =
       params.changes ??
-      this.buildDiff(params.entityType, action, params.before, params.after, params.displays);
+      this.buildDiff(
+        params.entityType,
+        action,
+        params.before,
+        params.after,
+        params.displays,
+      );
 
     // Шум от пустых селективных апдейтов не пишем; явные бизнес-действия — пишем всегда.
     if (changes.length === 0 && DERIVED_ACTIONS.includes(action)) {
@@ -88,7 +95,8 @@ export class AuditLogService {
     await this.enrichRelationDisplays(params.entityType, changes);
 
     const scope = params.scope ?? def.scope;
-    const tenantId = scope === AuditScope.TENANT ? (actor.tenantId ?? null) : null;
+    const tenantId =
+      scope === AuditScope.TENANT ? (actor.tenantId ?? null) : null;
     const tenantGroupId =
       scope === AuditScope.GROUP ? (actor.tenantGroupId ?? null) : null;
 
@@ -106,7 +114,8 @@ export class AuditLogService {
         actorId: actor.userId ?? null,
         entityDisplayName: params.entityDisplayName ?? null,
         changes: changes as unknown as Prisma.InputJsonValue,
-        metadata: (params.metadata ?? undefined) as Prisma.InputJsonValue | undefined,
+        metadata: (params.metadata ?? undefined) as
+          Prisma.InputJsonValue | undefined,
       },
     });
   }
@@ -127,13 +136,18 @@ export class AuditLogService {
       scopeOr.push({ scope: AuditScope.TENANT, tenantId: actor.tenantId });
     }
     if (actor.tenantGroupId) {
-      scopeOr.push({ scope: AuditScope.GROUP, tenantGroupId: actor.tenantGroupId });
+      scopeOr.push({
+        scope: AuditScope.GROUP,
+        tenantGroupId: actor.tenantGroupId,
+      });
     }
 
     const where: Prisma.AuditLogEventWhereInput = {
       rootEntityType: args.rootEntityType,
       rootEntityId: args.rootEntityId,
-      ...(args.entityTypes?.length ? { entityType: { in: args.entityTypes } } : {}),
+      ...(args.entityTypes?.length
+        ? { entityType: { in: args.entityTypes } }
+        : {}),
       ...(scopeOr.length ? { OR: scopeOr } : {}),
     };
 
@@ -167,11 +181,16 @@ export class AuditLogService {
       scopeOr.push({ scope: AuditScope.TENANT, tenantId: actor.tenantId });
     }
     if (actor.tenantGroupId) {
-      scopeOr.push({ scope: AuditScope.GROUP, tenantGroupId: actor.tenantGroupId });
+      scopeOr.push({
+        scope: AuditScope.GROUP,
+        tenantGroupId: actor.tenantGroupId,
+      });
     }
 
     const where: Prisma.AuditLogEventWhereInput = {
-      ...(args.entityTypes?.length ? { entityType: { in: args.entityTypes } } : {}),
+      ...(args.entityTypes?.length
+        ? { entityType: { in: args.entityTypes } }
+        : {}),
       ...(args.actorId ? { actorId: args.actorId } : {}),
       ...(scopeOr.length ? { OR: scopeOr } : {}),
     };
@@ -218,9 +237,7 @@ export class AuditLogService {
     ]);
   }
 
-  private async enrichOrderContext(
-    items: AuditLogEventModel[],
-  ): Promise<void> {
+  private async enrichOrderContext(items: AuditLogEventModel[]): Promise<void> {
     const orderItems = items.filter((i) =>
       AuditLogService.ORDER_CONTEXT_TYPES.includes(i.entityType),
     );
@@ -318,11 +335,23 @@ export class AuditLogService {
       const kind = def?.fields[change.field]?.kind;
       if (!kind || kind.kind !== 'relation') continue;
 
-      if (change.oldDisplay === undefined && typeof change.oldValue === 'string') {
-        change.oldDisplay = await this.resolveRelationName(kind.ref, change.oldValue);
+      if (
+        change.oldDisplay === undefined &&
+        typeof change.oldValue === 'string'
+      ) {
+        change.oldDisplay = await this.resolveRelationName(
+          kind.ref,
+          change.oldValue,
+        );
       }
-      if (change.newDisplay === undefined && typeof change.newValue === 'string') {
-        change.newDisplay = await this.resolveRelationName(kind.ref, change.newValue);
+      if (
+        change.newDisplay === undefined &&
+        typeof change.newValue === 'string'
+      ) {
+        change.newDisplay = await this.resolveRelationName(
+          kind.ref,
+          change.newValue,
+        );
       }
     }
   }
@@ -417,7 +446,9 @@ export class AuditLogService {
       case 'relation':
       case 'scalar':
       default:
-        return typeof value === 'bigint' ? String(value) : (value as AuditValue);
+        return typeof value === 'bigint'
+          ? String(value)
+          : (value as AuditValue);
     }
   }
 
@@ -433,7 +464,10 @@ export class AuditLogService {
     return raw.map((change) => {
       const fieldDef = def?.fields[change.field];
       const kind: AuditFieldKind = fieldDef?.kind ?? { kind: 'scalar' };
-      const [presentKind, oldValue, newValue] = this.presentChange(kind, change);
+      const [presentKind, oldValue, newValue] = this.presentChange(
+        kind,
+        change,
+      );
       return {
         field: change.field,
         label: fieldDef?.label ?? change.field,

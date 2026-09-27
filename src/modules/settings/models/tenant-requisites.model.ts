@@ -1,62 +1,86 @@
-import { Field, ObjectType } from '@nestjs/graphql';
+import { Field, ID, ObjectType } from '@nestjs/graphql';
 
-/** Реквизиты tenant для печати (заказ-наряд, счёт и т.п.) */
-@ObjectType({ description: 'Реквизиты организации для печати документов' })
+/**
+ * Данные для печатных форм: юр. лицо из привязанной организации плюс торговая марка из настроек.
+ * Собирается на лету, в базе отдельно не хранится.
+ */
+@ObjectType({ description: 'Реквизиты для печатных форм' })
 export class TenantRequisitesModel {
-  @Field(() => String, { description: 'Тип: OOO или IP' })
+  @Field(() => ID, { description: 'Организация, чьи реквизиты печатаются' })
+  organizationId: string;
+
+  @Field(() => String, { description: 'Тип по длине ИНН: OOO или IP' })
   type: string;
 
   @Field(() => String, { description: 'Название организации' })
   name: string;
 
-  @Field(() => String, { description: 'Юридический адрес' })
-  address: string;
+  @Field(() => String, { nullable: true, description: 'Юридический адрес' })
+  address: string | null;
 
   @Field(() => String, {
     nullable: true,
-    description: 'Фактический адрес (место оказания услуг / хранения)',
+    description: 'Адрес сервиса (место оказания услуг / хранения)',
   })
-  actualAddress?: string | null;
+  actualAddress: string | null;
+
+  @Field(() => String, {
+    nullable: true,
+    description: 'Город в шапке договоров',
+  })
+  city: string | null;
 
   @Field(() => String, { nullable: true, description: 'Сайт' })
-  site?: string | null;
+  site: string | null;
 
   @Field(() => String, { nullable: true, description: 'Email' })
-  email?: string | null;
+  email: string | null;
 
-  @Field(() => String, { description: 'Имя файла логотипа (в /img)' })
-  logo: string;
+  @Field(() => String, { nullable: true, description: 'URL логотипа' })
+  logoUrl: string | null;
 
   @Field(() => [String], { description: 'Телефоны' })
   telephones: string[];
 
-  @Field(() => String, { description: 'Банк' })
-  bank: string;
+  @Field(() => String, { nullable: true, description: 'Банк' })
+  bank: string | null;
 
-  @Field(() => String, { nullable: true, description: 'ОГРН' })
-  ogrn?: string | null;
+  @Field(() => String, { nullable: true, description: 'ОГРН / ОГРНИП' })
+  ogrn: string | null;
 
-  @Field(() => String, { description: 'ИНН' })
-  inn: string;
+  @Field(() => String, { nullable: true, description: 'ИНН' })
+  inn: string | null;
 
   @Field(() => String, { nullable: true, description: 'КПП' })
-  kpp?: string | null;
+  kpp: string | null;
 
-  @Field(() => String, { description: 'Расчётный счёт' })
-  rs: string;
+  @Field(() => String, { nullable: true, description: 'Расчётный счёт' })
+  rs: string | null;
 
-  @Field(() => String, { description: 'Корр. счёт' })
-  ks: string;
+  @Field(() => String, { nullable: true, description: 'Корр. счёт' })
+  ks: string | null;
 
-  @Field(() => String, { description: 'БИК' })
-  bik: string;
+  @Field(() => String, { nullable: true, description: 'БИК' })
+  bik: string | null;
 
-  @Field(() => String, { description: 'URL страницы гарантии (QR)' })
-  guarantyUrl: string;
+  @Field(() => String, {
+    nullable: true,
+    description: 'URL страницы гарантии (QR)',
+  })
+  guarantyUrl: string | null;
 
-  @Field(() => String, { description: 'ФИО руководителя' })
-  head: string;
+  @Field(() => String, {
+    nullable: true,
+    description: 'URL картинки в подвале печатных форм',
+  })
+  printFooterImageUrl: string | null;
 
-  @Field(() => String, { description: 'Должность руководителя' })
-  headType: string;
+  @Field(() => String, { nullable: true, description: 'ФИО руководителя' })
+  head: string | null;
+
+  @Field(() => String, {
+    nullable: true,
+    description: 'Должность руководителя',
+  })
+  headType: string | null;
 }

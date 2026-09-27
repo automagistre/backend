@@ -30,6 +30,15 @@ export class RequisiteModel {
 
   @Field(() => String, { nullable: true, description: 'БИК' })
   bik?: string | null;
+
+  @Field(() => String, { nullable: true, description: 'ФИО руководителя' })
+  head?: string | null;
+
+  @Field(() => String, {
+    nullable: true,
+    description: 'Должность руководителя',
+  })
+  headPosition?: string | null;
 }
 
 @ObjectType({ description: 'Организация' })
@@ -85,4 +94,6 @@ export class OrganizationModel implements Organization {
   requisiteRs: string | null;
   requisiteKs: string | null;
   requisiteBik: string | null;
+  requisiteHead: string | null;
+  requisiteHeadPosition: string | null;
 }

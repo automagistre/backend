@@ -68,10 +68,19 @@ export const AUDIT_REGISTRY: Record<AuditEntityType, AuditEntityDef> = {
   [AuditEntityType.ORDER]: {
     scope: AuditScope.TENANT,
     fields: {
-      status: { label: 'Статус', kind: { kind: 'status', labels: OrderStatusLabel } },
+      status: {
+        label: 'Статус',
+        kind: { kind: 'status', labels: OrderStatusLabel },
+      },
       carId: { label: 'Автомобиль', kind: { kind: 'relation', ref: 'car' } },
-      customerId: { label: 'Заказчик', kind: { kind: 'relation', ref: 'operand' } },
-      assigneeId: { label: 'Ответственный', kind: { kind: 'relation', ref: 'operand' } },
+      customerId: {
+        label: 'Заказчик',
+        kind: { kind: 'relation', ref: 'operand' },
+      },
+      assigneeId: {
+        label: 'Ответственный',
+        kind: { kind: 'relation', ref: 'operand' },
+      },
       mileage: { label: 'Пробег', kind: { kind: 'scalar' } },
       description: { label: 'Описание', kind: { kind: 'scalar' } },
     },
@@ -88,9 +97,15 @@ export const AUDIT_REGISTRY: Record<AuditEntityType, AuditEntityDef> = {
     fields: {
       service: { label: 'Работа', kind: { kind: 'scalar' } },
       kind: { label: 'Вид работы', kind: { kind: 'scalar' } },
-      executorId: { label: 'Исполнитель', kind: { kind: 'relation', ref: 'operand' } },
+      executorId: {
+        label: 'Исполнитель',
+        kind: { kind: 'relation', ref: 'operand' },
+      },
       warranty: { label: 'Гарантия', kind: { kind: 'bool' } },
-      warrantyPayerKind: { label: 'Тип плательщика гарантии', kind: { kind: 'scalar' } },
+      warrantyPayerKind: {
+        label: 'Тип плательщика гарантии',
+        kind: { kind: 'scalar' },
+      },
       warrantyPayerPersonId: {
         label: 'Плательщик гарантии',
         kind: { kind: 'relation', ref: 'operand' },
@@ -98,7 +113,10 @@ export const AUDIT_REGISTRY: Record<AuditEntityType, AuditEntityDef> = {
       priceAmount: { label: 'Цена', kind: money('priceCurrencyCode') },
       discountAmount: { label: 'Скидка', kind: money('discountCurrencyCode') },
       costAmount: { label: 'Себестоимость', kind: money('costCurrencyCode') },
-      costWalletId: { label: 'Счёт оплаты', kind: { kind: 'relation', ref: 'wallet' } },
+      costWalletId: {
+        label: 'Счёт оплаты',
+        kind: { kind: 'relation', ref: 'wallet' },
+      },
       amount: { label: 'Сумма удержания', kind: money() },
     },
   },
@@ -106,10 +124,16 @@ export const AUDIT_REGISTRY: Record<AuditEntityType, AuditEntityDef> = {
     scope: AuditScope.TENANT,
     fields: {
       partId: { label: 'Запчасть', kind: { kind: 'relation', ref: 'part' } },
-      supplierId: { label: 'Поставщик', kind: { kind: 'relation', ref: 'organization' } },
+      supplierId: {
+        label: 'Поставщик',
+        kind: { kind: 'relation', ref: 'organization' },
+      },
       quantity: { label: 'Количество', kind: { kind: 'quantityX100' } },
       warranty: { label: 'Гарантия', kind: { kind: 'bool' } },
-      warrantyPayerKind: { label: 'Тип плательщика гарантии', kind: { kind: 'scalar' } },
+      warrantyPayerKind: {
+        label: 'Тип плательщика гарантии',
+        kind: { kind: 'scalar' },
+      },
       warrantyPayerPersonId: {
         label: 'Плательщик гарантии',
         kind: { kind: 'relation', ref: 'operand' },
@@ -140,14 +164,20 @@ export const AUDIT_REGISTRY: Record<AuditEntityType, AuditEntityDef> = {
   [AuditEntityType.CAR]: {
     scope: AuditScope.GROUP,
     fields: {
-      vehicleId: { label: 'Модель', kind: { kind: 'relation', ref: 'vehicle' } },
+      vehicleId: {
+        label: 'Модель',
+        kind: { kind: 'relation', ref: 'vehicle' },
+      },
       identifier: { label: 'VIN', kind: { kind: 'scalar' } },
       gosnomer: { label: 'Госномер', kind: { kind: 'scalar' } },
       year: { label: 'Год', kind: { kind: 'scalar' } },
       mileage: { label: 'Пробег', kind: { kind: 'scalar' } },
       description: { label: 'Примечание', kind: { kind: 'scalar' } },
       equipmentEngineName: { label: 'Двигатель', kind: { kind: 'scalar' } },
-      equipmentEngineCapacity: { label: 'Объём двигателя', kind: { kind: 'scalar' } },
+      equipmentEngineCapacity: {
+        label: 'Объём двигателя',
+        kind: { kind: 'scalar' },
+      },
       equipmentTransmission: {
         label: 'КПП',
         kind: { kind: 'status', labels: CarTransmissionLabel },
@@ -167,9 +197,18 @@ export const AUDIT_REGISTRY: Record<AuditEntityType, AuditEntityDef> = {
     fields: {
       service: { label: 'Работа', kind: { kind: 'scalar' } },
       kind: { label: 'Вид работы', kind: { kind: 'scalar' } },
-      executorId: { label: 'Диагност', kind: { kind: 'relation', ref: 'operand' } },
-      externalDiagnostic: { label: 'Сторонняя диагностика', kind: { kind: 'bool' } },
-      contractorId: { label: 'Подрядчик', kind: { kind: 'relation', ref: 'operand' } },
+      executorId: {
+        label: 'Диагност',
+        kind: { kind: 'relation', ref: 'operand' },
+      },
+      externalDiagnostic: {
+        label: 'Сторонняя диагностика',
+        kind: { kind: 'bool' },
+      },
+      contractorId: {
+        label: 'Подрядчик',
+        kind: { kind: 'relation', ref: 'operand' },
+      },
       priceAmount: { label: 'Цена', kind: money('priceCurrencyCode') },
       expiredAt: { label: 'Действует до', kind: { kind: 'date' } },
     },
@@ -209,6 +248,11 @@ export const AUDIT_REGISTRY: Record<AuditEntityType, AuditEntityDef> = {
       requisiteOgrn: { label: 'ОГРН', kind: { kind: 'scalar' } },
       requisiteInn: { label: 'ИНН', kind: { kind: 'scalar' } },
       requisiteKpp: { label: 'КПП', kind: { kind: 'scalar' } },
+      requisiteHead: { label: 'Руководитель', kind: { kind: 'scalar' } },
+      requisiteHeadPosition: {
+        label: 'Должность руководителя',
+        kind: { kind: 'scalar' },
+      },
       requisiteRs: { label: 'Р/с', kind: { kind: 'scalar' } },
       requisiteKs: { label: 'К/с', kind: { kind: 'scalar' } },
       requisiteBik: { label: 'БИК', kind: { kind: 'scalar' } },
@@ -224,7 +268,10 @@ export const AUDIT_REGISTRY: Record<AuditEntityType, AuditEntityDef> = {
         kind: { kind: 'relation', ref: 'manufacturer' },
       },
       universal: { label: 'Универсальная', kind: { kind: 'bool' } },
-      unit: { label: 'Ед. измерения', kind: { kind: 'status', labels: UnitLabel } },
+      unit: {
+        label: 'Ед. измерения',
+        kind: { kind: 'status', labels: UnitLabel },
+      },
     },
   },
   [AuditEntityType.PART_PRICE]: {
@@ -246,7 +293,10 @@ export const AUDIT_REGISTRY: Record<AuditEntityType, AuditEntityDef> = {
         label: 'Неснижаемый остаток',
         kind: { kind: 'quantityX100' },
       },
-      orderUpToQuantity: { label: 'Заказывать до', kind: { kind: 'quantityX100' } },
+      orderUpToQuantity: {
+        label: 'Заказывать до',
+        kind: { kind: 'quantityX100' },
+      },
     },
   },
   // NOTE — сквозная сущность: root и scope наследуются от субъекта
@@ -264,10 +314,27 @@ export const AUDIT_REGISTRY: Record<AuditEntityType, AuditEntityDef> = {
     fields: {
       date: { label: 'Дата и время', kind: { kind: 'datetime' } },
       duration: { label: 'Длительность', kind: { kind: 'duration' } },
-      assigneeId: { label: 'Сотрудник', kind: { kind: 'relation', ref: 'operand' } },
-      customerId: { label: 'Клиент', kind: { kind: 'relation', ref: 'operand' } },
+      assigneeId: {
+        label: 'Сотрудник',
+        kind: { kind: 'relation', ref: 'operand' },
+      },
+      customerId: {
+        label: 'Клиент',
+        kind: { kind: 'relation', ref: 'operand' },
+      },
       carId: { label: 'Автомобиль', kind: { kind: 'relation', ref: 'car' } },
       description: { label: 'Комментарий', kind: { kind: 'scalar' } },
+    },
+  },
+  [AuditEntityType.TENANT]: {
+    scope: AuditScope.TENANT,
+    fields: {
+      tenantName: { label: 'Название сервиса', kind: { kind: 'scalar' } },
+      organizations: { label: 'Организации', kind: { kind: 'scalar' } },
+      defaultOrganizationId: {
+        label: 'Основная организация',
+        kind: { kind: 'relation', ref: 'organization' },
+      },
     },
   },
 };

@@ -178,6 +178,7 @@ enum AuditEntityType {
   PERSON
   RESERVATION
   SALARY
+  TENANT
   WALLET_TRANSACTION
 }
 
@@ -2398,7 +2399,7 @@ type Mutation {
   """Обновить отзыв"""
   updateReview(input: UpdateReviewInput!): ReviewModel!
 
-  """Обновить настройки приложения"""
+  """Обновить настройки сервиса: ключи, название и юр. лица одним патчем"""
   updateSettings(input: UpdateSettingsInput!): SettingsModel!
 
   """Обновить должность"""
@@ -3501,6 +3502,12 @@ input RequisiteInput {
   """БИК"""
   bik: String
 
+  """ФИО руководителя"""
+  head: String
+
+  """Должность руководителя"""
+  headPosition: String
+
   """ИНН"""
   inn: String
 
@@ -3527,6 +3534,12 @@ type RequisiteModel {
 
   """БИК"""
   bik: String
+
+  """ФИО руководителя"""
+  head: String
+
+  """Должность руководителя"""
+  headPosition: String
 
   """ИНН"""
   inn: String
@@ -3621,6 +3634,30 @@ input SetShiftDaysInput {
 
 """Настройки приложения (tenant-scoped в будущем)"""
 type SettingsModel {
+  """Город в шапке договоров, например «г. Москва»"""
+  brandContractCity: String
+
+  """Email для клиентов"""
+  brandEmail: String
+
+  """Страница гарантийных условий (URL, печатается QR-кодом)"""
+  brandGuarantyUrl: String
+
+  """Логотип (URL)"""
+  brandLogoUrl: String
+
+  """Картинка подвала печатных форм (URL)"""
+  brandPrintFooterImageUrl: String
+
+  """Адрес сервиса (место оказания услуг и хранения)"""
+  brandServiceAddress: String
+
+  """Сайт"""
+  brandSite: String
+
+  """Телефоны для клиентов"""
+  brandTelephones: [String!]!
+
   """Есть активная привязка телефонии (UIS): модуль «Звонки» доступен"""
   callsConfigured: Boolean!
 
@@ -3659,8 +3696,14 @@ type SettingsModel {
   """
   supplyExpiryDays: Int!
 
-  """Реквизиты Автосервиса"""
-  tenantRequisites: TenantRequisitesModel
+  """Название сервиса (тенанта)"""
+  tenantName: String!
+
+  """Юр. лица сервиса, основное первым"""
+  tenantOrganizations: [TenantOrganizationModel!]!
+
+  """Реквизиты для печати: указанная организация сервиса или основная"""
+  tenantRequisites(organizationId: ID): TenantRequisitesModel
 
   """Часовой пояс тенанта (например Europe/Moscow)"""
   timezone: String!
@@ -4122,52 +4165,75 @@ type TemplatesModel {
   maintenance: [MaintenanceTemplateModel!]!
 }
 
-"""Реквизиты организации для печати документов"""
+"""Привязка юр. лица к сервису"""
+input TenantOrganizationInput {
+  """Основная: печатается по умолчанию"""
+  isDefault: Boolean
+  organizationId: ID!
+}
+
+"""Юр. лицо, привязанное к сервису"""
+type TenantOrganizationModel {
+  """Печатается по умолчанию"""
+  isDefault: Boolean!
+  organization: OrganizationModel!
+}
+
+"""Реквизиты для печатных форм"""
 type TenantRequisitesModel {
-  """Фактический адрес (место оказания услуг / хранения)"""
+  """Адрес сервиса (место оказания услуг / хранения)"""
   actualAddress: String
 
   """Юридический адрес"""
-  address: String!
+  address: String
 
   """Банк"""
-  bank: String!
+  bank: String
 
   """БИК"""
-  bik: String!
+  bik: String
+
+  """Город в шапке договоров"""
+  city: String
 
   """Email"""
   email: String
 
   """URL страницы гарантии (QR)"""
-  guarantyUrl: String!
+  guarantyUrl: String
 
   """ФИО руководителя"""
-  head: String!
+  head: String
 
   """Должность руководителя"""
-  headType: String!
+  headType: String
 
   """ИНН"""
-  inn: String!
+  inn: String
 
   """КПП"""
   kpp: String
 
   """Корр. счёт"""
-  ks: String!
+  ks: String
 
-  """Имя файла логотипа (в /img)"""
-  logo: String!
+  """URL логотипа"""
+  logoUrl: String
 
   """Название организации"""
   name: String!
 
-  """ОГРН"""
+  """ОГРН / ОГРНИП"""
   ogrn: String
 
+  """Организация, чьи реквизиты печатаются"""
+  organizationId: ID!
+
+  """URL картинки в подвале печатных форм"""
+  printFooterImageUrl: String
+
   """Расчётный счёт"""
-  rs: String!
+  rs: String
 
   """Сайт"""
   site: String
@@ -4175,7 +4241,7 @@ type TenantRequisitesModel {
   """Телефоны"""
   telephones: [String!]!
 
-  """Тип: OOO или IP"""
+  """Тип по длине ИНН: OOO или IP"""
   type: String!
 }
 
@@ -4685,6 +4751,30 @@ input UpdateReviewInput {
 }
 
 input UpdateSettingsInput {
+  """Город в шапке договоров"""
+  brandContractCity: String
+
+  """Email для клиентов"""
+  brandEmail: String
+
+  """Страница гарантийных условий (URL)"""
+  brandGuarantyUrl: String
+
+  """Логотип (URL)"""
+  brandLogoUrl: String
+
+  """Картинка подвала печатных форм (URL)"""
+  brandPrintFooterImageUrl: String
+
+  """Адрес сервиса"""
+  brandServiceAddress: String
+
+  """Сайт"""
+  brandSite: String
+
+  """Телефоны для клиентов"""
+  brandTelephones: [String!]
+
   """Валюта по умолчанию (например RUB)"""
   defaultCurrencyCode: String
 
@@ -4711,6 +4801,12 @@ input UpdateSettingsInput {
 
   """Порог задержки поставки в днях"""
   supplyExpiryDays: Int
+
+  """Название сервиса. Identifier не меняется: его читает legacy CRM"""
+  tenantName: String
+
+  """Юр. лица сервиса целиком: список заменяет текущие привязки"""
+  tenantOrganizations: [TenantOrganizationInput!]
 
   """Часовой пояс тенанта (например Europe/Moscow)"""
   timezone: String

@@ -1,10 +1,18 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import type { Prisma } from 'src/generated/prisma/client';
-import { TenantRequisitesModel } from './models/tenant-requisites.model';
+import type { AuthContext } from 'src/common/user-id.store';
+import { AuditLogService } from 'src/modules/audit-log/audit-log.service';
+import { AuditEntityType } from 'src/modules/audit-log/enums/audit.enums';
 import { SettingsModel } from './settings.model';
 import { UpdateSettingsInput } from './inputs/update-settings.input';
+import { TenantOrganizationService } from './tenant-organization.service';
 import {
+  BRAND_TEXT_KEYS,
   SETTINGS_DEFINITIONS,
   SETTINGS_KEYS,
   SETTING_KEYS_LIST,
@@ -14,76 +22,35 @@ import {
   isSettingKey,
   timeToMinutes,
 } from './settings.definitions';
-import { TENANT_REQUISITES_BY_IDENTIFIER } from './tenant-requisites.data';
+
+const TENANT_NAME_MAX_LENGTH = 255;
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/** null в патче — значение очищено, строка настройки удаляется и работает умолчание. */
+type SettingsPatch = Partial<Record<SettingKey, Prisma.InputJsonValue | null>>;
 
 @Injectable()
 export class SettingsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auditLog: AuditLogService,
+    private readonly tenantOrganizations: TenantOrganizationService,
+  ) {}
 
   /**
    * Возвращает полный объект настроек. Единая точка для GraphQL и внутреннего использования.
    */
   async getSettings(tenantId: string): Promise<SettingsModel> {
     const settingsMap = await this.getSettingsMap(tenantId);
+    const values = Object.fromEntries(
+      SETTING_KEYS_LIST.map((key) => [
+        key,
+        this.resolveSettingValue(key, settingsMap.get(key)),
+      ]),
+    ) as SettingsValueByKey;
     return {
-      defaultCurrencyCode: this.resolveSettingValue(
-        SETTINGS_KEYS.defaultCurrencyCode,
-        settingsMap.get(SETTINGS_KEYS.defaultCurrencyCode),
-      ),
-      minMarkupRatio: this.resolveSettingValue(
-        SETTINGS_KEYS.minMarkupRatio,
-        settingsMap.get(SETTINGS_KEYS.minMarkupRatio),
-      ),
-      supplyExpiryDays: this.resolveSettingValue(
-        SETTINGS_KEYS.supplyExpiryDays,
-        settingsMap.get(SETTINGS_KEYS.supplyExpiryDays),
-      ),
-      qualityControlDelayDays: this.resolveSettingValue(
-        SETTINGS_KEYS.qualityControlDelayDays,
-        settingsMap.get(SETTINGS_KEYS.qualityControlDelayDays),
-      ),
-      qualityControlStartHour: this.resolveSettingValue(
-        SETTINGS_KEYS.qualityControlStartHour,
-        settingsMap.get(SETTINGS_KEYS.qualityControlStartHour),
-      ),
-      workDayStart: this.resolveSettingValue(
-        SETTINGS_KEYS.workDayStart,
-        settingsMap.get(SETTINGS_KEYS.workDayStart),
-      ),
-      workDayEnd: this.resolveSettingValue(
-        SETTINGS_KEYS.workDayEnd,
-        settingsMap.get(SETTINGS_KEYS.workDayEnd),
-      ),
-      workDayHours: computeWorkDayHours(
-        this.resolveSettingValue(
-          SETTINGS_KEYS.workDayStart,
-          settingsMap.get(SETTINGS_KEYS.workDayStart),
-        ),
-        this.resolveSettingValue(
-          SETTINGS_KEYS.workDayEnd,
-          settingsMap.get(SETTINGS_KEYS.workDayEnd),
-        ),
-      ),
-      schedulerMaxStreams: this.resolveSettingValue(
-        SETTINGS_KEYS.schedulerMaxStreams,
-        settingsMap.get(SETTINGS_KEYS.schedulerMaxStreams),
-      ),
-      timezone: this.resolveSettingValue(
-        SETTINGS_KEYS.timezone,
-        settingsMap.get(SETTINGS_KEYS.timezone),
-      ),
-      moduleAppealsEnabled: this.resolveSettingValue(
-        SETTINGS_KEYS.moduleAppealsEnabled,
-        settingsMap.get(SETTINGS_KEYS.moduleAppealsEnabled),
-      ),
-      moduleQualityControlEnabled: this.resolveSettingValue(
-        SETTINGS_KEYS.moduleQualityControlEnabled,
-        settingsMap.get(SETTINGS_KEYS.moduleQualityControlEnabled),
-      ),
-      moduleSiteEnabled: this.resolveSettingValue(
-        SETTINGS_KEYS.moduleSiteEnabled,
-        settingsMap.get(SETTINGS_KEYS.moduleSiteEnabled),
-      ),
+      ...values,
+      workDayHours: computeWorkDayHours(values.workDayStart, values.workDayEnd),
     };
   }
 
@@ -190,58 +157,102 @@ export class SettingsService {
     return this.getSettingValue(tenantId, SETTINGS_KEYS.timezone, tx);
   }
 
+  /**
+   * Единственная точка изменения настроек сервиса: ключи настроек, название
+   * и юр. лица сохраняются одной транзакцией.
+   */
   async updateSettings(
-    tenantId: string,
-    userId: string,
+    ctx: AuthContext,
     input: UpdateSettingsInput,
   ): Promise<SettingsModel> {
-    const normalizedPatch = this.normalizePatch(input);
-    const entries = Object.entries(normalizedPatch) as Array<
-      [SettingKey, Prisma.InputJsonValue]
+    const { tenantName, tenantOrganizations, ...settingsInput } = input;
+    const entries = Object.entries(this.normalizePatch(settingsInput)) as Array<
+      [SettingKey, Prisma.InputJsonValue | null]
     >;
+    const name =
+      tenantName === undefined
+        ? undefined
+        : this.normalizeTenantName(tenantName);
 
-    if (entries.length === 0) {
+    if (
+      entries.length === 0 &&
+      name === undefined &&
+      tenantOrganizations === undefined
+    ) {
       throw new BadRequestException('Не переданы значения для обновления');
     }
 
     await this.prisma.$transaction(async (tx) => {
       for (const [key, value] of entries) {
+        if (value === null) {
+          await tx.setting.deleteMany({
+            where: { tenantId: ctx.tenantId, key },
+          });
+          continue;
+        }
         await tx.setting.upsert({
-          where: {
-            tenantId_key: { tenantId, key },
-          },
-          create: {
-            tenantId,
-            key,
-            value,
-            createdBy: userId,
-          },
-          update: {
-            value,
-          },
+          where: { tenantId_key: { tenantId: ctx.tenantId, key } },
+          create: { tenantId: ctx.tenantId, key, value, createdBy: ctx.userId },
+          update: { value },
         });
       }
+
+      if (name === undefined && tenantOrganizations === undefined) return;
+
+      const before = await this.tenantSnapshot(tx, ctx.tenantId);
+      if (name !== undefined && name !== before.tenantName) {
+        await tx.tenant.updateMany({
+          where: { id: ctx.tenantId },
+          data: { name, updated_at: new Date() },
+        });
+      }
+      if (tenantOrganizations !== undefined) {
+        await this.tenantOrganizations.replace(tx, ctx, tenantOrganizations);
+      }
+      const after = await this.tenantSnapshot(tx, ctx.tenantId);
+      await this.auditLog.record(tx, ctx, {
+        rootEntityType: AuditEntityType.TENANT,
+        rootEntityId: ctx.tenantId,
+        entityType: AuditEntityType.TENANT,
+        entityId: ctx.tenantId,
+        before: { ...before },
+        after: { ...after },
+        entityDisplayName: after.tenantName,
+      });
     });
 
-    return this.getSettings(tenantId);
+    return this.getSettings(ctx.tenantId);
   }
 
-  /**
-   * Реквизиты tenant по ID. Ищет tenant в БД по identifier, маппит на хардкод из CRM.
-   * Для demo — возвращает msk. TODO: маппинг tenantId → identifier по UUID при необходимости.
-   */
-  async getTenantRequisites(
-    tenantId: string,
-  ): Promise<TenantRequisitesModel | null> {
+  async getTenantName(tenantId: string): Promise<string> {
     const tenant = await this.prisma.tenant.findFirst({
       where: { id: tenantId },
-      select: { identifier: true },
+      select: { name: true },
     });
-    const identifier = tenant?.identifier ?? 'demo';
-    const req =
-      TENANT_REQUISITES_BY_IDENTIFIER[identifier] ??
-      TENANT_REQUISITES_BY_IDENTIFIER.demo;
-    return req as TenantRequisitesModel;
+    if (!tenant) throw new NotFoundException('Тенант не найден');
+    return tenant.name;
+  }
+
+  private normalizeTenantName(rawName: string): string {
+    const name = rawName.trim();
+    if (name === '' || name.length > TENANT_NAME_MAX_LENGTH) {
+      throw new BadRequestException(
+        `Название: от 1 до ${TENANT_NAME_MAX_LENGTH} символов`,
+      );
+    }
+    return name;
+  }
+
+  private async tenantSnapshot(tx: Prisma.TransactionClient, tenantId: string) {
+    const tenant = await tx.tenant.findFirst({
+      where: { id: tenantId },
+      select: { name: true },
+    });
+    if (!tenant) throw new NotFoundException('Тенант не найден');
+    return {
+      tenantName: tenant.name,
+      ...(await this.tenantOrganizations.snapshot(tx, tenantId)),
+    };
   }
 
   private async getSettingsMap(
@@ -307,9 +318,9 @@ export class SettingsService {
   }
 
   private normalizePatch(
-    input: UpdateSettingsInput,
-  ): Partial<Record<SettingKey, Prisma.InputJsonValue>> {
-    const patch: Partial<Record<SettingKey, Prisma.InputJsonValue>> = {};
+    input: Omit<UpdateSettingsInput, 'tenantName' | 'tenantOrganizations'>,
+  ): SettingsPatch {
+    const patch: SettingsPatch = {};
 
     if (input.defaultCurrencyCode !== undefined) {
       patch[SETTINGS_KEYS.defaultCurrencyCode] = input.defaultCurrencyCode
@@ -351,6 +362,20 @@ export class SettingsService {
     }
     if (input.moduleSiteEnabled !== undefined) {
       patch[SETTINGS_KEYS.moduleSiteEnabled] = input.moduleSiteEnabled;
+    }
+    for (const key of BRAND_TEXT_KEYS) {
+      const value = input[key];
+      if (value !== undefined) patch[key] = value?.trim() || null;
+    }
+    const email = patch[SETTINGS_KEYS.brandEmail];
+    if (typeof email === 'string' && !EMAIL_PATTERN.test(email)) {
+      throw new BadRequestException('Неверный email');
+    }
+    if (input.brandTelephones !== undefined) {
+      const phones = (input.brandTelephones ?? [])
+        .map((phone) => phone.trim())
+        .filter(Boolean);
+      patch[SETTINGS_KEYS.brandTelephones] = phones.length > 0 ? phones : null;
     }
 
     return patch;

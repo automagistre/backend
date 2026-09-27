@@ -27,6 +27,7 @@ export enum AuditEntityType {
   PART_DISCOUNT = 'PART_DISCOUNT',
   PART_REQUIRED_AVAILABILITY = 'PART_REQUIRED_AVAILABILITY',
   NOTE = 'NOTE',
+  TENANT = 'TENANT',
 }
 
 /** Вид значения изменения — определяет форматирование на фронте. */

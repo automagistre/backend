@@ -144,7 +144,9 @@ export class OrganizationResolver {
       organization.requisiteKpp ||
       organization.requisiteRs ||
       organization.requisiteKs ||
-      organization.requisiteBik;
+      organization.requisiteBik ||
+      organization.requisiteHead ||
+      organization.requisiteHeadPosition;
 
     if (!hasRequisite) {
       return null;
@@ -159,6 +161,8 @@ export class OrganizationResolver {
       rs: organization.requisiteRs,
       ks: organization.requisiteKs,
       bik: organization.requisiteBik,
+      head: organization.requisiteHead,
+      headPosition: organization.requisiteHeadPosition,
     };
   }
 }

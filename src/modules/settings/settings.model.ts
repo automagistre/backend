@@ -73,15 +73,50 @@ export class SettingsModel {
   })
   moduleSiteEnabled: boolean;
 
+  @Field(() => String, { nullable: true, description: 'Логотип (URL)' })
+  brandLogoUrl: string | null;
+
+  @Field(() => String, { nullable: true, description: 'Сайт' })
+  brandSite: string | null;
+
+  @Field(() => String, { nullable: true, description: 'Email для клиентов' })
+  brandEmail: string | null;
+
+  @Field(() => [String], { description: 'Телефоны для клиентов' })
+  brandTelephones: string[];
+
+  @Field(() => String, {
+    nullable: true,
+    description: 'Адрес сервиса (место оказания услуг и хранения)',
+  })
+  brandServiceAddress: string | null;
+
+  @Field(() => String, {
+    nullable: true,
+    description: 'Город в шапке договоров, например «г. Москва»',
+  })
+  brandContractCity: string | null;
+
+  @Field(() => String, {
+    nullable: true,
+    description: 'Страница гарантийных условий (URL, печатается QR-кодом)',
+  })
+  brandGuarantyUrl: string | null;
+
+  @Field(() => String, {
+    nullable: true,
+    description: 'Картинка подвала печатных форм (URL)',
+  })
+  brandPrintFooterImageUrl: string | null;
+
   @Field(() => Boolean, {
     description:
       'Есть активная привязка телефонии (UIS): модуль «Звонки» доступен',
   })
   callsConfigured?: boolean;
 
-  @Field(() => TenantRequisitesModel, {
-    nullable: true,
-    description: 'Реквизиты Автосервиса',
-  })
+  @Field(() => String, { description: 'Название сервиса (тенанта)' })
+  tenantName?: string;
+
   tenantRequisites?: TenantRequisitesModel | null;
 }

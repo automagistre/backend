@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -12,6 +13,10 @@ import {
 import type { AuthContext } from 'src/common/user-id.store';
 import { AuditLogService } from 'src/modules/audit-log/audit-log.service';
 import { AuditEntityType } from 'src/modules/audit-log/enums/audit.enums';
+import {
+  normalizeRequisiteNumber,
+  validateRequisiteNumbers,
+} from './organization-requisites.validation';
 
 export type OrganizationLookupRow = {
   id: string;
@@ -19,6 +24,38 @@ export type OrganizationLookupRow = {
 };
 
 const DEFAULT_TAKE = 25;
+
+function text(value: string | null | undefined): string | null {
+  return value?.trim() || null;
+}
+
+/** Нормализует реквизиты и проверяет номера по контрольным суммам. */
+function toRequisiteData(requisite: RequisiteInput) {
+  const data = {
+    requisiteBank: text(requisite.bank),
+    requisiteLegalAddress: text(requisite.legalAddress),
+    requisiteOgrn: normalizeRequisiteNumber(requisite.ogrn),
+    requisiteInn: normalizeRequisiteNumber(requisite.inn),
+    requisiteKpp: normalizeRequisiteNumber(requisite.kpp),
+    requisiteRs: normalizeRequisiteNumber(requisite.rs),
+    requisiteKs: normalizeRequisiteNumber(requisite.ks),
+    requisiteBik: normalizeRequisiteNumber(requisite.bik),
+    requisiteHead: text(requisite.head),
+    requisiteHeadPosition: text(requisite.headPosition),
+  };
+  const errors = validateRequisiteNumbers({
+    inn: data.requisiteInn,
+    kpp: data.requisiteKpp,
+    ogrn: data.requisiteOgrn,
+    bik: data.requisiteBik,
+    rs: data.requisiteRs,
+    ks: data.requisiteKs,
+  });
+  if (errors.length > 0) {
+    throw new BadRequestException(errors.join('; '));
+  }
+  return data;
+}
 const DEFAULT_SKIP = 0;
 
 @Injectable()
@@ -54,16 +91,7 @@ export class OrganizationService {
         ...mainData,
         tenantGroupId: ctx.tenantGroupId,
         createdBy: ctx.userId,
-        ...(requisite && {
-          requisiteBank: requisite.bank,
-          requisiteLegalAddress: requisite.legalAddress,
-          requisiteOgrn: requisite.ogrn,
-          requisiteInn: requisite.inn,
-          requisiteKpp: requisite.kpp,
-          requisiteRs: requisite.rs,
-          requisiteKs: requisite.ks,
-          requisiteBik: requisite.bik,
-        }),
+        ...(requisite && toRequisiteData(requisite)),
       },
     });
 
@@ -87,21 +115,25 @@ export class OrganizationService {
       throw new NotFoundException('Организация не найдена или недоступна');
     }
 
+    const requisiteData =
+      requisite !== undefined ? toRequisiteData(requisite ?? {}) : null;
+    if (
+      requisiteData &&
+      (!requisiteData.requisiteInn || !requisiteData.requisiteLegalAddress)
+    ) {
+      const linked = await this.prisma.tenantOrganization.count({
+        where: { organizationId: id },
+      });
+      if (linked > 0) {
+        throw new BadRequestException(
+          'Организация печатается в документах сервиса: ИНН и юридический адрес обязательны',
+        );
+      }
+    }
+
     const updated = await this.prisma.organization.update({
       where: { id },
-      data: {
-        ...mainData,
-        ...(requisite !== undefined && {
-          requisiteBank: requisite?.bank ?? null,
-          requisiteLegalAddress: requisite?.legalAddress ?? null,
-          requisiteOgrn: requisite?.ogrn ?? null,
-          requisiteInn: requisite?.inn ?? null,
-          requisiteKpp: requisite?.kpp ?? null,
-          requisiteRs: requisite?.rs ?? null,
-          requisiteKs: requisite?.ks ?? null,
-          requisiteBik: requisite?.bik ?? null,
-        }),
-      },
+      data: { ...mainData, ...requisiteData },
     });
 
     await this.auditOrganization(ctx, id, existing, updated);
@@ -223,11 +255,19 @@ export class OrganizationService {
       throw new NotFoundException('Организация не найдена или недоступна');
     }
 
-    const [orderItemPartCount, orderCount, incomeCount] = await Promise.all([
-      this.prisma.orderItemPart.count({ where: { supplierId: id } }),
-      this.prisma.order.count({ where: { customerId: id } }),
-      this.prisma.income.count({ where: { supplierId: id } }),
-    ]);
+    const [orderItemPartCount, orderCount, incomeCount, tenantLinkCount] =
+      await Promise.all([
+        this.prisma.orderItemPart.count({ where: { supplierId: id } }),
+        this.prisma.order.count({ where: { customerId: id } }),
+        this.prisma.income.count({ where: { supplierId: id } }),
+        this.prisma.tenantOrganization.count({ where: { organizationId: id } }),
+      ]);
+
+    if (tenantLinkCount > 0) {
+      throw new ConflictException(
+        'Нельзя удалить: организация указана в реквизитах сервиса. Сначала отвяжите её в настройках',
+      );
+    }
 
     if (orderCount > 0) {
       throw new ConflictException(

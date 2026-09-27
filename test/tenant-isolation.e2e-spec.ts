@@ -66,9 +66,22 @@ describe('Изоляция тенантов (e2e)', () => {
     return response.json<GqlResponse>();
   }
 
+  const orgA = randomUUID();
+  const orgB = randomUUID();
+  /** Корректные реквизиты: привязка к сервису проверяет контрольные суммы. */
+  const requisites = {
+    requisiteInn: '166016686002',
+    requisiteLegalAddress: 'г. Москва',
+  };
+  const supplyExpiryDaysB = 99;
+
   async function snapshotB() {
     return JSON.stringify(
       await Promise.all([
+        prisma.tenant.findFirst({ where: { id: tenantB } }),
+        prisma.tenantOrganization.findMany({ where: { tenantId: tenantB } }),
+        prisma.organization.findUnique({ where: { id: orgB } }),
+        prisma.setting.findMany({ where: { tenantId: tenantB } }),
         prisma.person.findUnique({ where: { id: b.person } }),
         prisma.car.findUnique({ where: { id: b.car } }),
         prisma.order.findUnique({ where: { id: b.order } }),
@@ -158,6 +171,32 @@ describe('Изоляция тенантов (e2e)', () => {
     await prisma.calendarEntry.create({
       data: { id: b.calendar, tenantId: tenantB },
     });
+    for (const [id, groupId, name] of [
+      [orgA, groupA, 'ИП А'],
+      [orgB, groupB, 'ИП Б'],
+    ]) {
+      await prisma.organization.create({
+        data: {
+          id,
+          name,
+          tenantGroupId: groupId,
+          contractor: false,
+          seller: false,
+          createdBy: DEV_USER_ID,
+          ...requisites,
+        },
+      });
+    }
+    await prisma.tenantOrganization.create({
+      data: { tenantId: tenantB, organizationId: orgB, isDefault: true },
+    });
+    await prisma.setting.create({
+      data: {
+        tenantId: tenantB,
+        key: 'supplyExpiryDays',
+        value: supplyExpiryDaysB,
+      },
+    });
 
     const moduleRef = await Test.createTestingModule({
       imports: [(await import('src/app.module')).AppModule],
@@ -179,6 +218,18 @@ describe('Изоляция тенантов (e2e)', () => {
     await prisma.car.deleteMany({ where: { id: b.car } });
     await prisma.person.deleteMany({
       where: { id: { in: [b.person, personA] } },
+    });
+    await prisma.setting.deleteMany({
+      where: { tenantId: { in: [tenantA, tenantB] } },
+    });
+    await prisma.tenantOrganization.deleteMany({
+      where: { tenantId: { in: [tenantA, tenantB] } },
+    });
+    await prisma.organization.deleteMany({
+      where: { id: { in: [orgA, orgB] } },
+    });
+    await prisma.auditLogEvent.deleteMany({
+      where: { tenantId: { in: [tenantA, tenantB] } },
     });
     await prisma.tenant_permission.deleteMany({
       where: { tenant_id: { in: [tenantA, tenantB] } },
@@ -318,4 +369,57 @@ describe('Изоляция тенантов (e2e)', () => {
     const person = await prisma.person.findUnique({ where: { id: personA } });
     expect(person?.tenantGroupId).toBe(groupA);
   });
+
+  it('настройки и реквизиты тенанта A не содержат данных B', async () => {
+    const res = await gql(
+      '{ settings { tenantName supplyExpiryDays tenantRequisites { inn } tenantOrganizations { isDefault } } }',
+    );
+    expect(res.errors).toBeUndefined();
+    expect(res.data?.settings).toEqual({
+      tenantName: 'E2E a',
+      supplyExpiryDays: 7,
+      tenantRequisites: null,
+      tenantOrganizations: [],
+    });
+  });
+
+  it('привязать организацию B к тенанту A нельзя, B не меняется', async () => {
+    const before = await snapshotB();
+    const res = await gql(
+      'mutation($id: ID!) { updateSettings(input: { tenantOrganizations: [{ organizationId: $id, isDefault: true }] }) { tenantOrganizations { isDefault } } }',
+      { id: orgB },
+    );
+    expect(res.data?.updateSettings ?? null).toBeNull();
+    expect(res.errors?.length ?? 0).toBeGreaterThan(0);
+    expect(await snapshotB()).toBe(before);
+  });
+
+  it.each([
+    [
+      'организации',
+      `mutation { updateSettings(input: { tenantOrganizations: [{ organizationId: "${orgA}" }] }) { tenantOrganizations { isDefault } } }`,
+    ],
+    [
+      'название',
+      'mutation { updateSettings(input: { tenantName: "X" }) { tenantName } }',
+    ],
+    [
+      'ключи',
+      'mutation { updateSettings(input: { supplyExpiryDays: 1 }) { supplyExpiryDays } }',
+    ],
+  ] as const)(
+    'updateSettings (%s) меняет только свой тенант',
+    async (_, query) => {
+      const before = await snapshotB();
+
+      const own = await gql(query);
+      expect(own.errors).toBeUndefined();
+      expect(await snapshotB()).toBe(before);
+
+      const foreign = await gql(query, {}, tenantB);
+      expect(foreign.data?.updateSettings ?? null).toBeNull();
+      expect(foreign.errors?.[0]?.message).toMatch(/denied/i);
+      expect(await snapshotB()).toBe(before);
+    },
+  );
 });

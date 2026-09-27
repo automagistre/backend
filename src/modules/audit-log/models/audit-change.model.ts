@@ -10,7 +10,9 @@ export class AuditChangeModel {
   @Field(() => String, { description: 'Человекочитаемое название поля' })
   label: string;
 
-  @Field(() => AuditChangeKind, { description: 'Вид значения для форматирования' })
+  @Field(() => AuditChangeKind, {
+    description: 'Вид значения для форматирования',
+  })
   kind: AuditChangeKind;
 
   @Field(() => GraphQLJSON, { nullable: true, description: 'Значение до' })

@@ -5,6 +5,7 @@ import {
   IsOptional,
   Length,
   Matches,
+  MaxLength,
 } from 'class-validator';
 import { PhoneNumberScalar } from 'src/common/scalars/phone.scaral';
 
@@ -61,6 +62,19 @@ export class RequisiteInput {
   @Matches(/^\d+$/, { message: 'БИК может содержать только цифры' })
   @Field(() => String, { nullable: true, description: 'БИК' })
   bik?: string | null;
+
+  @IsOptional()
+  @MaxLength(255)
+  @Field(() => String, { nullable: true, description: 'ФИО руководителя' })
+  head?: string | null;
+
+  @IsOptional()
+  @MaxLength(255)
+  @Field(() => String, {
+    nullable: true,
+    description: 'Должность руководителя',
+  })
+  headPosition?: string | null;
 }
 
 @InputType()
