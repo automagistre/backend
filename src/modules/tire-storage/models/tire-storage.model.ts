@@ -72,7 +72,8 @@ export class TireStorageModel {
   createdBy: string | null;
 
   @Field(() => Boolean, {
-    description: 'Просрочен (IN_WAREHOUSE/AWAITING_SHOP/IN_SHOP и expiresAt < now)',
+    description:
+      'Просрочен (IN_WAREHOUSE/AWAITING_SHOP/IN_SHOP и expiresAt < now)',
   })
   isOverdue: boolean;
 }

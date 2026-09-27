@@ -1150,7 +1150,9 @@ input CreateTireStorageInput {
   Заказ, в котором вводится договор (ENTERED). Пусто — ручное добавление на склад (IN_WAREHOUSE)
   """
   orderId: ID
-  quantity: Int = 4
+
+  """Пусто — tireStorageDefaultQuantity из настроек"""
+  quantity: Int
   radius: Int!
   season: TireSeason!
   width: Int!
@@ -3664,6 +3666,9 @@ type SettingsModel {
   """Валюта по умолчанию (например для проводок, цен)"""
   defaultCurrencyCode: String!
 
+  """Шаг округления скидки в копейках, 0 — не округлять"""
+  discountRoundStep: Int!
+
   """Минимальная наценка (коэффициент, например 1.25 = 25%)"""
   minMarkupRatio: Float!
 
@@ -3678,6 +3683,12 @@ type SettingsModel {
   """Модуль «Сайт»: показывать в навигации"""
   moduleSiteEnabled: Boolean!
 
+  """Сколько часов после создания пустой заказ можно удалить"""
+  orderDeleteCoolingHours: Int!
+
+  """Ставка НДС в печати заказ-наряда, 0 — не печатать"""
+  printVatRatePercent: Int!
+
   """
   Через сколько дней после закрытия заказа задача контроля качества попадает на доску
   """
@@ -3691,10 +3702,16 @@ type SettingsModel {
   """
   schedulerMaxStreams: Int!
 
+  """Шаг сетки записи в минутах"""
+  slotMinutes: Int!
+
   """
   Порог задержки поставки в днях: если updatedAt поставки старше — считать «задержка»
   """
   supplyExpiryDays: Int!
+
+  """Через сколько часов после плановой даты задача просрочена"""
+  taskOverdueHours: Int!
 
   """Название сервиса (тенанта)"""
   tenantName: String!
@@ -3707,6 +3724,12 @@ type SettingsModel {
 
   """Часовой пояс тенанта (например Europe/Moscow)"""
   timezone: String!
+
+  """Количество шин в новом хранении"""
+  tireStorageDefaultQuantity: Int!
+
+  """Срок хранения шин в месяцах"""
+  tireStorageMonths: Int!
 
   """Конец рабочего дня (HH:MM)"""
   workDayEnd: String!
@@ -4778,6 +4801,9 @@ input UpdateSettingsInput {
   """Валюта по умолчанию (например RUB)"""
   defaultCurrencyCode: String
 
+  """Шаг округления скидки в копейках, 0 — не округлять"""
+  discountRoundStep: Int
+
   """Минимальная наценка (коэффициент, например 1.25)"""
   minMarkupRatio: Float
 
@@ -4790,6 +4816,12 @@ input UpdateSettingsInput {
   """Модуль «Сайт»"""
   moduleSiteEnabled: Boolean
 
+  """Сколько часов после создания пустой заказ можно удалить"""
+  orderDeleteCoolingHours: Int
+
+  """Ставка НДС в печати, %; 0 — строку НДС не печатать"""
+  printVatRatePercent: Int
+
   """Через сколько дней после закрытия заказа создавать QC-задачу"""
   qualityControlDelayDays: Int
 
@@ -4799,8 +4831,14 @@ input UpdateSettingsInput {
   """Сколько колонок помещается в графике"""
   schedulerMaxStreams: Int
 
+  """Шаг сетки записи в минутах: 10, 15, 20, 30, 60"""
+  slotMinutes: Int
+
   """Порог задержки поставки в днях"""
   supplyExpiryDays: Int
+
+  """Через сколько часов после плановой даты задача просрочена"""
+  taskOverdueHours: Int
 
   """Название сервиса. Identifier не меняется: его читает legacy CRM"""
   tenantName: String
@@ -4810,6 +4848,12 @@ input UpdateSettingsInput {
 
   """Часовой пояс тенанта (например Europe/Moscow)"""
   timezone: String
+
+  """Количество шин в новом хранении"""
+  tireStorageDefaultQuantity: Int
+
+  """Срок хранения шин в месяцах"""
+  tireStorageMonths: Int
 
   """Конец рабочего дня (HH:MM)"""
   workDayEnd: String

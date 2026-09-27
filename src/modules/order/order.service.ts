@@ -32,6 +32,7 @@ import { NoteType } from 'src/modules/note/enums/note-type.enum';
 import { RecommendationWorkMigrationService } from 'src/modules/recommendation-migration/recommendation-work-migration.service';
 import { applyDefaultCurrency } from 'src/common/money';
 import { orderTitle } from 'src/common/utils/entity-title.util';
+import { HOUR_MS } from 'src/common/utils/zoned-time.util';
 import type { AuthContext } from 'src/common/user-id.store';
 import { v6 as uuidv6 } from 'uuid';
 import { getOrderCancelReasonLabel } from './constants/order-cancel-reasons';
@@ -45,7 +46,6 @@ import { ProfitOrigin } from 'src/modules/profit/enums/profit-origin.enum';
 import { TireStorageService } from 'src/modules/tire-storage/tire-storage.service';
 import { CalendarService } from 'src/modules/calendar/calendar.service';
 
-const DELETE_COOLING_HOURS = 3;
 /** Совместимость со старой CRM: DiscriminatorMap OrderClose — 1 = OrderDeal, 2 = OrderCancel */
 const ORDER_CLOSE_TYPE_DEAL = '1';
 const ORDER_CLOSE_TYPE_CANCEL = '2';
@@ -567,14 +567,15 @@ export class OrderService {
         message: 'Нельзя удалить заказ с работами или запчастями',
       };
     }
-    const createdAt = order.createdAt ?? new Date(0);
-    const deadline = new Date(
-      createdAt.getTime() + DELETE_COOLING_HOURS * 60 * 60 * 1000,
+    const coolingHours = await this.settingsService.getOrderDeleteCoolingHours(
+      ctx.tenantId,
     );
+    const createdAt = order.createdAt ?? new Date(0);
+    const deadline = new Date(createdAt.getTime() + coolingHours * HOUR_MS);
     if (new Date() > deadline) {
       return {
         deletable: false,
-        message: `Время для удаления истекло (${DELETE_COOLING_HOURS} ч с момента создания)`,
+        message: `Время для удаления истекло (${coolingHours} ч с момента создания)`,
       };
     }
     return { deletable: true };

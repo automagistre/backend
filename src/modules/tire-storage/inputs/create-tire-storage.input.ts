@@ -55,7 +55,10 @@ export class CreateTireStorageInput {
   @IsInt()
   @Min(1)
   @Max(12)
-  @Field(() => Int, { nullable: true, defaultValue: 4 })
+  @Field(() => Int, {
+    nullable: true,
+    description: 'Пусто — tireStorageDefaultQuantity из настроек',
+  })
   quantity?: number;
 
   @Field(() => Boolean, { defaultValue: false })

@@ -109,6 +109,35 @@ export class SettingsModel {
   })
   brandPrintFooterImageUrl: string | null;
 
+  @Field(() => Int, { description: 'Шаг сетки записи в минутах' })
+  slotMinutes: number;
+
+  @Field(() => Int, {
+    description: 'Сколько часов после создания пустой заказ можно удалить',
+  })
+  orderDeleteCoolingHours: number;
+
+  @Field(() => Int, {
+    description: 'Шаг округления скидки в копейках, 0 — не округлять',
+  })
+  discountRoundStep: number;
+
+  @Field(() => Int, {
+    description: 'Ставка НДС в печати заказ-наряда, 0 — не печатать',
+  })
+  printVatRatePercent: number;
+
+  @Field(() => Int, { description: 'Срок хранения шин в месяцах' })
+  tireStorageMonths: number;
+
+  @Field(() => Int, { description: 'Количество шин в новом хранении' })
+  tireStorageDefaultQuantity: number;
+
+  @Field(() => Int, {
+    description: 'Через сколько часов после плановой даты задача просрочена',
+  })
+  taskOverdueHours: number;
+
   @Field(() => Boolean, {
     description:
       'Есть активная привязка телефонии (UIS): модуль «Звонки» доступен',

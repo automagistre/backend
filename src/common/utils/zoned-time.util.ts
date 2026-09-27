@@ -1,4 +1,5 @@
-export const DAY_MS = 24 * 60 * 60 * 1000;
+export const HOUR_MS = 60 * 60 * 1000;
+export const DAY_MS = 24 * HOUR_MS;
 
 export interface ZonedParts {
   year: number;
@@ -172,7 +173,10 @@ export function calcMonthYoyRanges(
  * предыдущего месяца (MoM) и того же месяца прошлого года (YoY).
  * Периоды сравнения обрезаются до того же дня/времени, что и now.
  */
-export function calcComparativeRanges(now: Date, tz: string): ComparativeRanges {
+export function calcComparativeRanges(
+  now: Date,
+  tz: string,
+): ComparativeRanges {
   const z = toZonedParts(now, tz);
 
   const currentFrom = zonedToUtc(z.year, z.month, 1, 0, 0, 0, tz);
@@ -180,7 +184,7 @@ export function calcComparativeRanges(now: Date, tz: string): ComparativeRanges 
   // Предыдущий месяц.
   const prevMonthZeroBased = z.month - 2; // 0-based индекс пред. месяца
   const momYear = z.year + Math.floor(prevMonthZeroBased / 12);
-  const momMonth = ((prevMonthZeroBased % 12) + 12) % 12 + 1;
+  const momMonth = (((prevMonthZeroBased % 12) + 12) % 12) + 1;
   const momFrom = zonedToUtc(momYear, momMonth, 1, 0, 0, 0, tz);
   const momDay = Math.min(z.day, daysInMonth(momYear, momMonth));
   const momTo = zonedToUtc(

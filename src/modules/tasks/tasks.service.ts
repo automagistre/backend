@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import type { AuthContext } from 'src/common/user-id.store';
+import { HOUR_MS } from 'src/common/utils/zoned-time.util';
 import { Prisma } from 'src/generated/prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { SettingsService } from '../settings/settings.service';
@@ -96,7 +97,10 @@ export class TasksService {
     };
 
     const now = new Date();
-    const overdueThreshold = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const overdueHours = await this.settingsService.getTaskOverdueHours(
+      ctx.tenantId,
+    );
+    const overdueThreshold = new Date(now.getTime() - overdueHours * HOUR_MS);
 
     const [pending, overdue, inProgress] = await Promise.all([
       this.prisma.task.count({

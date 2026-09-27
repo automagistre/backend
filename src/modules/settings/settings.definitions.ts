@@ -21,6 +21,30 @@ export const SETTINGS_KEYS = {
   brandContractCity: 'brandContractCity',
   brandGuarantyUrl: 'brandGuarantyUrl',
   brandPrintFooterImageUrl: 'brandPrintFooterImageUrl',
+  slotMinutes: 'slotMinutes',
+  orderDeleteCoolingHours: 'orderDeleteCoolingHours',
+  discountRoundStep: 'discountRoundStep',
+  printVatRatePercent: 'printVatRatePercent',
+  tireStorageMonths: 'tireStorageMonths',
+  tireStorageDefaultQuantity: 'tireStorageDefaultQuantity',
+  taskOverdueHours: 'taskOverdueHours',
+} as const;
+
+/** Шаг сетки записи: сетка должна делить час без остатка. */
+export const SLOT_MINUTES_OPTIONS = [10, 15, 20, 30, 60] as const;
+/** Шаг округления скидки в копейках, 0 — не округлять. */
+export const DISCOUNT_ROUND_STEP_OPTIONS = [
+  0, 100, 500, 1000, 5000, 10000,
+] as const;
+
+/** Диапазоны целочисленных ключей: общие для чтения из БД и для валидации ввода. */
+export const SETTING_INT_RANGES = {
+  orderDeleteCoolingHours: { min: 0, max: 72 },
+  /** Ставка вводится вручную: меняется законом без релиза. 0 — строку НДС не печатать. */
+  printVatRatePercent: { min: 0, max: 50 },
+  tireStorageMonths: { min: 1, max: 24 },
+  tireStorageDefaultQuantity: { min: 1, max: 12 },
+  taskOverdueHours: { min: 1, max: 720 },
 } as const;
 
 /** Торговая марка сервиса: пустое значение хранится отсутствием строки. */
@@ -54,6 +78,13 @@ export type SettingsValueByKey = {
   [SETTINGS_KEYS.moduleQualityControlEnabled]: boolean;
   [SETTINGS_KEYS.moduleSiteEnabled]: boolean;
   [SETTINGS_KEYS.brandTelephones]: string[];
+  [SETTINGS_KEYS.slotMinutes]: number;
+  [SETTINGS_KEYS.orderDeleteCoolingHours]: number;
+  [SETTINGS_KEYS.discountRoundStep]: number;
+  [SETTINGS_KEYS.printVatRatePercent]: number;
+  [SETTINGS_KEYS.tireStorageMonths]: number;
+  [SETTINGS_KEYS.tireStorageDefaultQuantity]: number;
+  [SETTINGS_KEYS.taskOverdueHours]: number;
 } & Record<BrandTextKey, string | null>;
 
 type SettingDefinition<K extends SettingKey> = {
@@ -108,6 +139,26 @@ const parseStringList = (raw: Prisma.JsonValue): string[] => {
   }
   return (raw as string[]).map((item) => item.trim()).filter(Boolean);
 };
+
+const parseOneOf =
+  (options: readonly number[]) =>
+  (raw: Prisma.JsonValue): number => {
+    const value = parseIntNumber(raw);
+    if (!options.includes(value)) {
+      throw new Error(`Expected one of ${options.join(', ')}`);
+    }
+    return value;
+  };
+
+const parseIntInRange =
+  ({ min, max }: { min: number; max: number }) =>
+  (raw: Prisma.JsonValue): number => {
+    const value = parseIntNumber(raw);
+    if (value < min || value > max) {
+      throw new Error(`Expected integer between ${min} and ${max}`);
+    }
+    return value;
+  };
 
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 
@@ -217,6 +268,41 @@ export const SETTINGS_DEFINITIONS: {
     parse: parseStringList,
   },
   ...brandTextDefinitions(),
+  [SETTINGS_KEYS.slotMinutes]: {
+    key: SETTINGS_KEYS.slotMinutes,
+    defaultValue: 30,
+    parse: parseOneOf(SLOT_MINUTES_OPTIONS),
+  },
+  [SETTINGS_KEYS.orderDeleteCoolingHours]: {
+    key: SETTINGS_KEYS.orderDeleteCoolingHours,
+    defaultValue: 3,
+    parse: parseIntInRange(SETTING_INT_RANGES.orderDeleteCoolingHours),
+  },
+  [SETTINGS_KEYS.discountRoundStep]: {
+    key: SETTINGS_KEYS.discountRoundStep,
+    defaultValue: 5000,
+    parse: parseOneOf(DISCOUNT_ROUND_STEP_OPTIONS),
+  },
+  [SETTINGS_KEYS.printVatRatePercent]: {
+    key: SETTINGS_KEYS.printVatRatePercent,
+    defaultValue: 5,
+    parse: parseIntInRange(SETTING_INT_RANGES.printVatRatePercent),
+  },
+  [SETTINGS_KEYS.tireStorageMonths]: {
+    key: SETTINGS_KEYS.tireStorageMonths,
+    defaultValue: 8,
+    parse: parseIntInRange(SETTING_INT_RANGES.tireStorageMonths),
+  },
+  [SETTINGS_KEYS.tireStorageDefaultQuantity]: {
+    key: SETTINGS_KEYS.tireStorageDefaultQuantity,
+    defaultValue: 4,
+    parse: parseIntInRange(SETTING_INT_RANGES.tireStorageDefaultQuantity),
+  },
+  [SETTINGS_KEYS.taskOverdueHours]: {
+    key: SETTINGS_KEYS.taskOverdueHours,
+    defaultValue: 24,
+    parse: parseIntInRange(SETTING_INT_RANGES.taskOverdueHours),
+  },
 };
 
 function brandTextDefinitions(): {

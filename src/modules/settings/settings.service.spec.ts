@@ -38,6 +38,50 @@ describe('SettingsService', () => {
     expect(settings.workDayHours).toBe(11);
   });
 
+  it('новые ключи по умолчанию совпадают с прежними константами', async () => {
+    const settings = await service.getSettings(ctx.tenantId);
+
+    expect(settings).toMatchObject({
+      slotMinutes: 30,
+      orderDeleteCoolingHours: 3,
+      discountRoundStep: 5000,
+      printVatRatePercent: 5,
+      tireStorageMonths: 8,
+      tireStorageDefaultQuantity: 4,
+      taskOverdueHours: 24,
+    });
+  });
+
+  it('недопустимое значение в БД заменяется умолчанием', async () => {
+    prisma.setting.findMany.mockResolvedValue([
+      { key: 'slotMinutes', value: 25 },
+      { key: 'printVatRatePercent', value: 20 },
+      { key: 'tireStorageMonths', value: 100 },
+    ] as never);
+
+    const settings = await service.getSettings(ctx.tenantId);
+
+    expect(settings.slotMinutes).toBe(30);
+    expect(settings.printVatRatePercent).toBe(20);
+    expect(settings.tireStorageMonths).toBe(8);
+  });
+
+  it('новые ключи сохраняются как есть', async () => {
+    await service.updateSettings(ctx, {
+      slotMinutes: 15,
+      printVatRatePercent: 0,
+    });
+
+    const saved = prisma.setting.upsert.mock.calls.map(([args]) => [
+      args.create.key,
+      args.create.value,
+    ]);
+    expect(saved).toEqual([
+      ['slotMinutes', 15],
+      ['printVatRatePercent', 0],
+    ]);
+  });
+
   it('очищенное поле торговой марки удаляет настройку', async () => {
     await service.updateSettings(ctx, {
       brandSite: '  ',

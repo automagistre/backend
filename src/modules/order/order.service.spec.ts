@@ -15,7 +15,10 @@ import { ProfitService } from 'src/modules/profit/profit.service';
 import { TireStorageService } from 'src/modules/tire-storage/tire-storage.service';
 import { CalendarService } from 'src/modules/calendar/calendar.service';
 import { OrderStatus } from './enums/order-status.enum';
-import { createPrismaMock, type PrismaMock } from 'src/common/testing/prisma-mock';
+import {
+  createPrismaMock,
+  type PrismaMock,
+} from 'src/common/testing/prisma-mock';
 import { makeCtx } from 'src/common/testing/auth-context';
 
 describe('OrderService.getCloseValidation', () => {
@@ -60,17 +63,17 @@ describe('OrderService.getCloseValidation', () => {
   });
 
   it('закрытый/отменённый статус → нельзя закрыть, без дефицитов', async () => {
-    jest.mocked(prisma.order.findFirst).mockResolvedValue(
-      order({ status: OrderStatus.CLOSED }) as any,
-    );
+    jest
+      .mocked(prisma.order.findFirst)
+      .mockResolvedValue(order({ status: OrderStatus.CLOSED }) as any);
     const res = await service.getCloseValidation(ctx, 'o1');
     expect(res).toEqual({ canClose: false, closeDeficiencies: [] });
   });
 
   it('есть авто, но не указан пробег → MILEAGE_MISSING', async () => {
-    jest.mocked(prisma.order.findFirst).mockResolvedValue(
-      order({ carId: 'car-1', mileage: null }) as any,
-    );
+    jest
+      .mocked(prisma.order.findFirst)
+      .mockResolvedValue(order({ carId: 'car-1', mileage: null }) as any);
     const res = await service.getCloseValidation(ctx, 'o1');
     expect(res.closeDeficiencies).toContain('MILEAGE_MISSING');
     expect(res.canClose).toBe(false);
@@ -178,7 +181,11 @@ describe('OrderService.getCloseValidation', () => {
         items: [
           {
             type: '2',
-            part: { warranty: true, warrantyPayerKind: null, warrantyPayerPersonId: null },
+            part: {
+              warranty: true,
+              warrantyPayerKind: null,
+              warrantyPayerPersonId: null,
+            },
             children: [],
           },
         ],
@@ -339,9 +346,13 @@ describe('OrderService calendar entry order link', () => {
   };
 
   const mockCreateFromEntry = () => {
-    jest.mocked(prisma.calendarEntry.findFirst).mockResolvedValue({ id: entryId } as any);
+    jest
+      .mocked(prisma.calendarEntry.findFirst)
+      .mockResolvedValue({ id: entryId } as any);
     jest.mocked(prisma.$queryRaw).mockResolvedValue([] as any);
-    jest.mocked(prisma.order.aggregate).mockResolvedValue({ _max: { number: 1 } } as any);
+    jest
+      .mocked(prisma.order.aggregate)
+      .mockResolvedValue({ _max: { number: 1 } } as any);
     jest.mocked(prisma.order.create).mockResolvedValue({
       id: orderId,
       tenantId: ctx.tenantId,
@@ -357,8 +368,12 @@ describe('OrderService calendar entry order link', () => {
   });
 
   it('deleteOrder удаляет связь calendar_entry_order', async () => {
-    jest.mocked(prisma.order.findFirst).mockResolvedValue(deletableOrder as any);
-    jest.mocked(prisma.calendarEntryOrder.deleteMany).mockResolvedValue({ count: 1 });
+    jest
+      .mocked(prisma.order.findFirst)
+      .mockResolvedValue(deletableOrder as any);
+    jest
+      .mocked(prisma.calendarEntryOrder.deleteMany)
+      .mockResolvedValue({ count: 1 });
     jest.mocked(prisma.order.delete).mockResolvedValue({ id: orderId } as any);
 
     await service.deleteOrder(ctx, orderId);
@@ -366,7 +381,9 @@ describe('OrderService calendar entry order link', () => {
     expect(prisma.calendarEntryOrder.deleteMany).toHaveBeenCalledWith({
       where: { orderId, tenantId: ctx.tenantId },
     });
-    expect(prisma.order.delete).toHaveBeenCalledWith({ where: { id: orderId } });
+    expect(prisma.order.delete).toHaveBeenCalledWith({
+      where: { id: orderId },
+    });
   });
 
   it('create → delete → create на том же entryId проходит', async () => {
@@ -376,8 +393,12 @@ describe('OrderService calendar entry order link', () => {
     const created = await service.create(ctx, { entryId });
     expect(created.id).toBe(orderId);
 
-    jest.mocked(prisma.order.findFirst).mockResolvedValue(deletableOrder as any);
-    jest.mocked(prisma.calendarEntryOrder.deleteMany).mockResolvedValue({ count: 1 });
+    jest
+      .mocked(prisma.order.findFirst)
+      .mockResolvedValue(deletableOrder as any);
+    jest
+      .mocked(prisma.calendarEntryOrder.deleteMany)
+      .mockResolvedValue({ count: 1 });
     jest.mocked(prisma.order.delete).mockResolvedValue({ id: orderId } as any);
     await service.deleteOrder(ctx, orderId);
 
@@ -414,7 +435,9 @@ describe('OrderService calendar entry order link', () => {
     jest.mocked(prisma.calendarEntryOrder.findFirst).mockResolvedValue({
       orderId: 'existing-order',
     } as any);
-    jest.mocked(prisma.order.findFirst).mockResolvedValue({ id: 'existing-order' } as any);
+    jest
+      .mocked(prisma.order.findFirst)
+      .mockResolvedValue({ id: 'existing-order' } as any);
 
     await expect(service.create(ctx, { entryId })).rejects.toThrow(
       'Для этой записи уже создан заказ',
@@ -456,11 +479,62 @@ describe('OrderService.getCalendarEntry', () => {
     const entry = {
       id: 'entry-1',
       createdAt: new Date('2026-08-01'),
-      calendarEntryOrderInfo: [{ description: 'Комментарий', createdAt: new Date() }],
+      calendarEntryOrderInfo: [
+        { description: 'Комментарий', createdAt: new Date() },
+      ],
     };
     calendarService.getEntryForOrder.mockResolvedValue(entry as any);
 
     await expect(service.getCalendarEntry(ctx, 'o1')).resolves.toEqual(entry);
     expect(calendarService.getEntryForOrder).toHaveBeenCalledWith(ctx, 'o1');
+  });
+});
+
+describe('OrderService.canDeleteOrder', () => {
+  let prisma: PrismaMock;
+  let settingsService: DeepMockProxy<SettingsService>;
+  let service: OrderService;
+  const ctx = makeCtx();
+  const hoursAgo = (hours: number) => new Date(Date.now() - hours * 3_600_000);
+
+  beforeEach(() => {
+    prisma = createPrismaMock();
+    settingsService = mockDeep<SettingsService>();
+    service = new OrderService(
+      prisma,
+      mockDeep<WalletTransactionService>(),
+      mockDeep<SalaryService>(),
+      mockDeep<CustomerTransactionService>(),
+      settingsService,
+      mockDeep<WarehouseService>(),
+      mockDeep<OrganizationService>(),
+      mockDeep<TasksService>(),
+      mockDeep<RecommendationWorkMigrationService>(),
+      mockDeep<AuditLogService>(),
+      mockDeep<EmployeeService>(),
+      mockDeep<ProfitService>(),
+      mockDeep<TireStorageService>(),
+      mockDeep<CalendarService>(),
+    );
+  });
+
+  const emptyOrder = (createdAt: Date) =>
+    ({ createdAt, close: null, _count: { items: 0 } }) as never;
+
+  it('окно удаления берётся из настроек тенанта', async () => {
+    settingsService.getOrderDeleteCoolingHours.mockResolvedValue(1);
+    prisma.order.findFirst.mockResolvedValue(emptyOrder(hoursAgo(2)));
+
+    await expect(service.canDeleteOrder(ctx, 'o1')).resolves.toBe(false);
+    expect(settingsService.getOrderDeleteCoolingHours.mock.calls).toEqual([
+      [ctx.tenantId],
+    ]);
+  });
+
+  it('в пределах окна пустой заказ удаляется', async () => {
+    settingsService.getOrderDeleteCoolingHours.mockResolvedValue(3);
+    prisma.order.findFirst.mockResolvedValue(emptyOrder(hoursAgo(2)));
+
+    await expect(service.canDeleteOrder(ctx, 'o1')).resolves.toBe(true);
   });
 });

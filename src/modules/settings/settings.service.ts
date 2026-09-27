@@ -24,6 +24,17 @@ import {
 } from './settings.definitions';
 
 const TENANT_NAME_MAX_LENGTH = 255;
+
+/** Целые ключи без преобразований: диапазоны проверяет UpdateSettingsInput. */
+const PLAIN_INT_KEYS = [
+  SETTINGS_KEYS.slotMinutes,
+  SETTINGS_KEYS.orderDeleteCoolingHours,
+  SETTINGS_KEYS.discountRoundStep,
+  SETTINGS_KEYS.printVatRatePercent,
+  SETTINGS_KEYS.tireStorageMonths,
+  SETTINGS_KEYS.tireStorageDefaultQuantity,
+  SETTINGS_KEYS.taskOverdueHours,
+] as const;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /** null в патче — значение очищено, строка настройки удаляется и работает умолчание. */
@@ -155,6 +166,31 @@ export class SettingsService {
     tx?: Prisma.TransactionClient,
   ): Promise<string> {
     return this.getSettingValue(tenantId, SETTINGS_KEYS.timezone, tx);
+  }
+
+  async getOrderDeleteCoolingHours(tenantId: string): Promise<number> {
+    return this.getSettingValue(
+      tenantId,
+      SETTINGS_KEYS.orderDeleteCoolingHours,
+    );
+  }
+
+  async getTaskOverdueHours(tenantId: string): Promise<number> {
+    return this.getSettingValue(tenantId, SETTINGS_KEYS.taskOverdueHours);
+  }
+
+  async getTireStorageMonths(
+    tenantId: string,
+    tx?: Prisma.TransactionClient,
+  ): Promise<number> {
+    return this.getSettingValue(tenantId, SETTINGS_KEYS.tireStorageMonths, tx);
+  }
+
+  async getTireStorageDefaultQuantity(tenantId: string): Promise<number> {
+    return this.getSettingValue(
+      tenantId,
+      SETTINGS_KEYS.tireStorageDefaultQuantity,
+    );
   }
 
   /**
@@ -362,6 +398,10 @@ export class SettingsService {
     }
     if (input.moduleSiteEnabled !== undefined) {
       patch[SETTINGS_KEYS.moduleSiteEnabled] = input.moduleSiteEnabled;
+    }
+    for (const key of PLAIN_INT_KEYS) {
+      const value = input[key];
+      if (value !== undefined) patch[key] = value;
     }
     for (const key of BRAND_TEXT_KEYS) {
       const value = input[key];

@@ -4,6 +4,7 @@ import {
   ArrayMaxSize,
   IsArray,
   IsBoolean,
+  IsIn,
   IsInt,
   IsNumber,
   IsOptional,
@@ -16,6 +17,12 @@ import {
   Min,
   ValidateNested,
 } from 'class-validator';
+
+import {
+  DISCOUNT_ROUND_STEP_OPTIONS,
+  SETTING_INT_RANGES,
+  SLOT_MINUTES_OPTIONS,
+} from '../settings.definitions';
 
 const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
 
@@ -227,4 +234,70 @@ export class UpdateSettingsInput {
   @IsString()
   @MaxLength(512)
   brandPrintFooterImageUrl?: string | null;
+
+  @Field(() => Int, {
+    nullable: true,
+    description: `Шаг сетки записи в минутах: ${SLOT_MINUTES_OPTIONS.join(', ')}`,
+  })
+  @IsOptional()
+  @IsIn(SLOT_MINUTES_OPTIONS)
+  slotMinutes?: number;
+
+  @Field(() => Int, {
+    nullable: true,
+    description: 'Сколько часов после создания пустой заказ можно удалить',
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(SETTING_INT_RANGES.orderDeleteCoolingHours.min)
+  @Max(SETTING_INT_RANGES.orderDeleteCoolingHours.max)
+  orderDeleteCoolingHours?: number;
+
+  @Field(() => Int, {
+    nullable: true,
+    description: 'Шаг округления скидки в копейках, 0 — не округлять',
+  })
+  @IsOptional()
+  @IsIn(DISCOUNT_ROUND_STEP_OPTIONS)
+  discountRoundStep?: number;
+
+  @Field(() => Int, {
+    nullable: true,
+    description: 'Ставка НДС в печати, %; 0 — строку НДС не печатать',
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(SETTING_INT_RANGES.printVatRatePercent.min)
+  @Max(SETTING_INT_RANGES.printVatRatePercent.max)
+  printVatRatePercent?: number;
+
+  @Field(() => Int, {
+    nullable: true,
+    description: 'Срок хранения шин в месяцах',
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(SETTING_INT_RANGES.tireStorageMonths.min)
+  @Max(SETTING_INT_RANGES.tireStorageMonths.max)
+  tireStorageMonths?: number;
+
+  @Field(() => Int, {
+    nullable: true,
+    description: 'Количество шин в новом хранении',
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(SETTING_INT_RANGES.tireStorageDefaultQuantity.min)
+  @Max(SETTING_INT_RANGES.tireStorageDefaultQuantity.max)
+  tireStorageDefaultQuantity?: number;
+
+  @Field(() => Int, {
+    nullable: true,
+    description: 'Через сколько часов после плановой даты задача просрочена',
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(SETTING_INT_RANGES.taskOverdueHours.min)
+  @Max(SETTING_INT_RANGES.taskOverdueHours.max)
+  taskOverdueHours?: number;
 }

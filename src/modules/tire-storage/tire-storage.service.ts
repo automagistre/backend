@@ -15,7 +15,11 @@ import { CreateTireStorageInput } from './inputs/create-tire-storage.input';
 import { UpdateTireStorageInput } from './inputs/update-tire-storage.input';
 import { TireStorageModel } from './models/tire-storage.model';
 
-const STORAGE_MONTHS = 8;
+function addMonths(date: Date, months: number): Date {
+  const result = new Date(date);
+  result.setMonth(result.getMonth() + months);
+  return result;
+}
 
 export type TireStorageFindManyArgs = {
   take?: number;
@@ -305,13 +309,11 @@ export class TireStorageService {
         : isManual
           ? now
           : null;
-    const expiresAt = acceptedAt
-      ? (() => {
-          const d = new Date(acceptedAt);
-          d.setMonth(d.getMonth() + STORAGE_MONTHS);
-          return d;
-        })()
-      : null;
+    const [storageMonths, defaultQuantity] = await Promise.all([
+      this.settingsService.getTireStorageMonths(ctx.tenantId),
+      this.settingsService.getTireStorageDefaultQuantity(ctx.tenantId),
+    ]);
+    const expiresAt = acceptedAt ? addMonths(acceptedAt, storageMonths) : null;
 
     const created = await this.prisma.tireStorage.create({
       data: {
@@ -327,7 +329,7 @@ export class TireStorageService {
         height: input.height,
         radius: input.radius,
         manufacturer: input.manufacturer.trim(),
-        quantity: input.quantity ?? 4,
+        quantity: input.quantity ?? defaultQuantity,
         onDisks: input.onDisks,
         season: input.season,
         status: isManual
@@ -418,10 +420,11 @@ export class TireStorageService {
       const acceptedAt = input.acceptedAt
         ? new Date(input.acceptedAt)
         : new Date();
-      const expiresAt = new Date(acceptedAt);
-      expiresAt.setMonth(expiresAt.getMonth() + STORAGE_MONTHS);
       data.acceptedAt = acceptedAt;
-      data.expiresAt = expiresAt;
+      data.expiresAt = addMonths(
+        acceptedAt,
+        await this.settingsService.getTireStorageMonths(ctx.tenantId),
+      );
     }
 
     if (input.amount) {
@@ -622,8 +625,10 @@ export class TireStorageService {
   ): Promise<
     { id: string; amountAmount: bigint; amountCurrencyCode: string }[]
   > {
-    const expiresAt = new Date(closedAt);
-    expiresAt.setMonth(expiresAt.getMonth() + STORAGE_MONTHS);
+    const expiresAt = addMonths(
+      closedAt,
+      await this.settingsService.getTireStorageMonths(ctx.tenantId, tx),
+    );
 
     const entered = await tx.tireStorage.findMany({
       where: {
