@@ -1,4 +1,4 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { mockDeep, type DeepMockProxy } from 'jest-mock-extended';
 import { EmployeeService } from './employee.service';
 import { PrismaService } from 'src/prisma/prisma.service';
@@ -294,5 +294,84 @@ describe('EmployeeService positionIds', () => {
     await expect(
       service.update(ctx, { id: 'emp-1', positionIds: ['pos-archived'] }),
     ).rejects.toBeInstanceOf(BadRequestException);
+  });
+});
+
+describe('EmployeeService setPositionShift', () => {
+  let prisma: DeepMockProxy<PrismaService>;
+  let service: EmployeeService;
+  const ctx: AuthContext = {
+    userId: 'u',
+    tenantId: 'tenant-1',
+    tenantGroupId: 'group-1',
+  };
+
+  beforeEach(() => {
+    prisma = mockDeep<PrismaService>();
+    service = new EmployeeService(prisma, mockDeep<SettingsService>());
+    jest
+      .mocked(prisma.$transaction)
+      .mockImplementation((fn: any) => fn(prisma));
+    jest
+      .mocked(prisma.employee.findUniqueOrThrow)
+      .mockResolvedValue({ id: 'emp-1', staffPositions: [] } as any);
+  });
+
+  const givenLink = (firedAt: Date | null = null) =>
+    jest
+      .mocked(prisma.employeeStaffPosition.findFirst)
+      .mockResolvedValue({ employee: { firedAt } } as any);
+
+  it('меняет цикл только указанной должности', async () => {
+    givenLink();
+
+    await service.setPositionShift(ctx, 'emp-1', 'pos-parts', {
+      mask: '1100',
+      startsOn: '2026-09-01',
+    });
+
+    expect(prisma.employeeStaffPosition.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          employeeId: 'emp-1',
+          positionId: 'pos-parts',
+          employee: { tenantId: 'tenant-1' },
+        },
+      }),
+    );
+    expect(prisma.employeeStaffPosition.update).toHaveBeenCalledWith({
+      where: {
+        employeeId_positionId: { employeeId: 'emp-1', positionId: 'pos-parts' },
+      },
+      data: {
+        shiftMask: '1100',
+        shiftStartsOn: new Date('2026-09-01T00:00:00.000Z'),
+      },
+    });
+  });
+
+  it('null снимает цикл', async () => {
+    givenLink();
+
+    await service.setPositionShift(ctx, 'emp-1', 'pos-parts', null);
+
+    expect(prisma.employeeStaffPosition.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: { shiftMask: null, shiftStartsOn: null },
+      }),
+    );
+  });
+
+  it('чужую должность и уволенного не трогает', async () => {
+    jest.mocked(prisma.employeeStaffPosition.findFirst).mockResolvedValue(null);
+    await expect(
+      service.setPositionShift(ctx, 'emp-1', 'pos-foreign', null),
+    ).rejects.toBeInstanceOf(NotFoundException);
+
+    givenLink(new Date());
+    await expect(
+      service.setPositionShift(ctx, 'emp-1', 'pos-parts', null),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(prisma.employeeStaffPosition.update).not.toHaveBeenCalled();
   });
 });

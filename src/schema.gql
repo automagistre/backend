@@ -2353,6 +2353,9 @@ type Mutation {
   """Вернуть работу в рекомендацию"""
   returnWorkToRecommendation(input: ReturnWorkToRecommendationInput!): ReturnWorkToRecommendationPayload!
 
+  """Цикл графика одной должности сотрудника. shift: null — снять"""
+  setEmployeePositionShift(employeeId: ID!, positionId: ID!, shift: ShiftPatternInput): EmployeeModel!
+
   """Проставить отметку на диапазон дней"""
   setShiftDays(input: SetShiftDaysInput!): [ShiftDayModel!]!
   siteCreateAppealCalculator(input: SiteCreateAppealCalculatorInput!): SiteCreateAppealOutput!

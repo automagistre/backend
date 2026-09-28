@@ -1,5 +1,6 @@
 import {
   Args,
+  ID,
   Mutation,
   Parent,
   Query,
@@ -18,6 +19,7 @@ import { Employee } from 'src/generated/prisma/client';
 import { AuthContext } from 'src/common/decorators/auth-context.decorator';
 import { RequireTenant } from 'src/common/decorators/skip-tenant.decorator';
 import type { AuthContext as AuthContextType } from 'src/common/user-id.store';
+import { ShiftPatternInput } from 'src/modules/shift/inputs/shift-pattern.input';
 
 @Resolver(() => EmployeeModel)
 @RequireTenant()
@@ -63,6 +65,24 @@ export class EmployeeResolver {
     @Args('input') input: UpdateEmployeeInput,
   ) {
     return this.employeeService.update(ctx, input);
+  }
+
+  @Mutation(() => EmployeeModel, {
+    description: 'Цикл графика одной должности сотрудника. shift: null — снять',
+  })
+  async setEmployeePositionShift(
+    @AuthContext() ctx: AuthContextType,
+    @Args('employeeId', { type: () => ID }) employeeId: string,
+    @Args('positionId', { type: () => ID }) positionId: string,
+    @Args('shift', { type: () => ShiftPatternInput, nullable: true })
+    shift: ShiftPatternInput | null,
+  ) {
+    return this.employeeService.setPositionShift(
+      ctx,
+      employeeId,
+      positionId,
+      shift,
+    );
   }
 
   @Mutation(() => EmployeeModel)

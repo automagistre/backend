@@ -416,6 +416,37 @@ export class EmployeeService {
     return { items: items.map(toEmployeeModel), total };
   }
 
+  /** Цикл одной должности — для правки из графика, не трогая остальную карточку. */
+  async setPositionShift(
+    ctx: AuthContext,
+    employeeId: string,
+    positionId: string,
+    shift: ShiftPatternInput | null,
+  ) {
+    const link = await this.prisma.employeeStaffPosition.findFirst({
+      where: { employeeId, positionId, employee: { tenantId: ctx.tenantId } },
+      include: { employee: { select: { firedAt: true } } },
+    });
+    if (!link) {
+      throw new NotFoundException('У сотрудника нет такой должности');
+    }
+    if (link.employee.firedAt) {
+      throw new BadRequestException('Сотрудник уволен, график не меняем');
+    }
+
+    const employee = await this.prisma.$transaction(async (tx) => {
+      await tx.employeeStaffPosition.update({
+        where: { employeeId_positionId: { employeeId, positionId } },
+        data: this.resolveShiftPattern(shift) ?? NO_SHIFT,
+      });
+      return tx.employee.findUniqueOrThrow({
+        where: { id: employeeId },
+        include: EMPLOYEE_INCLUDE,
+      });
+    });
+    return toEmployeeModel(employee);
+  }
+
   async findOne(ctx: AuthContext, id: string) {
     const employee = await this.prisma.employee.findFirst({
       where: {
