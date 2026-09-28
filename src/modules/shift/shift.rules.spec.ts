@@ -125,14 +125,35 @@ describe('resolveShiftDay', () => {
 
   it('отпуск снимает рабочий день', () => {
     expect(
-      resolveShiftDay(pattern, day('2026-08-21'), ShiftDayKind.VACATION),
+      resolveShiftDay(pattern, day('2026-08-21'), {
+        personKind: ShiftDayKind.VACATION,
+      }),
     ).toEqual({ working: false, kind: ShiftDayKind.VACATION });
   });
 
   it('выход вне графика добавляет смену в выходной', () => {
     expect(
-      resolveShiftDay(pattern, day('2026-08-22'), ShiftDayKind.WORK),
+      resolveShiftDay(pattern, day('2026-08-22'), {
+        positionKind: ShiftDayKind.WORK,
+      }),
     ).toEqual({ working: true, kind: ShiftDayKind.WORK });
+  });
+
+  it('отгул снимает рабочий день должности', () => {
+    expect(
+      resolveShiftDay(pattern, day('2026-08-21'), {
+        positionKind: ShiftDayKind.DAY_OFF,
+      }),
+    ).toEqual({ working: false, kind: ShiftDayKind.DAY_OFF });
+  });
+
+  it('отметка на человека сильнее отметки на должность', () => {
+    expect(
+      resolveShiftDay(pattern, day('2026-08-22'), {
+        personKind: ShiftDayKind.SICK,
+        positionKind: ShiftDayKind.WORK,
+      }),
+    ).toEqual({ working: false, kind: ShiftDayKind.SICK });
   });
 
   it('без цикла работает только по отметке', () => {
@@ -142,7 +163,9 @@ describe('resolveShiftDay', () => {
       kind: null,
     });
     expect(
-      resolveShiftDay(onDemand, day('2026-08-21'), ShiftDayKind.WORK).working,
+      resolveShiftDay(onDemand, day('2026-08-21'), {
+        positionKind: ShiftDayKind.WORK,
+      }).working,
     ).toBe(true);
   });
 });
@@ -152,24 +175,15 @@ describe('occupiesCalendarColumn', () => {
 
   it('нужны обе настройки сразу', () => {
     expect(
-      occupiesCalendarColumn([position([CALENDAR_PARTICIPANT, WORK_EXECUTOR])]),
+      occupiesCalendarColumn(position([CALENDAR_PARTICIPANT, WORK_EXECUTOR])),
     ).toBe(true);
-    expect(occupiesCalendarColumn([position([CALENDAR_PARTICIPANT])])).toBe(
+    expect(occupiesCalendarColumn(position([CALENDAR_PARTICIPANT]))).toBe(
       false,
     );
-    expect(occupiesCalendarColumn([position([WORK_EXECUTOR])])).toBe(false);
+    expect(occupiesCalendarColumn(position([WORK_EXECUTOR]))).toBe(false);
   });
 
-  it('настройки складываются по всем должностям сотрудника', () => {
-    expect(
-      occupiesCalendarColumn([
-        position([CALENDAR_PARTICIPANT]),
-        position([WORK_EXECUTOR]),
-      ]),
-    ).toBe(true);
-  });
-
-  it('без должностей колонки нет', () => {
-    expect(occupiesCalendarColumn([])).toBe(false);
+  it('без настроек колонки нет', () => {
+    expect(occupiesCalendarColumn(position([]))).toBe(false);
   });
 });

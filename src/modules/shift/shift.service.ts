@@ -13,7 +13,6 @@ import {
   isPersonLevelKind,
   occupiesCalendarColumn,
   parseDateKey,
-  pickPrimaryLink,
   resolveShiftDay,
   toDateKey,
   toDayNumber,
@@ -109,51 +108,71 @@ export class ShiftService {
       ]),
     );
 
+    const markAt = (key: string) => {
+      const override = overrideByCell.get(key);
+      return override && isShiftDayKind(override.kind)
+        ? { kind: override.kind, comment: override.comment }
+        : undefined;
+    };
+
     const keys = eachDateKey(from, to);
     const days: ShiftDayModel[] = [];
 
     for (const employee of employees) {
-      const positions = employee.staffPositions.map((link) => link.position);
-      const canHoldColumn = occupiesCalendarColumn(positions);
-      const primary = pickPrimaryLink(employee.staffPositions);
-      const pattern = {
-        shiftMask: primary?.shiftMask ?? null,
-        shiftStartsOn: primary?.shiftStartsOn ?? null,
-      };
       const hiredOn = toDayNumber(employee.hiredAt);
       const firedOn = employee.firedAt ? toDayNumber(employee.firedAt) : null;
+      // Без должностей — одна строка без цикла: на ней видны только отпуск и больничный
+      const rows = employee.staffPositions.length
+        ? employee.staffPositions.map((link) => ({
+            positionId: link.positionId,
+            pattern: link,
+            canHoldColumn: occupiesCalendarColumn(link.position),
+          }))
+        : [
+            {
+              positionId: null,
+              pattern: { shiftMask: null, shiftStartsOn: null },
+              canHoldColumn: false,
+            },
+          ];
 
       for (const key of keys) {
         const date = parseDateKey(key);
-        const override =
-          overrideByCell.get(`${employee.id}::${key}`) ??
-          (primary
-            ? overrideByCell.get(`${employee.id}:${primary.positionId}:${key}`)
-            : undefined);
-        const kind =
-          override && isShiftDayKind(override.kind) ? override.kind : null;
-        const resolved = resolveShiftDay(pattern, date, kind);
-
         const dayNumber = toDayNumber(date);
         const employed =
           dayNumber >= hiredOn && (firedOn === null || dayNumber <= firedOn);
-        const working = resolved.working && employed;
+        const personMark = markAt(`${employee.id}::${key}`);
 
-        days.push({
-          employeeId: employee.id,
-          date: key,
-          working,
-          kind: resolved.kind,
-          comment: override?.comment ?? null,
-          occupiesColumn: working && canHoldColumn,
-        });
+        for (const row of rows) {
+          const positionMark = row.positionId
+            ? markAt(`${employee.id}:${row.positionId}:${key}`)
+            : undefined;
+          const resolved = resolveShiftDay(row.pattern, date, {
+            personKind: personMark?.kind,
+            positionKind: positionMark?.kind,
+          });
+          const working = resolved.working && employed;
+
+          days.push({
+            employeeId: employee.id,
+            positionId: row.positionId,
+            date: key,
+            working,
+            kind: resolved.kind,
+            comment: (personMark ?? positionMark)?.comment ?? null,
+            occupiesColumn: working && row.canHoldColumn,
+          });
+        }
       }
     }
 
     return days;
   }
 
-  /** Сколько людей занимают колонки в каждый день диапазона. Ключ — ГГГГ-ММ-ДД. */
+  /**
+   * Сколько людей занимают колонки в каждый день диапазона. Ключ — ГГГГ-ММ-ДД.
+   * Считаем людей, а не строки: совместитель в двух ролях — всё равно одна колонка.
+   */
   async countColumnHoldersByDay(
     tenantId: string,
     from: Date,
@@ -164,12 +183,16 @@ export class ShiftService {
       to: toDateKey(to),
     });
 
-    const counts = new Map<string, number>();
+    const holders = new Map<string, Set<string>>();
     for (const day of days) {
       if (!day.occupiesColumn) continue;
-      counts.set(day.date, (counts.get(day.date) ?? 0) + 1);
+      const employeeIds = holders.get(day.date) ?? new Set<string>();
+      employeeIds.add(day.employeeId);
+      holders.set(day.date, employeeIds);
     }
-    return counts;
+    return new Map(
+      [...holders].map(([date, employeeIds]) => [date, employeeIds.size]),
+    );
   }
 
   async setDays(
@@ -180,19 +203,22 @@ export class ShiftService {
     const employee = await this.assertEmployee(ctx, input.employeeId);
     const positionId = this.resolveMarkPositionId(
       input.kind,
-      pickPrimaryLink(employee.staffPositions)?.positionId,
+      input.positionId,
+      employee.staffPositions.map((link) => link.positionId),
     );
 
     const comment = input.comment?.trim() || null;
     const dates = eachDateKey(from, to).map(parseDateKey);
 
-    // Пока график ведётся по основной должности, отметка на день одна — диапазон переписываем целиком.
+    // Отметка на человека перекрывает все его строки, поэтому забирает и отметки должностей.
+    // Отметка на должность снимает отпуск или больничный: иначе она не была бы видна.
     await this.prisma.$transaction([
       this.prisma.employeeShiftDay.deleteMany({
         where: {
           employeeId: input.employeeId,
           tenantId: ctx.tenantId,
           date: { gte: from, lte: to },
+          ...(positionId ? { OR: [{ positionId }, { positionId: null }] } : {}),
         },
       }),
       this.prisma.employeeShiftDay.createMany({
@@ -218,15 +244,33 @@ export class ShiftService {
   /** Отпуск и больничный — на человека, выход и отгул — на должность: так их различает CHECK в базе. */
   private resolveMarkPositionId(
     kind: ShiftDayKind,
-    primaryPositionId: string | undefined,
+    positionId: string | null | undefined,
+    employeePositionIds: string[],
   ): string | null {
-    if (isPersonLevelKind(kind)) return null;
-    if (!primaryPositionId) {
+    if (isPersonLevelKind(kind)) {
+      if (positionId) {
+        throw new BadRequestException(
+          'Отпуск и больничный ставятся на человека, без должности',
+        );
+      }
+      return null;
+    }
+    if (!positionId) {
       throw new BadRequestException(
-        'Выход и отгул ставятся на должность: назначьте сотруднику должность',
+        'Для выхода и отгула укажите должность сотрудника',
       );
     }
-    return primaryPositionId;
+    this.assertEmployeePosition(positionId, employeePositionIds);
+    return positionId;
+  }
+
+  private assertEmployeePosition(
+    positionId: string,
+    employeePositionIds: string[],
+  ): void {
+    if (!employeePositionIds.includes(positionId)) {
+      throw new BadRequestException('У сотрудника нет такой должности');
+    }
   }
 
   /** Снятие отметок возвращает дни в цикл, а не делает их выходными. */
@@ -235,13 +279,23 @@ export class ShiftService {
     input: ShiftDaysRangeInput,
   ): Promise<ShiftDayModel[]> {
     const { from, to } = this.parseRange(input.from, input.to);
-    await this.assertEmployee(ctx, input.employeeId);
+    const employee = await this.assertEmployee(ctx, input.employeeId);
+    if (input.positionId) {
+      this.assertEmployeePosition(
+        input.positionId,
+        employee.staffPositions.map((link) => link.positionId),
+      );
+    }
 
+    // «По циклу» в строке должности: и её отметки, и отпуск с больничным — иначе строка не вернётся в цикл
     await this.prisma.employeeShiftDay.deleteMany({
       where: {
         employeeId: input.employeeId,
         tenantId: ctx.tenantId,
         date: { gte: from, lte: to },
+        ...(input.positionId
+          ? { OR: [{ positionId: input.positionId }, { positionId: null }] }
+          : {}),
       },
     });
 

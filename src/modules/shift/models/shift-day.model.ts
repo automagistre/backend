@@ -10,6 +10,13 @@ export class ShiftDayModel {
   @Field(() => ID)
   employeeId: string;
 
+  /** Строка графика — пара сотрудник–должность; у сотрудника без должностей одна строка без неё. */
+  @Field(() => ID, {
+    nullable: true,
+    description: 'Должность строки. null — у сотрудника нет должностей',
+  })
+  positionId: string | null;
+
   /** Дата, а не момент времени: строка не съезжает на сутки при смене пояса. */
   @Field(() => String, { description: 'Дата дня, ГГГГ-ММ-ДД' })
   date: string;
@@ -28,7 +35,7 @@ export class ShiftDayModel {
 
   @Field(() => Boolean, {
     description:
-      'Занимает колонку в календаре: в смене и должность это позволяет',
+      'Занимает колонку в календаре: в смене и эта должность это позволяет',
   })
   occupiesColumn: boolean;
 }

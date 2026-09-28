@@ -114,12 +114,23 @@ export function pickPrimaryLink<
   )[0];
 }
 
-/** Отметка на день сильнее цикла: подмена, отпуск и больничный на то и заводятся. */
+export type ShiftDayMarks = {
+  /** Отметка на человека: отпуск, больничный */
+  personKind?: ShiftDayKind | null;
+  /** Отметка на должность: выход вне графика, отгул */
+  positionKind?: ShiftDayKind | null;
+};
+
+/**
+ * Отметка на день сильнее цикла: подмена, отпуск и больничный на то и заводятся.
+ * Отметка на человека сильнее отметки на должность: в отпуске не выходят ни в какой роли.
+ */
 export function resolveShiftDay(
   pattern: ShiftPattern,
   date: Date,
-  override?: ShiftDayKind | null,
+  { personKind, positionKind }: ShiftDayMarks = {},
 ): ResolvedShiftDay {
+  const override = personKind ?? positionKind;
   if (override) {
     return { working: override === ShiftDayKind.WORK, kind: override };
   }
@@ -134,16 +145,14 @@ const COLUMN_SETTINGS = [
   StaffPositionSettingKey.WORK_EXECUTOR,
 ] as const;
 
-function positionsHaveSetting(
-  positions: StaffPositionWithSettings[],
+function positionHasSetting(
+  position: StaffPositionWithSettings,
   key: StaffPositionSettingKey,
 ): boolean {
-  return positions.some((position) =>
-    position.settings.some(
-      (setting) =>
-        (setting.key as StaffPositionSettingKey) === key &&
-        setting.value === true,
-    ),
+  return position.settings.some(
+    (setting) =>
+      (setting.key as StaffPositionSettingKey) === key &&
+      setting.value === true,
   );
 }
 
@@ -153,9 +162,10 @@ function positionsHaveSetting(
  * в сетке появится столбец, куда работу назначить нельзя, а автораспределение начнёт
  * складывать туда записи. Без CALENDAR_PARTICIPANT колонку получит мастер-приёмщик,
  * который работы исполняет, но подъёмник не занимает.
+ * Обе настройки — у одной должности: смена запчастиста не даёт колонку мастеру цеха.
  */
 export function occupiesCalendarColumn(
-  positions: StaffPositionWithSettings[],
+  position: StaffPositionWithSettings,
 ): boolean {
-  return COLUMN_SETTINGS.every((key) => positionsHaveSetting(positions, key));
+  return COLUMN_SETTINGS.every((key) => positionHasSetting(position, key));
 }

@@ -12,6 +12,14 @@ export class ShiftDaysRangeInput {
 
   @Field(() => String, { description: 'Последний день диапазона, ГГГГ-ММ-ДД' })
   to: string;
+
+  @Field(() => ID, {
+    nullable: true,
+    description:
+      'Должность. Для выхода и отгула обязательна, для отпуска и больничного не передаётся. ' +
+      'При снятии: с должностью — отметки должности и на человека, без — все',
+  })
+  positionId?: string | null;
 }
 
 @InputType()
