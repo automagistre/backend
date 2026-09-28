@@ -22,6 +22,7 @@ import type { ShiftPatternInput } from 'src/modules/shift/inputs/shift-pattern.i
 import {
   assertShiftPattern,
   parseDateKey,
+  pickPrimaryLink,
   toDateKey,
 } from 'src/modules/shift/shift.rules';
 
@@ -36,31 +37,40 @@ const EMPLOYEE_INCLUDE = {
   },
 } as const;
 
+type ShiftPatternColumns = {
+  shiftMask: string | null;
+  shiftStartsOn: Date | null;
+};
+
 /**
  * Связку через линк-таблицу наружу не показываем — только список должностей.
  * Маска и якорь наружу идут одним объектом: по отдельности они бессмысленны.
+ * Цикл сотрудника пока один — это цикл основной должности.
  */
 function toEmployeeModel<
   T extends {
-    staffPositions: { position: StaffPositionWithSettings }[];
-    shiftMask: string | null;
-    shiftStartsOn: Date | null;
+    staffPositions: ({
+      position: StaffPositionWithSettings;
+    } & ShiftPatternColumns)[];
   },
 >({ staffPositions, ...employee }: T) {
+  const primary = pickPrimaryLink(staffPositions);
   return {
     ...employee,
     positions: staffPositions.map((link) =>
       toStaffPositionModel(link.position),
     ),
     shift:
-      employee.shiftMask && employee.shiftStartsOn
+      primary?.shiftMask && primary.shiftStartsOn
         ? {
-            mask: employee.shiftMask,
-            startsOn: toDateKey(employee.shiftStartsOn),
+            mask: primary.shiftMask,
+            startsOn: toDateKey(primary.shiftStartsOn),
           }
         : null,
   };
 }
+
+const NO_SHIFT: ShiftPatternColumns = { shiftMask: null, shiftStartsOn: null };
 
 @Injectable()
 export class EmployeeService {
@@ -84,9 +94,9 @@ export class EmployeeService {
   /** null — снять цикл, undefined — не трогать. Разбор здесь, чтобы в базу шла уже дата. */
   private resolveShiftPattern(
     shift: ShiftPatternInput | null | undefined,
-  ): { shiftMask: string | null; shiftStartsOn: Date | null } | undefined {
+  ): ShiftPatternColumns | undefined {
     if (shift === undefined) return undefined;
-    if (shift === null) return { shiftMask: null, shiftStartsOn: null };
+    if (shift === null) return NO_SHIFT;
 
     const mask = shift.mask.trim();
     try {
@@ -142,6 +152,31 @@ export class EmployeeService {
     return unique;
   }
 
+  /** Цикл хранится на должности: без должности его некуда положить. */
+  private async resolvePrimaryPositionId(
+    ctx: AuthContext,
+    positionIds: string[],
+    shift: ShiftPatternColumns | undefined,
+  ): Promise<string | null> {
+    if (shift === undefined) return null;
+    const positions =
+      positionIds.length === 0
+        ? []
+        : await this.prisma.staffPosition.findMany({
+            where: { id: { in: positionIds }, tenantId: ctx.tenantId },
+            select: { id: true, sortOrder: true },
+          });
+    const primary = pickPrimaryLink(
+      positions.map((position) => ({ position })),
+    );
+    if (!primary && shift.shiftMask) {
+      throw new BadRequestException(
+        'Цикл графика задаётся для должности: назначьте сотруднику должность',
+      );
+    }
+    return primary?.position.id ?? null;
+  }
+
   async create(ctx: AuthContext, data: CreateEmployeeInput) {
     const guaranteedMinimumAmount = await this.resolveGuaranteedMinimum(
       ctx.tenantId,
@@ -149,6 +184,11 @@ export class EmployeeService {
     );
     const positionIds = await this.resolvePositionIds(ctx, data.positionIds);
     const shift = this.resolveShiftPattern(data.shift);
+    const primaryPositionId = await this.resolvePrimaryPositionId(
+      ctx,
+      positionIds,
+      shift,
+    );
 
     return this.prisma.$transaction(async (tx) => {
       const employee = await tx.employee.create({
@@ -156,14 +196,16 @@ export class EmployeeService {
           personId: data.personId,
           ratio: data.ratio ?? null,
           hiredAt: data.hiredAt || new Date(),
-          ...(shift ?? {}),
           ...(guaranteedMinimumAmount !== undefined
             ? { guaranteedMinimumAmount }
             : {}),
           tenantId: ctx.tenantId,
           createdBy: ctx.userId,
           staffPositions: {
-            create: positionIds.map((positionId) => ({ positionId })),
+            create: positionIds.map((positionId) => ({
+              positionId,
+              ...(positionId === primaryPositionId ? shift : {}),
+            })),
           },
         },
       });
@@ -204,9 +246,6 @@ export class EmployeeService {
     }
 
     const nextShift = this.resolveShiftPattern(shift);
-    if (nextShift !== undefined) {
-      Object.assign(updateData, nextShift);
-    }
 
     if (guaranteeInput !== undefined) {
       updateData.guaranteedMinimumAmount = await this.resolveGuaranteedMinimum(
@@ -215,33 +254,61 @@ export class EmployeeService {
       );
     }
 
-    const currentLinks =
-      positionIds === undefined
-        ? []
-        : await this.prisma.employeeStaffPosition.findMany({
-            where: { employeeId: id },
-            select: { positionId: true },
-          });
+    const currentIds = (
+      await this.prisma.employeeStaffPosition.findMany({
+        where: { employeeId: id },
+        select: { positionId: true },
+      })
+    ).map((link) => link.positionId);
     const nextPositionIds =
       positionIds === undefined
         ? undefined
-        : await this.resolvePositionIds(
-            ctx,
-            positionIds,
-            currentLinks.map((link) => link.positionId),
-          );
+        : await this.resolvePositionIds(ctx, positionIds, currentIds);
+    const primaryPositionId = await this.resolvePrimaryPositionId(
+      ctx,
+      nextPositionIds ?? currentIds,
+      nextShift,
+    );
 
     return this.prisma.$transaction(async (tx) => {
+      // Связки не пересоздаём: на них живут цикл и отметки графика оставшихся должностей
       if (nextPositionIds !== undefined) {
-        await tx.employeeStaffPosition.deleteMany({
-          where: { employeeId: id },
-        });
-        if (nextPositionIds.length > 0) {
+        const removedIds = currentIds.filter(
+          (positionId) => !nextPositionIds.includes(positionId),
+        );
+        const addedIds = nextPositionIds.filter(
+          (positionId) => !currentIds.includes(positionId),
+        );
+        if (removedIds.length > 0) {
+          await tx.employeeStaffPosition.deleteMany({
+            where: { employeeId: id, positionId: { in: removedIds } },
+          });
+        }
+        if (addedIds.length > 0) {
           await tx.employeeStaffPosition.createMany({
-            data: nextPositionIds.map((positionId) => ({
+            data: addedIds.map((positionId) => ({
               employeeId: id,
               positionId,
             })),
+          });
+        }
+      }
+
+      // Цикл пока один на сотрудника: живёт на основной должности, у остальных снят
+      if (nextShift !== undefined) {
+        await tx.employeeStaffPosition.updateMany({
+          where: { employeeId: id },
+          data: NO_SHIFT,
+        });
+        if (primaryPositionId) {
+          await tx.employeeStaffPosition.update({
+            where: {
+              employeeId_positionId: {
+                employeeId: id,
+                positionId: primaryPositionId,
+              },
+            },
+            data: nextShift,
           });
         }
       }

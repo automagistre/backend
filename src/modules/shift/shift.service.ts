@@ -2,7 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import type { AuthContext } from 'src/common/user-id.store';
 import { STAFF_POSITION_INCLUDE } from 'src/modules/staff-position/staff-position.mapper';
-import { isShiftDayKind } from './enums/shift-day-kind.enum';
+import { isShiftDayKind, ShiftDayKind } from './enums/shift-day-kind.enum';
 import { ShiftDayModel } from './models/shift-day.model';
 import {
   SetShiftDaysInput,
@@ -10,8 +10,10 @@ import {
 } from './inputs/shift-day.input';
 import {
   eachDateKey,
+  isPersonLevelKind,
   occupiesCalendarColumn,
   parseDateKey,
+  pickPrimaryLink,
   resolveShiftDay,
   toDateKey,
   toDayNumber,
@@ -56,6 +58,7 @@ export class ShiftService {
   private async assertEmployee(ctx: AuthContext, employeeId: string) {
     const employee = await this.prisma.employee.findFirst({
       where: { id: employeeId, tenantId: ctx.tenantId },
+      include: { staffPositions: { include: { position: true } } },
     });
     if (!employee) throw new BadRequestException('Сотрудник не найден');
     if (employee.firedAt) {
@@ -98,9 +101,10 @@ export class ShiftService {
       }),
     ]);
 
+    // Ключ ячейки: отметка на человека — без должности, на должность — с ней
     const overrideByCell = new Map(
       overrides.map((override) => [
-        `${override.employeeId}:${toDateKey(override.date)}`,
+        `${override.employeeId}:${override.positionId ?? ''}:${toDateKey(override.date)}`,
         override,
       ]),
     );
@@ -111,15 +115,24 @@ export class ShiftService {
     for (const employee of employees) {
       const positions = employee.staffPositions.map((link) => link.position);
       const canHoldColumn = occupiesCalendarColumn(positions);
+      const primary = pickPrimaryLink(employee.staffPositions);
+      const pattern = {
+        shiftMask: primary?.shiftMask ?? null,
+        shiftStartsOn: primary?.shiftStartsOn ?? null,
+      };
       const hiredOn = toDayNumber(employee.hiredAt);
       const firedOn = employee.firedAt ? toDayNumber(employee.firedAt) : null;
 
       for (const key of keys) {
         const date = parseDateKey(key);
-        const override = overrideByCell.get(`${employee.id}:${key}`);
+        const override =
+          overrideByCell.get(`${employee.id}::${key}`) ??
+          (primary
+            ? overrideByCell.get(`${employee.id}:${primary.positionId}:${key}`)
+            : undefined);
         const kind =
           override && isShiftDayKind(override.kind) ? override.kind : null;
-        const resolved = resolveShiftDay(employee, date, kind);
+        const resolved = resolveShiftDay(pattern, date, kind);
 
         const dayNumber = toDayNumber(date);
         const employed =
@@ -164,12 +177,16 @@ export class ShiftService {
     input: SetShiftDaysInput,
   ): Promise<ShiftDayModel[]> {
     const { from, to } = this.parseRange(input.from, input.to);
-    await this.assertEmployee(ctx, input.employeeId);
+    const employee = await this.assertEmployee(ctx, input.employeeId);
+    const positionId = this.resolveMarkPositionId(
+      input.kind,
+      pickPrimaryLink(employee.staffPositions)?.positionId,
+    );
 
     const comment = input.comment?.trim() || null;
     const dates = eachDateKey(from, to).map(parseDateKey);
 
-    // Отметка на день одна, поэтому диапазон переписываем целиком.
+    // Пока график ведётся по основной должности, отметка на день одна — диапазон переписываем целиком.
     await this.prisma.$transaction([
       this.prisma.employeeShiftDay.deleteMany({
         where: {
@@ -181,6 +198,7 @@ export class ShiftService {
       this.prisma.employeeShiftDay.createMany({
         data: dates.map((date) => ({
           employeeId: input.employeeId,
+          positionId,
           date,
           kind: input.kind,
           comment,
@@ -195,6 +213,20 @@ export class ShiftService {
       to: input.to,
       employeeId: input.employeeId,
     });
+  }
+
+  /** Отпуск и больничный — на человека, выход и отгул — на должность: так их различает CHECK в базе. */
+  private resolveMarkPositionId(
+    kind: ShiftDayKind,
+    primaryPositionId: string | undefined,
+  ): string | null {
+    if (isPersonLevelKind(kind)) return null;
+    if (!primaryPositionId) {
+      throw new BadRequestException(
+        'Выход и отгул ставятся на должность: назначьте сотруднику должность',
+      );
+    }
+    return primaryPositionId;
   }
 
   /** Снятие отметок возвращает дни в цикл, а не делает их выходными. */

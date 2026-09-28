@@ -98,6 +98,22 @@ export function isWorkingByPattern(
   return mask[index] === '1';
 }
 
+/** Отпуск и больничный — про человека, а не про роль: гасят все его должности сразу. */
+export function isPersonLevelKind(kind: ShiftDayKind): boolean {
+  return kind === ShiftDayKind.VACATION || kind === ShiftDayKind.SICK;
+}
+
+/** Основная должность — меньший sortOrder, при равенстве меньший id: так же выбирает миграция. */
+export function pickPrimaryLink<
+  T extends { position: { id: string; sortOrder: number } },
+>(links: T[]): T | undefined {
+  return [...links].sort(
+    (left, right) =>
+      left.position.sortOrder - right.position.sortOrder ||
+      (left.position.id < right.position.id ? -1 : 1),
+  )[0];
+}
+
 /** Отметка на день сильнее цикла: подмена, отпуск и больничный на то и заводятся. */
 export function resolveShiftDay(
   pattern: ShiftPattern,

@@ -621,10 +621,6 @@ model Employee {
   guaranteedMinimumAmount BigInt?                 @map("guaranteed_minimum_amount")
   hiredAt                 DateTime                @map("hired_at") @db.Timestamp(0)
   firedAt                 DateTime?               @map("fired_at") @db.Timestamp(0)
-  /// Цикл графика маской из 1 и 0: 5/2 это 1111100. null — сотрудник выходит только по отметкам.
-  shiftMask               String?                 @map("shift_mask") @db.VarChar(31)
-  /// Дата, которой соответствует первый символ маски.
-  shiftStartsOn           DateTime?               @map("shift_starts_on") @db.Date
   tenantId                String                  @map("tenant_id") @db.Uuid
   createdAt               DateTime?               @default(now()) @map("created_at") @db.Timestamptz(0)
   createdBy               String?                 @map("created_by") @db.Uuid
@@ -632,24 +628,29 @@ model Employee {
   staffPositions          EmployeeStaffPosition[]
   shiftDays               EmployeeShiftDay[]
 
-  /// Согласованность маски и якоря держит CHECK chk_employee_shift_pattern.
   @@unique([personId, firedAt], map: "uniq_person_fired")
   @@map("employee")
 }
 
 /// Отклонение от цикла на конкретный день: выход вне графика, отпуск, больничный, отгул.
+/// Отпуск и больничный — на человека (positionId null), выход и отгул — на должность;
+/// связку держит CHECK chk_employee_shift_day_scope.
 model EmployeeShiftDay {
-  id         String    @id @default(uuid()) @db.Uuid
-  employeeId String    @map("employee_id") @db.Uuid
-  employee   Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  date       DateTime  @db.Date
-  kind       String    @db.VarChar(32)
-  comment    String?   @db.VarChar(255)
-  tenantId   String    @map("tenant_id") @db.Uuid
-  createdAt  DateTime? @default(now()) @map("created_at") @db.Timestamptz(0)
-  createdBy  String?   @map("created_by") @db.Uuid
+  id            String                 @id @default(uuid()) @db.Uuid
+  employeeId    String                 @map("employee_id") @db.Uuid
+  employee      Employee               @relation(fields: [employeeId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  positionId    String?                @map("position_id") @db.Uuid
+  staffPosition EmployeeStaffPosition? @relation(fields: [employeeId, positionId], references: [employeeId, positionId], onDelete: Cascade, onUpdate: NoAction, map: "employee_shift_day_employee_position_fkey")
+  date          DateTime               @db.Date
+  kind          String                 @db.VarChar(32)
+  comment       String?                @db.VarChar(255)
+  tenantId      String                 @map("tenant_id") @db.Uuid
+  createdAt     DateTime?              @default(now()) @map("created_at") @db.Timestamptz(0)
+  createdBy     String?                @map("created_by") @db.Uuid
 
-  @@unique([employeeId, date], map: "uniq_employee_shift_day")
+  /// Уникальность — частичные индексы: uniq_employee_shift_day_person (employee_id, date)
+  /// WHERE position_id IS NULL и uniq_employee_shift_day_position (employee_id, position_id, date)
+  /// WHERE position_id IS NOT NULL.
   @@index([tenantId, date], map: "idx_employee_shift_day_tenant_date")
   @@map("employee_shift_day")
 }
@@ -687,11 +688,17 @@ model StaffPositionSetting {
 }
 
 model EmployeeStaffPosition {
-  employeeId String        @map("employee_id") @db.Uuid
-  employee   Employee      @relation(fields: [employeeId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  positionId String        @map("position_id") @db.Uuid
-  position   StaffPosition @relation(fields: [positionId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  employeeId    String             @map("employee_id") @db.Uuid
+  employee      Employee           @relation(fields: [employeeId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  positionId    String             @map("position_id") @db.Uuid
+  position      StaffPosition      @relation(fields: [positionId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  /// Цикл графика в этой должности маской из 1 и 0: 5/2 это 1111100. null — выход только по отметкам.
+  shiftMask     String?            @map("shift_mask") @db.VarChar(31)
+  /// Дата, которой соответствует первый символ маски.
+  shiftStartsOn DateTime?          @map("shift_starts_on") @db.Date
+  shiftDays     EmployeeShiftDay[]
 
+  /// Согласованность маски и якоря держит CHECK chk_employee_staff_position_shift_pattern.
   @@id([employeeId, positionId])
   @@index([positionId], map: "idx_employee_staff_position_position")
   @@map("employee_staff_position")
@@ -1237,28 +1244,28 @@ model TenantOrganization {
 }
 
 model Organization {
-  id                    String          @id @default(uuid()) @db.Uuid
-  name                  String          @db.VarChar(255)
-  address               String?         @db.VarChar(255)
-  telephone             String?         @db.VarChar(35)
-  officePhone           String?         @map("office_phone") @db.VarChar(35)
-  email                 String?         @db.VarChar(255)
+  id                    String               @id @default(uuid()) @db.Uuid
+  name                  String               @db.VarChar(255)
+  address               String?              @db.VarChar(255)
+  telephone             String?              @db.VarChar(35)
+  officePhone           String?              @map("office_phone") @db.VarChar(35)
+  email                 String?              @db.VarChar(255)
   contractor            Boolean
   seller                Boolean
-  tenantGroupId         String          @map("tenant_group_id") @db.Uuid
-  requisiteBank         String?         @map("requisite_bank") @db.VarChar(255)
-  requisiteLegalAddress String?         @map("requisite_legal_address") @db.VarChar(255)
-  requisiteOgrn         String?         @map("requisite_ogrn") @db.VarChar(255)
-  requisiteInn          String?         @map("requisite_inn") @db.VarChar(255)
-  requisiteKpp          String?         @map("requisite_kpp") @db.VarChar(255)
-  requisiteRs           String?         @map("requisite_rs") @db.VarChar(255)
-  requisiteKs           String?         @map("requisite_ks") @db.VarChar(255)
-  requisiteBik          String?         @map("requisite_bik") @db.VarChar(255)
-  requisiteHead         String?         @map("requisite_head") @db.VarChar(255)
-  requisiteHeadPosition String?         @map("requisite_head_position") @db.VarChar(255)
-  createdAt             DateTime?       @default(now()) @map("created_at") @db.Timestamptz(0)
-  createdBy             String?         @map("created_by") @db.Uuid
-  balance               Decimal         @default(0) @db.Decimal
+  tenantGroupId         String               @map("tenant_group_id") @db.Uuid
+  requisiteBank         String?              @map("requisite_bank") @db.VarChar(255)
+  requisiteLegalAddress String?              @map("requisite_legal_address") @db.VarChar(255)
+  requisiteOgrn         String?              @map("requisite_ogrn") @db.VarChar(255)
+  requisiteInn          String?              @map("requisite_inn") @db.VarChar(255)
+  requisiteKpp          String?              @map("requisite_kpp") @db.VarChar(255)
+  requisiteRs           String?              @map("requisite_rs") @db.VarChar(255)
+  requisiteKs           String?              @map("requisite_ks") @db.VarChar(255)
+  requisiteBik          String?              @map("requisite_bik") @db.VarChar(255)
+  requisiteHead         String?              @map("requisite_head") @db.VarChar(255)
+  requisiteHeadPosition String?              @map("requisite_head_position") @db.VarChar(255)
+  createdAt             DateTime?            @default(now()) @map("created_at") @db.Timestamptz(0)
+  createdBy             String?              @map("created_by") @db.Uuid
+  balance               Decimal              @default(0) @db.Decimal
   OrderItemPart         OrderItemPart[]
   tenantLinks           TenantOrganization[]
 
@@ -1407,14 +1414,14 @@ model Review {
 // }
 
 model tenant {
-  id                String              @unique(map: "temporal_unique_idx") @db.Uuid
-  group_id          String              @db.Uuid
-  identifier        String              @unique(map: "uniq_4e59c462772e836a") @db.VarChar(255)
-  name              String              @db.VarChar(255)
-  public_id         Int                 @unique(map: "tenant_public_id_uniq")
-  created_at        DateTime            @default(now()) @db.Timestamptz(6)
-  updated_at        DateTime            @default(now()) @db.Timestamptz(6)
-  tenant_group      tenant_group        @relation(fields: [group_id], references: [id], onUpdate: Restrict)
+  id                String               @unique(map: "temporal_unique_idx") @db.Uuid
+  group_id          String               @db.Uuid
+  identifier        String               @unique(map: "uniq_4e59c462772e836a") @db.VarChar(255)
+  name              String               @db.VarChar(255)
+  public_id         Int                  @unique(map: "tenant_public_id_uniq")
+  created_at        DateTime             @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime             @default(now()) @db.Timestamptz(6)
+  tenant_group      tenant_group         @relation(fields: [group_id], references: [id], onUpdate: Restrict)
   tenant_permission tenant_permission[]
   organizations     TenantOrganization[]
 

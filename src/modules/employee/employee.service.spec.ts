@@ -120,9 +120,96 @@ describe('EmployeeService positionIds', () => {
     expect(prisma.staffPosition.count).toHaveBeenCalledWith({
       where: { id: { in: ['pos-archived'] }, tenantId: 'tenant-1' },
     });
-    expect(prisma.employeeStaffPosition.createMany).toHaveBeenCalledWith({
-      data: [{ employeeId: 'emp-1', positionId: 'pos-archived' }],
+    expect(prisma.employeeStaffPosition.deleteMany).not.toHaveBeenCalled();
+    expect(prisma.employeeStaffPosition.createMany).not.toHaveBeenCalled();
+  });
+
+  it('при смене должностей удаляет только снятые и создаёт только новые', async () => {
+    jest.mocked(prisma.employee.findFirst).mockResolvedValue({
+      id: 'emp-1',
+      tenantId: 'tenant-1',
+    } as any);
+    jest
+      .mocked(prisma.employeeStaffPosition.findMany)
+      .mockResolvedValue([
+        { positionId: 'pos-keep' },
+        { positionId: 'pos-drop' },
+      ] as any);
+    jest.mocked(prisma.staffPosition.count).mockResolvedValue(1);
+    jest
+      .mocked(prisma.employee.update)
+      .mockResolvedValue({ id: 'emp-1', staffPositions: [] } as any);
+
+    await service.update(ctx, {
+      id: 'emp-1',
+      positionIds: ['pos-keep', 'pos-new'],
     });
+
+    expect(prisma.employeeStaffPosition.deleteMany).toHaveBeenCalledWith({
+      where: { employeeId: 'emp-1', positionId: { in: ['pos-drop'] } },
+    });
+    expect(prisma.employeeStaffPosition.createMany).toHaveBeenCalledWith({
+      data: [{ employeeId: 'emp-1', positionId: 'pos-new' }],
+    });
+    expect(prisma.employeeStaffPosition.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('цикл пишется в основную должность', async () => {
+    jest.mocked(prisma.employee.findFirst).mockResolvedValue({
+      id: 'emp-1',
+      tenantId: 'tenant-1',
+    } as any);
+    jest
+      .mocked(prisma.employeeStaffPosition.findMany)
+      .mockResolvedValue([
+        { positionId: 'pos-parts' },
+        { positionId: 'pos-master' },
+      ] as any);
+    jest.mocked(prisma.staffPosition.findMany).mockResolvedValue([
+      { id: 'pos-parts', sortOrder: 20 },
+      { id: 'pos-master', sortOrder: 10 },
+    ] as any);
+    jest
+      .mocked(prisma.employee.update)
+      .mockResolvedValue({ id: 'emp-1', staffPositions: [] } as any);
+
+    await service.update(ctx, {
+      id: 'emp-1',
+      shift: { mask: '1100', startsOn: '2026-09-01' },
+    });
+
+    expect(prisma.employeeStaffPosition.updateMany).toHaveBeenCalledWith({
+      where: { employeeId: 'emp-1' },
+      data: { shiftMask: null, shiftStartsOn: null },
+    });
+    expect(prisma.employeeStaffPosition.update).toHaveBeenCalledWith({
+      where: {
+        employeeId_positionId: {
+          employeeId: 'emp-1',
+          positionId: 'pos-master',
+        },
+      },
+      data: {
+        shiftMask: '1100',
+        shiftStartsOn: new Date('2026-09-01T00:00:00.000Z'),
+      },
+    });
+  });
+
+  it('цикл без должности задать нельзя', async () => {
+    jest.mocked(prisma.employee.findFirst).mockResolvedValue({
+      id: 'emp-1',
+      tenantId: 'tenant-1',
+    } as any);
+    jest.mocked(prisma.employeeStaffPosition.findMany).mockResolvedValue([]);
+
+    await expect(
+      service.update(ctx, {
+        id: 'emp-1',
+        shift: { mask: '1100', startsOn: '2026-09-01' },
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
   it('новую архивную должность назначить нельзя', async () => {

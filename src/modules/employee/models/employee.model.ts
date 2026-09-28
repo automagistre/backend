@@ -37,10 +37,6 @@ export class EmployeeModel implements Employee {
   @Field(() => Date, { nullable: true, description: 'Дата увольнения' })
   firedAt: Date | null;
 
-  /** Наружу идут не колонки, а собранный цикл: см. поле shift. */
-  shiftMask: string | null;
-  shiftStartsOn: Date | null;
-
   @Field(() => EmployeeShiftPatternModel, {
     nullable: true,
     description: 'Цикл графика. null — сотрудник выходит только по отметкам',
