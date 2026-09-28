@@ -2,7 +2,6 @@ import { Field, ID, InputType, Int } from '@nestjs/graphql';
 import { IsInt, IsOptional, Min, Max, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
 import { MoneyInput } from 'src/common/inputs/money.input';
-import { ShiftPatternInput } from 'src/modules/shift/inputs/shift-pattern.input';
 import { EmployeePositionInput } from './employee-position.input';
 
 @InputType()
@@ -37,24 +36,11 @@ export class CreateEmployeeInput {
   hiredAt?: Date;
 
   @IsOptional()
-  @Field(() => [ID], { nullable: true, description: 'Должности сотрудника' })
-  positionIds?: string[];
-
-  @IsOptional()
-  @ValidateNested()
-  @Type(() => ShiftPatternInput)
-  @Field(() => ShiftPatternInput, {
-    nullable: true,
-    description: 'Цикл графика. Не передавать — сотрудник выходит по отметкам',
-  })
-  shift?: ShiftPatternInput | null;
-
-  @IsOptional()
   @ValidateNested({ each: true })
   @Type(() => EmployeePositionInput)
   @Field(() => [EmployeePositionInput], {
     nullable: true,
-    description: 'Должности с циклами. Вместо positionIds и shift',
+    description: 'Должности сотрудника с циклами графика',
   })
   positions?: EmployeePositionInput[] | null;
 }
@@ -94,38 +80,15 @@ export class UpdateEmployeeInput {
   hiredAt?: Date;
 
   /**
-   * Полный набор должностей: чего нет в списке — снимается. Не передавать — не менять.
-   */
-  @IsOptional()
-  @Field(() => [ID], {
-    nullable: true,
-    description: 'Должности сотрудника (полный набор)',
-  })
-  positionIds?: string[];
-
-  /**
-   * null — снять цикл, сотрудник останется работать только по отметкам;
-   * не передавать — не менять.
-   */
-  @IsOptional()
-  @ValidateNested()
-  @Type(() => ShiftPatternInput)
-  @Field(() => ShiftPatternInput, {
-    nullable: true,
-    description: 'Цикл графика (null — снять; не передавать — не менять)',
-  })
-  shift?: ShiftPatternInput | null;
-
-  /**
-   * Полный набор должностей, как positionIds; цикл меняется только там, где передан.
+   * Полный набор должностей: чего нет в списке — снимается вместе с циклом и отметками графика.
+   * Цикл меняется только там, где передан. Не передавать — не менять.
    */
   @IsOptional()
   @ValidateNested({ each: true })
   @Type(() => EmployeePositionInput)
   @Field(() => [EmployeePositionInput], {
     nullable: true,
-    description:
-      'Должности с циклами (полный набор). Вместо positionIds и shift',
+    description: 'Должности сотрудника с циклами графика (полный набор)',
   })
   positions?: EmployeePositionInput[] | null;
 }

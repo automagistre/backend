@@ -64,7 +64,7 @@ describe('EmployeeService person/employee converters', () => {
   });
 });
 
-describe('EmployeeService positionIds', () => {
+describe('EmployeeService positions', () => {
   let prisma: DeepMockProxy<PrismaService>;
   let settings: DeepMockProxy<SettingsService>;
   let service: EmployeeService;
@@ -114,7 +114,7 @@ describe('EmployeeService positionIds', () => {
 
     await service.update(ctx, {
       id: 'emp-1',
-      positionIds: ['pos-archived'],
+      positions: [{ positionId: 'pos-archived' }],
     });
 
     expect(prisma.staffPosition.count).toHaveBeenCalledWith({
@@ -142,7 +142,7 @@ describe('EmployeeService positionIds', () => {
 
     await service.update(ctx, {
       id: 'emp-1',
-      positionIds: ['pos-keep', 'pos-new'],
+      positions: [{ positionId: 'pos-keep' }, { positionId: 'pos-new' }],
     });
 
     expect(prisma.employeeStaffPosition.deleteMany).toHaveBeenCalledWith({
@@ -154,44 +154,23 @@ describe('EmployeeService positionIds', () => {
     expect(prisma.employeeStaffPosition.updateMany).not.toHaveBeenCalled();
   });
 
-  it('цикл пишется в основную должность', async () => {
+  it('без positions связки и циклы не трогает', async () => {
     jest.mocked(prisma.employee.findFirst).mockResolvedValue({
       id: 'emp-1',
       tenantId: 'tenant-1',
     } as any);
     jest
       .mocked(prisma.employeeStaffPosition.findMany)
-      .mockResolvedValue([
-        { positionId: 'pos-parts' },
-        { positionId: 'pos-master' },
-      ] as any);
-    jest.mocked(prisma.staffPosition.findMany).mockResolvedValue([
-      { id: 'pos-parts', sortOrder: 20 },
-      { id: 'pos-master', sortOrder: 10 },
-    ] as any);
+      .mockResolvedValue([{ positionId: 'pos-master' }] as any);
     jest
       .mocked(prisma.employee.update)
       .mockResolvedValue({ id: 'emp-1', staffPositions: [] } as any);
 
-    await service.update(ctx, {
-      id: 'emp-1',
-      shift: { mask: '1100', startsOn: '2026-09-01' },
-    });
+    await service.update(ctx, { id: 'emp-1', ratio: 30 });
 
-    expect(prisma.employeeStaffPosition.updateMany).not.toHaveBeenCalled();
-    expect(prisma.employeeStaffPosition.update).toHaveBeenCalledTimes(1);
-    expect(prisma.employeeStaffPosition.update).toHaveBeenCalledWith({
-      where: {
-        employeeId_positionId: {
-          employeeId: 'emp-1',
-          positionId: 'pos-master',
-        },
-      },
-      data: {
-        shiftMask: '1100',
-        shiftStartsOn: new Date('2026-09-01T00:00:00.000Z'),
-      },
-    });
+    expect(prisma.employeeStaffPosition.deleteMany).not.toHaveBeenCalled();
+    expect(prisma.employeeStaffPosition.createMany).not.toHaveBeenCalled();
+    expect(prisma.employeeStaffPosition.update).not.toHaveBeenCalled();
   });
 
   it('positions: цикл меняется только у переданных должностей', async () => {
@@ -251,38 +230,6 @@ describe('EmployeeService positionIds', () => {
     });
   });
 
-  it('positions нельзя смешивать со старыми positionIds и shift', async () => {
-    jest.mocked(prisma.employee.findFirst).mockResolvedValue({
-      id: 'emp-1',
-      tenantId: 'tenant-1',
-    } as any);
-    jest.mocked(prisma.employeeStaffPosition.findMany).mockResolvedValue([]);
-
-    await expect(
-      service.update(ctx, {
-        id: 'emp-1',
-        positions: [{ positionId: 'pos-master' }],
-        positionIds: ['pos-master'],
-      }),
-    ).rejects.toBeInstanceOf(BadRequestException);
-  });
-
-  it('цикл без должности задать нельзя', async () => {
-    jest.mocked(prisma.employee.findFirst).mockResolvedValue({
-      id: 'emp-1',
-      tenantId: 'tenant-1',
-    } as any);
-    jest.mocked(prisma.employeeStaffPosition.findMany).mockResolvedValue([]);
-
-    await expect(
-      service.update(ctx, {
-        id: 'emp-1',
-        shift: { mask: '1100', startsOn: '2026-09-01' },
-      }),
-    ).rejects.toBeInstanceOf(BadRequestException);
-    expect(prisma.$transaction).not.toHaveBeenCalled();
-  });
-
   it('новую архивную должность назначить нельзя', async () => {
     jest.mocked(prisma.employee.findFirst).mockResolvedValue({
       id: 'emp-1',
@@ -292,7 +239,10 @@ describe('EmployeeService positionIds', () => {
     jest.mocked(prisma.staffPosition.count).mockResolvedValue(0);
 
     await expect(
-      service.update(ctx, { id: 'emp-1', positionIds: ['pos-archived'] }),
+      service.update(ctx, {
+        id: 'emp-1',
+        positions: [{ positionId: 'pos-archived' }],
+      }),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 });

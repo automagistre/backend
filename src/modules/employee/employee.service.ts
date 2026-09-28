@@ -23,7 +23,6 @@ import type { ShiftPatternInput } from 'src/modules/shift/inputs/shift-pattern.i
 import {
   assertShiftPattern,
   parseDateKey,
-  pickPrimaryLink,
   toDateKey,
 } from 'src/modules/shift/shift.rules';
 
@@ -62,7 +61,6 @@ function toEmployeeModel<
     } & ShiftPatternColumns)[];
   },
 >({ staffPositions, ...employee }: T) {
-  const primary = pickPrimaryLink(staffPositions);
   return {
     ...employee,
     positions: staffPositions.map((link) =>
@@ -72,7 +70,6 @@ function toEmployeeModel<
       positionId: link.positionId,
       shift: toShiftPatternModel(link),
     })),
-    shift: primary ? toShiftPatternModel(primary) : null,
   };
 }
 
@@ -82,12 +79,6 @@ const NO_SHIFT: ShiftPatternColumns = { shiftMask: null, shiftStartsOn: null };
 type PositionPlan = {
   positionIds: string[] | undefined;
   shifts: Map<string, ShiftPatternColumns>;
-};
-
-type PositionPlanInput = {
-  positions?: EmployeePositionInput[] | null;
-  positionIds?: string[] | null;
-  shift?: ShiftPatternInput | null;
 };
 
 @Injectable()
@@ -170,73 +161,25 @@ export class EmployeeService {
     return unique;
   }
 
-  /** Цикл хранится на должности: без должности его некуда положить. */
-  private async resolvePrimaryPositionId(
-    ctx: AuthContext,
-    positionIds: string[],
-    shift: ShiftPatternColumns | undefined,
-  ): Promise<string | null> {
-    if (shift === undefined) return null;
-    const positions =
-      positionIds.length === 0
-        ? []
-        : await this.prisma.staffPosition.findMany({
-            where: { id: { in: positionIds }, tenantId: ctx.tenantId },
-            select: { id: true, sortOrder: true },
-          });
-    const primary = pickPrimaryLink(
-      positions.map((position) => ({ position })),
-    );
-    if (!primary && shift.shiftMask) {
-      throw new BadRequestException(
-        'Цикл графика задаётся для должности: назначьте сотруднику должность',
-      );
-    }
-    return primary?.position.id ?? null;
-  }
-
-  /** Старый вход (positionIds + shift) пишет цикл в основную должность и другие не трогает. */
+  /** null и undefined — набор не менять; цикл пишется только там, где передан. */
   private async resolvePositionPlan(
     ctx: AuthContext,
-    input: PositionPlanInput,
+    positions: EmployeePositionInput[] | null | undefined,
     currentIds: string[],
   ): Promise<PositionPlan> {
-    if (input.positions != null) {
-      if (input.positionIds !== undefined || input.shift !== undefined) {
-        throw new BadRequestException(
-          'Передайте должности либо в positions, либо в positionIds и shift',
-        );
-      }
-      const positionIds = await this.resolvePositionIds(
-        ctx,
-        input.positions.map((position) => position.positionId),
-        currentIds,
-      );
-      const shifts = new Map<string, ShiftPatternColumns>();
-      for (const { positionId, shift } of input.positions) {
-        const pattern = this.resolveShiftPattern(shift);
-        if (pattern) shifts.set(positionId, pattern);
-      }
-      return { positionIds, shifts };
-    }
+    const shifts = new Map<string, ShiftPatternColumns>();
+    if (positions == null) return { positionIds: undefined, shifts };
 
-    const positionIds =
-      input.positionIds === undefined
-        ? undefined
-        : await this.resolvePositionIds(ctx, input.positionIds, currentIds);
-    const shift = this.resolveShiftPattern(input.shift);
-    const primaryPositionId = await this.resolvePrimaryPositionId(
+    const positionIds = await this.resolvePositionIds(
       ctx,
-      positionIds ?? currentIds,
-      shift,
+      positions.map((position) => position.positionId),
+      currentIds,
     );
-    return {
-      positionIds,
-      shifts:
-        shift && primaryPositionId
-          ? new Map([[primaryPositionId, shift]])
-          : new Map<string, ShiftPatternColumns>(),
-    };
+    for (const { positionId, shift } of positions) {
+      const pattern = this.resolveShiftPattern(shift);
+      if (pattern) shifts.set(positionId, pattern);
+    }
+    return { positionIds, shifts };
   }
 
   async create(ctx: AuthContext, data: CreateEmployeeInput) {
@@ -246,7 +189,7 @@ export class EmployeeService {
     );
     const { positionIds = [], shifts } = await this.resolvePositionPlan(
       ctx,
-      data,
+      data.positions,
       [],
     );
 
@@ -292,9 +235,7 @@ export class EmployeeService {
     const {
       guaranteedMinimumAmount: guaranteeInput,
       positions,
-      positionIds,
       ratio,
-      shift,
       ...rest
     } = data;
     const updateData: Record<string, unknown> = Object.fromEntries(
@@ -319,11 +260,7 @@ export class EmployeeService {
         select: { positionId: true },
       })
     ).map((link) => link.positionId);
-    const plan = await this.resolvePositionPlan(
-      ctx,
-      { positions, positionIds, shift },
-      currentIds,
-    );
+    const plan = await this.resolvePositionPlan(ctx, positions, currentIds);
     const nextIds = plan.positionIds ?? currentIds;
     const removedIds = currentIds.filter(
       (positionId) => !nextIds.includes(positionId),

@@ -103,17 +103,6 @@ export function isPersonLevelKind(kind: ShiftDayKind): boolean {
   return kind === ShiftDayKind.VACATION || kind === ShiftDayKind.SICK;
 }
 
-/** Основная должность — меньший sortOrder, при равенстве меньший id: так же выбирает миграция. */
-export function pickPrimaryLink<
-  T extends { position: { id: string; sortOrder: number } },
->(links: T[]): T | undefined {
-  return [...links].sort(
-    (left, right) =>
-      left.position.sortOrder - right.position.sortOrder ||
-      (left.position.id < right.position.id ? -1 : 1),
-  )[0];
-}
-
 export type ShiftDayMarks = {
   /** Отметка на человека: отпуск, больничный */
   personKind?: ShiftDayKind | null;
