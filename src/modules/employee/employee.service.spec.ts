@@ -178,10 +178,8 @@ describe('EmployeeService positionIds', () => {
       shift: { mask: '1100', startsOn: '2026-09-01' },
     });
 
-    expect(prisma.employeeStaffPosition.updateMany).toHaveBeenCalledWith({
-      where: { employeeId: 'emp-1' },
-      data: { shiftMask: null, shiftStartsOn: null },
-    });
+    expect(prisma.employeeStaffPosition.updateMany).not.toHaveBeenCalled();
+    expect(prisma.employeeStaffPosition.update).toHaveBeenCalledTimes(1);
     expect(prisma.employeeStaffPosition.update).toHaveBeenCalledWith({
       where: {
         employeeId_positionId: {
@@ -194,6 +192,79 @@ describe('EmployeeService positionIds', () => {
         shiftStartsOn: new Date('2026-09-01T00:00:00.000Z'),
       },
     });
+  });
+
+  it('positions: цикл меняется только у переданных должностей', async () => {
+    jest.mocked(prisma.employee.findFirst).mockResolvedValue({
+      id: 'emp-1',
+      tenantId: 'tenant-1',
+    } as any);
+    jest
+      .mocked(prisma.employeeStaffPosition.findMany)
+      .mockResolvedValue([
+        { positionId: 'pos-master' },
+        { positionId: 'pos-keep' },
+        { positionId: 'pos-drop' },
+      ] as any);
+    jest
+      .mocked(prisma.staffPosition.count)
+      .mockResolvedValueOnce(1)
+      .mockResolvedValueOnce(2);
+    jest
+      .mocked(prisma.employee.update)
+      .mockResolvedValue({ id: 'emp-1', staffPositions: [] } as any);
+
+    await service.update(ctx, {
+      id: 'emp-1',
+      positions: [
+        { positionId: 'pos-master', shift: null },
+        { positionId: 'pos-keep' },
+        {
+          positionId: 'pos-parts',
+          shift: { mask: '1100', startsOn: '2026-09-01' },
+        },
+      ],
+    });
+
+    expect(prisma.employeeStaffPosition.deleteMany).toHaveBeenCalledWith({
+      where: { employeeId: 'emp-1', positionId: { in: ['pos-drop'] } },
+    });
+    expect(prisma.employeeStaffPosition.createMany).toHaveBeenCalledWith({
+      data: [
+        {
+          employeeId: 'emp-1',
+          positionId: 'pos-parts',
+          shiftMask: '1100',
+          shiftStartsOn: new Date('2026-09-01T00:00:00.000Z'),
+        },
+      ],
+    });
+    expect(prisma.employeeStaffPosition.update).toHaveBeenCalledTimes(1);
+    expect(prisma.employeeStaffPosition.update).toHaveBeenCalledWith({
+      where: {
+        employeeId_positionId: {
+          employeeId: 'emp-1',
+          positionId: 'pos-master',
+        },
+      },
+      data: { shiftMask: null, shiftStartsOn: null },
+    });
+  });
+
+  it('positions нельзя смешивать со старыми positionIds и shift', async () => {
+    jest.mocked(prisma.employee.findFirst).mockResolvedValue({
+      id: 'emp-1',
+      tenantId: 'tenant-1',
+    } as any);
+    jest.mocked(prisma.employeeStaffPosition.findMany).mockResolvedValue([]);
+
+    await expect(
+      service.update(ctx, {
+        id: 'emp-1',
+        positions: [{ positionId: 'pos-master' }],
+        positionIds: ['pos-master'],
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('цикл без должности задать нельзя', async () => {

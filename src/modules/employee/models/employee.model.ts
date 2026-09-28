@@ -3,6 +3,7 @@ import { Employee } from 'src/generated/prisma/client';
 import { PersonModel } from 'src/modules/person/models/person.model';
 import { StaffPositionModel } from 'src/modules/staff-position/models/staff-position.model';
 import { EmployeeShiftPatternModel } from 'src/modules/shift/models/employee-shift-pattern.model';
+import { EmployeePositionShiftModel } from './employee-position-shift.model';
 
 @ObjectType({ description: 'Сотрудник' })
 export class EmployeeModel implements Employee {
@@ -39,9 +40,15 @@ export class EmployeeModel implements Employee {
 
   @Field(() => EmployeeShiftPatternModel, {
     nullable: true,
-    description: 'Цикл графика. null — сотрудник выходит только по отметкам',
+    description: 'Цикл основной должности',
+    deprecationReason: 'Цикл задаётся по должностям: positionShifts',
   })
   shift: EmployeeShiftPatternModel | null;
+
+  @Field(() => [EmployeePositionShiftModel], {
+    description: 'Циклы графика по должностям, в порядке должностей',
+  })
+  positionShifts: EmployeePositionShiftModel[];
 
   @Field(() => String)
   tenantId: string;

@@ -3,6 +3,7 @@ import { IsInt, IsOptional, Min, Max, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
 import { MoneyInput } from 'src/common/inputs/money.input';
 import { ShiftPatternInput } from 'src/modules/shift/inputs/shift-pattern.input';
+import { EmployeePositionInput } from './employee-position.input';
 
 @InputType()
 export class CreateEmployeeInput {
@@ -47,6 +48,15 @@ export class CreateEmployeeInput {
     description: 'Цикл графика. Не передавать — сотрудник выходит по отметкам',
   })
   shift?: ShiftPatternInput | null;
+
+  @IsOptional()
+  @ValidateNested({ each: true })
+  @Type(() => EmployeePositionInput)
+  @Field(() => [EmployeePositionInput], {
+    nullable: true,
+    description: 'Должности с циклами. Вместо positionIds и shift',
+  })
+  positions?: EmployeePositionInput[] | null;
 }
 
 @InputType()
@@ -105,4 +115,17 @@ export class UpdateEmployeeInput {
     description: 'Цикл графика (null — снять; не передавать — не менять)',
   })
   shift?: ShiftPatternInput | null;
+
+  /**
+   * Полный набор должностей, как positionIds; цикл меняется только там, где передан.
+   */
+  @IsOptional()
+  @ValidateNested({ each: true })
+  @Type(() => EmployeePositionInput)
+  @Field(() => [EmployeePositionInput], {
+    nullable: true,
+    description:
+      'Должности с циклами (полный набор). Вместо positionIds и shift',
+  })
+  positions?: EmployeePositionInput[] | null;
 }

@@ -9,6 +9,7 @@ import {
   CreateEmployeeInput,
   UpdateEmployeeInput,
 } from './inputs/employee.input';
+import type { EmployeePositionInput } from './inputs/employee-position.input';
 import type { AuthContext } from 'src/common/user-id.store';
 import { SettingsService } from 'src/modules/settings/settings.service';
 import { applyDefaultCurrency } from 'src/common/money';
@@ -42,15 +43,22 @@ type ShiftPatternColumns = {
   shiftStartsOn: Date | null;
 };
 
-/**
- * Связку через линк-таблицу наружу не показываем — только список должностей.
- * Маска и якорь наружу идут одним объектом: по отдельности они бессмысленны.
- * Цикл сотрудника пока один — это цикл основной должности.
- */
+/** Маска и якорь наружу идут одним объектом: по отдельности они бессмысленны. */
+function toShiftPatternModel({
+  shiftMask,
+  shiftStartsOn,
+}: ShiftPatternColumns) {
+  return shiftMask && shiftStartsOn
+    ? { mask: shiftMask, startsOn: toDateKey(shiftStartsOn) }
+    : null;
+}
+
+/** Связку через линк-таблицу наружу не показываем — только должности и их циклы. */
 function toEmployeeModel<
   T extends {
     staffPositions: ({
       position: StaffPositionWithSettings;
+      positionId: string;
     } & ShiftPatternColumns)[];
   },
 >({ staffPositions, ...employee }: T) {
@@ -60,17 +68,27 @@ function toEmployeeModel<
     positions: staffPositions.map((link) =>
       toStaffPositionModel(link.position),
     ),
-    shift:
-      primary?.shiftMask && primary.shiftStartsOn
-        ? {
-            mask: primary.shiftMask,
-            startsOn: toDateKey(primary.shiftStartsOn),
-          }
-        : null,
+    positionShifts: staffPositions.map((link) => ({
+      positionId: link.positionId,
+      shift: toShiftPatternModel(link),
+    })),
+    shift: primary ? toShiftPatternModel(primary) : null,
   };
 }
 
 const NO_SHIFT: ShiftPatternColumns = { shiftMask: null, shiftStartsOn: null };
+
+/** Проверенный набор должностей (undefined — не менять) и циклы, которые надо записать. */
+type PositionPlan = {
+  positionIds: string[] | undefined;
+  shifts: Map<string, ShiftPatternColumns>;
+};
+
+type PositionPlanInput = {
+  positions?: EmployeePositionInput[] | null;
+  positionIds?: string[] | null;
+  shift?: ShiftPatternInput | null;
+};
 
 @Injectable()
 export class EmployeeService {
@@ -177,17 +195,59 @@ export class EmployeeService {
     return primary?.position.id ?? null;
   }
 
+  /** Старый вход (positionIds + shift) пишет цикл в основную должность и другие не трогает. */
+  private async resolvePositionPlan(
+    ctx: AuthContext,
+    input: PositionPlanInput,
+    currentIds: string[],
+  ): Promise<PositionPlan> {
+    if (input.positions != null) {
+      if (input.positionIds !== undefined || input.shift !== undefined) {
+        throw new BadRequestException(
+          'Передайте должности либо в positions, либо в positionIds и shift',
+        );
+      }
+      const positionIds = await this.resolvePositionIds(
+        ctx,
+        input.positions.map((position) => position.positionId),
+        currentIds,
+      );
+      const shifts = new Map<string, ShiftPatternColumns>();
+      for (const { positionId, shift } of input.positions) {
+        const pattern = this.resolveShiftPattern(shift);
+        if (pattern) shifts.set(positionId, pattern);
+      }
+      return { positionIds, shifts };
+    }
+
+    const positionIds =
+      input.positionIds === undefined
+        ? undefined
+        : await this.resolvePositionIds(ctx, input.positionIds, currentIds);
+    const shift = this.resolveShiftPattern(input.shift);
+    const primaryPositionId = await this.resolvePrimaryPositionId(
+      ctx,
+      positionIds ?? currentIds,
+      shift,
+    );
+    return {
+      positionIds,
+      shifts:
+        shift && primaryPositionId
+          ? new Map([[primaryPositionId, shift]])
+          : new Map<string, ShiftPatternColumns>(),
+    };
+  }
+
   async create(ctx: AuthContext, data: CreateEmployeeInput) {
     const guaranteedMinimumAmount = await this.resolveGuaranteedMinimum(
       ctx.tenantId,
       data.guaranteedMinimumAmount,
     );
-    const positionIds = await this.resolvePositionIds(ctx, data.positionIds);
-    const shift = this.resolveShiftPattern(data.shift);
-    const primaryPositionId = await this.resolvePrimaryPositionId(
+    const { positionIds = [], shifts } = await this.resolvePositionPlan(
       ctx,
-      positionIds,
-      shift,
+      data,
+      [],
     );
 
     return this.prisma.$transaction(async (tx) => {
@@ -204,7 +264,7 @@ export class EmployeeService {
           staffPositions: {
             create: positionIds.map((positionId) => ({
               positionId,
-              ...(positionId === primaryPositionId ? shift : {}),
+              ...shifts.get(positionId),
             })),
           },
         },
@@ -231,6 +291,7 @@ export class EmployeeService {
 
     const {
       guaranteedMinimumAmount: guaranteeInput,
+      positions,
       positionIds,
       ratio,
       shift,
@@ -245,8 +306,6 @@ export class EmployeeService {
       updateData.ratio = ratio;
     }
 
-    const nextShift = this.resolveShiftPattern(shift);
-
     if (guaranteeInput !== undefined) {
       updateData.guaranteedMinimumAmount = await this.resolveGuaranteedMinimum(
         ctx.tenantId,
@@ -260,57 +319,41 @@ export class EmployeeService {
         select: { positionId: true },
       })
     ).map((link) => link.positionId);
-    const nextPositionIds =
-      positionIds === undefined
-        ? undefined
-        : await this.resolvePositionIds(ctx, positionIds, currentIds);
-    const primaryPositionId = await this.resolvePrimaryPositionId(
+    const plan = await this.resolvePositionPlan(
       ctx,
-      nextPositionIds ?? currentIds,
-      nextShift,
+      { positions, positionIds, shift },
+      currentIds,
+    );
+    const nextIds = plan.positionIds ?? currentIds;
+    const removedIds = currentIds.filter(
+      (positionId) => !nextIds.includes(positionId),
+    );
+    const addedIds = nextIds.filter(
+      (positionId) => !currentIds.includes(positionId),
     );
 
     return this.prisma.$transaction(async (tx) => {
       // Связки не пересоздаём: на них живут цикл и отметки графика оставшихся должностей
-      if (nextPositionIds !== undefined) {
-        const removedIds = currentIds.filter(
-          (positionId) => !nextPositionIds.includes(positionId),
-        );
-        const addedIds = nextPositionIds.filter(
-          (positionId) => !currentIds.includes(positionId),
-        );
-        if (removedIds.length > 0) {
-          await tx.employeeStaffPosition.deleteMany({
-            where: { employeeId: id, positionId: { in: removedIds } },
-          });
-        }
-        if (addedIds.length > 0) {
-          await tx.employeeStaffPosition.createMany({
-            data: addedIds.map((positionId) => ({
-              employeeId: id,
-              positionId,
-            })),
-          });
-        }
-      }
-
-      // Цикл пока один на сотрудника: живёт на основной должности, у остальных снят
-      if (nextShift !== undefined) {
-        await tx.employeeStaffPosition.updateMany({
-          where: { employeeId: id },
-          data: NO_SHIFT,
+      if (removedIds.length > 0) {
+        await tx.employeeStaffPosition.deleteMany({
+          where: { employeeId: id, positionId: { in: removedIds } },
         });
-        if (primaryPositionId) {
-          await tx.employeeStaffPosition.update({
-            where: {
-              employeeId_positionId: {
-                employeeId: id,
-                positionId: primaryPositionId,
-              },
-            },
-            data: nextShift,
-          });
-        }
+      }
+      if (addedIds.length > 0) {
+        await tx.employeeStaffPosition.createMany({
+          data: addedIds.map((positionId) => ({
+            employeeId: id,
+            positionId,
+            ...plan.shifts.get(positionId),
+          })),
+        });
+      }
+      for (const [positionId, pattern] of plan.shifts) {
+        if (addedIds.includes(positionId)) continue;
+        await tx.employeeStaffPosition.update({
+          where: { employeeId_positionId: { employeeId: id, positionId } },
+          data: pattern,
+        });
       }
 
       const employee = await tx.employee.update({

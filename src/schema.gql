@@ -789,6 +789,9 @@ input CreateEmployeeInput {
   """Должности сотрудника"""
   positionIds: [ID!]
 
+  """Должности с циклами. Вместо positionIds и shift"""
+  positions: [EmployeePositionInput!]
+
   """Коэффициент (процент от работ). Не передавать — процент не начисляется"""
   ratio: Int
 
@@ -1650,15 +1653,36 @@ type EmployeeModel {
   """ID персоны"""
   personId: String!
 
+  """Циклы графика по должностям, в порядке должностей"""
+  positionShifts: [EmployeePositionShiftModel!]!
+
   """Должности"""
   positions: [StaffPositionModel!]!
 
   """Коэффициент (процент от работ). null — процент не начисляется"""
   ratio: Int
 
-  """Цикл графика. null — сотрудник выходит только по отметкам"""
-  shift: EmployeeShiftPatternModel
+  """Цикл основной должности"""
+  shift: EmployeeShiftPatternModel @deprecated(reason: "Цикл задаётся по должностям: positionShifts")
   tenantId: String!
+}
+
+"""Должность сотрудника и её цикл графика"""
+input EmployeePositionInput {
+  """ID должности"""
+  positionId: ID!
+
+  """Цикл графика (null — снять; не передавать — не менять)"""
+  shift: ShiftPatternInput
+}
+
+"""Цикл графика сотрудника в одной из его должностей"""
+type EmployeePositionShiftModel {
+  """ID должности"""
+  positionId: ID!
+
+  """Цикл. null — в этой должности только по отметкам"""
+  shift: EmployeeShiftPatternModel
 }
 
 type EmployeeSalaryModel {
@@ -4490,6 +4514,9 @@ input UpdateEmployeeInput {
 
   """Должности сотрудника (полный набор)"""
   positionIds: [ID!]
+
+  """Должности с циклами (полный набор). Вместо positionIds и shift"""
+  positions: [EmployeePositionInput!]
 
   """Коэффициент (процент от работ; null — снять)"""
   ratio: Int
