@@ -12,6 +12,7 @@ import { CommonModule } from 'src/common/common.module';
 import { ReservationModule } from 'src/modules/reservation/reservation.module';
 import { OrderModule } from 'src/modules/order/order.module';
 import { DisplayContextModule } from 'src/modules/display-context/display-context.module';
+import { ShiftModule } from 'src/modules/shift/shift.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { DisplayContextModule } from 'src/modules/display-context/display-contex
     forwardRef(() => ReservationModule),
     forwardRef(() => OrderModule),
     DisplayContextModule,
+    ShiftModule,
   ],
   providers: [
     RecommendationService,

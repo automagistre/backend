@@ -6,13 +6,18 @@ import { ReservationService } from 'src/modules/reservation/reservation.service'
 import { SettingsService } from 'src/modules/settings/settings.service';
 import { AuditLogService } from 'src/modules/audit-log/audit-log.service';
 import { DisplayContextService } from 'src/modules/display-context/display-context.service';
-import { createPrismaMock, type PrismaMock } from 'src/common/testing/prisma-mock';
+import { ShiftSnapshotService } from 'src/modules/shift/shift-snapshot.service';
+import {
+  createPrismaMock,
+  type PrismaMock,
+} from 'src/common/testing/prisma-mock';
 import { makeCtx } from 'src/common/testing/auth-context';
 
 describe('RecommendationService', () => {
   let prisma: PrismaMock;
   let settings: DeepMockProxy<SettingsService>;
   let audit: DeepMockProxy<AuditLogService>;
+  let shiftSnapshots: DeepMockProxy<ShiftSnapshotService>;
   let service: RecommendationService;
   const ctx = makeCtx();
 
@@ -21,6 +26,8 @@ describe('RecommendationService', () => {
     settings = mockDeep<SettingsService>();
     audit = mockDeep<AuditLogService>();
     settings.getDefaultCurrencyCode.mockResolvedValue('RUB');
+    shiftSnapshots = mockDeep<ShiftSnapshotService>();
+    shiftSnapshots.capture.mockResolvedValue('snap-1');
 
     service = new RecommendationService(
       prisma as unknown as PrismaService,
@@ -28,6 +35,7 @@ describe('RecommendationService', () => {
       settings as unknown as SettingsService,
       audit as unknown as AuditLogService,
       mockDeep<DisplayContextService>() as unknown as DisplayContextService,
+      shiftSnapshots,
     );
   });
 
@@ -45,7 +53,9 @@ describe('RecommendationService', () => {
     });
 
     it('пишет executorKind/executorId, нормализует цену и пишет аудит', async () => {
-      jest.mocked(prisma.car.findFirst).mockResolvedValue({ id: 'car-1' } as any);
+      jest
+        .mocked(prisma.car.findFirst)
+        .mockResolvedValue({ id: 'car-1' } as any);
       jest.mocked(prisma.carRecommendation.create).mockResolvedValue({
         id: 'rec-1',
         carId: 'car-1',
@@ -60,7 +70,8 @@ describe('RecommendationService', () => {
         priceAmount: null,
       } as any);
 
-      const data = jest.mocked(prisma.carRecommendation.create).mock.calls[0][0].data;
+      const data = jest.mocked(prisma.carRecommendation.create).mock.calls[0][0]
+        .data;
       expect(data).toMatchObject({
         executorKind: 'PERSON',
         executorId: 'person-1',
@@ -71,8 +82,41 @@ describe('RecommendationService', () => {
       expect(audit.record).toHaveBeenCalledTimes(1);
     });
 
+    it.each([
+      ['снимает смену, если снимок не передан', {}, 'snap-1', 1],
+      [
+        'берёт переданный снимок',
+        { shiftSnapshotId: 'snap-old' },
+        'snap-old',
+        0,
+      ],
+      ['сохраняет отсутствие снимка', { shiftSnapshotId: null }, null, 0],
+    ])('%s', async (_title, options, expected, captures) => {
+      jest
+        .mocked(prisma.car.findFirst)
+        .mockResolvedValue({ id: 'car-1' } as any);
+      jest
+        .mocked(prisma.carRecommendation.create)
+        .mockResolvedValue({ id: 'rec-1', carId: 'car-1' } as any);
+
+      await service.createRecommendation(
+        ctx,
+        { carId: 'car-1', service: 'Диагностика' } as any,
+        undefined,
+        true,
+        options,
+      );
+
+      expect(shiftSnapshots.capture).toHaveBeenCalledTimes(captures);
+      const data = jest.mocked(prisma.carRecommendation.create).mock.calls[0][0]
+        .data as any;
+      expect(data.shiftSnapshotId).toBe(expected);
+    });
+
     it('организация не может быть диагностом', async () => {
-      jest.mocked(prisma.car.findFirst).mockResolvedValue({ id: 'car-1' } as any);
+      jest
+        .mocked(prisma.car.findFirst)
+        .mockResolvedValue({ id: 'car-1' } as any);
 
       await expect(
         service.createRecommendation(ctx, {
@@ -85,7 +129,9 @@ describe('RecommendationService', () => {
     });
 
     it('подрядчик допустим только для kind=CONTRACTOR', async () => {
-      jest.mocked(prisma.car.findFirst).mockResolvedValue({ id: 'car-1' } as any);
+      jest
+        .mocked(prisma.car.findFirst)
+        .mockResolvedValue({ id: 'car-1' } as any);
 
       await expect(
         service.createRecommendation(ctx, {
@@ -101,7 +147,9 @@ describe('RecommendationService', () => {
     });
 
     it('подрядная рекомендация пишет contractorKind/contractorId', async () => {
-      jest.mocked(prisma.car.findFirst).mockResolvedValue({ id: 'car-1' } as any);
+      jest
+        .mocked(prisma.car.findFirst)
+        .mockResolvedValue({ id: 'car-1' } as any);
       jest.mocked(prisma.carRecommendation.create).mockResolvedValue({
         id: 'rec-1',
         carId: 'car-1',
@@ -118,7 +166,8 @@ describe('RecommendationService', () => {
         contractorId: 'org-1',
       } as any);
 
-      const data = jest.mocked(prisma.carRecommendation.create).mock.calls[0][0].data;
+      const data = jest.mocked(prisma.carRecommendation.create).mock.calls[0][0]
+        .data;
       expect(data).toMatchObject({
         kind: 'CONTRACTOR',
         executorKind: 'PERSON',
@@ -129,7 +178,9 @@ describe('RecommendationService', () => {
     });
 
     it('сторонняя диагностика очищает диагноста при создании', async () => {
-      jest.mocked(prisma.car.findFirst).mockResolvedValue({ id: 'car-1' } as any);
+      jest
+        .mocked(prisma.car.findFirst)
+        .mockResolvedValue({ id: 'car-1' } as any);
       jest.mocked(prisma.carRecommendation.create).mockResolvedValue({
         id: 'rec-1',
         carId: 'car-1',
@@ -144,7 +195,8 @@ describe('RecommendationService', () => {
         externalDiagnostic: true,
       } as any);
 
-      const data = jest.mocked(prisma.carRecommendation.create).mock.calls[0][0].data;
+      const data = jest.mocked(prisma.carRecommendation.create).mock.calls[0][0]
+        .data;
       expect(data).toMatchObject({
         externalDiagnostic: true,
         executorKind: null,
@@ -153,7 +205,9 @@ describe('RecommendationService', () => {
     });
 
     it('audit=false не пишет журнал', async () => {
-      jest.mocked(prisma.car.findFirst).mockResolvedValue({ id: 'car-1' } as any);
+      jest
+        .mocked(prisma.car.findFirst)
+        .mockResolvedValue({ id: 'car-1' } as any);
       jest.mocked(prisma.carRecommendation.create).mockResolvedValue({
         id: 'rec-1',
         carId: 'car-1',
@@ -202,7 +256,8 @@ describe('RecommendationService', () => {
         executorId: 'person-2',
       } as any);
 
-      const call = jest.mocked(prisma.carRecommendation.update).mock.calls[0][0];
+      const call = jest.mocked(prisma.carRecommendation.update).mock
+        .calls[0][0];
       expect(call.where).toEqual({ id: 'rec-1' });
       expect(call.data).toMatchObject({
         service: 'new',
@@ -234,7 +289,8 @@ describe('RecommendationService', () => {
         kind: 'AUTOSERVICE',
       } as any);
 
-      const call = jest.mocked(prisma.carRecommendation.update).mock.calls[0][0];
+      const call = jest.mocked(prisma.carRecommendation.update).mock
+        .calls[0][0];
       expect(call.data).toMatchObject({
         kind: 'AUTOSERVICE',
         contractorKind: null,
@@ -263,7 +319,8 @@ describe('RecommendationService', () => {
         externalDiagnostic: true,
       } as any);
 
-      const call = jest.mocked(prisma.carRecommendation.update).mock.calls[0][0];
+      const call = jest.mocked(prisma.carRecommendation.update).mock
+        .calls[0][0];
       expect(call.data).toMatchObject({
         externalDiagnostic: true,
         executorKind: null,
@@ -293,7 +350,8 @@ describe('RecommendationService', () => {
         executorId: 'person-2',
       } as any);
 
-      const call = jest.mocked(prisma.carRecommendation.update).mock.calls[0][0];
+      const call = jest.mocked(prisma.carRecommendation.update).mock
+        .calls[0][0];
       expect(call.data).toMatchObject({
         executorKind: 'PERSON',
         executorId: 'person-2',

@@ -1,4 +1,4 @@
-import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
+import { Args, ID, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { AuthContext } from 'src/common/decorators/auth-context.decorator';
 import { RequireTenant } from 'src/common/decorators/skip-tenant.decorator';
 import type { AuthContext as AuthContextType } from 'src/common/user-id.store';
@@ -8,11 +8,29 @@ import {
   ShiftDaysRangeInput,
 } from './inputs/shift-day.input';
 import { ShiftService } from './shift.service';
+import { ShiftSnapshotModel } from './models/shift-snapshot.model';
+import { ShiftSnapshotService } from './shift-snapshot.service';
 
 @Resolver(() => ShiftDayModel)
 @RequireTenant()
 export class ShiftResolver {
-  constructor(private readonly shiftService: ShiftService) {}
+  constructor(
+    private readonly shiftService: ShiftService,
+    private readonly shiftSnapshots: ShiftSnapshotService,
+  ) {}
+
+  @Query(() => ShiftSnapshotModel, {
+    name: 'shiftSnapshot',
+    nullable: true,
+    description:
+      'Состав смены на момент создания строки, рекомендации или договора',
+  })
+  async shiftSnapshot(
+    @AuthContext() ctx: AuthContextType,
+    @Args('id', { type: () => ID }) id: string,
+  ) {
+    return this.shiftSnapshots.findOne(ctx.tenantId, id);
+  }
 
   @Query(() => [ShiftDayModel], {
     name: 'shiftDays',

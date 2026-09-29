@@ -1,5 +1,7 @@
 import { mockDeep, type DeepMockProxy } from 'jest-mock-extended';
 import type { Prisma } from 'src/generated/prisma/client';
+import { createPrismaMock } from 'src/common/testing/prisma-mock';
+import { PrismaService } from 'src/prisma/prisma.service';
 import { SettingsService } from 'src/modules/settings/settings.service';
 import { parseDateKey } from './shift.rules';
 import { ShiftService } from './shift.service';
@@ -57,7 +59,22 @@ describe('ShiftSnapshotService.capture', () => {
       workDayEnd: '21:00',
     });
     shifts.findWorkingPairs.mockResolvedValue(pairs);
-    service = new ShiftSnapshotService(shifts, settings);
+    service = new ShiftSnapshotService(
+      mockDeep<PrismaService>(),
+      shifts,
+      settings,
+    );
+  });
+
+  it('без транзакции снимок и пары пишутся в одной транзакции', async () => {
+    const prisma = createPrismaMock();
+    prisma.shiftSnapshot.findUnique.mockResolvedValue(null);
+    prisma.shiftSnapshot.createMany.mockResolvedValue({ count: 1 });
+
+    await service.capture(prisma, 'tenant-1', at);
+
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(prisma.shiftSnapshotMember.createMany).toHaveBeenCalled();
   });
 
   it('берёт состав рабочего дня, а не календарного', async () => {

@@ -71,6 +71,13 @@ export class TireStorageModel {
   @Field(() => ID, { nullable: true })
   createdBy: string | null;
 
+  @Field(() => ID, {
+    nullable: true,
+    description:
+      'Снимок смены на момент заключения договора; у описи без заказа пусто',
+  })
+  shiftSnapshotId: string | null;
+
   @Field(() => Boolean, {
     description:
       'Просрочен (IN_WAREHOUSE/AWAITING_SHOP/IN_SHOP и expiresAt < now)',

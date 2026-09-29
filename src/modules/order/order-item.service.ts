@@ -38,6 +38,7 @@ import { ReservationService } from '../reservation/reservation.service';
 import { applyDefaultCurrency } from 'src/common/money';
 import { normalizeMoneyAmount } from 'src/common/utils/money.util';
 import { SettingsService } from 'src/modules/settings/settings.service';
+import { ShiftSnapshotService } from 'src/modules/shift/shift-snapshot.service';
 import type { AuthContext } from 'src/common/user-id.store';
 import { AuditLogService } from 'src/modules/audit-log/audit-log.service';
 import {
@@ -57,6 +58,7 @@ export class OrderItemService {
     private readonly auditLog: AuditLogService,
     private readonly walletTransactionService: WalletTransactionService,
     private readonly noteService: NoteService,
+    private readonly shiftSnapshots: ShiftSnapshotService,
   ) {}
 
   async findTreeByOrderId(orderId: string): Promise<OrderItemModel[]> {
@@ -474,6 +476,7 @@ export class OrderItemService {
           parentId: input.parentId,
           type: '1',
           tenantId,
+          shiftSnapshotId: await this.shiftSnapshots.capture(tx, tenantId),
           service: {
             create: {
               service: input.service,
@@ -568,6 +571,10 @@ export class OrderItemService {
       subject: 'запчасти',
     });
 
+    const shiftSnapshotId = await this.shiftSnapshots.capture(
+      this.prisma,
+      tenantId,
+    );
     const orderItem = await this.prisma.orderItem.create({
       data: {
         id: uuidv6(),
@@ -575,6 +582,7 @@ export class OrderItemService {
         parentId: input.parentId,
         type: '2',
         tenantId,
+        shiftSnapshotId,
         part: {
           create: {
             partId: input.partId,
@@ -641,6 +649,8 @@ export class OrderItemService {
         priceAmount?: bigint | null;
       }[];
       validateOrderEditable?: boolean;
+      /** Снимок смены работы-родителя, если он уже взят в этой же операции. */
+      shiftSnapshotId?: string;
     },
     prismaClient?: Prisma.TransactionClient,
   ): Promise<{ orderItemPartId: string; quantity: number }[]> {
@@ -670,6 +680,9 @@ export class OrderItemService {
     const defaultCurrency = await this.settingsService.getDefaultCurrencyCode(
       ctx.tenantId,
     );
+    const shiftSnapshotId =
+      input.shiftSnapshotId ??
+      (await this.shiftSnapshots.capture(client, tenantId));
     const orderItemsData: Prisma.OrderItemCreateManyInput[] = [];
     const orderItemPartsData: Prisma.OrderItemPartCreateManyInput[] = [];
     const result: { orderItemPartId: string; quantity: number }[] = [];
@@ -684,6 +697,7 @@ export class OrderItemService {
         parentId: input.parentId,
         type: '2',
         tenantId,
+        shiftSnapshotId,
       });
 
       orderItemPartsData.push({

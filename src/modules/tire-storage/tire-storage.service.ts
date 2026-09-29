@@ -9,6 +9,7 @@ import { v6 as uuidv6 } from 'uuid';
 import { applyDefaultCurrency } from 'src/common/money';
 import type { AuthContext } from 'src/common/user-id.store';
 import { SettingsService } from 'src/modules/settings/settings.service';
+import { ShiftSnapshotService } from 'src/modules/shift/shift-snapshot.service';
 import { TireSeason } from './enums/tire-season.enum';
 import { TireStorageStatus } from './enums/tire-storage-status.enum';
 import { CreateTireStorageInput } from './inputs/create-tire-storage.input';
@@ -36,6 +37,7 @@ export class TireStorageService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly settingsService: SettingsService,
+    private readonly shiftSnapshots: ShiftSnapshotService,
   ) {}
 
   private toModel(
@@ -63,6 +65,7 @@ export class TireStorageService {
       note: string | null;
       createdAt: Date | null;
       createdBy: string | null;
+      shiftSnapshotId: string | null;
     },
     now = new Date(),
   ): TireStorageModel {
@@ -314,6 +317,10 @@ export class TireStorageService {
       this.settingsService.getTireStorageDefaultQuantity(ctx.tenantId),
     ]);
     const expiresAt = acceptedAt ? addMonths(acceptedAt, storageMonths) : null;
+    // Опись без заказа — перенос уже заключённых договоров, а не продажа в эту смену
+    const shiftSnapshotId = isManual
+      ? null
+      : await this.shiftSnapshots.capture(this.prisma, ctx.tenantId);
 
     const created = await this.prisma.tireStorage.create({
       data: {
@@ -339,6 +346,7 @@ export class TireStorageService {
         expiresAt,
         note: input.note?.trim() || null,
         createdBy: ctx.userId,
+        shiftSnapshotId,
       },
     });
 
