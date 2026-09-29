@@ -134,6 +134,28 @@ describe('OrderItemService.createService', () => {
     expect(items[0].shiftSnapshotId).toBe('snap-work');
   });
 
+  it('запчасти из рекомендации запоминают исходную запчасть рекомендации', async () => {
+    jest
+      .mocked(prisma.part.findMany)
+      .mockResolvedValue([{ id: 'p1' }, { id: 'p2' }] as any);
+
+    await service.createPartsForService(ctx, {
+      orderId: 'order-1',
+      parentId: 'oi-1',
+      parts: [
+        { partId: 'p1', quantity: 1, recommendationPartId: 'rp-1' },
+        { partId: 'p2', quantity: 1 },
+      ],
+    });
+
+    const parts = jest.mocked(prisma.orderItemPart.createMany).mock.calls[0][0]
+      ?.data as any[];
+    expect(parts.map((part) => part.recommendationPartId)).toEqual([
+      'rp-1',
+      null,
+    ]);
+  });
+
   it('без исполнителя пишет executorKind/executorId = null', async () => {
     jest.mocked(prisma.orderItem.create).mockResolvedValue(created() as any);
 

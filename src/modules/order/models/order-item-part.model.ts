@@ -34,7 +34,8 @@ export class OrderItemPartModel {
 
   @Field(() => ID, {
     nullable: true,
-    description: 'person_id сотрудника-плательщика (при warrantyPayerKind=EMPLOYEE)',
+    description:
+      'person_id сотрудника-плательщика (при warrantyPayerKind=EMPLOYEE)',
   })
   warrantyPayerPersonId: string | null;
 
@@ -55,6 +56,12 @@ export class OrderItemPartModel {
 
   @Field(() => ID, { nullable: true })
   createdBy: string | null;
+
+  @Field(() => ID, {
+    nullable: true,
+    description: 'Запчасть рекомендации, из которой реализована позиция',
+  })
+  recommendationPartId: string | null;
 
   @Field(() => Int, {
     description:
