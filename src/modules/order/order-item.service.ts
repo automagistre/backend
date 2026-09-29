@@ -647,6 +647,7 @@ export class OrderItemService {
         partId: string;
         quantity: number;
         priceAmount?: bigint | null;
+        recommendationPartId?: string;
       }[];
       validateOrderEditable?: boolean;
       /** Снимок смены работы-родителя, если он уже взят в этой же операции. */
@@ -711,6 +712,7 @@ export class OrderItemService {
         discountAmount: normalizeMoneyAmount(undefined),
         discountCurrencyCode: defaultCurrency,
         createdBy: userId,
+        recommendationPartId: part.recommendationPartId ?? null,
       });
 
       result.push({ orderItemPartId, quantity: part.quantity });

@@ -323,6 +323,7 @@ model CarRecommendationPart {
   priceCurrencyCode String?           @map("price_currency_code") @db.VarChar(3)
   createdAt         DateTime?         @default(now()) @map("created_at") @db.Timestamptz(0)
   createdBy         String?           @map("created_by") @db.Uuid
+  orderItemParts    OrderItemPart[]
 
   @@index([recommendationId], map: "idx_ddc72d65d173940b")
   @@map("car_recommendation_part")
@@ -1075,27 +1076,31 @@ model OrderItemService {
 }
 
 model OrderItemPart {
-  id                    String        @id @default(uuid()) @db.Uuid
-  orderItem             OrderItem     @relation(fields: [id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  part                  Part          @relation(fields: [partId], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  partId                String        @map("part_id") @db.Uuid
-  supplier              Organization? @relation(fields: [supplierId], references: [id], onDelete: SetNull, onUpdate: NoAction)
-  supplierId            String?       @map("supplier_id") @db.Uuid
+  id                    String                 @id @default(uuid()) @db.Uuid
+  orderItem             OrderItem              @relation(fields: [id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  part                  Part                   @relation(fields: [partId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  partId                String                 @map("part_id") @db.Uuid
+  supplier              Organization?          @relation(fields: [supplierId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  supplierId            String?                @map("supplier_id") @db.Uuid
   quantity              Int
   warranty              Boolean
   /// EMPLOYEE | ORGANIZATION — кто несёт стоимость гарантийной запчасти
-  warrantyPayerKind     String?       @map("warranty_payer_kind") @db.VarChar(16)
+  warrantyPayerKind     String?                @map("warranty_payer_kind") @db.VarChar(16)
   /// person_id сотрудника-плательщика (обязателен при warrantyPayerKind=EMPLOYEE)
-  warrantyPayerPersonId String?       @map("warranty_payer_person_id") @db.Uuid
-  priceAmount           BigInt?       @map("price_amount")
-  priceCurrencyCode     String?       @map("price_currency_code") @db.VarChar(3)
-  discountAmount        BigInt?       @map("discount_amount")
-  discountCurrencyCode  String?       @map("discount_currency_code") @db.VarChar(3)
-  createdAt             DateTime?     @default(now()) @map("created_at") @db.Timestamptz(0)
-  createdBy             String?       @map("created_by") @db.Uuid
+  warrantyPayerPersonId String?                @map("warranty_payer_person_id") @db.Uuid
+  priceAmount           BigInt?                @map("price_amount")
+  priceCurrencyCode     String?                @map("price_currency_code") @db.VarChar(3)
+  discountAmount        BigInt?                @map("discount_amount")
+  discountCurrencyCode  String?                @map("discount_currency_code") @db.VarChar(3)
+  createdAt             DateTime?              @default(now()) @map("created_at") @db.Timestamptz(0)
+  createdBy             String?                @map("created_by") @db.Uuid
+  /// Запчасть рекомендации, из которой реализована позиция
+  recommendationPartId  String?                @map("recommendation_part_id") @db.Uuid
+  recommendationPart    CarRecommendationPart? @relation(fields: [recommendationPartId], references: [id], onDelete: SetNull, onUpdate: Restrict)
   reservations          Reservation[]
 
   @@index([partId])
+  @@index([recommendationPartId], map: "idx_order_item_part_recommendation_part")
   @@map("order_item_part")
 }
 

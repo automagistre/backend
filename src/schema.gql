@@ -2513,6 +2513,9 @@ type OrderItemPartModel {
   priceCurrencyCode: String
   quantity: Int!
 
+  """Запчасть рекомендации, из которой реализована позиция"""
+  recommendationPartId: ID
+
   """
   Количество в резерве по этой позиции (сумма резерва по orderItemPartId)
   """

@@ -221,6 +221,7 @@ export class RecommendationWorkMigrationService {
                 partId: part.partId,
                 quantity: part.quantity,
                 priceAmount: part.priceAmount ?? null,
+                recommendationPartId: part.id,
               })),
               validateOrderEditable: false,
               shiftSnapshotId,
