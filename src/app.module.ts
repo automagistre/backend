@@ -18,6 +18,7 @@ import { OrganizationModule } from './modules/organization/organization.module';
 import { EmployeeModule } from './modules/employee/employee.module';
 import { StaffPositionModule } from './modules/staff-position/staff-position.module';
 import { ShiftModule } from './modules/shift/shift.module';
+import { MotivationModule } from './modules/motivation/motivation.module';
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { AuthModule } from './modules/auth/auth.module';
 import { OrderModule } from './modules/order/order.module';
@@ -94,6 +95,7 @@ import authConfig from './config/auth.config';
     EmployeeModule,
     StaffPositionModule,
     ShiftModule,
+    MotivationModule,
     CalendarModule,
     AuthModule,
     OrderModule,
