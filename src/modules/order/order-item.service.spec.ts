@@ -8,9 +8,13 @@ import { SettingsService } from 'src/modules/settings/settings.service';
 import { AuditLogService } from 'src/modules/audit-log/audit-log.service';
 import { WalletTransactionService } from 'src/modules/wallet/wallet-transaction.service';
 import { NoteService } from 'src/modules/note/note.service';
+import { ShiftSnapshotService } from 'src/modules/shift/shift-snapshot.service';
 import { AuditEntityType } from 'src/modules/audit-log/enums/audit.enums';
 import { PartyKind } from 'src/common/party';
-import { createPrismaMock, type PrismaMock } from 'src/common/testing/prisma-mock';
+import {
+  createPrismaMock,
+  type PrismaMock,
+} from 'src/common/testing/prisma-mock';
 import { makeCtx } from 'src/common/testing/auth-context';
 
 describe('OrderItemService.createService', () => {
@@ -20,6 +24,7 @@ describe('OrderItemService.createService', () => {
   let audit: DeepMockProxy<AuditLogService>;
   let walletTransactions: DeepMockProxy<WalletTransactionService>;
   let noteService: DeepMockProxy<NoteService>;
+  let shiftSnapshots: DeepMockProxy<ShiftSnapshotService>;
   let service: OrderItemService;
   const ctx = makeCtx();
 
@@ -30,6 +35,8 @@ describe('OrderItemService.createService', () => {
     audit = mockDeep<AuditLogService>();
     walletTransactions = mockDeep<WalletTransactionService>();
     noteService = mockDeep<NoteService>();
+    shiftSnapshots = mockDeep<ShiftSnapshotService>();
+    shiftSnapshots.capture.mockResolvedValue('snap-1');
     settings.getDefaultCurrencyCode.mockResolvedValue('RUB');
     orderService.validateOrderEditable.mockResolvedValue(undefined as any);
 
@@ -41,6 +48,7 @@ describe('OrderItemService.createService', () => {
       audit as unknown as AuditLogService,
       walletTransactions as unknown as WalletTransactionService,
       noteService as unknown as NoteService,
+      shiftSnapshots,
     );
   });
 
@@ -60,7 +68,8 @@ describe('OrderItemService.createService', () => {
       executor: { kind: PartyKind.PERSON, id: 'person-1' },
     } as any);
 
-    const data = jest.mocked(prisma.orderItem.create).mock.calls[0][0].data as any;
+    const data = jest.mocked(prisma.orderItem.create).mock.calls[0][0]
+      .data as any;
     expect(data.service.create).toMatchObject({
       executorKind: PartyKind.PERSON,
       executorId: 'person-1',
@@ -72,6 +81,59 @@ describe('OrderItemService.createService', () => {
     expect(auditArg.entityType).toBe(AuditEntityType.ORDER_ITEM_SERVICE);
   });
 
+  it('пишет снимок смены в той же транзакции', async () => {
+    jest.mocked(prisma.orderItem.create).mockResolvedValue(created() as any);
+
+    await service.createService(ctx, {
+      orderId: 'order-1',
+      service: 'Работа',
+    } as any);
+
+    expect(shiftSnapshots.capture).toHaveBeenCalledWith(prisma, ctx.tenantId);
+    const data = jest.mocked(prisma.orderItem.create).mock.calls[0][0]
+      .data as any;
+    expect(data.shiftSnapshotId).toBe('snap-1');
+  });
+
+  it('запчасти работы получают один снимок на всю пачку', async () => {
+    jest
+      .mocked(prisma.part.findMany)
+      .mockResolvedValue([{ id: 'p1' }, { id: 'p2' }] as any);
+
+    await service.createPartsForService(ctx, {
+      orderId: 'order-1',
+      parentId: 'oi-1',
+      parts: [
+        { partId: 'p1', quantity: 1 },
+        { partId: 'p2', quantity: 2 },
+      ],
+    });
+
+    expect(shiftSnapshots.capture).toHaveBeenCalledTimes(1);
+    const items = jest.mocked(prisma.orderItem.createMany).mock.calls[0][0]
+      ?.data as any[];
+    expect(items.map((item) => item.shiftSnapshotId)).toEqual([
+      'snap-1',
+      'snap-1',
+    ]);
+  });
+
+  it('запчасти работы берут переданный снимок и не снимают новый', async () => {
+    jest.mocked(prisma.part.findMany).mockResolvedValue([{ id: 'p1' }] as any);
+
+    await service.createPartsForService(ctx, {
+      orderId: 'order-1',
+      parentId: 'oi-1',
+      parts: [{ partId: 'p1', quantity: 1 }],
+      shiftSnapshotId: 'snap-work',
+    });
+
+    expect(shiftSnapshots.capture).not.toHaveBeenCalled();
+    const items = jest.mocked(prisma.orderItem.createMany).mock.calls[0][0]
+      ?.data as any[];
+    expect(items[0].shiftSnapshotId).toBe('snap-work');
+  });
+
   it('без исполнителя пишет executorKind/executorId = null', async () => {
     jest.mocked(prisma.orderItem.create).mockResolvedValue(created() as any);
 
@@ -80,7 +142,8 @@ describe('OrderItemService.createService', () => {
       service: 'Работа',
     } as any);
 
-    const data = jest.mocked(prisma.orderItem.create).mock.calls[0][0].data as any;
+    const data = jest.mocked(prisma.orderItem.create).mock.calls[0][0]
+      .data as any;
     expect(data.service.create.executorKind).toBeNull();
     expect(data.service.create.executorId).toBeNull();
   });
@@ -95,7 +158,8 @@ describe('OrderItemService.createService', () => {
       discount: { amountMinor: 50000n },
     } as any);
 
-    const data = jest.mocked(prisma.orderItem.create).mock.calls[0][0].data as any;
+    const data = jest.mocked(prisma.orderItem.create).mock.calls[0][0]
+      .data as any;
     expect(data.service.create).toMatchObject({
       priceAmount: 500000n,
       priceCurrencyCode: 'RUB',
@@ -122,7 +186,9 @@ describe('OrderItemService.createService', () => {
     });
 
     it('сотрудник не может быть исполнителем подрядной работы', async () => {
-      jest.mocked(prisma.employee.findFirst).mockResolvedValue({ id: 'emp-1' } as any);
+      jest
+        .mocked(prisma.employee.findFirst)
+        .mockResolvedValue({ id: 'emp-1' } as any);
 
       await expect(
         service.createService(ctx, {
@@ -187,7 +253,8 @@ describe('OrderItemService.createService', () => {
         costWalletId: 'w1',
       } as any);
 
-      const data = jest.mocked(prisma.orderItem.create).mock.calls[0][0].data as any;
+      const data = jest.mocked(prisma.orderItem.create).mock.calls[0][0]
+        .data as any;
       expect(data.service.create).toMatchObject({
         kind: 'CONTRACTOR',
         executorKind: PartyKind.ORGANIZATION,
@@ -214,8 +281,12 @@ describe('OrderItemService.createService', () => {
       allItems: unknown[] = [],
       assigneeId: string | null = 'person-1',
     ) => {
-      jest.mocked(prisma.order.findFirst).mockResolvedValue({ assigneeId } as any);
-      jest.mocked(prisma.orderItem.findMany).mockImplementation(((args: any) => {
+      jest
+        .mocked(prisma.order.findFirst)
+        .mockResolvedValue({ assigneeId } as any);
+      jest.mocked(prisma.orderItem.findMany).mockImplementation(((
+        args: any,
+      ) => {
         if (args?.where?.orderId && !args?.where?.id) {
           return Promise.resolve(allItems as any);
         }
@@ -422,8 +493,22 @@ describe('OrderItemService.createService', () => {
       mockApplyWarrantyQueries(
         [serviceItem(), partItem()],
         [
-          { id: 'svc-item-1', parentId: 'group-1', type: '1', service: { kind: 'AUTOSERVICE', executorKind: 'PERSON', executorId: 'person-1' } },
-          { id: 'part-item-1', parentId: 'svc-item-1', type: '2', service: null },
+          {
+            id: 'svc-item-1',
+            parentId: 'group-1',
+            type: '1',
+            service: {
+              kind: 'AUTOSERVICE',
+              executorKind: 'PERSON',
+              executorId: 'person-1',
+            },
+          },
+          {
+            id: 'part-item-1',
+            parentId: 'svc-item-1',
+            type: '2',
+            service: null,
+          },
           { id: 'group-1', parentId: null, type: '3', service: null },
         ],
       );
@@ -448,7 +533,11 @@ describe('OrderItemService.createService', () => {
 
     it('снятие гарантии обнуляет payer и не требует причину/Note', async () => {
       mockApplyWarrantyQueries([
-        serviceItem({ warranty: true, warrantyPayerKind: 'EMPLOYEE', warrantyPayerPersonId: 'person-1' }),
+        serviceItem({
+          warranty: true,
+          warrantyPayerKind: 'EMPLOYEE',
+          warrantyPayerPersonId: 'person-1',
+        }),
       ]);
 
       const result = await service.applyWarranty(ctx, {
@@ -459,7 +548,11 @@ describe('OrderItemService.createService', () => {
 
       expect(prisma.orderItemService.update).toHaveBeenCalledWith({
         where: { id: 'svc-item-1' },
-        data: { warranty: false, warrantyPayerKind: null, warrantyPayerPersonId: null },
+        data: {
+          warranty: false,
+          warrantyPayerKind: null,
+          warrantyPayerPersonId: null,
+        },
       });
       expect(noteService.createWarrantyNote).not.toHaveBeenCalled();
       expect(result.noteId).toBeNull();
@@ -468,12 +561,34 @@ describe('OrderItemService.createService', () => {
     it('снятие гарантии с работы снимает её и с дочерних запчастей', async () => {
       mockApplyWarrantyQueries(
         [
-          serviceItem({ warranty: true, warrantyPayerKind: 'EMPLOYEE', warrantyPayerPersonId: 'person-1' }),
-          partItem({ warranty: true, warrantyPayerKind: 'EMPLOYEE', warrantyPayerPersonId: 'person-1' }),
+          serviceItem({
+            warranty: true,
+            warrantyPayerKind: 'EMPLOYEE',
+            warrantyPayerPersonId: 'person-1',
+          }),
+          partItem({
+            warranty: true,
+            warrantyPayerKind: 'EMPLOYEE',
+            warrantyPayerPersonId: 'person-1',
+          }),
         ],
         [
-          { id: 'svc-item-1', parentId: null, type: '1', service: { kind: 'AUTOSERVICE', executorKind: 'PERSON', executorId: 'person-1' } },
-          { id: 'part-item-1', parentId: 'svc-item-1', type: '2', service: null },
+          {
+            id: 'svc-item-1',
+            parentId: null,
+            type: '1',
+            service: {
+              kind: 'AUTOSERVICE',
+              executorKind: 'PERSON',
+              executorId: 'person-1',
+            },
+          },
+          {
+            id: 'part-item-1',
+            parentId: 'svc-item-1',
+            type: '2',
+            service: null,
+          },
         ],
       );
 
@@ -485,7 +600,11 @@ describe('OrderItemService.createService', () => {
 
       expect(prisma.orderItemPart.update).toHaveBeenCalledWith({
         where: { id: 'part-item-1' },
-        data: { warranty: false, warrantyPayerKind: null, warrantyPayerPersonId: null },
+        data: {
+          warranty: false,
+          warrantyPayerKind: null,
+          warrantyPayerPersonId: null,
+        },
       });
     });
   });

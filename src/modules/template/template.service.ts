@@ -141,6 +141,7 @@ export class TemplateService {
         await this.orderItemService.createPartsForService(ctx, {
           orderId,
           parentId: serviceItem.id,
+          shiftSnapshotId: serviceItem.shiftSnapshotId ?? undefined,
           parts: item.parts.map((p) => ({
             partId: p.partId,
             quantity: p.quantity,

@@ -29,4 +29,11 @@ export class OrderItemModel {
 
   @Field(() => [OrderItemModel])
   children: OrderItemModel[];
+
+  @Field(() => ID, {
+    nullable: true,
+    description:
+      'Снимок смены на момент создания строки; состав — query shiftSnapshot',
+  })
+  shiftSnapshotId: string | null;
 }

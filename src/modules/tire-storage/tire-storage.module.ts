@@ -5,6 +5,7 @@ import { CarModule } from '../vehicle/car.module';
 import { OrderModule } from '../order/order.module';
 import { SettingsModule } from '../settings/settings.module';
 import { AppUserModule } from '../app-user/app-user.module';
+import { ShiftModule } from '../shift/shift.module';
 import { TireStorageService } from './tire-storage.service';
 import { TireStorageResolver } from './tire-storage.resolver';
 import './enums/tire-storage-status.enum';
@@ -17,6 +18,7 @@ import './enums/tire-season.enum';
     OrganizationModule,
     CarModule,
     AppUserModule,
+    ShiftModule,
     forwardRef(() => OrderModule),
   ],
   providers: [TireStorageService, TireStorageResolver],

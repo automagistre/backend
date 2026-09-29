@@ -593,6 +593,9 @@ type CarRecommendationModel {
   priceCurrencyCode: String
   realization: ID
   service: String!
+
+  """Снимок смены на момент рекомендации; состав — query shiftSnapshot"""
+  shiftSnapshotId: ID
 }
 
 """Запчасть в рекомендации по автомобилю"""
@@ -2490,6 +2493,9 @@ type OrderItemModel {
   parentId: ID
   part: OrderItemPartModel
   service: OrderItemServiceModel
+
+  """Снимок смены на момент создания строки; состав — query shiftSnapshot"""
+  shiftSnapshotId: ID
   type: OrderItemType!
 }
 
@@ -3426,6 +3432,9 @@ type Query {
     """ГГГГ-ММ-ДД"""
     to: String!
   ): [ShiftDayModel!]!
+
+  """Состав смены на момент создания строки, рекомендации или договора"""
+  shiftSnapshot(id: ID!): ShiftSnapshotModel
   siteMaintenances(vehicleId: ID!): [SiteMaintenance!]!
   siteReviews(after: String, first: Int = 10): SiteReviewConnection!
   siteStats: SiteStats!
@@ -3814,6 +3823,27 @@ input ShiftPatternInput {
 
   """Дата первого символа маски, ГГГГ-ММ-ДД"""
   startsOn: String!
+}
+
+"""Сотрудник в должности в снимке смены"""
+type ShiftSnapshotMemberModel {
+  employeeId: ID!
+  employeeName: String
+  personId: ID!
+  positionId: ID!
+  positionName: String!
+}
+
+"""Состав смены рабочего дня на момент продающего действия"""
+type ShiftSnapshotModel {
+  id: ID!
+
+  """Пустой список — в смене никого не было"""
+  members: [ShiftSnapshotMemberModel!]!
+  takenAt: DateTime!
+
+  """Рабочий день, ГГГГ-ММ-ДД"""
+  workDate: String!
 }
 
 input SiteCalculatorWorkInput {
@@ -4342,6 +4372,9 @@ type TireStorageModel {
   quantity: Int!
   radius: Int!
   season: TireSeason!
+
+  """Снимок смены на момент заключения договора; у описи без заказа пусто"""
+  shiftSnapshotId: ID
   status: TireStorageStatus!
   tenantGroupId: ID!
   width: Int!

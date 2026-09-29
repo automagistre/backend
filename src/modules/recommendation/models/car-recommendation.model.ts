@@ -84,4 +84,11 @@ export class CarRecommendationModel {
 
   @Field(() => ID, { nullable: true })
   createdBy: string | null;
+
+  @Field(() => ID, {
+    nullable: true,
+    description:
+      'Снимок смены на момент рекомендации; состав — query shiftSnapshot',
+  })
+  shiftSnapshotId: string | null;
 }

@@ -16,6 +16,7 @@ import { OrderItemService } from 'src/modules/order/order-item.service';
 import { RecommendationService } from 'src/modules/recommendation/recommendation.service';
 import { normalizeMoneyAmount } from 'src/common/utils/money.util';
 import { SettingsService } from 'src/modules/settings/settings.service';
+import { ShiftSnapshotService } from 'src/modules/shift/shift-snapshot.service';
 import { v6 as uuidv6 } from 'uuid';
 import type { Prisma } from 'src/generated/prisma/client';
 import type { AuthContext } from 'src/common/user-id.store';
@@ -37,6 +38,7 @@ export class RecommendationWorkMigrationService {
     private readonly settingsService: SettingsService,
     private readonly auditLog: AuditLogService,
     @Inject('PUB_SUB') private readonly pubSub: PubSub,
+    private readonly shiftSnapshots: ShiftSnapshotService,
   ) {}
 
   private async publishOrderUpdated(
@@ -181,6 +183,10 @@ export class RecommendationWorkMigrationService {
           : workerPersonId;
 
         const createdParts = await this.prisma.$transaction(async (tx) => {
+          const shiftSnapshotId = await this.shiftSnapshots.capture(
+            tx,
+            ctx.tenantId,
+          );
           await tx.orderItem.create({
             data: {
               id: serviceItemId,
@@ -188,6 +194,7 @@ export class RecommendationWorkMigrationService {
               parentId: null,
               type: '1',
               tenantId: ctx.tenantId,
+              shiftSnapshotId,
               service: {
                 create: {
                   service: recommendation.service,
@@ -216,6 +223,7 @@ export class RecommendationWorkMigrationService {
                 priceAmount: part.priceAmount ?? null,
               })),
               validateOrderEditable: false,
+              shiftSnapshotId,
             },
             tx,
           );
@@ -515,6 +523,11 @@ export class RecommendationWorkMigrationService {
           },
           client,
           auditNested,
+          // Рекомендовала та смена, что выписала исходную рекомендацию или добавила работу
+          {
+            shiftSnapshotId:
+              recommendation?.shiftSnapshotId ?? orderItem.shiftSnapshotId,
+          },
         );
       resultRecommendationId = createdRecommendation.id;
 

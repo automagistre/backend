@@ -11,6 +11,7 @@ import { v6 as uuidv6 } from 'uuid';
 import { ReservationService } from 'src/modules/reservation/reservation.service';
 import { normalizeMoneyAmount } from 'src/common/utils/money.util';
 import { SettingsService } from 'src/modules/settings/settings.service';
+import { ShiftSnapshotService } from 'src/modules/shift/shift-snapshot.service';
 import type {
   CreateCarRecommendationPartServiceInput,
   CreateCarRecommendationServiceInput,
@@ -32,6 +33,7 @@ export class RecommendationService {
     private readonly settingsService: SettingsService,
     private readonly auditLog: AuditLogService,
     private readonly displayContext: DisplayContextService,
+    private readonly shiftSnapshots: ShiftSnapshotService,
   ) {}
 
   /** Аудит рекомендации с маршрутизацией в root=CAR (если carId известен). */
@@ -204,6 +206,8 @@ export class RecommendationService {
     input: CreateCarRecommendationServiceInput,
     tx?: Prisma.TransactionClient,
     audit = true,
+    /** undefined — снимок текущей смены; null — оставить без снимка. */
+    options: { shiftSnapshotId?: string | null } = {},
   ) {
     const client = tx ?? this.prisma;
     const car = await client.car.findFirst({
@@ -244,6 +248,10 @@ export class RecommendationService {
           (await this.settingsService.getDefaultCurrencyCode(ctx.tenantId)),
         tenantGroupId: ctx.tenantGroupId,
         createdBy: ctx.userId,
+        shiftSnapshotId:
+          options.shiftSnapshotId !== undefined
+            ? options.shiftSnapshotId
+            : await this.shiftSnapshots.capture(client, ctx.tenantId),
       },
       include: {
         parts: {
