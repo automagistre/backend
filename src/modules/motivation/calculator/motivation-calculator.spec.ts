@@ -194,24 +194,31 @@ describe('calculateMotivation', () => {
     );
   });
 
-  it('старая позиция без снимка идёт по справочнику команд', () => {
+  it('позиция без снимка идёт по графику, доля старой рекомендации — команде перевода', () => {
     const result = calc(
-      service(
-        {
-          'HISTORICAL_TEAM:ITEM_AUTHOR': [
-            pair('master-1', MASTER),
-            pair('admin-1', ADMIN),
-          ],
-        },
-        { notApplicable: ['RECOMMENDATION'] },
-      ),
+      service({
+        'SCHEDULE:ITEM': [pair('master-1', MASTER), pair('admin-1', ADMIN)],
+      }),
     );
 
     expect(accrued(result)).toEqual({
       [`master-1@${MASTER}`]: 720n,
       [`admin-1@${ADMIN}`]: 480n,
     });
-    expect(result.rows[0].source).toBe('HISTORICAL_TEAM:ITEM_AUTHOR');
+    expect(result.rows.every((row) => row.source === 'SCHEDULE:ITEM')).toBe(
+      true,
+    );
+  });
+
+  it('снимок позиции важнее графика', () => {
+    const result = calc(
+      service({
+        'SNAPSHOT:ITEM': [pair('master-1', MASTER)],
+        'SCHEDULE:ITEM': [pair('master-2', MASTER), pair('admin-1', ADMIN)],
+      }),
+    );
+
+    expect(accrued(result)).toEqual({ [`master-1@${MASTER}`]: 1200n });
   });
 
   it('в смене никого — цепочка идёт дальше, в конце перевод остаётся в фонде', () => {
