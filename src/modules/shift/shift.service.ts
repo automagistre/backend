@@ -170,6 +170,25 @@ export class ShiftService {
   }
 
   /**
+   * Кто в какой должности работает в этот день — состав смены для снимка.
+   * Совместитель в двух ролях даёт две пары; сотрудник без должностей в смену не входит.
+   */
+  async findWorkingPairs(
+    tenantId: string,
+    dateKey: string,
+  ): Promise<{ employeeId: string; positionId: string }[]> {
+    const days = await this.computeDays(tenantId, {
+      from: dateKey,
+      to: dateKey,
+    });
+    return days.flatMap((day) =>
+      day.working && day.positionId
+        ? [{ employeeId: day.employeeId, positionId: day.positionId }]
+        : [],
+    );
+  }
+
+  /**
    * Сколько людей занимают колонки в каждый день диапазона. Ключ — ГГГГ-ММ-ДД.
    * Считаем людей, а не строки: совместитель в двух ролях — всё равно одна колонка.
    */

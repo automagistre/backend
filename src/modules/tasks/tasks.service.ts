@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import type { AuthContext } from 'src/common/user-id.store';
 import { HOUR_MS } from 'src/common/utils/zoned-time.util';
+import { currentWorkDayRange } from 'src/common/utils/work-day.util';
 import { Prisma } from 'src/generated/prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { SettingsService } from '../settings/settings.service';
@@ -487,8 +488,10 @@ export class TasksService {
   async archiveSuccessfulQualityControlTasksForTenant(
     ctx: AuthContext,
   ): Promise<number> {
-    const startOfToday = new Date();
-    startOfToday.setHours(0, 0, 0, 0);
+    // Архивируем то, что завершено в уже законченные рабочие дни
+    const { start: startOfToday } = currentWorkDayRange(
+      await this.settingsService.getWorkDayHours(ctx.tenantId),
+    );
 
     const result = await this.prisma.task.updateMany({
       where: {

@@ -1,4 +1,5 @@
 import type { Prisma } from 'src/generated/prisma/client';
+import { timeToMinutes } from 'src/common/utils/work-day.util';
 
 export const SETTINGS_KEYS = {
   defaultCurrencyCode: 'defaultCurrencyCode',
@@ -169,12 +170,6 @@ const parseTime = (raw: Prisma.JsonValue): string => {
   }
   return value;
 };
-
-/** 'HH:MM' → минуты от полуночи. */
-export function timeToMinutes(value: string): number {
-  const [h, m] = value.split(':').map(Number);
-  return (h ?? 0) * 60 + (m ?? 0);
-}
 
 /** Длительность рабочего дня в часах (может быть дробной), вычисляется из start/end. */
 export function computeWorkDayHours(start: string, end: string): number {

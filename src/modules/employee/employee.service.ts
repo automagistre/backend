@@ -461,9 +461,10 @@ export class EmployeeService {
       throw new NotFoundException('Сотрудник не найден или недоступен');
     }
 
-    const [orderCount, salaryCount] = await Promise.all([
+    const [orderCount, salaryCount, snapshotCount] = await Promise.all([
       this.prisma.order.count({ where: { assigneeId: existing.personId } }),
       this.prisma.employeeSalary.count({ where: { employeeId: id } }),
+      this.prisma.shiftSnapshotMember.count({ where: { employeeId: id } }),
     ]);
 
     if (orderCount > 0) {
@@ -475,6 +476,12 @@ export class EmployeeService {
     if (salaryCount > 0) {
       throw new ConflictException(
         `Нельзя удалить: есть ${salaryCount} записей о зарплате`,
+      );
+    }
+
+    if (snapshotCount > 0) {
+      throw new ConflictException(
+        'Нельзя удалить: сотрудник был в смене при продажах — уволите его вместо удаления',
       );
     }
 

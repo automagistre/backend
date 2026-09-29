@@ -188,6 +188,25 @@ describe('StaffPositionService', () => {
       expect(prisma.staffPosition.delete).not.toHaveBeenCalled();
     });
 
+    it('архивирует, если должность осталась только в снимках смен', async () => {
+      jest
+        .mocked(prisma.staffPosition.findFirst)
+        .mockResolvedValue(position as any);
+      jest
+        .mocked(prisma.employeeStaffPosition.count)
+        .mockResolvedValue(0 as any);
+      jest.mocked(prisma.shiftSnapshotMember.count).mockResolvedValue(3 as any);
+      jest.mocked(prisma.staffPosition.update).mockResolvedValue({
+        ...position,
+        archivedAt: new Date(),
+      } as any);
+
+      const result = await service.remove(ctx, 'pos-1');
+
+      expect(result.archivedAt).toBeTruthy();
+      expect(prisma.staffPosition.delete).not.toHaveBeenCalled();
+    });
+
     it('удаляет физически, если привязок нет', async () => {
       jest
         .mocked(prisma.staffPosition.findFirst)
