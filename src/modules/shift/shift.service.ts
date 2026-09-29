@@ -177,15 +177,32 @@ export class ShiftService {
     tenantId: string,
     dateKey: string,
   ): Promise<{ employeeId: string; positionId: string }[]> {
-    const days = await this.computeDays(tenantId, {
-      from: dateKey,
-      to: dateKey,
-    });
-    return days.flatMap((day) =>
-      day.working && day.positionId
-        ? [{ employeeId: day.employeeId, positionId: day.positionId }]
-        : [],
+    const byDate = await this.findWorkingPairsByDate(
+      tenantId,
+      dateKey,
+      dateKey,
     );
+    return byDate.get(dateKey) ?? [];
+  }
+
+  /** Состав смены по дням диапазона; день без работающих в ответ не попадает. */
+  async findWorkingPairsByDate(
+    tenantId: string,
+    from: string,
+    to: string,
+  ): Promise<Map<string, { employeeId: string; positionId: string }[]>> {
+    const days = await this.computeDays(tenantId, { from, to });
+    const byDate = new Map<
+      string,
+      { employeeId: string; positionId: string }[]
+    >();
+    for (const day of days) {
+      if (!day.working || !day.positionId) continue;
+      const pairs = byDate.get(day.date) ?? [];
+      pairs.push({ employeeId: day.employeeId, positionId: day.positionId });
+      byDate.set(day.date, pairs);
+    }
+    return byDate;
   }
 
   /**
