@@ -302,8 +302,12 @@ model CarRecommendation {
   createdAt          DateTime?               @default(now()) @map("created_at") @db.Timestamptz(0)
   createdBy          String?                 @map("created_by") @db.Uuid
   parts              CarRecommendationPart[]
+  /// Состав смены на момент рекомендации.
+  shiftSnapshotId    String?                 @map("shift_snapshot_id") @db.Uuid
+  shiftSnapshot      ShiftSnapshot?          @relation(fields: [shiftSnapshotId], references: [id], onDelete: Restrict, onUpdate: Restrict)
 
   @@index([carId], map: "idx_8e4baaf2c3c6f69f")
+  @@index([shiftSnapshotId], map: "idx_car_recommendation_shift_snapshot")
   @@map("car_recommendation")
 }
 
@@ -627,6 +631,7 @@ model Employee {
   employeeSalaries        EmployeeSalary[]
   staffPositions          EmployeeStaffPosition[]
   shiftDays               EmployeeShiftDay[]
+  shiftSnapshots          ShiftSnapshotMember[]
 
   @@unique([personId, firedAt], map: "uniq_person_fired")
   @@map("employee")
@@ -655,19 +660,55 @@ model EmployeeShiftDay {
   @@map("employee_shift_day")
 }
 
+/// Состав смены рабочего дня на момент продающего действия. Одинаковый состав за день —
+/// один снимок (members_hash); пустой состав — тоже снимок: «в смене никого не было».
+model ShiftSnapshot {
+  id              String                @id @default(uuid()) @db.Uuid
+  tenantId        String                @map("tenant_id") @db.Uuid
+  tenant          tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  workDate        DateTime              @map("work_date") @db.Date
+  /// sha256 от отсортированных пар employeeId:positionId.
+  membersHash     String                @map("members_hash") @db.VarChar(64)
+  takenAt         DateTime              @default(now()) @map("taken_at") @db.Timestamptz(0)
+  members         ShiftSnapshotMember[]
+  orderItems      OrderItem[]
+  recommendations CarRecommendation[]
+  tireStorages    TireStorage[]
+
+  @@unique([tenantId, workDate, membersHash], map: "uniq_shift_snapshot_members")
+  @@map("shift_snapshot")
+}
+
+/// Пара сотрудник–должность в снимке. RESTRICT: сотрудника и должность из снимка
+/// физически не удалить, иначе пропадёт история начислений.
+model ShiftSnapshotMember {
+  snapshotId String        @map("snapshot_id") @db.Uuid
+  snapshot   ShiftSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  employeeId String        @map("employee_id") @db.Uuid
+  employee   Employee      @relation(fields: [employeeId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  positionId String        @map("position_id") @db.Uuid
+  position   StaffPosition @relation(fields: [positionId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@id([snapshotId, employeeId, positionId])
+  @@index([employeeId], map: "idx_shift_snapshot_member_employee")
+  @@index([positionId], map: "idx_shift_snapshot_member_position")
+  @@map("shift_snapshot_member")
+}
+
 /// Должность сотрудника. Справочник тенанта.
 model StaffPosition {
-  id         String                  @id @default(uuid()) @db.Uuid
-  name       String                  @db.VarChar(255)
+  id             String                  @id @default(uuid()) @db.Uuid
+  name           String                  @db.VarChar(255)
   /// Порядок в справочнике и в графике.
-  sortOrder  Int                     @default(0) @map("sort_order")
+  sortOrder      Int                     @default(0) @map("sort_order")
   /// Мягкое удаление: должность больше не выбрать, но история найма остаётся читаемой.
-  archivedAt DateTime?               @map("archived_at") @db.Timestamptz(0)
-  tenantId   String                  @map("tenant_id") @db.Uuid
-  createdAt  DateTime?               @default(now()) @map("created_at") @db.Timestamptz(0)
-  createdBy  String?                 @map("created_by") @db.Uuid
-  settings   StaffPositionSetting[]
-  employees  EmployeeStaffPosition[]
+  archivedAt     DateTime?               @map("archived_at") @db.Timestamptz(0)
+  tenantId       String                  @map("tenant_id") @db.Uuid
+  createdAt      DateTime?               @default(now()) @map("created_at") @db.Timestamptz(0)
+  createdBy      String?                 @map("created_by") @db.Uuid
+  settings       StaffPositionSetting[]
+  employees      EmployeeStaffPosition[]
+  shiftSnapshots ShiftSnapshotMember[]
 
   /// Уникальность имени — частичный индекс uniq_staff_position_tenant_name
   /// (tenant_id, name) WHERE archived_at IS NULL: архивная «Механик» не мешает завести новую.
@@ -984,8 +1025,13 @@ model OrderItem {
   part     OrderItemPart?
   profit   OrderItemProfit?
 
+  /// Состав смены на момент создания строки — основа премии за продажу.
+  shiftSnapshotId String?        @map("shift_snapshot_id") @db.Uuid
+  shiftSnapshot   ShiftSnapshot? @relation(fields: [shiftSnapshotId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
   @@index([parentId], map: "idx_52ea1f09727aca70")
   @@index([orderId], map: "idx_52ea1f098d9f6d38")
+  @@index([shiftSnapshotId], map: "idx_order_item_shift_snapshot")
   @@map("order_item")
 }
 
@@ -1177,11 +1223,15 @@ model TireStorage {
   createdAt          DateTime?        @default(now()) @map("created_at") @db.Timestamptz(0)
   createdBy          String?          @map("created_by") @db.Uuid
   profit             OrderItemProfit?
+  /// Состав смены на момент заключения договора.
+  shiftSnapshotId    String?          @map("shift_snapshot_id") @db.Uuid
+  shiftSnapshot      ShiftSnapshot?   @relation(fields: [shiftSnapshotId], references: [id], onDelete: Restrict, onUpdate: Restrict)
 
   @@unique([number, tenantGroupId], map: "uniq_tire_storage_number_tenant_group")
   @@index([customerId], map: "idx_tire_storage_customer")
   @@index([orderId], map: "idx_tire_storage_order")
   @@index([tenantGroupId, status], map: "idx_tire_storage_group_status")
+  @@index([shiftSnapshotId], map: "idx_tire_storage_shift_snapshot")
   @@map("tire_storage")
 }
 
@@ -1424,6 +1474,7 @@ model tenant {
   tenant_group      tenant_group         @relation(fields: [group_id], references: [id], onUpdate: Restrict)
   tenant_permission tenant_permission[]
   organizations     TenantOrganization[]
+  shiftSnapshots    ShiftSnapshot[]
 
   @@id([id, group_id])
 }

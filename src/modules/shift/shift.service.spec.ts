@@ -201,6 +201,37 @@ describe('ShiftService', () => {
     expect(counts.get(SATURDAY)).toBe(1);
   });
 
+  describe('findWorkingPairs', () => {
+    it('совместитель на смене в обеих ролях — две пары, выходной сотрудник — ни одной', async () => {
+      given(
+        [
+          employee([link('pos-a', '1'), link('pos-b', '1')]),
+          employee([link('pos-a', '1')], 'emp-2'),
+          employee([], 'emp-3'),
+        ],
+        [mark(ShiftDayKind.DAY_OFF, MONDAY, 'pos-a', 'emp-2')],
+      );
+
+      await expect(
+        service.findWorkingPairs('tenant-1', MONDAY),
+      ).resolves.toEqual([
+        { employeeId: 'emp-1', positionId: 'pos-a' },
+        { employeeId: 'emp-1', positionId: 'pos-b' },
+      ]);
+    });
+
+    it('отпуск снимает человека со всех должностей', async () => {
+      given(
+        [employee([link('pos-a', '1'), link('pos-b', '1')])],
+        [mark(ShiftDayKind.VACATION, MONDAY, null)],
+      );
+
+      await expect(
+        service.findWorkingPairs('tenant-1', MONDAY),
+      ).resolves.toEqual([]);
+    });
+  });
+
   describe('setDays', () => {
     beforeEach(() => {
       jest

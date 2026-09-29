@@ -254,10 +254,12 @@ export class StaffPositionService {
       );
     }
 
-    const linkedCount = await this.prisma.employeeStaffPosition.count({
-      where: { positionId: id },
-    });
-    if (linkedCount > 0) {
+    // Снимок смены хранит должность и после того, как её сняли со всех людей
+    const [linkedCount, snapshotCount] = await Promise.all([
+      this.prisma.employeeStaffPosition.count({ where: { positionId: id } }),
+      this.prisma.shiftSnapshotMember.count({ where: { positionId: id } }),
+    ]);
+    if (linkedCount > 0 || snapshotCount > 0) {
       return this.setArchived(id, new Date());
     }
 

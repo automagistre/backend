@@ -20,8 +20,11 @@ import {
   type SettingsValueByKey,
   computeWorkDayHours,
   isSettingKey,
-  timeToMinutes,
 } from './settings.definitions';
+import {
+  timeToMinutes,
+  type WorkDayHours,
+} from 'src/common/utils/work-day.util';
 
 const TENANT_NAME_MAX_LENGTH = 255;
 
@@ -166,6 +169,19 @@ export class SettingsService {
     tx?: Prisma.TransactionClient,
   ): Promise<string> {
     return this.getSettingValue(tenantId, SETTINGS_KEYS.timezone, tx);
+  }
+
+  /** Всё, что нужно для границы рабочего дня (work-day.util). */
+  async getWorkDayHours(
+    tenantId: string,
+    tx?: Prisma.TransactionClient,
+  ): Promise<WorkDayHours> {
+    const [timezone, workDayStart, workDayEnd] = await Promise.all([
+      this.getTimezone(tenantId, tx),
+      this.getWorkDayStart(tenantId, tx),
+      this.getWorkDayEnd(tenantId, tx),
+    ]);
+    return { timezone, workDayStart, workDayEnd };
   }
 
   async getOrderDeleteCoolingHours(tenantId: string): Promise<number> {

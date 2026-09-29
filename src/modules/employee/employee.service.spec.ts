@@ -1,4 +1,8 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import { mockDeep, type DeepMockProxy } from 'jest-mock-extended';
 import { EmployeeService } from './employee.service';
 import { PrismaService } from 'src/prisma/prisma.service';
@@ -323,5 +327,36 @@ describe('EmployeeService setPositionShift', () => {
       service.setPositionShift(ctx, 'emp-1', 'pos-parts', null),
     ).rejects.toBeInstanceOf(BadRequestException);
     expect(prisma.employeeStaffPosition.update).not.toHaveBeenCalled();
+  });
+});
+
+describe('EmployeeService remove', () => {
+  let prisma: DeepMockProxy<PrismaService>;
+  let service: EmployeeService;
+  const ctx: AuthContext = {
+    userId: 'u',
+    tenantId: 'tenant-1',
+    tenantGroupId: 'group-1',
+  };
+
+  beforeEach(() => {
+    prisma = mockDeep<PrismaService>();
+    service = new EmployeeService(prisma, mockDeep<SettingsService>());
+  });
+
+  it('не удаляет сотрудника, который есть в снимках смен', async () => {
+    jest.mocked(prisma.employee.findFirst).mockResolvedValue({
+      id: 'emp-1',
+      personId: 'person-1',
+      staffPositions: [],
+    } as any);
+    jest.mocked(prisma.order.count).mockResolvedValue(0);
+    jest.mocked(prisma.employeeSalary.count).mockResolvedValue(0);
+    jest.mocked(prisma.shiftSnapshotMember.count).mockResolvedValue(1);
+
+    await expect(service.remove(ctx, 'emp-1')).rejects.toBeInstanceOf(
+      ConflictException,
+    );
+    expect(prisma.employee.delete).not.toHaveBeenCalled();
   });
 });

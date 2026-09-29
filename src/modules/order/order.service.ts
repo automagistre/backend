@@ -33,6 +33,7 @@ import { RecommendationWorkMigrationService } from 'src/modules/recommendation-m
 import { applyDefaultCurrency } from 'src/common/money';
 import { orderTitle } from 'src/common/utils/entity-title.util';
 import { HOUR_MS } from 'src/common/utils/zoned-time.util';
+import { currentWorkDayRange } from 'src/common/utils/work-day.util';
 import type { AuthContext } from 'src/common/user-id.store';
 import { v6 as uuidv6 } from 'uuid';
 import { getOrderCancelReasonLabel } from './constants/order-cancel-reasons';
@@ -384,8 +385,11 @@ export class OrderService {
       includeSuspended?: boolean;
     } = {},
   ): Promise<OrderModel[]> {
-    const { start, end } = this.getBusinessDayRange();
     const { tenantId } = ctx;
+    // Закрытые сегодня ещё видны: пропадают, когда рабочий день гарантированно закончен
+    const { start, end } = currentWorkDayRange(
+      await this.settingsService.getWorkDayHours(tenantId),
+    );
 
     const closedTodayCondition: Prisma.OrderCloseWhereInput = {
       tenantId,
@@ -645,22 +649,6 @@ export class OrderService {
 
   async getCalendarEntry(ctx: AuthContext, orderId: string) {
     return this.calendarService.getEntryForOrder(ctx, orderId);
-  }
-
-  private getBusinessDayRange(now: Date = new Date()): {
-    start: Date;
-    end: Date;
-  } {
-    const shifted = new Date(now);
-    shifted.setHours(shifted.getHours() - 3);
-
-    const start = new Date(shifted);
-    start.setHours(3, 0, 0, 0);
-
-    const end = new Date(start);
-    end.setDate(start.getDate() + 1);
-
-    return { start, end };
   }
 
   private buildCancelReasonText(
