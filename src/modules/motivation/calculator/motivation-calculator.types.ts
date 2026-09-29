@@ -13,8 +13,8 @@ export type MotivationSourceRef =
   | 'SNAPSHOT:RECOMMENDATION'
   | 'SNAPSHOT:CONTRACT'
   | 'ACTOR:PICKER'
-  | 'HISTORICAL_TEAM:ITEM_AUTHOR'
-  | 'HISTORICAL_TEAM:ORDER_AUTHOR';
+  | 'SCHEDULE:ITEM'
+  | 'SCHEDULE:CONTRACT';
 
 /** Этап без адресата: доля уходит другим этапам позиции или остаётся в фонде. */
 export type MotivationPolicy = 'REDISTRIBUTE' | 'KEEP_IN_FUND';
