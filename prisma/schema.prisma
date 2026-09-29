@@ -624,6 +624,8 @@ model Employee {
   ratio                   Int?
   /// Гарантированный минимум ЗП в месяц (копейки). null — не применяется.
   guaranteedMinimumAmount BigInt?                 @map("guaranteed_minimum_amount")
+  /// Счёт не зарплатный: не показывать в долгах и выдаче зарплаты на главной.
+  excludeFromDashboard    Boolean                 @default(false) @map("exclude_from_dashboard")
   hiredAt                 DateTime                @map("hired_at") @db.Timestamp(0)
   firedAt                 DateTime?               @map("fired_at") @db.Timestamp(0)
   tenantId                String                  @map("tenant_id") @db.Uuid

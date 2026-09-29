@@ -31,6 +31,11 @@ export class EmployeeModel implements Employee {
   })
   guaranteedMinimumAmount: bigint | null;
 
+  @Field(() => Boolean, {
+    description: 'Не показывать в долгах и выдаче зарплаты на главной',
+  })
+  excludeFromDashboard: boolean;
+
   @Field(() => Date, { description: 'Дата найма' })
   hiredAt: Date;
 
