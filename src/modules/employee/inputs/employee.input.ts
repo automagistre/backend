@@ -1,5 +1,12 @@
 import { Field, ID, InputType, Int } from '@nestjs/graphql';
-import { IsInt, IsOptional, Min, Max, ValidateNested } from 'class-validator';
+import {
+  IsBoolean,
+  IsInt,
+  IsOptional,
+  Min,
+  Max,
+  ValidateNested,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 import { MoneyInput } from 'src/common/inputs/money.input';
 import { EmployeePositionInput } from './employee-position.input';
@@ -31,6 +38,14 @@ export class CreateEmployeeInput {
     description: 'Гарантированный минимум в месяц',
   })
   guaranteedMinimumAmount?: MoneyInput | null;
+
+  @IsOptional()
+  @IsBoolean()
+  @Field(() => Boolean, {
+    nullable: true,
+    description: 'Не показывать в долгах и выдаче зарплаты на главной',
+  })
+  excludeFromDashboard?: boolean | null;
 
   @Field(() => Date, { nullable: true, description: 'Дата найма' })
   hiredAt?: Date;
@@ -75,6 +90,15 @@ export class UpdateEmployeeInput {
       'Гарантированный минимум в месяц (null — снять; не передавать — не менять)',
   })
   guaranteedMinimumAmount?: MoneyInput | null;
+
+  @IsOptional()
+  @IsBoolean()
+  @Field(() => Boolean, {
+    nullable: true,
+    description:
+      'Не показывать в долгах и выдаче зарплаты на главной (не передавать — не менять)',
+  })
+  excludeFromDashboard?: boolean | null;
 
   @Field(() => Date, { nullable: true, description: 'Дата найма' })
   hiredAt?: Date;

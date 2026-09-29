@@ -780,6 +780,9 @@ input CreateCarRecommendationPartInput {
 }
 
 input CreateEmployeeInput {
+  """Не показывать в долгах и выдаче зарплаты на главной"""
+  excludeFromDashboard: Boolean
+
   """Гарантированный минимум в месяц"""
   guaranteedMinimumAmount: MoneyInput
 
@@ -1630,6 +1633,9 @@ enum DeletionReason {
 """Сотрудник"""
 type EmployeeModel {
   createdAt: DateTime
+
+  """Не показывать в долгах и выдаче зарплаты на главной"""
+  excludeFromDashboard: Boolean!
 
   """Дата увольнения"""
   firedAt: DateTime
@@ -4544,6 +4550,11 @@ input UpdateCarRecommendationPartInput {
 }
 
 input UpdateEmployeeInput {
+  """
+  Не показывать в долгах и выдаче зарплаты на главной (не передавать — не менять)
+  """
+  excludeFromDashboard: Boolean
+
   """
   Гарантированный минимум в месяц (null — снять; не передавать — не менять)
   """

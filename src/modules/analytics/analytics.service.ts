@@ -327,6 +327,7 @@ export class AnalyticsService {
        LEFT JOIN customer_transaction ct
          ON ct.operand_id = e.person_id AND ct.tenant_id = $1::uuid
        WHERE e.tenant_id = $1::uuid AND e.fired_at IS NULL
+         AND NOT e.exclude_from_dashboard
        GROUP BY e.id, e.person_id, p.lastname, p.firstname
        ORDER BY ABS(COALESCE(SUM(ct.amount_amount), 0)) DESC, full_name ASC`,
       tenantId,
