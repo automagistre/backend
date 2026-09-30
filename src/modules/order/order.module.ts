@@ -31,6 +31,7 @@ import { ProfitModule } from '../profit/profit.module';
 import { TireStorageModule } from '../tire-storage/tire-storage.module';
 import { CalendarModule } from '../calendar/calendar.module';
 import { ShiftModule } from '../shift/shift.module';
+import { MotivationModule } from '../motivation/motivation.module';
 import './enums/order-item-type.enum';
 import './enums/close-deficiency.enum';
 
@@ -53,6 +54,7 @@ import './enums/close-deficiency.enum';
     forwardRef(() => TireStorageModule),
     forwardRef(() => CalendarModule),
     ShiftModule,
+    MotivationModule,
   ],
   providers: [
     OrderService,

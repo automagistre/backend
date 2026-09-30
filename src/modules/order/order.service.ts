@@ -3,6 +3,7 @@ import {
   NotFoundException,
   BadRequestException,
   Inject,
+  Logger,
   forwardRef,
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
@@ -46,6 +47,7 @@ import { ProfitService } from 'src/modules/profit/profit.service';
 import { ProfitOrigin } from 'src/modules/profit/enums/profit-origin.enum';
 import { TireStorageService } from 'src/modules/tire-storage/tire-storage.service';
 import { CalendarService } from 'src/modules/calendar/calendar.service';
+import { MotivationAccrualService } from 'src/modules/motivation/accrual/motivation-accrual.service';
 
 /** Совместимость со старой CRM: DiscriminatorMap OrderClose — 1 = OrderDeal, 2 = OrderCancel */
 const ORDER_CLOSE_TYPE_DEAL = '1';
@@ -53,6 +55,8 @@ const ORDER_CLOSE_TYPE_CANCEL = '2';
 
 @Injectable()
 export class OrderService {
+  private readonly logger = new Logger(OrderService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly walletTransactionService: WalletTransactionService,
@@ -71,6 +75,7 @@ export class OrderService {
     private readonly tireStorageService: TireStorageService,
     @Inject(forwardRef(() => CalendarService))
     private readonly calendarService: CalendarService,
+    private readonly motivationAccrualService: MotivationAccrualService,
   ) {}
 
   async findOne(ctx: AuthContext, id: string): Promise<OrderModel | null> {
@@ -1003,6 +1008,41 @@ export class OrderService {
     };
   }
 
+  /** Предоплаты и возвраты заказа переходят на счёт заказчика: при закрытии и при отмене. */
+  private async transferPrepaymentsToCustomer(
+    tx: Prisma.TransactionClient,
+    ctx: AuthContext,
+    orderId: string,
+    customerId: string,
+    currencyCode: string,
+  ): Promise<void> {
+    const prepayments = await tx.orderPayment.findMany({
+      where: { orderId, tenantId: ctx.tenantId },
+    });
+    for (const prepay of prepayments) {
+      const amount = prepay.amountAmount ?? 0n;
+      if (amount === 0n) continue;
+      const source =
+        amount > 0n
+          ? CustomerTransactionSource.OrderPrepay
+          : CustomerTransactionSource.OrderPrepayRefund;
+      await this.customerTransactionService.createWithinTransaction(
+        tx,
+        {
+          operandId: customerId,
+          source,
+          sourceId: orderId,
+          amount: {
+            amountMinor: amount,
+            currencyCode: prepay.amountCurrencyCode ?? currencyCode,
+          },
+        },
+        ctx.tenantId,
+        ctx.userId,
+      );
+    }
+  }
+
   async validateOrderEditable(
     ctx: AuthContext,
     orderId: string,
@@ -1168,6 +1208,19 @@ export class OrderService {
     if (!order) {
       throw new NotFoundException(`Заказ с ID ${input.orderId} не найден`);
     }
+    if (order.customerId == null) {
+      const prepaid = await this.prisma.orderPayment.aggregate({
+        where: { orderId: input.orderId, tenantId },
+        _sum: { amountAmount: true },
+      });
+      if ((prepaid._sum.amountAmount ?? 0n) !== 0n) {
+        throw new BadRequestException(
+          'У заказа есть предоплата, а заказчик не указан: верните предоплату или укажите заказчика',
+        );
+      }
+    }
+    const currencyCode =
+      await this.settingsService.getDefaultCurrencyCode(tenantId);
 
     const reasonText = this.buildCancelReasonText(
       input.reasonCode,
@@ -1196,6 +1249,16 @@ export class OrderService {
         where: { id: input.orderId },
         data: { status: OrderStatus.CANCELLED },
       });
+
+      if (order.customerId != null) {
+        await this.transferPrepaymentsToCustomer(
+          tx,
+          ctx,
+          input.orderId,
+          order.customerId,
+          currencyCode,
+        );
+      }
 
       await this.auditLog.record(tx, ctx, {
         rootEntityType: AuditEntityType.ORDER,
@@ -1404,32 +1467,14 @@ export class OrderService {
         }
       }
 
-      const prepayments = await tx.orderPayment.findMany({
-        where: { orderId: input.orderId, tenantId },
-      });
       if (order.customerId != null) {
-        for (const prepay of prepayments) {
-          const amount = prepay.amountAmount ?? 0n;
-          if (amount === 0n) continue;
-          const source =
-            amount > 0n
-              ? CustomerTransactionSource.OrderPrepay
-              : CustomerTransactionSource.OrderPrepayRefund;
-          await this.customerTransactionService.createWithinTransaction(
-            tx,
-            {
-              operandId: order.customerId,
-              source,
-              sourceId: input.orderId,
-              amount: {
-                amountMinor: amount,
-                currencyCode: prepay.amountCurrencyCode ?? currencyCode,
-              },
-            },
-            tenantId,
-            userId,
-          );
-        }
+        await this.transferPrepaymentsToCustomer(
+          tx,
+          ctx,
+          input.orderId,
+          order.customerId,
+          currencyCode,
+        );
       }
 
       if (order.customerId != null && orderTotal > 0n) {
@@ -1502,6 +1547,7 @@ export class OrderService {
     });
 
     await this.chargeOrderSalaryAndWarrantyDeductions(ctx, input.orderId);
+    await this.chargeOrderMotivation(ctx, input.orderId);
 
     return this.findOne(ctx, input.orderId) as Promise<OrderModel>;
   }
@@ -1521,6 +1567,24 @@ export class OrderService {
     await this.salaryService.chargeWarrantyExecutorDeductions(ctx, orderId);
     await this.salaryService.chargeWarrantyPayerCompensation(ctx, orderId);
     await this.salaryService.chargeWarrantyPartDeductions(ctx, orderId);
+  }
+
+  /**
+   * Заказ уже закрыт: ошибка премии не должна выглядеть как ошибка закрытия.
+   * Не начислилась — в карточке заказа есть повтор.
+   */
+  private async chargeOrderMotivation(
+    ctx: AuthContext,
+    orderId: string,
+  ): Promise<void> {
+    try {
+      await this.motivationAccrualService.chargeByOrder(ctx, orderId);
+    } catch (error) {
+      this.logger.error(
+        `Премия по заказу ${orderId} не начислена`,
+        error instanceof Error ? error.stack : String(error),
+      );
+    }
   }
 
   /** Снапшот прибыли по позициям — только для закрытой сделки (не отмена). */

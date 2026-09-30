@@ -98,7 +98,7 @@ describe('calculateMotivation', () => {
   it('профиль из одной должности отдаёт ей 100% этапа', () => {
     const custom: MotivationScheme = {
       ...scheme,
-      profiles: { ...scheme.profiles, team: { [MASTER]: 1 } },
+      profiles: { ...scheme.profiles, 'SERVICE:team': { [MASTER]: 1 } },
     };
     const result = calc(
       service(
@@ -125,6 +125,29 @@ describe('calculateMotivation', () => {
       [`admin-1@${ADMIN}`]: 600n,
       [`admin-2@${ADMIN}`]: 600n,
     });
+  });
+
+  it('доля уволенного остаётся организации, коллегам не переходит', () => {
+    const [result] = calculateMotivation(
+      [
+        service(
+          { 'SNAPSHOT:ITEM': [pair('admin-1', ADMIN), pair('admin-2', ADMIN)] },
+          { notApplicable: ['RECOMMENDATION'] },
+        ),
+      ],
+      scheme,
+      { firedEmployeeIds: new Set(['admin-2']) },
+    );
+
+    expect(accrued(result)).toEqual({ [`admin-1@${ADMIN}`]: 600n });
+    expect(result.rows.find((row) => row.employeeId === 'admin-2')).toEqual(
+      expect.objectContaining({
+        amountMinor: 600n,
+        outcome: 'KEPT_IN_FUND',
+        reason: 'FIRED',
+      }),
+    );
+    expect(rowsSum(result)).toBe(1200n);
   });
 
   it('совместитель получает долю в котле каждой своей должности', () => {
@@ -240,16 +263,37 @@ describe('calculateMotivation', () => {
     expect(rowsSum(result)).toBe(1200n);
   });
 
-  it('ни один этап не нашёл адресата — весь фонд без атрибуции', () => {
+  it('ни один этап не нашёл адресата — всё остаётся организации по этапам', () => {
     const result = calc(service({}, { notApplicable: ['RECOMMENDATION'] }));
 
-    expect(result.rows).toEqual([
-      expect.objectContaining({
-        stage: null,
-        outcome: 'UNATTRIBUTED',
-        amountMinor: 1200n,
-      }),
+    expect(
+      result.rows.map((row) => [
+        row.stage,
+        row.outcome,
+        row.reason,
+        row.amountMinor,
+      ]),
+    ).toEqual([
+      ['RECOMMENDATION', 'KEPT_IN_FUND', 'NOT_APPLICABLE', 360n],
+      ['TRANSFER', 'KEPT_IN_FUND', 'NO_RECIPIENTS', 840n],
     ]);
+  });
+
+  it('этап с долей 0 не платит, фонд — сумма остальных', () => {
+    const custom: MotivationScheme = {
+      ...scheme,
+      rates: { ...scheme.rates, SERVICE: { TRANSFER: 700 } },
+    };
+    const result = calc(
+      service({
+        'SNAPSHOT:RECOMMENDATION': [pair('admin-1', ADMIN)],
+        'SNAPSHOT:ITEM': [pair('master-1', MASTER)],
+      }),
+      custom,
+    );
+
+    expect(result.fundMinor).toBe(840n);
+    expect(accrued(result)).toEqual({ [`master-1@${MASTER}`]: 840n });
   });
 
   it('убыточная позиция фонда не даёт', () => {
@@ -267,9 +311,9 @@ describe('calculateMotivation', () => {
   it('копейки не теряются: 100 на троих — 34, 33, 33 по порядку id', () => {
     const custom: MotivationScheme = {
       ...scheme,
-      types: {
-        ...scheme.types,
-        SERVICE: { ...scheme.types.SERVICE, rateBp: 10_000 },
+      rates: {
+        ...scheme.rates,
+        SERVICE: { RECOMMENDATION: 3_000, TRANSFER: 7_000 },
       },
     };
     const result = calc(
@@ -382,7 +426,7 @@ describe('calculateMotivation', () => {
       });
     });
 
-    it('перевод без адресата — доля рекомендации уходит подбору, а не пропадает', () => {
+    it('в смене только запчастист — рекомендация и перевод остаются организации', () => {
       const result = calc(
         part(
           { 'ACTOR:PICKER': [pair('parts-1', PARTS)] },
@@ -390,12 +434,15 @@ describe('calculateMotivation', () => {
         ),
       );
 
-      expect(accrued(result, 'PICKING')).toEqual({
-        [`parts-1@${PARTS}`]: 720n,
-      });
-      expect(result.rows.find((row) => row.stage === 'TRANSFER')).toMatchObject(
-        { outcome: 'KEPT_IN_FUND', amountMinor: 280n },
-      );
+      expect(accrued(result)).toEqual({ [`parts-1@${PARTS}`]: 600n });
+      expect(
+        result.rows
+          .filter((row) => row.outcome === 'KEPT_IN_FUND')
+          .map((row) => [row.stage, row.amountMinor]),
+      ).toEqual([
+        ['RECOMMENDATION', 120n],
+        ['TRANSFER', 280n],
+      ]);
     });
 
     it('нет закупки — подбор не применим и остаётся в фонде', () => {
@@ -439,7 +486,7 @@ describe('calculateMotivation', () => {
     });
   });
 
-  it('инвариант: начислено + в фонде + без атрибуции = фонд позиции', () => {
+  it('инвариант: начислено + осталось организации = фонд позиции', () => {
     const people = [
       pair('e1', MASTER),
       pair('e2', ADMIN),
@@ -477,44 +524,38 @@ describe('assertValidScheme', () => {
     expect(() => assertValidScheme(scheme)).not.toThrow();
   });
 
-  it('доли этапов должны давать 10 000 б.п.', () => {
+  it('этапы типа в сумме не больше 100% прибыли', () => {
     const broken: MotivationScheme = {
       ...scheme,
-      types: {
-        ...scheme.types,
-        STORAGE: {
-          rateBp: 500,
-          stages: [{ ...scheme.types.STORAGE.stages[0], shareBp: 9_000 }],
-        },
+      rates: {
+        ...scheme.rates,
+        PART: { PICKING: 6_000, RECOMMENDATION: 3_000, TRANSFER: 1_001 },
       },
     };
-    expect(() => assertValidScheme(broken)).toThrow('нужно 10 000');
+    expect(() => assertValidScheme(broken)).toThrow('больше 100%');
   });
 
-  it('цепочка не может ссылаться на неизвестный профиль', () => {
+  it('доля только за этапы своего типа', () => {
     const broken: MotivationScheme = {
       ...scheme,
-      profiles: { team: scheme.profiles.team },
+      rates: { ...scheme.rates, STORAGE: { CONTRACT: 500, PICKING: 100 } },
     };
-    expect(() => assertValidScheme(broken)).toThrow('неизвестный профиль');
+    expect(() => assertValidScheme(broken)).toThrow('нет этапа PICKING');
   });
 
-  it('перераспределять можно только в этапы своего типа', () => {
-    const [picking, recommendation, transfer] = scheme.types.PART.stages;
-    const broken: MotivationScheme = {
-      ...scheme,
-      types: {
-        ...scheme.types,
-        PART: {
-          ...scheme.types.PART,
-          stages: [
-            picking,
-            { ...recommendation, redistributeTo: ['CONTRACT'] },
-            transfer,
-          ],
-        },
+  it('профиля нет — этап ищет дальше по цепочке', () => {
+    const profiles = { ...scheme.profiles };
+    delete profiles['PART:parts'];
+    const result = calc(
+      {
+        itemId: 'part-1',
+        type: 'PART',
+        profitMinor: 10_000n,
+        notApplicable: ['RECOMMENDATION'],
+        participants: { 'ACTOR:PICKER': [pair('parts-1', PARTS)] },
       },
-    };
-    expect(() => assertValidScheme(broken)).toThrow('отсутствующий этап');
+      { ...scheme, profiles },
+    );
+    expect(accrued(result)).toEqual({});
   });
 });

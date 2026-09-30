@@ -17,9 +17,6 @@ export type MotivationSourceRef =
   | 'SCHEDULE:RECOMMENDATION'
   | 'SCHEDULE:CONTRACT';
 
-/** Этап без адресата: доля уходит другим этапам позиции или остаётся в фонде. */
-export type MotivationPolicy = 'REDISTRIBUTE' | 'KEEP_IN_FUND';
-
 export type MotivationParticipant = {
   employeeId: string;
   positionId: string;
@@ -28,33 +25,16 @@ export type MotivationParticipant = {
 /** Вес должности; должности нет в профиле или вес 0 — она в этапе не участвует. */
 export type MotivationProfile = Record<string, number>;
 
-export type MotivationChainStep = {
-  source: MotivationSourceRef;
-  profile: string;
-};
+/** Доля прибыли позиции за этап, базисные пункты; этапа нет или 0 — за него не платят. */
+export type MotivationStageRates = Partial<Record<MotivationStage, number>>;
 
-export type MotivationStageScheme = {
-  stage: MotivationStage;
-  /** Доля фонда позиции в базисных пунктах; по типу в сумме 10 000. */
-  shareBp: number;
-  chain: MotivationChainStep[];
-  policy: MotivationPolicy;
-  /**
-   * Кому уходит доля при REDISTRIBUTE. Не задано или никто из списка не нашёл
-   * адресата — всем этапам с адресатом пропорционально их долям.
-   */
-  redistributeTo?: MotivationStage[];
-};
-
-export type MotivationTypeScheme = {
-  /** Ставка фонда от прибыли позиции в базисных пунктах. */
-  rateBp: number;
-  stages: MotivationStageScheme[];
-};
-
+/**
+ * Настраиваемая часть: сколько платить за этапы и как делить между должностями.
+ * Кого ищет этап и куда уходит доля без адресата — правила в коде (motivation-stages).
+ */
 export type MotivationScheme = {
   profiles: Record<string, MotivationProfile>;
-  types: Record<MotivationItemType, MotivationTypeScheme>;
+  rates: Record<MotivationItemType, MotivationStageRates>;
 };
 
 export type MotivationItemFacts = {
@@ -68,14 +48,19 @@ export type MotivationItemFacts = {
   participants: Partial<Record<MotivationSourceRef, MotivationParticipant[]>>;
 };
 
-export type MotivationRowOutcome = 'ACCRUED' | 'KEPT_IN_FUND' | 'UNATTRIBUTED';
+/** Не начислено — доля остаётся организации, причина в reason. */
+export type MotivationRowOutcome = 'ACCRUED' | 'KEPT_IN_FUND';
 
-export type MotivationKeepReason = 'NOT_APPLICABLE' | 'NO_RECIPIENTS';
+export type MotivationKeepReason = 'NOT_APPLICABLE' | 'NO_RECIPIENTS' | 'FIRED';
+
+export type MotivationCalculationOptions = {
+  /** Уволенные делят фонд наравне со всеми, но их доля остаётся организации. */
+  firedEmployeeIds?: ReadonlySet<string>;
+};
 
 export type MotivationRow = {
   itemId: string;
-  /** null только у «без атрибуции»: ни один этап позиции не нашёл адресата. */
-  stage: MotivationStage | null;
+  stage: MotivationStage;
   employeeId: string | null;
   positionId: string | null;
   amountMinor: bigint;

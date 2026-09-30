@@ -45,6 +45,8 @@ export enum CustomerTransactionSource {
    * Начисляется 1-го числа следующего месяца cron'ом.
    */
   MinimumWageCompensation = 16,
+  /** Премия по заказу, одна на сотрудника (sourceId = orderId, operandId = personId сотрудника). */
+  OrderMotivation = 17,
 }
 
 /**
@@ -54,6 +56,7 @@ export enum CustomerTransactionSource {
  */
 export const PRODUCTION_INCOME_SOURCES = [
   CustomerTransactionSource.OrderSalary,
+  CustomerTransactionSource.OrderMotivation,
   CustomerTransactionSource.MonthlySalary,
   CustomerTransactionSource.Manual,
   CustomerTransactionSource.ManualWithoutWallet,
@@ -97,6 +100,7 @@ const LABELS: Record<CustomerTransactionSource, string> = {
     'Удержание за простой по гарантии',
   [CustomerTransactionSource.MinimumWageCompensation]:
     'Доплата до гарантированного минимума',
+  [CustomerTransactionSource.OrderMotivation]: 'Премия по заказу',
 };
 
 export function getCustomerTransactionSourceLabel(source: number): string {

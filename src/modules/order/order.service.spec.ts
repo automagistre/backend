@@ -14,7 +14,9 @@ import { EmployeeService } from 'src/modules/employee/employee.service';
 import { ProfitService } from 'src/modules/profit/profit.service';
 import { TireStorageService } from 'src/modules/tire-storage/tire-storage.service';
 import { CalendarService } from 'src/modules/calendar/calendar.service';
+import { MotivationAccrualService } from 'src/modules/motivation/accrual/motivation-accrual.service';
 import { OrderStatus } from './enums/order-status.enum';
+import { CustomerTransactionSource } from 'src/modules/customer-transaction/enums/customer-transaction-source.enum';
 import {
   createPrismaMock,
   type PrismaMock,
@@ -45,6 +47,7 @@ describe('OrderService.getCloseValidation', () => {
       mockDeep<ProfitService>() as unknown as ProfitService,
       mockDeep<TireStorageService>() as unknown as TireStorageService,
       mockDeep<CalendarService>() as unknown as CalendarService,
+      mockDeep<MotivationAccrualService>() as unknown as MotivationAccrualService,
     );
   });
 
@@ -342,6 +345,7 @@ describe('OrderService calendar entry order link', () => {
       mockDeep<ProfitService>() as unknown as ProfitService,
       mockDeep<TireStorageService>() as unknown as TireStorageService,
       mockDeep<CalendarService>() as unknown as CalendarService,
+      mockDeep<MotivationAccrualService>() as unknown as MotivationAccrualService,
     );
   };
 
@@ -467,6 +471,7 @@ describe('OrderService.getCalendarEntry', () => {
       mockDeep<ProfitService>() as unknown as ProfitService,
       mockDeep<TireStorageService>() as unknown as TireStorageService,
       calendarService as unknown as CalendarService,
+      mockDeep<MotivationAccrualService>() as unknown as MotivationAccrualService,
     );
   });
 
@@ -515,6 +520,7 @@ describe('OrderService.canDeleteOrder', () => {
       mockDeep<ProfitService>(),
       mockDeep<TireStorageService>(),
       mockDeep<CalendarService>(),
+      mockDeep<MotivationAccrualService>(),
     );
   });
 
@@ -536,5 +542,93 @@ describe('OrderService.canDeleteOrder', () => {
     prisma.order.findFirst.mockResolvedValue(emptyOrder(hoursAgo(2)));
 
     await expect(service.canDeleteOrder(ctx, 'o1')).resolves.toBe(true);
+  });
+});
+
+describe('OrderService.cancelOrder: предоплата', () => {
+  let prisma: PrismaMock;
+  let customerTransactions: DeepMockProxy<CustomerTransactionService>;
+  let service: OrderService;
+  const ctx = makeCtx();
+  const input = { orderId: 'o1', reasonCode: 'duplicate_order' };
+
+  const openOrder = (customerId: string | null) =>
+    prisma.order.findFirst.mockResolvedValue({
+      id: 'o1',
+      number: 7,
+      status: OrderStatus.WORKING,
+      customerId,
+    } as never);
+
+  beforeEach(() => {
+    prisma = createPrismaMock();
+    customerTransactions = mockDeep<CustomerTransactionService>();
+    const settingsService = mockDeep<SettingsService>();
+    settingsService.getDefaultCurrencyCode.mockResolvedValue('RUB');
+    service = new OrderService(
+      prisma,
+      mockDeep<WalletTransactionService>(),
+      mockDeep<SalaryService>(),
+      customerTransactions,
+      settingsService,
+      mockDeep<WarehouseService>(),
+      mockDeep<OrganizationService>(),
+      mockDeep<TasksService>(),
+      mockDeep<RecommendationWorkMigrationService>(),
+      mockDeep<AuditLogService>(),
+      mockDeep<EmployeeService>(),
+      mockDeep<ProfitService>(),
+      mockDeep<TireStorageService>(),
+      mockDeep<CalendarService>(),
+      mockDeep<MotivationAccrualService>(),
+    );
+    jest.spyOn(service, 'findOne').mockResolvedValue({} as never);
+    prisma.orderClose.create.mockResolvedValue({ id: 'close-1' } as never);
+    prisma.orderItemPart.findMany.mockResolvedValue([]);
+  });
+
+  it('предоплаты и возвраты переходят на счёт заказчика', async () => {
+    openOrder('customer-1');
+    prisma.orderPayment.findMany.mockResolvedValue([
+      { amountAmount: 50_000n, amountCurrencyCode: 'RUB' },
+      { amountAmount: -20_000n, amountCurrencyCode: 'RUB' },
+    ] as never);
+
+    await service.cancelOrder(ctx, input);
+
+    expect(
+      customerTransactions.createWithinTransaction.mock.calls.map(
+        ([, data]) => [data.operandId, data.source, data.amount?.amountMinor],
+      ),
+    ).toEqual([
+      ['customer-1', CustomerTransactionSource.OrderPrepay, 50_000n],
+      ['customer-1', CustomerTransactionSource.OrderPrepayRefund, -20_000n],
+    ]);
+  });
+
+  it('без заказчика с предоплатой отмена запрещена', async () => {
+    openOrder(null);
+    prisma.orderPayment.aggregate.mockResolvedValue({
+      _sum: { amountAmount: 30_000n },
+    } as never);
+
+    await expect(service.cancelOrder(ctx, input)).rejects.toThrow(
+      'верните предоплату',
+    );
+    expect(prisma.$transaction.mock.calls).toHaveLength(0);
+  });
+
+  it('без заказчика и без предоплаты отменяется', async () => {
+    openOrder(null);
+    prisma.orderPayment.aggregate.mockResolvedValue({
+      _sum: { amountAmount: null },
+    } as never);
+
+    await service.cancelOrder(ctx, input);
+
+    expect(prisma.orderCancel.create.mock.calls).toHaveLength(1);
+    expect(
+      customerTransactions.createWithinTransaction.mock.calls,
+    ).toHaveLength(0);
   });
 });
