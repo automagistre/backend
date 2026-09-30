@@ -51,7 +51,9 @@ const PROFIT_SELECT = {
             select: {
               createdAt: true,
               createdBy: true,
-              recommendation: { select: { shiftSnapshotId: true } },
+              recommendation: {
+                select: { createdAt: true, shiftSnapshotId: true },
+              },
             },
           },
         },
@@ -120,11 +122,14 @@ export class MotivationFactsService {
     const recommendations = serviceIds.length
       ? await this.prisma.carRecommendation.findMany({
           where: { realization: { in: serviceIds } },
-          select: { realization: true, shiftSnapshotId: true },
+          select: { realization: true, createdAt: true, shiftSnapshotId: true },
         })
       : [];
     const recommendationByService = new Map(
-      recommendations.map((rec) => [rec.realization, rec.shiftSnapshotId]),
+      recommendations.map((rec) => [
+        rec.realization,
+        { createdAt: rec.createdAt, snapshotId: rec.shiftSnapshotId },
+      ]),
     );
 
     const rows = profits.flatMap((profit) => {
@@ -149,7 +154,10 @@ export class MotivationFactsService {
 
   private toSourceRow(
     profit: ProfitRow,
-    recommendationByService: Map<string | null, string | null>,
+    recommendationByService: Map<
+      string | null,
+      NonNullable<MotivationSourceRow['recommendation']>
+    >,
   ): MotivationSourceRow | null {
     const kind = profit.kind as ProfitLineKind;
     const costBasis = profit.costBasis as ProfitCostBasis;
@@ -181,7 +189,7 @@ export class MotivationFactsService {
 
     if (kind === ProfitLineKind.SERVICE && item?.service) {
       const service = item.service;
-      const realized = recommendationByService.has(profit.orderItemId);
+      const recommendation = recommendationByService.get(profit.orderItemId);
       return {
         ...base,
         itemId: profit.orderItemId ?? profit.id,
@@ -195,12 +203,7 @@ export class MotivationFactsService {
           createdAt: service.createdAt,
           snapshotId: item.shiftSnapshotId,
         },
-        recommendation: realized
-          ? {
-              snapshotId:
-                recommendationByService.get(profit.orderItemId) ?? null,
-            }
-          : null,
+        recommendation: recommendation ?? null,
         picker: null,
       };
     }
@@ -216,7 +219,10 @@ export class MotivationFactsService {
         label: `${part.part.name} (${part.part.number})`,
         anchor: { createdAt: part.createdAt, snapshotId: item.shiftSnapshotId },
         recommendation: fromRecommendation
-          ? { snapshotId: fromRecommendation.recommendation.shiftSnapshotId }
+          ? {
+              createdAt: fromRecommendation.recommendation.createdAt,
+              snapshotId: fromRecommendation.recommendation.shiftSnapshotId,
+            }
           : null,
         picker: fromRecommendation
           ? {
@@ -271,7 +277,7 @@ export class MotivationFactsService {
     return bySnapshot;
   }
 
-  /** График нужен только якорям без снимка и подборщикам без снимка. */
+  /** График нужен только якорям, рекомендациям и подборщикам без снимка. */
   private async loadSchedule(
     tenantId: string,
     rows: MotivationSourceRow[],
@@ -286,6 +292,9 @@ export class MotivationFactsService {
     for (const row of rows) {
       if (row.warranty) continue;
       need(row.anchor.createdAt, row.anchor.snapshotId);
+      if (row.recommendation) {
+        need(row.recommendation.createdAt, row.recommendation.snapshotId);
+      }
       if (row.picker) need(row.picker.at, row.picker.snapshotId);
     }
     if (!dates.size) return new Map();

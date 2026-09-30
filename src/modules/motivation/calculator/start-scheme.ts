@@ -19,25 +19,32 @@ const TRANSFER_CHAIN: MotivationChainStep[] = [
   { source: 'SCHEDULE:ITEM', profile: TEAM_PROFILE },
 ];
 
-/** Старая рекомендация без снимка отдаёт долю команде перевода в работу. */
+/**
+ * Рекомендация без снимка — по графику на момент создания; до начала графика
+ * доля уходит команде перевода в работу.
+ */
 const RECOMMENDATION_CHAIN: MotivationChainStep[] = [
   { source: 'SNAPSHOT:RECOMMENDATION', profile: TEAM_PROFILE },
+  { source: 'SCHEDULE:RECOMMENDATION', profile: TEAM_PROFILE },
 ];
 
-/** Ставки фонда — стартовые, калибруются на бэктесте. */
+/**
+ * Работа без рекомендации — вся доля команде перевода в работу. Запчасть:
+ * 20% прибыли — подбор, 10% — команде по тем же долям, что у работ.
+ */
 export function buildStartScheme(
   positions: StartSchemePositions,
 ): MotivationScheme {
   const serviceStages = [
     {
       stage: 'RECOMMENDATION' as const,
-      shareBp: 3000,
+      shareBp: 8000,
       chain: RECOMMENDATION_CHAIN,
       policy: 'REDISTRIBUTE' as const,
     },
     {
       stage: 'TRANSFER' as const,
-      shareBp: 7000,
+      shareBp: 2000,
       chain: TRANSFER_CHAIN,
       policy: 'KEEP_IN_FUND' as const,
     },
@@ -45,18 +52,18 @@ export function buildStartScheme(
 
   return {
     profiles: {
-      [TEAM_PROFILE]: { [positions.masterId]: 60, [positions.adminId]: 40 },
+      [TEAM_PROFILE]: { [positions.masterId]: 70, [positions.adminId]: 30 },
       [PARTS_PROFILE]: { [positions.partsId]: 1 },
     },
     types: {
-      SERVICE: { rateBp: 1000, stages: serviceStages },
-      CONTRACTOR: { rateBp: 500, stages: serviceStages },
+      SERVICE: { rateBp: 2500, stages: serviceStages },
+      CONTRACTOR: { rateBp: 2000, stages: serviceStages },
       PART: {
-        rateBp: 1000,
+        rateBp: 3000,
         stages: [
           {
             stage: 'PICKING',
-            shareBp: 6000,
+            shareBp: 6667,
             chain: [
               { source: 'ACTOR:PICKER', profile: PARTS_PROFILE },
               { source: 'SNAPSHOT:ITEM', profile: PARTS_PROFILE },
@@ -68,7 +75,7 @@ export function buildStartScheme(
           },
           {
             stage: 'RECOMMENDATION',
-            shareBp: 1200,
+            shareBp: 2666,
             chain: RECOMMENDATION_CHAIN,
             policy: 'REDISTRIBUTE',
             // Рекомендация — часть продажи, в личный подбор её доля не переходит
@@ -76,14 +83,14 @@ export function buildStartScheme(
           },
           {
             stage: 'TRANSFER',
-            shareBp: 2800,
+            shareBp: 667,
             chain: TRANSFER_CHAIN,
             policy: 'KEEP_IN_FUND',
           },
         ],
       },
       STORAGE: {
-        rateBp: 500,
+        rateBp: 2000,
         stages: [
           {
             stage: 'CONTRACT',
