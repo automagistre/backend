@@ -738,7 +738,7 @@ describe('SalaryService.chargeMinimumWage', () => {
     expect(customerTx.createWithinTransaction).not.toHaveBeenCalled();
   });
 
-  it('учитывает только PRODUCTION_INCOME_SOURCES (штрафы не входят в выработку)', async () => {
+  it('выработка: сдельная с корректировками, бонус с продаж, оклад и премии; штрафы и прочие ручные проводки не входят', async () => {
     jest.mocked(prisma.employee.findMany).mockResolvedValue([emp()] as any);
     jest.mocked(prisma.customerTransaction.findFirst).mockResolvedValue(null);
     jest.mocked(prisma.customerTransaction.aggregate).mockResolvedValue({
@@ -753,9 +753,10 @@ describe('SalaryService.chargeMinimumWage', () => {
           source: {
             in: [
               CustomerTransactionSource.OrderSalary,
+              CustomerTransactionSource.PieceworkCorrection,
+              CustomerTransactionSource.OrderMotivation,
               CustomerTransactionSource.MonthlySalary,
-              CustomerTransactionSource.Manual,
-              CustomerTransactionSource.ManualWithoutWallet,
+              CustomerTransactionSource.Bonus,
             ],
           },
         }),

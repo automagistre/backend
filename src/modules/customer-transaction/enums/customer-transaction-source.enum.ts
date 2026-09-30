@@ -45,24 +45,29 @@ export enum CustomerTransactionSource {
    * Начисляется 1-го числа следующего месяца cron'ом.
    */
   MinimumWageCompensation = 16,
-  /** Премия по заказу, одна на сотрудника (sourceId = orderId, operandId = personId сотрудника). */
+  /** Бонус с продаж по заказу, один на сотрудника (sourceId = orderId, operandId = personId сотрудника). */
   OrderMotivation = 17,
+  /** Премия по решению руководства (без счёта, sourceId = userId). Только положительная. */
+  Bonus = 18,
+  /** Корректировка сдельной ЗП, например перенос между мастерами (без счёта, sourceId = userId). */
+  PieceworkCorrection = 19,
 }
 
 /**
  * Начисления, входящие в «выработку» для расчёта гарантированного минимума.
  * Без MinimumWageCompensation — иначе доплата за прошлый месяц засчитывалась бы
- * в выработку текущего.
+ * в выработку текущего. Прочие ручные проводки (Manual, ManualWithoutWallet) —
+ * долги, возвраты, выдачи — в выработку не входят.
  */
 export const PRODUCTION_INCOME_SOURCES = [
   CustomerTransactionSource.OrderSalary,
+  CustomerTransactionSource.PieceworkCorrection,
   CustomerTransactionSource.OrderMotivation,
   CustomerTransactionSource.MonthlySalary,
-  CustomerTransactionSource.Manual,
-  CustomerTransactionSource.ManualWithoutWallet,
+  CustomerTransactionSource.Bonus,
 ] as const;
 
-/** Начисления ЗП: по заказу, оклад, ручные проводки и доплата до минимума. */
+/** Начисления ЗП: выработка и доплата до минимума. */
 export const SALARY_INCOME_SOURCES = [
   ...PRODUCTION_INCOME_SOURCES,
   CustomerTransactionSource.MinimumWageCompensation,
@@ -100,7 +105,9 @@ const LABELS: Record<CustomerTransactionSource, string> = {
     'Удержание за простой по гарантии',
   [CustomerTransactionSource.MinimumWageCompensation]:
     'Доплата до гарантированного минимума',
-  [CustomerTransactionSource.OrderMotivation]: 'Премия по заказу',
+  [CustomerTransactionSource.OrderMotivation]: 'Бонус с продаж по заказу',
+  [CustomerTransactionSource.Bonus]: 'Премия',
+  [CustomerTransactionSource.PieceworkCorrection]: 'Корректировка сдельной',
 };
 
 export function getCustomerTransactionSourceLabel(source: number): string {

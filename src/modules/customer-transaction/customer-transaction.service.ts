@@ -297,7 +297,7 @@ export class CustomerTransactionService {
         sourceId,
       );
     }
-    // Для ManualWithoutWallet и Penalty контекстной строки нет — клиент
+    // Для проводок без счёта (штраф, премия, корректировки) контекстной строки нет — клиент
     // отображает только базовую метку источника, чтобы не дублировать её.
     return '';
   }
@@ -316,6 +316,29 @@ export class CustomerTransactionService {
     if (input.source === CustomerTransactionSource.Payroll && !input.walletId) {
       throw new BadRequestException(
         'Для выдачи зарплаты обязателен выбор счёта',
+      );
+    }
+    if (
+      input.walletId &&
+      (input.source === CustomerTransactionSource.Bonus ||
+        input.source === CustomerTransactionSource.PieceworkCorrection)
+    ) {
+      throw new BadRequestException(
+        'Премия и корректировка сдельной проводятся без счёта',
+      );
+    }
+    if (
+      input.source === CustomerTransactionSource.Bonus &&
+      amountAmount <= 0n
+    ) {
+      throw new BadRequestException('Сумма премии должна быть больше нуля');
+    }
+    if (
+      input.source === CustomerTransactionSource.PieceworkCorrection &&
+      amountAmount === 0n
+    ) {
+      throw new BadRequestException(
+        'Сумма корректировки не может быть нулевой',
       );
     }
 
@@ -368,8 +391,10 @@ export class CustomerTransactionService {
     }
 
     const source =
-      input.source === CustomerTransactionSource.Penalty
-        ? CustomerTransactionSource.Penalty
+      input.source === CustomerTransactionSource.Penalty ||
+      input.source === CustomerTransactionSource.Bonus ||
+      input.source === CustomerTransactionSource.PieceworkCorrection
+        ? input.source
         : CustomerTransactionSource.ManualWithoutWallet;
     return this.prisma.customerTransaction.create({
       data: {

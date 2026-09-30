@@ -38,8 +38,20 @@ export function calculateMotivation(
   options: MotivationCalculationOptions = {},
 ): MotivationItemResult[] {
   assertValidScheme(scheme);
-  const fired = options.firedEmployeeIds ?? new Set<string>();
-  return items.map((item) => calculateItem(item, scheme, fired));
+  const kept = keptEmployees(options);
+  return items.map((item) => calculateItem(item, scheme, kept));
+}
+
+/** Увольнение важнее «только оклада». */
+function keptEmployees(
+  options: MotivationCalculationOptions,
+): Map<string, MotivationKeepReason> {
+  const kept = new Map<string, MotivationKeepReason>();
+  for (const id of options.salaryOnlyEmployeeIds ?? []) {
+    kept.set(id, 'SALARY_ONLY');
+  }
+  for (const id of options.firedEmployeeIds ?? []) kept.set(id, 'FIRED');
+  return kept;
 }
 
 export function motivationTotalsByEmployee(
@@ -98,7 +110,7 @@ export function assertValidScheme(scheme: MotivationScheme): void {
 function calculateItem(
   facts: MotivationItemFacts,
   scheme: MotivationScheme,
-  fired: ReadonlySet<string>,
+  kept: ReadonlyMap<string, MotivationKeepReason>,
 ): MotivationItemResult {
   const rates = scheme.rates[facts.type];
   const rules = MOTIVATION_STAGE_RULES[facts.type].filter(
@@ -145,7 +157,7 @@ function calculateItem(
     if (amount === 0n) continue;
     if (resolution.recipients) {
       result.rows.push(
-        ...distributeStage(facts.itemId, amount, resolution, fired),
+        ...distributeStage(facts.itemId, amount, resolution, kept),
       );
     } else {
       result.rows.push({
@@ -190,7 +202,7 @@ function distributeStage(
   itemId: string,
   total: bigint,
   resolution: Extract<StageResolution, { recipients: MotivationParticipant[] }>,
-  fired: ReadonlySet<string>,
+  kept: ReadonlyMap<string, MotivationKeepReason>,
 ): MotivationRow[] {
   const positionIds = [
     ...new Set(resolution.recipients.map((recipient) => recipient.positionId)),
@@ -216,15 +228,15 @@ function distributeStage(
     for (const employeeId of people) {
       const amountMinor = shares.get(employeeId)!;
       if (amountMinor === 0n) continue;
-      const isFired = fired.has(employeeId);
+      const reason = kept.get(employeeId) ?? null;
       rows.push({
         itemId,
         stage: resolution.rule.stage,
         employeeId,
         positionId,
         amountMinor,
-        outcome: isFired ? 'KEPT_IN_FUND' : 'ACCRUED',
-        reason: isFired ? 'FIRED' : null,
+        outcome: reason ? 'KEPT_IN_FUND' : 'ACCRUED',
+        reason,
         source: resolution.source,
       });
     }

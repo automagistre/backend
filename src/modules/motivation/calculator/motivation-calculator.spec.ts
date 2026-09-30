@@ -150,6 +150,39 @@ describe('calculateMotivation', () => {
     expect(rowsSum(result)).toBe(1200n);
   });
 
+  it('доля «только оклад» остаётся организации, увольнение важнее', () => {
+    const [result] = calculateMotivation(
+      [
+        service(
+          {
+            'SNAPSHOT:ITEM': [
+              pair('admin-1', ADMIN),
+              pair('admin-2', ADMIN),
+              pair('admin-3', ADMIN),
+            ],
+          },
+          { notApplicable: ['RECOMMENDATION'] },
+        ),
+      ],
+      scheme,
+      {
+        firedEmployeeIds: new Set(['admin-3']),
+        salaryOnlyEmployeeIds: new Set(['admin-2', 'admin-3']),
+      },
+    );
+
+    expect(accrued(result)).toEqual({ [`admin-1@${ADMIN}`]: 400n });
+    const reasons = Object.fromEntries(
+      result.rows.map((row) => [row.employeeId, [row.amountMinor, row.reason]]),
+    );
+    expect(reasons).toEqual({
+      'admin-1': [400n, null],
+      'admin-2': [400n, 'SALARY_ONLY'],
+      'admin-3': [400n, 'FIRED'],
+    });
+    expect(rowsSum(result)).toBe(1200n);
+  });
+
   it('совместитель получает долю в котле каждой своей должности', () => {
     const result = calc(
       service(

@@ -20,7 +20,7 @@ export class MotivationSchemeResolver {
   constructor(private readonly schemes: MotivationSchemeService) {}
 
   @Query(() => MotivationSchemeModel, {
-    description: 'Стартовая схема премии под должности тенанта',
+    description: 'Стартовая схема бонуса с продаж под должности тенанта',
   })
   async motivationDefaultScheme(
     @AuthContext() ctx: AuthContextType,

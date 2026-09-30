@@ -199,6 +199,7 @@ export class EmployeeService {
           personId: data.personId,
           ratio: data.ratio ?? null,
           excludeFromDashboard: data.excludeFromDashboard ?? false,
+          salaryOnly: data.salaryOnly ?? false,
           hiredAt: data.hiredAt || new Date(),
           ...(guaranteedMinimumAmount !== undefined
             ? { guaranteedMinimumAmount }

@@ -75,6 +75,7 @@ describe('MotivationAccrualService', () => {
   let service: MotivationAccrualService;
   const ctx = makeCtx();
   let fired: Set<string>;
+  let salaryOnly: Set<string>;
 
   const accrualRows = () =>
     prisma.motivationAccrual.createMany.mock.calls[0]?.[0]
@@ -89,6 +90,7 @@ describe('MotivationAccrualService', () => {
 
   beforeEach(() => {
     fired = new Set();
+    salaryOnly = new Set();
     prisma = createPrismaMock();
     factsService = mockDeep<MotivationFactsService>();
     schemes = mockDeep<MotivationSchemeService>();
@@ -125,8 +127,14 @@ describe('MotivationAccrualService', () => {
     prisma.employee.findMany.mockImplementation(
       (args) =>
         Promise.resolve(
-          args?.where?.firedAt
-            ? employees.filter((employee) => fired.has(employee.id))
+          args?.where?.OR
+            ? employees
+                .filter((e) => fired.has(e.id) || salaryOnly.has(e.id))
+                .map((e) => ({
+                  id: e.id,
+                  firedAt: fired.has(e.id) ? CLOSED_AT : null,
+                  salaryOnly: salaryOnly.has(e.id),
+                }))
             : employees,
         ) as never,
     );
@@ -152,7 +160,7 @@ describe('MotivationAccrualService', () => {
           operandId: 'person-master',
           source: CustomerTransactionSource.OrderMotivation,
           sourceId: 'order-1',
-          description: 'Премия по заказу №101',
+          description: 'Бонус с продаж по заказу №101',
           amount: { amountMinor: 6_000n, currencyCode: 'RUB' },
         },
         ctx.tenantId,
@@ -193,6 +201,26 @@ describe('MotivationAccrualService', () => {
       ]);
     });
 
+    it('«только оклад» не получает, его доля остаётся организации', async () => {
+      closedOrder();
+      salaryOnly.add('emp-admin');
+
+      await service.chargeByOrder(ctx, 'order-1');
+
+      expect(transactions.createWithinTransaction).toHaveBeenCalledTimes(1);
+      expect(
+        accrualRows().map((row) => [
+          row.employeeId,
+          row.amountAmount,
+          row.outcome,
+          row.reason,
+        ]),
+      ).toEqual([
+        ['emp-admin', 4_000n, 'KEPT_IN_FUND', 'SALARY_ONLY'],
+        ['emp-master', 6_000n, 'ACCRUED', null],
+      ]);
+    });
+
     it('повторный вызов ничего не пишет', async () => {
       closedOrder();
       prisma.motivationAccrual.findFirst.mockResolvedValue({
@@ -206,7 +234,7 @@ describe('MotivationAccrualService', () => {
       expect(transactions.createWithinTransaction).not.toHaveBeenCalled();
     });
 
-    it('схемы на дату закрытия нет — премии нет', async () => {
+    it('схемы на дату закрытия нет — бонуса нет', async () => {
       closedOrder();
       schemes.activeAt.mockResolvedValue(null);
 

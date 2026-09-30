@@ -13,6 +13,7 @@ import {
   motivationTotalsByEmployee,
 } from '../calculator/motivation-calculator';
 import type {
+  MotivationCalculationOptions,
   MotivationItemResult,
   MotivationItemType,
   MotivationKeepReason,
@@ -66,7 +67,7 @@ export class MotivationAccrualService {
 
   /**
    * Начисление по закрытой сделке: строки распределения и по проводке на сотрудника.
-   * Повторный вызов ничего не делает. Схемы на дату закрытия нет — премии нет.
+   * Повторный вызов ничего не делает. Схемы на дату закрытия нет — бонуса нет.
    */
   async chargeByOrder(ctx: AuthContext, orderId: string): Promise<void> {
     const order = await this.loadOrder(ctx.tenantId, orderId);
@@ -76,13 +77,11 @@ export class MotivationAccrualService {
     const stored = await this.schemes.activeAt(ctx.tenantId, order.closedAt);
     if (!stored) return;
 
-    const [facts, firedEmployeeIds] = await Promise.all([
+    const [facts, kept] = await Promise.all([
       this.facts.byOrder(ctx.tenantId, orderId),
-      this.firedEmployeeIds(ctx.tenantId),
+      this.keptEmployees(ctx.tenantId),
     ]);
-    const results = calculateMotivation(facts.items, stored.scheme, {
-      firedEmployeeIds,
-    });
+    const results = calculateMotivation(facts.items, stored.scheme, kept);
     const rows = results.flatMap((result) =>
       result.rows.map((row) => ({ ...row, type: result.type })),
     );
@@ -111,7 +110,7 @@ export class MotivationAccrualService {
                 operandId: personId,
                 source: CustomerTransactionSource.OrderMotivation,
                 sourceId: orderId,
-                description: `Премия по заказу №${order.number}`,
+                description: `Бонус с продаж по заказу №${order.number}`,
                 amount: { amountMinor, currencyCode },
               },
               ctx.tenantId,
@@ -147,7 +146,7 @@ export class MotivationAccrualService {
         error instanceof Prisma.PrismaClientKnownRequestError &&
         error.code === 'P2002'
       ) {
-        this.logger.warn(`Премия по заказу ${orderId} уже начислена`);
+        this.logger.warn(`Бонус с продаж по заказу ${orderId} уже начислен`);
         return;
       }
       throw error;
@@ -175,19 +174,17 @@ export class MotivationAccrualService {
         ProfitOrigin.LIVE,
         [TireStorageStatus.ENTERED, TireStorageStatus.IN_WAREHOUSE],
       );
-      const [facts, resolved, firedEmployeeIds] = await Promise.all([
+      const [facts, resolved, kept] = await Promise.all([
         this.facts.byProfitRows(ctx.tenantId, orderId, lines),
         this.schemes.resolveAt(ctx.tenantId, now),
-        this.firedEmployeeIds(ctx.tenantId),
+        this.keptEmployees(ctx.tenantId),
       ]);
       return this.toModel(order, names, facts, {
         mode: OrderMotivationModeEnum.PREVIEW,
         schemeVersion: resolved.stored?.version ?? null,
         canCharge: false,
         items: fromResults(
-          calculateMotivation(facts.items, resolved.scheme, {
-            firedEmployeeIds,
-          }),
+          calculateMotivation(facts.items, resolved.scheme, kept),
         ),
       });
     }
@@ -251,9 +248,9 @@ export class MotivationAccrualService {
       });
     }
 
-    const [resolved, firedEmployeeIds] = await Promise.all([
+    const [resolved, kept] = await Promise.all([
       this.schemes.resolveAt(ctx.tenantId, order.closedAt),
-      this.firedEmployeeIds(ctx.tenantId),
+      this.keptEmployees(ctx.tenantId),
     ]);
     return this.toModel(order, names, facts, {
       mode: OrderMotivationModeEnum.NOT_ACCRUED,
@@ -261,7 +258,7 @@ export class MotivationAccrualService {
       canCharge:
         !order.cancelled && resolved.stored !== null && facts.items.length > 0,
       items: fromResults(
-        calculateMotivation(facts.items, resolved.scheme, { firedEmployeeIds }),
+        calculateMotivation(facts.items, resolved.scheme, kept),
       ),
     });
   }
@@ -355,13 +352,28 @@ export class MotivationAccrualService {
     };
   }
 
-  /** Как у сдельной ЗП: уволен на момент начисления — не получает. */
-  private async firedEmployeeIds(tenantId: string): Promise<Set<string>> {
-    const fired = await this.prisma.employee.findMany({
-      where: { tenantId, firedAt: { not: null } },
-      select: { id: true },
+  /**
+   * Как у сдельной ЗП: уволен на момент начисления — не получает.
+   * «Только оклад» — тоже не получает, доля остаётся организации.
+   */
+  private async keptEmployees(
+    tenantId: string,
+  ): Promise<MotivationCalculationOptions> {
+    const employees = await this.prisma.employee.findMany({
+      where: {
+        tenantId,
+        OR: [{ firedAt: { not: null } }, { salaryOnly: true }],
+      },
+      select: { id: true, firedAt: true, salaryOnly: true },
     });
-    return new Set(fired.map((employee) => employee.id));
+    return {
+      firedEmployeeIds: new Set(
+        employees.filter((e) => e.firedAt !== null).map((e) => e.id),
+      ),
+      salaryOnlyEmployeeIds: new Set(
+        employees.filter((e) => e.salaryOnly).map((e) => e.id),
+      ),
+    };
   }
 
   private async isCharged(tenantId: string, orderId: string) {

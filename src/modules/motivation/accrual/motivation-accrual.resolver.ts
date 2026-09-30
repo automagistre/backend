@@ -5,7 +5,7 @@ import type { AuthContext as AuthContextType } from 'src/common/user-id.store';
 import { OrderMotivationModel } from '../models/order-motivation.model';
 import { MotivationAccrualService } from './motivation-accrual.service';
 
-// TODO(роли): расшифровка чужих премий и ручное начисление — не всем пользователям тенанта
+// TODO(роли): расшифровка чужих бонусов с продаж и ручное начисление — не всем пользователям тенанта
 @Resolver()
 @RequireTenant()
 export class MotivationAccrualResolver {
@@ -13,7 +13,7 @@ export class MotivationAccrualResolver {
 
   @Query(() => OrderMotivationModel, {
     description:
-      'Премия заказа: прогноз на открытом, начисление на закрытом. Прогноз ничего не пишет',
+      'Бонус с продаж по заказу: прогноз на открытом, начисление на закрытом. Прогноз ничего не пишет',
   })
   orderMotivation(
     @AuthContext() ctx: AuthContextType,
@@ -24,7 +24,7 @@ export class MotivationAccrualResolver {
 
   @Mutation(() => OrderMotivationModel, {
     description:
-      'Начислить премию по закрытому заказу, если при закрытии не начислилась. Идемпотентно',
+      'Начислить бонус с продаж по закрытому заказу, если при закрытии не начислился. Идемпотентно',
   })
   async chargeOrderMotivation(
     @AuthContext() ctx: AuthContextType,

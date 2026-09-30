@@ -797,6 +797,9 @@ input CreateEmployeeInput {
 
   """Коэффициент (процент от работ). Не передавать — процент не начисляется"""
   ratio: Int
+
+  """Только оклад: доля бонуса с продаж остаётся организации"""
+  salaryOnly: Boolean
 }
 
 input CreateEmployeeSalaryInput {
@@ -856,7 +859,7 @@ input CreateManualCustomerTransactionInput {
   operandId: ID!
 
   """
-  Источник проводки. Payroll — выдача зарплаты (нужен walletId). Penalty — штраф (без счёта). Иначе Manual/ManualWithoutWallet.
+  Источник проводки. Payroll — выдача зарплаты (нужен walletId). Без счёта: Penalty — штраф, Bonus — премия (> 0), PieceworkCorrection — корректировка сдельной. Иначе Manual/ManualWithoutWallet.
   """
   source: CustomerTransactionSource
 
@@ -1256,6 +1259,9 @@ type CustomerTransactionModel {
 
 """Источник проводки по клиенту"""
 enum CustomerTransactionSource {
+  """Премия"""
+  Bonus
+
   """Ручная проводка"""
   Manual
 
@@ -1271,7 +1277,7 @@ enum CustomerTransactionSource {
   """Начисление по заказу"""
   OrderDebit
 
-  """Премия по заказу"""
+  """Бонус с продаж по заказу"""
   OrderMotivation
 
   """Списание по заказу"""
@@ -1291,6 +1297,9 @@ enum CustomerTransactionSource {
 
   """Штраф"""
   Penalty
+
+  """Корректировка сдельной"""
+  PieceworkCorrection
 
   """Удержание за гарантию"""
   WarrantyDeduction
@@ -1667,6 +1676,9 @@ type EmployeeModel {
 
   """Коэффициент (процент от работ). null — процент не начисляется"""
   ratio: Int
+
+  """Только оклад: доля бонуса с продаж остаётся организации"""
+  salaryOnly: Boolean!
   tenantId: String!
 }
 
@@ -2151,7 +2163,7 @@ type MotivationExcludedItem {
   type: MotivationItemType!
 }
 
-"""Почему позиция не участвует в премии"""
+"""Почему позиция не участвует в бонусе с продаж"""
 enum MotivationExclusionReason {
   """Создана до начала графика"""
   BEFORE_SCHEDULE
@@ -2160,7 +2172,7 @@ enum MotivationExclusionReason {
   WARRANTY
 }
 
-"""Тип позиции для премии"""
+"""Тип позиции для бонуса с продаж"""
 enum MotivationItemType {
   """Подряд"""
   CONTRACTOR
@@ -2185,6 +2197,9 @@ enum MotivationKeepReason {
 
   """Некому начислить"""
   NO_RECIPIENTS
+
+  """Сотрудник только на окладе — доля остаётся организации"""
+  SALARY_ONLY
 }
 
 type MotivationProfile {
@@ -2222,7 +2237,7 @@ enum MotivationRowOutcome {
   KEPT_IN_FUND
 }
 
-"""Параметры распределения премии"""
+"""Параметры распределения бонуса с продаж"""
 type MotivationScheme {
   profiles: [MotivationProfile!]!
   types: [MotivationTypeScheme!]!
@@ -2318,7 +2333,7 @@ type Mutation {
   cancelShopRequestTireStorage(id: ID!): TireStorageModel!
 
   """
-  Начислить премию по закрытому заказу, если при закрытии не начислилась. Идемпотентно
+  Начислить бонус с продаж по закрытому заказу, если при закрытии не начислился. Идемпотентно
   """
   chargeOrderMotivation(orderId: ID!): OrderMotivation!
 
@@ -2885,7 +2900,7 @@ type OrderMotivationEmployee {
   employeeName: String!
 }
 
-"""Премия заказа: прогноз, начислена или закрыт без начисления"""
+"""Бонус с продаж по заказу: прогноз, начислен или закрыт без начисления"""
 enum OrderMotivationMode {
   """Начислено при закрытии"""
   ACCRUED
@@ -3396,7 +3411,9 @@ type PersonMonthlyIncomeModel {
   """Удержания (штрафы и гарантийные пенальти)"""
   penaltyAmount: MoneyModel!
 
-  """Начисления ЗП (заказы, оклад, ручные премии)"""
+  """
+  Начисления ЗП (сдельная с корректировками, бонус с продаж, оклад, премии, доплата до минимума)
+  """
   salaryAmount: MoneyModel!
 }
 
@@ -3573,7 +3590,7 @@ type Query {
   """Действующая сейчас версия схемы; null — схема не сохранена"""
   motivationActiveScheme: MotivationSchemeVersion
 
-  """Стартовая схема премии под должности тенанта"""
+  """Стартовая схема бонуса с продаж под должности тенанта"""
   motivationDefaultScheme: MotivationScheme!
 
   """Все версии схемы, новые сверху"""
@@ -3589,7 +3606,7 @@ type Query {
   orderItems(orderId: ID!): [OrderItemModel!]!
 
   """
-  Премия заказа: прогноз на открытом, начисление на закрытом. Прогноз ничего не пишет
+  Бонус с продаж по заказу: прогноз на открытом, начисление на закрытом. Прогноз ничего не пишет
   """
   orderMotivation(orderId: ID!): OrderMotivation!
 
@@ -4792,6 +4809,11 @@ input UpdateEmployeeInput {
 
   """Коэффициент (процент от работ; null — снять)"""
   ratio: Int
+
+  """
+  Только оклад: доля бонуса с продаж остаётся организации (не передавать — не менять)
+  """
+  salaryOnly: Boolean
 }
 
 input UpdateExpenseInput {

@@ -63,7 +63,7 @@ export class MotivationTypeSchemeModel {
 }
 
 @ObjectType('MotivationScheme', {
-  description: 'Параметры распределения премии',
+  description: 'Параметры распределения бонуса с продаж',
 })
 @InputType('MotivationSchemeInput')
 export class MotivationSchemeModel {
