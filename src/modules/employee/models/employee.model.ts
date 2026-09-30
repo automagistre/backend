@@ -36,6 +36,11 @@ export class EmployeeModel implements Employee {
   })
   excludeFromDashboard: boolean;
 
+  @Field(() => Boolean, {
+    description: 'Только оклад: доля бонуса с продаж остаётся организации',
+  })
+  salaryOnly: boolean;
+
   @Field(() => Date, { description: 'Дата найма' })
   hiredAt: Date;
 

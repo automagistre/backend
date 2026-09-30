@@ -105,6 +105,43 @@ describe('CustomerTransactionService', () => {
       expect(result[1].salaryAmount.amountMinor).toBe(0n);
       expect(result[1].netAmount.amountMinor).toBe(0n);
     });
+
+    it('премия и корректировка сдельной — начисления, прочие ручные проводки не берутся', async () => {
+      settings.getTimezone.mockResolvedValue('Europe/Moscow');
+      jest.mocked(prisma.customerTransaction.findMany).mockResolvedValue([
+        {
+          createdAt: new Date('2026-07-15T12:00:00+03:00'),
+          source: CustomerTransactionSource.Bonus,
+          amountAmount: 5000n,
+        },
+        {
+          createdAt: new Date('2026-07-16T12:00:00+03:00'),
+          source: CustomerTransactionSource.PieceworkCorrection,
+          amountAmount: -2000n,
+        },
+      ] as any);
+
+      const [july] = await service.getMonthlyIncome(
+        ctx,
+        'person-1',
+        new Date('2026-07-01T00:00:00+03:00'),
+        new Date('2026-07-31T00:00:00+03:00'),
+      );
+
+      expect(july.salaryAmount.amountMinor).toBe(3000n);
+      expect(july.penaltyAmount.amountMinor).toBe(0n);
+      const sources = (
+        jest.mocked(prisma.customerTransaction.findMany).mock.calls[0][0] as any
+      ).where.source.in as number[];
+      expect(sources).toEqual(
+        expect.arrayContaining([
+          CustomerTransactionSource.Bonus,
+          CustomerTransactionSource.PieceworkCorrection,
+        ]),
+      );
+      expect(sources).not.toContain(CustomerTransactionSource.Manual);
+      expect(sources).not.toContain(CustomerTransactionSource.ManualWithoutWallet);
+    });
   });
 
   describe('getSourceDisplay', () => {
@@ -236,6 +273,60 @@ describe('CustomerTransactionService', () => {
           amount: { amountMinor: 100n, currencyCode: 'RUB' },
         } as any),
       ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it.each([0n, -100n])('Bonus с суммой %s → BadRequest', async (amountMinor) => {
+      await expect(
+        service.createManualTransaction(ctx, {
+          operandId: 'person-1',
+          source: CustomerTransactionSource.Bonus,
+          amount: { amountMinor, currencyCode: 'RUB' },
+        } as any),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('PieceworkCorrection с нулевой суммой → BadRequest', async () => {
+      await expect(
+        service.createManualTransaction(ctx, {
+          operandId: 'person-1',
+          source: CustomerTransactionSource.PieceworkCorrection,
+          amount: { amountMinor: 0n, currencyCode: 'RUB' },
+        } as any),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it.each([CustomerTransactionSource.Bonus, CustomerTransactionSource.PieceworkCorrection])(
+      'источник %s со счётом → BadRequest',
+      async (source) => {
+        await expect(
+          service.createManualTransaction(ctx, {
+            operandId: 'person-1',
+            source,
+            walletId: 'wallet-1',
+            amount: { amountMinor: 100n, currencyCode: 'RUB' },
+          } as any),
+        ).rejects.toBeInstanceOf(BadRequestException);
+        expect(prisma.customerTransaction.create.mock.calls).toHaveLength(0);
+      },
+    );
+
+    it.each([
+      [CustomerTransactionSource.Bonus, 100n],
+      [CustomerTransactionSource.PieceworkCorrection, -100n],
+    ])('источник %s без счёта сохраняется как есть', async (source, amountMinor) => {
+      jest.mocked(prisma.customerTransaction.create).mockResolvedValue({ id: 'ct1' } as any);
+
+      await service.createManualTransaction(ctx, {
+        operandId: 'person-1',
+        source,
+        amount: { amountMinor, currencyCode: 'RUB' },
+      } as any);
+
+      expect(prisma.customerTransaction.create.mock.calls[0][0].data).toMatchObject({
+        source,
+        sourceId: ctx.userId,
+        amountAmount: amountMinor,
+      });
     });
   });
 });

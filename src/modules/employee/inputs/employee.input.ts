@@ -47,6 +47,14 @@ export class CreateEmployeeInput {
   })
   excludeFromDashboard?: boolean | null;
 
+  @IsOptional()
+  @IsBoolean()
+  @Field(() => Boolean, {
+    nullable: true,
+    description: 'Только оклад: доля бонуса с продаж остаётся организации',
+  })
+  salaryOnly?: boolean | null;
+
   @Field(() => Date, { nullable: true, description: 'Дата найма' })
   hiredAt?: Date;
 
@@ -99,6 +107,15 @@ export class UpdateEmployeeInput {
       'Не показывать в долгах и выдаче зарплаты на главной (не передавать — не менять)',
   })
   excludeFromDashboard?: boolean | null;
+
+  @IsOptional()
+  @IsBoolean()
+  @Field(() => Boolean, {
+    nullable: true,
+    description:
+      'Только оклад: доля бонуса с продаж остаётся организации (не передавать — не менять)',
+  })
+  salaryOnly?: boolean | null;
 
   @Field(() => Date, { nullable: true, description: 'Дата найма' })
   hiredAt?: Date;

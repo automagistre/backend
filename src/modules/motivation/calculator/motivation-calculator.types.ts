@@ -51,11 +51,13 @@ export type MotivationItemFacts = {
 /** Не начислено — доля остаётся организации, причина в reason. */
 export type MotivationRowOutcome = 'ACCRUED' | 'KEPT_IN_FUND';
 
-export type MotivationKeepReason = 'NOT_APPLICABLE' | 'NO_RECIPIENTS' | 'FIRED';
+export type MotivationKeepReason =
+  'NOT_APPLICABLE' | 'NO_RECIPIENTS' | 'FIRED' | 'SALARY_ONLY';
 
+/** Уволенные и «только оклад» делят фонд наравне со всеми, но их доля остаётся организации. */
 export type MotivationCalculationOptions = {
-  /** Уволенные делят фонд наравне со всеми, но их доля остаётся организации. */
   firedEmployeeIds?: ReadonlySet<string>;
+  salaryOnlyEmployeeIds?: ReadonlySet<string>;
 };
 
 export type MotivationRow = {

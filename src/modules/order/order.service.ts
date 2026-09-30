@@ -1570,7 +1570,7 @@ export class OrderService {
   }
 
   /**
-   * Заказ уже закрыт: ошибка премии не должна выглядеть как ошибка закрытия.
+   * Заказ уже закрыт: ошибка бонуса с продаж не должна выглядеть как ошибка закрытия.
    * Не начислилась — в карточке заказа есть повтор.
    */
   private async chargeOrderMotivation(
@@ -1581,7 +1581,7 @@ export class OrderService {
       await this.motivationAccrualService.chargeByOrder(ctx, orderId);
     } catch (error) {
       this.logger.error(
-        `Премия по заказу ${orderId} не начислена`,
+        `Бонус с продаж по заказу ${orderId} не начислен`,
         error instanceof Error ? error.stack : String(error),
       );
     }

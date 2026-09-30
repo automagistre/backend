@@ -28,7 +28,7 @@ export class CreateManualCustomerTransactionInput {
   @Field(() => CustomerTransactionSource, {
     nullable: true,
     description:
-      'Источник проводки. Payroll — выдача зарплаты (нужен walletId). Penalty — штраф (без счёта). Иначе Manual/ManualWithoutWallet.',
+      'Источник проводки. Payroll — выдача зарплаты (нужен walletId). Без счёта: Penalty — штраф, Bonus — премия (> 0), PieceworkCorrection — корректировка сдельной. Иначе Manual/ManualWithoutWallet.',
   })
   source?: CustomerTransactionSource | null;
 

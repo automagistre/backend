@@ -6,7 +6,10 @@ export class PersonMonthlyIncomeModel {
   @Field(() => Date, { description: 'Первое число месяца' })
   month: Date;
 
-  @Field(() => MoneyModel, { description: 'Начисления ЗП (заказы, оклад, ручные премии)' })
+  @Field(() => MoneyModel, {
+    description:
+      'Начисления ЗП (сдельная с корректировками, бонус с продаж, оклад, премии, доплата до минимума)',
+  })
   salaryAmount: MoneyModel;
 
   @Field(() => MoneyModel, {
