@@ -14,6 +14,7 @@ export type MotivationSourceRef =
   | 'SNAPSHOT:CONTRACT'
   | 'ACTOR:PICKER'
   | 'SCHEDULE:ITEM'
+  | 'SCHEDULE:RECOMMENDATION'
   | 'SCHEDULE:CONTRACT';
 
 /** Этап без адресата: доля уходит другим этапам позиции или остаётся в фонде. */

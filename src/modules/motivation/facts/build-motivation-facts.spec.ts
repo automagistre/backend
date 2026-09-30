@@ -1,7 +1,7 @@
 import { ProfitCostBasis } from 'src/modules/profit/enums/profit-cost-basis.enum';
 import { calculateMotivation } from '../calculator/motivation-calculator';
 import type { MotivationParticipant } from '../calculator/motivation-calculator.types';
-import { buildStartScheme } from '../calculator/start-scheme';
+import { buildTestScheme } from '../calculator/testing/test-scheme';
 import { buildMotivationFacts } from './build-motivation-facts';
 import type {
   MotivationEmployee,
@@ -124,20 +124,42 @@ describe('buildMotivationFacts', () => {
     expect(item.participants).toEqual({ 'SNAPSHOT:ITEM': [] });
   });
 
-  it('рекомендация со снимком даёт его состав, без снимка — только применимость', () => {
+  it('рекомендация: снимок, без снимка — график дня создания, до графика — только применимость', () => {
     const facts = build([
-      row({ recommendation: { snapshotId: 'snap-rec' } }),
-      row({ itemId: 'item-2', recommendation: { snapshotId: null } }),
+      row({
+        recommendation: { createdAt: at('2026-07-15'), snapshotId: 'snap-rec' },
+      }),
+      row({
+        itemId: 'item-2',
+        recommendation: { createdAt: at('2026-07-15'), snapshotId: null },
+      }),
+      row({
+        itemId: 'item-3',
+        recommendation: { createdAt: at('2026-05-31'), snapshotId: null },
+      }),
     ]);
 
     expect(facts.items[0].participants['SNAPSHOT:RECOMMENDATION']).toEqual([
       pair('admin-2', ADMIN),
     ]);
-    expect(facts.items[0].notApplicable).toBeUndefined();
     expect(
-      facts.items[1].participants['SNAPSHOT:RECOMMENDATION'],
+      facts.items[0].participants['SCHEDULE:RECOMMENDATION'],
     ).toBeUndefined();
-    expect(facts.items[1].notApplicable).toBeUndefined();
+    expect(facts.items[1].participants['SCHEDULE:RECOMMENDATION']).toEqual([
+      pair('master-2', MASTER),
+      pair('parts-1', PARTS),
+    ]);
+    expect(
+      facts.items[2].participants['SNAPSHOT:RECOMMENDATION'],
+    ).toBeUndefined();
+    expect(
+      facts.items[2].participants['SCHEDULE:RECOMMENDATION'],
+    ).toBeUndefined();
+    expect(facts.items.map((item) => item.notApplicable)).toEqual([
+      undefined,
+      undefined,
+      undefined,
+    ]);
   });
 
   it('подряд — отдельный тип', () => {
@@ -261,7 +283,7 @@ describe('buildMotivationFacts', () => {
       ]);
       const [result] = calculateMotivation(
         facts.items,
-        buildStartScheme({ masterId: MASTER, adminId: ADMIN, partsId: PARTS }),
+        buildTestScheme({ masterId: MASTER, adminId: ADMIN, partsId: PARTS }),
       );
       const picking = result.rows.filter((r) => r.stage === 'PICKING');
 

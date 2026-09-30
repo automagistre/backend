@@ -9,14 +9,14 @@ import type {
   MotivationParticipant,
   MotivationScheme,
 } from './motivation-calculator.types';
-import { buildStartScheme } from './start-scheme';
+import { buildTestScheme } from './testing/test-scheme';
 
 const MASTER = 'pos-master';
 const ADMIN = 'pos-admin';
 const PARTS = 'pos-parts';
 const MECHANIC = 'pos-mechanic';
 
-const scheme = buildStartScheme({
+const scheme = buildTestScheme({
   masterId: MASTER,
   adminId: ADMIN,
   partsId: PARTS,

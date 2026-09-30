@@ -29,7 +29,7 @@ export type MotivationSourceRow = {
   /** Создание позиции или договора: по нему ищется смена. */
   anchor: { createdAt: Date | null; snapshotId: string | null };
   /** null — позиция не из рекомендации. */
-  recommendation: { snapshotId: string | null } | null;
+  recommendation: { createdAt: Date | null; snapshotId: string | null } | null;
   /** Кто подобрал запчасть: автор позиции или запчасти рекомендации. */
   picker: {
     userId: string | null;

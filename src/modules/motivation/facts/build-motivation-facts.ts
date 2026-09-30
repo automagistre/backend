@@ -100,9 +100,17 @@ export function buildMotivationFacts(
     if (!storage) {
       if (!row.recommendation) {
         notApplicable.push('RECOMMENDATION');
-      } else if (row.recommendation.snapshotId) {
-        const members = ctx.snapshots.get(row.recommendation.snapshotId);
-        if (members) participants['SNAPSHOT:RECOMMENDATION'] = members;
+      } else {
+        const members = row.recommendation.snapshotId
+          ? ctx.snapshots.get(row.recommendation.snapshotId)
+          : undefined;
+        if (members) {
+          participants['SNAPSHOT:RECOMMENDATION'] = members;
+        } else {
+          // До начала графика состав не восстановить — доля уйдёт по политике этапа
+          const schedule = scheduleAt(row.recommendation.createdAt, ctx);
+          if (schedule) participants['SCHEDULE:RECOMMENDATION'] = schedule;
+        }
       }
     }
     if (type === 'PART') {
