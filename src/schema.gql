@@ -1271,6 +1271,9 @@ enum CustomerTransactionSource {
   """Начисление по заказу"""
   OrderDebit
 
+  """Премия по заказу"""
+  OrderMotivation
+
   """Списание по заказу"""
   OrderPayment
 
@@ -2117,77 +2120,6 @@ enum MotionSourceType {
   ORDER
 }
 
-"""Премия за период по схеме, без записи в БД"""
-type MotivationBacktest {
-  dateFrom: DateTime!
-  dateTo: DateTime!
-  employees: [MotivationBacktestEmployee!]!
-  kept: [MotivationBacktestKept!]!
-  orders: [MotivationBacktestOrder!]!
-  totals: MotivationBacktestTotals!
-  types: [MotivationBacktestType!]!
-}
-
-type MotivationBacktestEmployee {
-  amount: BigInt!
-  employeeId: ID!
-  employeeName: String!
-  ordersCount: Int!
-  stages: [MotivationStageAmount!]!
-}
-
-"""Что не начислено: осталось в фонде или без атрибуции"""
-type MotivationBacktestKept {
-  amount: BigInt!
-  itemsCount: Int!
-  outcome: MotivationRowOutcome!
-  reason: MotivationKeepReason
-  stage: MotivationStage
-  type: MotivationItemType!
-}
-
-type MotivationBacktestOrder {
-  accrued: BigInt!
-  closedAt: DateTime!
-  employees: [MotivationEmployeeAmount!]!
-  fund: BigInt!
-  keptInFund: BigInt!
-  orderId: ID!
-  orderNumber: Int!
-  profit: BigInt!
-  unattributed: BigInt!
-}
-
-type MotivationBacktestTotals {
-  accrued: BigInt!
-  excludedBeforeScheduleCount: Int!
-  excludedBeforeScheduleProfit: BigInt!
-  excludedWarrantyCount: Int!
-  excludedWarrantyProfit: BigInt!
-  fund: BigInt!
-  itemsCount: Int!
-
-  """Осталось в фонде"""
-  keptInFund: BigInt!
-  ordersCount: Int!
-
-  """Прибыль позиций в расчёте"""
-  profit: BigInt!
-
-  """Ни один этап позиции не нашёл адресата"""
-  unattributed: BigInt!
-}
-
-type MotivationBacktestType {
-  accrued: BigInt!
-  fund: BigInt!
-  itemsCount: Int!
-  keptInFund: BigInt!
-  profit: BigInt!
-  type: MotivationItemType!
-  unattributed: BigInt!
-}
-
 type MotivationBreakdownItem {
   fund: BigInt!
   itemId: ID!
@@ -2208,28 +2140,7 @@ type MotivationBreakdownRow {
 
   """Откуда взят адресат"""
   source: String
-  stage: MotivationStage
-}
-
-type MotivationChainStep {
-  """Ключ профиля весов"""
-  profile: String!
-
-  """Источник участников: SNAPSHOT:ITEM, ACTOR:PICKER, …"""
-  source: String!
-}
-
-input MotivationChainStepInput {
-  """Ключ профиля весов"""
-  profile: String!
-
-  """Источник участников: SNAPSHOT:ITEM, ACTOR:PICKER, …"""
-  source: String!
-}
-
-type MotivationEmployeeAmount {
-  amount: BigInt!
-  employeeId: ID!
+  stage: MotivationStage!
 }
 
 type MotivationExcludedItem {
@@ -2266,6 +2177,9 @@ enum MotivationItemType {
 
 """Почему доля осталась в фонде"""
 enum MotivationKeepReason {
+  """Сотрудник уволен — доля остаётся организации"""
+  FIRED
+
   """Этап не применим"""
   NOT_APPLICABLE
 
@@ -2273,31 +2187,14 @@ enum MotivationKeepReason {
   NO_RECIPIENTS
 }
 
-"""Расшифровка премии по позициям заказа"""
-type MotivationOrderBreakdown {
-  excluded: [MotivationExcludedItem!]!
-  items: [MotivationBreakdownItem!]!
-  orderId: ID!
-  orderNumber: Int!
-}
-
-"""Что делать с долей этапа без адресата"""
-enum MotivationPolicy {
-  """Оставить в фонде"""
-  KEEP_IN_FUND
-
-  """Отдать другим этапам позиции"""
-  REDISTRIBUTE
-}
-
 type MotivationProfile {
-  """Ключ профиля: team, parts"""
+  """Ключ профиля «ТИП:роль»: SERVICE:team, PART:parts, …"""
   key: String!
   weights: [MotivationProfileWeight!]!
 }
 
 input MotivationProfileInput {
-  """Ключ профиля: team, parts"""
+  """Ключ профиля «ТИП:роль»: SERVICE:team, PART:parts, …"""
   key: String!
   weights: [MotivationProfileWeightInput!]!
 }
@@ -2318,9 +2215,11 @@ input MotivationProfileWeightInput {
 
 """Исход строки распределения"""
 enum MotivationRowOutcome {
+  """Начислено сотруднику"""
   ACCRUED
+
+  """Осталось организации, причина — в reason"""
   KEPT_IN_FUND
-  UNATTRIBUTED
 }
 
 """Параметры распределения премии"""
@@ -2332,6 +2231,15 @@ type MotivationScheme {
 input MotivationSchemeInput {
   profiles: [MotivationProfileInput!]!
   types: [MotivationTypeSchemeInput!]!
+}
+
+type MotivationSchemeVersion {
+  """С этого момента схема действует"""
+  activeFrom: DateTime!
+  createdAt: DateTime!
+  id: ID!
+  scheme: MotivationScheme!
+  version: Int!
 }
 
 """Этап, за который платится часть фонда позиции"""
@@ -2349,47 +2257,27 @@ enum MotivationStage {
   TRANSFER
 }
 
-type MotivationStageAmount {
-  """Копейки"""
-  amount: BigInt!
+type MotivationStageRate {
+  """Доля прибыли позиции за этап, базисные пункты; 0 — не платим"""
+  rateBp: Int!
   stage: MotivationStage!
 }
 
-type MotivationStageScheme {
-  chain: [MotivationChainStep!]!
-  policy: MotivationPolicy!
-
-  """Кому уходит доля при REDISTRIBUTE"""
-  redistributeTo: [MotivationStage!]
-
-  """Доля фонда позиции, базисные пункты"""
-  shareBp: Int!
-  stage: MotivationStage!
-}
-
-input MotivationStageSchemeInput {
-  chain: [MotivationChainStepInput!]!
-  policy: MotivationPolicy!
-
-  """Кому уходит доля при REDISTRIBUTE"""
-  redistributeTo: [MotivationStage!]
-
-  """Доля фонда позиции, базисные пункты"""
-  shareBp: Int!
+input MotivationStageRateInput {
+  """Доля прибыли позиции за этап, базисные пункты; 0 — не платим"""
+  rateBp: Int!
   stage: MotivationStage!
 }
 
 type MotivationTypeScheme {
-  """Ставка фонда от прибыли позиции, базисные пункты"""
-  rateBp: Int!
-  stages: [MotivationStageScheme!]!
+  """Этапы типа в порядке показа; фонд позиции — сумма их долей"""
+  stages: [MotivationStageRate!]!
   type: MotivationItemType!
 }
 
 input MotivationTypeSchemeInput {
-  """Ставка фонда от прибыли позиции, базисные пункты"""
-  rateBp: Int!
-  stages: [MotivationStageSchemeInput!]!
+  """Этапы типа в порядке показа; фонд позиции — сумма их долей"""
+  stages: [MotivationStageRateInput!]!
   type: MotivationItemType!
 }
 
@@ -2428,6 +2316,11 @@ type Mutation {
 
   """Отменить заявку на выдачу (AWAITING_SHOP → IN_WAREHOUSE)"""
   cancelShopRequestTireStorage(id: ID!): TireStorageModel!
+
+  """
+  Начислить премию по закрытому заказу, если при закрытии не начислилась. Идемпотентно
+  """
+  chargeOrderMotivation(orderId: ID!): OrderMotivation!
 
   """
   Начислить зарплату по закрытому заказу. Проверяет, что заказ закрыт; идемпотентно по начислению.
@@ -2628,6 +2521,11 @@ type Mutation {
 
   """Вернуть работу в рекомендацию"""
   returnWorkToRecommendation(input: ReturnWorkToRecommendationInput!): ReturnWorkToRecommendationPayload!
+
+  """
+  Сохранить схему новой версией, действует сразу. Начисленное не пересчитывается
+  """
+  saveMotivationScheme(scheme: MotivationSchemeInput!): MotivationSchemeVersion!
 
   """Цикл графика одной должности сотрудника. shift: null — снять"""
   setEmployeePositionShift(employeeId: ID!, positionId: ID!, shift: ShiftPatternInput): EmployeeModel!
@@ -2964,6 +2862,39 @@ type OrderModel {
   """ID tenant"""
   tenantId: String!
   walletTransactions: [WalletTransactionModel!]!
+}
+
+type OrderMotivation {
+  """Заказ закрыт без начисления, а схема на дату закрытия есть"""
+  canCharge: Boolean!
+  employees: [OrderMotivationEmployee!]!
+  excluded: [MotivationExcludedItem!]!
+  items: [MotivationBreakdownItem!]!
+  mode: OrderMotivationMode!
+  orderId: ID!
+  orderNumber: Int!
+
+  """Версия схемы; null — сохранённой схемы нет, взята стартовая"""
+  schemeVersion: Int
+}
+
+type OrderMotivationEmployee {
+  """Копейки"""
+  amount: BigInt!
+  employeeId: ID!
+  employeeName: String!
+}
+
+"""Премия заказа: прогноз, начислена или закрыт без начисления"""
+enum OrderMotivationMode {
+  """Начислено при закрытии"""
+  ACCRUED
+
+  """Заказ закрыт, начисления нет"""
+  NOT_ACCRUED
+
+  """Заказ открыт, расчёт по действующей схеме"""
+  PREVIEW
 }
 
 """Предоплата по заказу (order_payment)"""
@@ -3639,14 +3570,14 @@ type Query {
   """Движения запчастей с фильтрацией и пагинацией"""
   motions(filter: MotionFilterInput, skip: Int, take: Int): PaginatedMotions!
 
-  """Премия за период по схеме, без записи в БД"""
-  motivationBacktest(dateFrom: DateTime!, dateTo: DateTime!, scheme: MotivationSchemeInput): MotivationBacktest!
+  """Действующая сейчас версия схемы; null — схема не сохранена"""
+  motivationActiveScheme: MotivationSchemeVersion
 
   """Стартовая схема премии под должности тенанта"""
   motivationDefaultScheme: MotivationScheme!
 
-  """Расшифровка премии закрытого заказа по схеме"""
-  motivationOrderBreakdown(orderId: ID!, scheme: MotivationSchemeInput): MotivationOrderBreakdown!
+  """Все версии схемы, новые сверху"""
+  motivationSchemeVersions: [MotivationSchemeVersion!]!
 
   """Заметки по subject (Order, Car или Person)"""
   notes(isPublic: Boolean, subjectId: ID!): [NoteModel!]!
@@ -3656,6 +3587,11 @@ type Query {
 
   """Элементы заказа в виде дерева"""
   orderItems(orderId: ID!): [OrderItemModel!]!
+
+  """
+  Премия заказа: прогноз на открытом, начисление на закрытом. Прогноз ничего не пишет
+  """
+  orderMotivation(orderId: ID!): OrderMotivation!
 
   """Список всех заказов с пагинацией"""
   orders(carId: ID, customerId: ID, search: String, skip: Int = 0, status: [OrderStatus!], take: Int = 25): PaginatedOrders!

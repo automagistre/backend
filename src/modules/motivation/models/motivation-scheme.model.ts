@@ -1,22 +1,10 @@
 import { Field, ID, InputType, Int, ObjectType } from '@nestjs/graphql';
 import { Type } from 'class-transformer';
-import { IsIn, IsInt, IsString, Min, ValidateNested } from 'class-validator';
+import { IsInt, IsString, Min, ValidateNested } from 'class-validator';
 import {
   MotivationItemTypeEnum,
-  MotivationPolicyEnum,
   MotivationStageEnum,
 } from './motivation.enums';
-
-/** Источники участников; в GraphQL строкой — двоеточие в enum недопустимо. */
-export const MOTIVATION_SOURCES = [
-  'SNAPSHOT:ITEM',
-  'SNAPSHOT:RECOMMENDATION',
-  'SNAPSHOT:CONTRACT',
-  'ACTOR:PICKER',
-  'SCHEDULE:ITEM',
-  'SCHEDULE:RECOMMENDATION',
-  'SCHEDULE:CONTRACT',
-] as const;
 
 @ObjectType('MotivationProfileWeight')
 @InputType('MotivationProfileWeightInput')
@@ -35,7 +23,9 @@ export class MotivationProfileWeightModel {
 @InputType('MotivationProfileInput')
 export class MotivationProfileModel {
   @IsString()
-  @Field(() => String, { description: 'Ключ профиля: team, parts' })
+  @Field(() => String, {
+    description: 'Ключ профиля «ТИП:роль»: SERVICE:team, PART:parts, …',
+  })
   key: string;
 
   @ValidateNested({ each: true })
@@ -44,44 +34,18 @@ export class MotivationProfileModel {
   weights: MotivationProfileWeightModel[];
 }
 
-@ObjectType('MotivationChainStep')
-@InputType('MotivationChainStepInput')
-export class MotivationChainStepModel {
-  @IsIn(MOTIVATION_SOURCES)
-  @Field(() => String, {
-    description: 'Источник участников: SNAPSHOT:ITEM, ACTOR:PICKER, …',
-  })
-  source: string;
-
-  @IsString()
-  @Field(() => String, { description: 'Ключ профиля весов' })
-  profile: string;
-}
-
-@ObjectType('MotivationStageScheme')
-@InputType('MotivationStageSchemeInput')
-export class MotivationStageSchemeModel {
+@ObjectType('MotivationStageRate')
+@InputType('MotivationStageRateInput')
+export class MotivationStageRateModel {
   @Field(() => MotivationStageEnum)
   stage: MotivationStageEnum;
 
   @IsInt()
-  @Min(1)
-  @Field(() => Int, { description: 'Доля фонда позиции, базисные пункты' })
-  shareBp: number;
-
-  @Field(() => MotivationPolicyEnum)
-  policy: MotivationPolicyEnum;
-
-  @Field(() => [MotivationStageEnum], {
-    nullable: true,
-    description: 'Кому уходит доля при REDISTRIBUTE',
+  @Min(0)
+  @Field(() => Int, {
+    description: 'Доля прибыли позиции за этап, базисные пункты; 0 — не платим',
   })
-  redistributeTo?: MotivationStageEnum[] | null;
-
-  @ValidateNested({ each: true })
-  @Type(() => MotivationChainStepModel)
-  @Field(() => [MotivationChainStepModel])
-  chain: MotivationChainStepModel[];
+  rateBp: number;
 }
 
 @ObjectType('MotivationTypeScheme')
@@ -90,17 +54,12 @@ export class MotivationTypeSchemeModel {
   @Field(() => MotivationItemTypeEnum)
   type: MotivationItemTypeEnum;
 
-  @IsInt()
-  @Min(0)
-  @Field(() => Int, {
-    description: 'Ставка фонда от прибыли позиции, базисные пункты',
-  })
-  rateBp: number;
-
   @ValidateNested({ each: true })
-  @Type(() => MotivationStageSchemeModel)
-  @Field(() => [MotivationStageSchemeModel])
-  stages: MotivationStageSchemeModel[];
+  @Type(() => MotivationStageRateModel)
+  @Field(() => [MotivationStageRateModel], {
+    description: 'Этапы типа в порядке показа; фонд позиции — сумма их долей',
+  })
+  stages: MotivationStageRateModel[];
 }
 
 @ObjectType('MotivationScheme', {

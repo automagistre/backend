@@ -31,6 +31,7 @@ const ORDER_SOURCES = [
   CustomerTransactionSource.OrderPayment,
   CustomerTransactionSource.OrderPrepayRefund,
   CustomerTransactionSource.OrderSalary,
+  CustomerTransactionSource.OrderMotivation,
 ];
 
 /** Проводки по гарантии: sourceId = orderItemService.id | orderItemPart.id */
@@ -266,7 +267,12 @@ export class CustomerTransactionService {
     source: number,
     sourceId: string,
   ): Promise<string> {
-    if (source === CustomerTransactionSource.OrderSalary) {
+    if (
+      [
+        CustomerTransactionSource.OrderSalary,
+        CustomerTransactionSource.OrderMotivation,
+      ].includes(source)
+    ) {
       return this.displayContextService.getOrderContextByOrderIdForSalary(
         ctx,
         sourceId,

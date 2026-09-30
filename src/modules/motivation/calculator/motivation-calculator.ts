@@ -1,7 +1,9 @@
 import { splitLargestRemainder } from './largest-remainder';
 import type {
+  MotivationCalculationOptions,
   MotivationItemFacts,
   MotivationItemResult,
+  MotivationItemType,
   MotivationKeepReason,
   MotivationParticipant,
   MotivationProfile,
@@ -9,20 +11,23 @@ import type {
   MotivationScheme,
   MotivationSourceRef,
   MotivationStage,
-  MotivationStageScheme,
 } from './motivation-calculator.types';
+import {
+  MOTIVATION_STAGE_RULES,
+  type MotivationStageRule,
+} from './motivation-stages';
 
 const BASIS_POINTS = 10_000;
 
 type StageResolution =
   | {
-      stage: MotivationStageScheme;
+      rule: MotivationStageRule;
       recipients: MotivationParticipant[];
       profile: MotivationProfile;
       source: MotivationSourceRef;
     }
   | {
-      stage: MotivationStageScheme;
+      rule: MotivationStageRule;
       recipients: null;
       reason: MotivationKeepReason;
     };
@@ -30,9 +35,11 @@ type StageResolution =
 export function calculateMotivation(
   items: MotivationItemFacts[],
   scheme: MotivationScheme,
+  options: MotivationCalculationOptions = {},
 ): MotivationItemResult[] {
   assertValidScheme(scheme);
-  return items.map((item) => calculateItem(item, scheme));
+  const fired = options.firedEmployeeIds ?? new Set<string>();
+  return items.map((item) => calculateItem(item, scheme, fired));
 }
 
 export function motivationTotalsByEmployee(
@@ -49,6 +56,17 @@ export function motivationTotalsByEmployee(
   return totals;
 }
 
+/** Фонд позиции — сумма долей её этапов, базисные пункты прибыли. */
+export function motivationFundRateBp(
+  scheme: MotivationScheme,
+  type: MotivationItemType,
+): number {
+  return Object.values(scheme.rates[type]).reduce(
+    (sum, rate) => sum + (rate ?? 0),
+    0,
+  );
+}
+
 export function assertValidScheme(scheme: MotivationScheme): void {
   for (const [name, profile] of Object.entries(scheme.profiles)) {
     for (const weight of Object.values(profile)) {
@@ -58,40 +76,21 @@ export function assertValidScheme(scheme: MotivationScheme): void {
     }
   }
 
-  for (const [type, typeScheme] of Object.entries(scheme.types)) {
-    if (!isBasisPoints(typeScheme.rateBp)) {
-      throw new Error(`${type}: ставка фонда вне диапазона 0–10 000 б.п.`);
-    }
-    const seen = new Set<MotivationStage>();
-    let shareSum = 0;
-    for (const stage of typeScheme.stages) {
-      if (seen.has(stage.stage)) {
-        throw new Error(`${type}: этап ${stage.stage} указан дважды`);
+  for (const [type, rules] of Object.entries(MOTIVATION_STAGE_RULES)) {
+    const rates = scheme.rates[type as MotivationItemType];
+    if (!rates) throw new Error(`${type}: нет долей этапов`);
+    const known = new Set(rules.map((rule) => rule.stage));
+    for (const [stage, rate] of Object.entries(rates)) {
+      if (!known.has(stage as MotivationStage)) {
+        throw new Error(`${type}: у типа нет этапа ${stage}`);
       }
-      seen.add(stage.stage);
-      // Доля 0 не даёт этапу веса при перераспределении — такой этап лучше убрать
-      if (!isBasisPoints(stage.shareBp) || stage.shareBp === 0) {
-        throw new Error(`${type}: доля этапа ${stage.stage} вне 1–10 000 б.п.`);
-      }
-      shareSum += stage.shareBp;
-      for (const step of stage.chain) {
-        if (!scheme.profiles[step.profile]) {
-          throw new Error(
-            `${type}: этап ${stage.stage} ссылается на неизвестный профиль «${step.profile}»`,
-          );
-        }
+      if (rate === undefined || !Number.isInteger(rate) || rate < 0) {
+        throw new Error(`${type}: доля этапа ${stage} — целое число от 0`);
       }
     }
-    for (const stage of typeScheme.stages) {
-      const unknown = stage.redistributeTo?.find((target) => !seen.has(target));
-      if (unknown) {
-        throw new Error(
-          `${type}: этап ${stage.stage} перераспределяет в отсутствующий этап ${unknown}`,
-        );
-      }
-    }
-    if (shareSum !== BASIS_POINTS) {
-      throw new Error(`${type}: доли этапов в сумме ${shareSum}, нужно 10 000`);
+    const fund = motivationFundRateBp(scheme, type as MotivationItemType);
+    if (fund > BASIS_POINTS) {
+      throw new Error(`${type}: этапы в сумме больше 100% прибыли`);
     }
   }
 }
@@ -99,12 +98,17 @@ export function assertValidScheme(scheme: MotivationScheme): void {
 function calculateItem(
   facts: MotivationItemFacts,
   scheme: MotivationScheme,
+  fired: ReadonlySet<string>,
 ): MotivationItemResult {
-  const typeScheme = scheme.types[facts.type];
+  const rates = scheme.rates[facts.type];
+  const rules = MOTIVATION_STAGE_RULES[facts.type].filter(
+    (rule) => (rates[rule.stage] ?? 0) > 0,
+  );
+  const rateBp = motivationFundRateBp(scheme, facts.type);
   // Убыточная позиция фонда не даёт, но и не забирает у остальных
   const fundMinor =
     facts.profitMinor > 0n
-      ? (facts.profitMinor * BigInt(typeScheme.rateBp)) / BigInt(BASIS_POINTS)
+      ? (facts.profitMinor * BigInt(rateBp)) / BigInt(BASIS_POINTS)
       : 0n;
   const result: MotivationItemResult = {
     itemId: facts.itemId,
@@ -115,64 +119,38 @@ function calculateItem(
   };
   if (fundMinor === 0n) return result;
 
-  const stageAmounts = splitLargestRemainder(
+  const amounts = splitLargestRemainder(
     fundMinor,
-    typeScheme.stages.map((stage) => ({
-      key: stage.stage,
-      weight: BigInt(stage.shareBp),
+    rules.map((rule) => ({
+      key: rule.stage,
+      weight: BigInt(rates[rule.stage]!),
     })),
   );
-  const resolutions = typeScheme.stages.map((stage) =>
-    resolveStage(stage, facts, scheme),
-  );
-  const resolved = resolutions.filter(
-    (resolution) => resolution.recipients !== null,
-  );
+  const resolutions = rules.map((rule) => resolveStage(rule, facts, scheme));
 
-  if (resolved.length === 0) {
-    result.rows.push({
-      itemId: facts.itemId,
-      stage: null,
-      employeeId: null,
-      positionId: null,
-      amountMinor: fundMinor,
-      outcome: 'UNATTRIBUTED',
-      reason: null,
-      source: null,
-    });
-    return result;
-  }
-
-  const extra = new Map<MotivationStage, bigint>();
   for (const resolution of resolutions) {
-    if (
-      resolution.recipients !== null ||
-      resolution.stage.policy !== 'REDISTRIBUTE'
-    ) {
-      continue;
-    }
-    const targets = redistributionTargets(resolution.stage, resolved);
-    const shares = splitLargestRemainder(
-      stageAmounts.get(resolution.stage.stage)!,
-      targets.map((target) => ({
-        key: target.stage.stage,
-        weight: BigInt(target.stage.shareBp),
-      })),
+    const target = resolution.rule.fallbackTo;
+    if (resolution.recipients !== null || !target) continue;
+    const hasRecipients = resolutions.some(
+      (other) => other.rule.stage === target && other.recipients !== null,
     );
-    for (const [stage, amount] of shares) {
-      extra.set(stage, (extra.get(stage) ?? 0n) + amount);
-    }
+    if (!hasRecipients) continue;
+    const stage = resolution.rule.stage;
+    amounts.set(target, amounts.get(target)! + amounts.get(stage)!);
+    amounts.set(stage, 0n);
   }
 
   for (const resolution of resolutions) {
-    const amount = stageAmounts.get(resolution.stage.stage)!;
+    const amount = amounts.get(resolution.rule.stage)!;
+    if (amount === 0n) continue;
     if (resolution.recipients) {
-      const total = amount + (extra.get(resolution.stage.stage) ?? 0n);
-      result.rows.push(...distributeStage(facts.itemId, total, resolution));
-    } else if (resolution.stage.policy === 'KEEP_IN_FUND') {
+      result.rows.push(
+        ...distributeStage(facts.itemId, amount, resolution, fired),
+      );
+    } else {
       result.rows.push({
         itemId: facts.itemId,
-        stage: resolution.stage.stage,
+        stage: resolution.rule.stage,
         employeeId: null,
         positionId: null,
         amountMinor: amount,
@@ -185,38 +163,26 @@ function calculateItem(
   return result;
 }
 
-function redistributionTargets(
-  stage: MotivationStageScheme,
-  resolved: StageResolution[],
-): StageResolution[] {
-  const preferred = stage.redistributeTo
-    ? resolved.filter((target) =>
-        stage.redistributeTo!.includes(target.stage.stage),
-      )
-    : [];
-  return preferred.length > 0 ? preferred : resolved;
-}
-
 function resolveStage(
-  stage: MotivationStageScheme,
+  rule: MotivationStageRule,
   facts: MotivationItemFacts,
   scheme: MotivationScheme,
 ): StageResolution {
-  if (facts.notApplicable?.includes(stage.stage)) {
-    return { stage, recipients: null, reason: 'NOT_APPLICABLE' };
+  if (facts.notApplicable?.includes(rule.stage)) {
+    return { rule, recipients: null, reason: 'NOT_APPLICABLE' };
   }
-  for (const step of stage.chain) {
+  for (const step of rule.chain) {
     const candidates = facts.participants[step.source];
     if (!candidates) continue;
-    const profile = scheme.profiles[step.profile];
+    const profile = scheme.profiles[step.profile] ?? {};
     const recipients = uniqueParticipants(candidates).filter(
       (participant) => (profile[participant.positionId] ?? 0) > 0,
     );
     if (recipients.length > 0) {
-      return { stage, recipients, profile, source: step.source };
+      return { rule, recipients, profile, source: step.source };
     }
   }
-  return { stage, recipients: null, reason: 'NO_RECIPIENTS' };
+  return { rule, recipients: null, reason: 'NO_RECIPIENTS' };
 }
 
 /** Этап → котлы присутствующих должностей по весам → поровну между людьми должности. */
@@ -224,6 +190,7 @@ function distributeStage(
   itemId: string,
   total: bigint,
   resolution: Extract<StageResolution, { recipients: MotivationParticipant[] }>,
+  fired: ReadonlySet<string>,
 ): MotivationRow[] {
   const positionIds = [
     ...new Set(resolution.recipients.map((recipient) => recipient.positionId)),
@@ -249,14 +216,15 @@ function distributeStage(
     for (const employeeId of people) {
       const amountMinor = shares.get(employeeId)!;
       if (amountMinor === 0n) continue;
+      const isFired = fired.has(employeeId);
       rows.push({
         itemId,
-        stage: resolution.stage.stage,
+        stage: resolution.rule.stage,
         employeeId,
         positionId,
         amountMinor,
-        outcome: 'ACCRUED',
-        reason: null,
+        outcome: isFired ? 'KEPT_IN_FUND' : 'ACCRUED',
+        reason: isFired ? 'FIRED' : null,
         source: resolution.source,
       });
     }
@@ -279,8 +247,4 @@ function uniqueParticipants(
 
 function compareIds(a: string, b: string): number {
   return a < b ? -1 : a > b ? 1 : 0;
-}
-
-function isBasisPoints(value: number): boolean {
-  return Number.isInteger(value) && value >= 0 && value <= BASIS_POINTS;
 }

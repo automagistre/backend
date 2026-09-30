@@ -14,25 +14,26 @@ export enum MotivationStageEnum {
   CONTRACT = 'CONTRACT',
 }
 
-export enum MotivationPolicyEnum {
-  REDISTRIBUTE = 'REDISTRIBUTE',
-  KEEP_IN_FUND = 'KEEP_IN_FUND',
-}
-
 export enum MotivationRowOutcomeEnum {
   ACCRUED = 'ACCRUED',
   KEPT_IN_FUND = 'KEPT_IN_FUND',
-  UNATTRIBUTED = 'UNATTRIBUTED',
 }
 
 export enum MotivationKeepReasonEnum {
   NOT_APPLICABLE = 'NOT_APPLICABLE',
   NO_RECIPIENTS = 'NO_RECIPIENTS',
+  FIRED = 'FIRED',
 }
 
 export enum MotivationExclusionReasonEnum {
   WARRANTY = 'WARRANTY',
   BEFORE_SCHEDULE = 'BEFORE_SCHEDULE',
+}
+
+export enum OrderMotivationModeEnum {
+  PREVIEW = 'PREVIEW',
+  ACCRUED = 'ACCRUED',
+  NOT_ACCRUED = 'NOT_ACCRUED',
 }
 
 registerEnumType(MotivationItemTypeEnum, {
@@ -57,18 +58,13 @@ registerEnumType(MotivationStageEnum, {
   },
 });
 
-registerEnumType(MotivationPolicyEnum, {
-  name: 'MotivationPolicy',
-  description: 'Что делать с долей этапа без адресата',
-  valuesMap: {
-    REDISTRIBUTE: { description: 'Отдать другим этапам позиции' },
-    KEEP_IN_FUND: { description: 'Оставить в фонде' },
-  },
-});
-
 registerEnumType(MotivationRowOutcomeEnum, {
   name: 'MotivationRowOutcome',
   description: 'Исход строки распределения',
+  valuesMap: {
+    ACCRUED: { description: 'Начислено сотруднику' },
+    KEPT_IN_FUND: { description: 'Осталось организации, причина — в reason' },
+  },
 });
 
 registerEnumType(MotivationKeepReasonEnum, {
@@ -77,6 +73,7 @@ registerEnumType(MotivationKeepReasonEnum, {
   valuesMap: {
     NOT_APPLICABLE: { description: 'Этап не применим' },
     NO_RECIPIENTS: { description: 'Некому начислить' },
+    FIRED: { description: 'Сотрудник уволен — доля остаётся организации' },
   },
 });
 
@@ -86,5 +83,15 @@ registerEnumType(MotivationExclusionReasonEnum, {
   valuesMap: {
     WARRANTY: { description: 'Гарантия' },
     BEFORE_SCHEDULE: { description: 'Создана до начала графика' },
+  },
+});
+
+registerEnumType(OrderMotivationModeEnum, {
+  name: 'OrderMotivationMode',
+  description: 'Премия заказа: прогноз, начислена или закрыт без начисления',
+  valuesMap: {
+    PREVIEW: { description: 'Заказ открыт, расчёт по действующей схеме' },
+    ACCRUED: { description: 'Начислено при закрытии' },
+    NOT_ACCRUED: { description: 'Заказ закрыт, начисления нет' },
   },
 });

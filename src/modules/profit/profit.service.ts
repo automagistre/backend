@@ -11,6 +11,7 @@ import { SettingsService } from 'src/modules/settings/settings.service';
 import { CustomerTransactionSource } from 'src/modules/customer-transaction/enums/customer-transaction-source.enum';
 import { OrderItemServiceKind } from 'src/modules/order/enums/order-item-service-kind.enum';
 import { WarrantyPayerKind } from 'src/modules/order/enums/warranty-payer-kind.enum';
+import { TireStorageStatus } from 'src/modules/tire-storage/enums/tire-storage-status.enum';
 import { PartyKind } from 'src/common/party';
 import type { AuthContext } from 'src/common/user-id.store';
 import {
@@ -68,6 +69,36 @@ export class ProfitService {
     closedAt: Date,
     origin: ProfitOrigin = ProfitOrigin.LIVE,
   ): Promise<number> {
+    const rows = await this.computeOrderRows(
+      tx,
+      ctx,
+      orderId,
+      closedAt,
+      origin,
+    );
+
+    await tx.orderItemProfit.deleteMany({ where: { orderId } });
+
+    if (rows.length > 0) {
+      await tx.orderItemProfit.createMany({ data: rows });
+    }
+
+    return rows.length;
+  }
+
+  /**
+   * Строки прибыли заказа без записи: снапшот при закрытии и прогноз премии
+   * на открытом заказе считаются одним кодом. Прогноз учитывает и договоры
+   * хранения, которые закрытие только переведёт на склад.
+   */
+  async computeOrderRows(
+    tx: Prisma.TransactionClient,
+    ctx: AuthContext,
+    orderId: string,
+    closedAt: Date,
+    origin: ProfitOrigin = ProfitOrigin.LIVE,
+    storageStatuses: TireStorageStatus[] = [TireStorageStatus.IN_WAREHOUSE],
+  ): Promise<Prisma.OrderItemProfitCreateManyInput[]> {
     const order = await tx.order.findFirst({
       where: { id: orderId, tenantId: ctx.tenantId },
       select: { id: true, tenantId: true },
@@ -128,7 +159,7 @@ export class ProfitService {
     const storages = await tx.tireStorage.findMany({
       where: {
         orderId,
-        status: 'IN_WAREHOUSE',
+        status: { in: storageStatuses },
         tenantGroupId: ctx.tenantGroupId,
       },
       select: {
@@ -156,13 +187,7 @@ export class ProfitService {
       });
     }
 
-    await tx.orderItemProfit.deleteMany({ where: { orderId } });
-
-    if (rows.length > 0) {
-      await tx.orderItemProfit.createMany({ data: rows });
-    }
-
-    return rows.length;
+    return rows;
   }
 
   /** Строки снапшота прибыли по заказу (без проверки статуса заказа). */

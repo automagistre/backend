@@ -698,6 +698,51 @@ model ShiftSnapshotMember {
   @@map("shift_snapshot_member")
 }
 
+/// Версия схемы премии. Начисление берёт версию, действующую на момент закрытия заказа.
+model MotivationScheme {
+  id         String              @id @default(uuid()) @db.Uuid
+  tenantId   String              @map("tenant_id") @db.Uuid
+  tenant     tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  version    Int
+  /// Параметры калькулятора: ставки, этапы, цепочки, профили весов.
+  params     Json                @db.JsonB
+  activeFrom DateTime            @map("active_from") @db.Timestamptz(0)
+  createdAt  DateTime            @default(now()) @map("created_at") @db.Timestamptz(0)
+  createdBy  String?             @map("created_by") @db.Uuid
+  accruals   MotivationAccrual[]
+
+  @@unique([tenantId, version], map: "uniq_motivation_scheme_version")
+  @@index([tenantId, activeFrom], map: "idx_motivation_scheme_active_from")
+  @@map("motivation_scheme")
+}
+
+/// Строка распределения фонда позиции при закрытии заказа. Деньги заморожены здесь.
+model MotivationAccrual {
+  id                    String           @id @default(uuid()) @db.Uuid
+  tenantId              String           @map("tenant_id") @db.Uuid
+  tenant                tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  orderId               String           @map("order_id") @db.Uuid
+  /// Позиция заказа или договор хранения.
+  itemId                String           @map("item_id") @db.Uuid
+  itemType              String           @map("item_type") @db.VarChar(16)
+  stage                 String?          @db.VarChar(16)
+  employeeId            String?          @map("employee_id") @db.Uuid
+  positionId            String?          @map("position_id") @db.Uuid
+  amountAmount          BigInt           @map("amount_amount")
+  amountCurrencyCode    String           @map("amount_currency_code") @db.VarChar(3)
+  outcome               String           @db.VarChar(16)
+  reason                String?          @db.VarChar(16)
+  source                String?          @db.VarChar(32)
+  schemeId              String           @map("scheme_id") @db.Uuid
+  scheme                MotivationScheme @relation(fields: [schemeId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  customerTransactionId String?          @map("customer_transaction_id") @db.Uuid
+  createdAt             DateTime         @default(now()) @map("created_at") @db.Timestamptz(0)
+
+  @@index([tenantId, orderId], map: "idx_motivation_accrual_order")
+  @@index([employeeId], map: "idx_motivation_accrual_employee")
+  @@map("motivation_accrual")
+}
+
 /// Должность сотрудника. Справочник тенанта.
 model StaffPosition {
   id             String                  @id @default(uuid()) @db.Uuid
@@ -1471,17 +1516,19 @@ model Review {
 // }
 
 model tenant {
-  id                String               @unique(map: "temporal_unique_idx") @db.Uuid
-  group_id          String               @db.Uuid
-  identifier        String               @unique(map: "uniq_4e59c462772e836a") @db.VarChar(255)
-  name              String               @db.VarChar(255)
-  public_id         Int                  @unique(map: "tenant_public_id_uniq")
-  created_at        DateTime             @default(now()) @db.Timestamptz(6)
-  updated_at        DateTime             @default(now()) @db.Timestamptz(6)
-  tenant_group      tenant_group         @relation(fields: [group_id], references: [id], onUpdate: Restrict)
-  tenant_permission tenant_permission[]
-  organizations     TenantOrganization[]
-  shiftSnapshots    ShiftSnapshot[]
+  id                 String               @unique(map: "temporal_unique_idx") @db.Uuid
+  group_id           String               @db.Uuid
+  identifier         String               @unique(map: "uniq_4e59c462772e836a") @db.VarChar(255)
+  name               String               @db.VarChar(255)
+  public_id          Int                  @unique(map: "tenant_public_id_uniq")
+  created_at         DateTime             @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime             @default(now()) @db.Timestamptz(6)
+  tenant_group       tenant_group         @relation(fields: [group_id], references: [id], onUpdate: Restrict)
+  tenant_permission  tenant_permission[]
+  organizations      TenantOrganization[]
+  shiftSnapshots     ShiftSnapshot[]
+  motivationSchemes  MotivationScheme[]
+  motivationAccruals MotivationAccrual[]
 
   @@id([id, group_id])
 }

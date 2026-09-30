@@ -205,6 +205,7 @@ describe('CustomerTransactionService', () => {
               CustomerTransactionSource.OrderPayment,
               CustomerTransactionSource.OrderPrepayRefund,
               CustomerTransactionSource.OrderSalary,
+              CustomerTransactionSource.OrderMotivation,
             ],
           },
         },

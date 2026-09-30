@@ -20,6 +20,40 @@ import {
 /** Не длиннее окна `ShiftService`: график читаем кусками. */
 const SCHEDULE_CHUNK_DAYS = 300;
 
+const ORDER_ITEM_SELECT = {
+  shiftSnapshotId: true,
+  service: {
+    select: {
+      service: true,
+      kind: true,
+      executorKind: true,
+      createdAt: true,
+    },
+  },
+  part: {
+    select: {
+      createdAt: true,
+      createdBy: true,
+      part: { select: { name: true, number: true } },
+      recommendationPart: {
+        select: {
+          createdAt: true,
+          createdBy: true,
+          recommendation: {
+            select: { createdAt: true, shiftSnapshotId: true },
+          },
+        },
+      },
+    },
+  },
+} satisfies Prisma.OrderItemSelect;
+
+const STORAGE_SELECT = {
+  number: true,
+  createdAt: true,
+  shiftSnapshotId: true,
+} satisfies Prisma.TireStorageSelect;
+
 const PROFIT_SELECT = {
   id: true,
   orderItemId: true,
@@ -31,38 +65,8 @@ const PROFIT_SELECT = {
   warranty: true,
   closedAt: true,
   order: { select: { number: true } },
-  orderItem: {
-    select: {
-      shiftSnapshotId: true,
-      service: {
-        select: {
-          service: true,
-          kind: true,
-          executorKind: true,
-          createdAt: true,
-        },
-      },
-      part: {
-        select: {
-          createdAt: true,
-          createdBy: true,
-          part: { select: { name: true, number: true } },
-          recommendationPart: {
-            select: {
-              createdAt: true,
-              createdBy: true,
-              recommendation: {
-                select: { createdAt: true, shiftSnapshotId: true },
-              },
-            },
-          },
-        },
-      },
-    },
-  },
-  storage: {
-    select: { number: true, createdAt: true, shiftSnapshotId: true },
-  },
+  orderItem: { select: ORDER_ITEM_SELECT },
+  storage: { select: STORAGE_SELECT },
 } satisfies Prisma.OrderItemProfitSelect;
 
 type ProfitRow = Prisma.OrderItemProfitGetPayload<{
@@ -93,27 +97,74 @@ export class MotivationFactsService {
     return this.collect(tenantId, { orderId });
   }
 
-  /** Сделки, закрытые в [from, toExclusive). */
-  byPeriod(
+  /**
+   * Открытый заказ: строки прибыли посчитаны, но не записаны. Дальше путь тот же,
+   * что у закрытого, — иначе прогноз разойдётся с начислением.
+   */
+  async byProfitRows(
     tenantId: string,
-    from: Date,
-    toExclusive: Date,
+    orderId: string,
+    lines: Prisma.OrderItemProfitCreateManyInput[],
   ): Promise<MotivationFacts> {
-    return this.collect(tenantId, { closedAt: { gte: from, lt: toExclusive } });
+    const itemIds = lines.flatMap((line) => line.orderItemId ?? []);
+    const storageIds = lines.flatMap((line) => line.storageId ?? []);
+    const [order, items, storages] = await Promise.all([
+      this.prisma.order.findFirstOrThrow({
+        where: { id: orderId, tenantId },
+        select: { number: true },
+      }),
+      this.prisma.orderItem.findMany({
+        where: { id: { in: itemIds } },
+        select: { id: true, ...ORDER_ITEM_SELECT },
+      }),
+      this.prisma.tireStorage.findMany({
+        where: { id: { in: storageIds } },
+        select: { id: true, ...STORAGE_SELECT },
+      }),
+    ]);
+    const itemById = new Map(items.map((item) => [item.id, item]));
+    const storageById = new Map(
+      storages.map((storage) => [storage.id, storage]),
+    );
+
+    const profits: ProfitRow[] = lines.map((line) => ({
+      id: line.orderItemId ?? line.storageId ?? '',
+      orderItemId: line.orderItemId ?? null,
+      storageId: line.storageId ?? null,
+      orderId,
+      kind: line.kind,
+      profitAmount: BigInt(line.profitAmount),
+      costBasis: line.costBasis,
+      warranty: line.warranty ?? false,
+      closedAt: new Date(line.closedAt),
+      order,
+      orderItem: line.orderItemId
+        ? (itemById.get(line.orderItemId) ?? null)
+        : null,
+      storage: line.storageId
+        ? (storageById.get(line.storageId) ?? null)
+        : null,
+    }));
+    return this.fromProfits(tenantId, profits);
   }
 
   private async collect(
     tenantId: string,
     where: Prisma.OrderItemProfitWhereInput,
   ): Promise<MotivationFacts> {
-    const [profits, hours] = await Promise.all([
-      this.prisma.orderItemProfit.findMany({
-        where: { tenantId, ...where },
-        select: PROFIT_SELECT,
-        orderBy: [{ closedAt: 'asc' }, { id: 'asc' }],
-      }),
-      this.settings.getWorkDayHours(tenantId),
-    ]);
+    const profits = await this.prisma.orderItemProfit.findMany({
+      where: { tenantId, ...where },
+      select: PROFIT_SELECT,
+      orderBy: [{ closedAt: 'asc' }, { id: 'asc' }],
+    });
+    return this.fromProfits(tenantId, profits);
+  }
+
+  private async fromProfits(
+    tenantId: string,
+    profits: ProfitRow[],
+  ): Promise<MotivationFacts> {
+    const hours = await this.settings.getWorkDayHours(tenantId);
     const serviceIds = profits.flatMap((profit) =>
       profit.orderItem?.service && profit.orderItemId
         ? [profit.orderItemId]
