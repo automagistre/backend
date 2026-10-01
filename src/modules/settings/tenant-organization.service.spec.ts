@@ -35,6 +35,7 @@ function organization(over: Partial<Organization> = {}): Organization {
     requisiteHeadPosition: 'Индивидуальный предприниматель',
     createdAt: null,
     createdBy: null,
+    vatRatePercent: 5,
     balance: new Prisma.Decimal(0),
     ...over,
   };
@@ -85,6 +86,7 @@ describe('TenantOrganizationService', () => {
       logoUrl: '/img/logo.png',
       city: 'г. Москва',
       telephones: ['+7 (495) 984-81-82'],
+      vatRatePercent: 5,
     });
   });
 

@@ -11,6 +11,17 @@ import type { AuthContext } from 'src/common/user-id.store';
 const DEFAULT_TAKE = 25;
 const DEFAULT_SKIP = 0;
 
+function assertRate(
+  value: number | null | undefined,
+  max: number,
+  message: string,
+): void {
+  if (value == null) return;
+  if (!Number.isInteger(value) || value < 0 || value > max) {
+    throw new BadRequestException(message);
+  }
+}
+
 @Injectable()
 export class WalletService {
   constructor(
@@ -19,6 +30,8 @@ export class WalletService {
   ) {}
 
   async create(ctx: AuthContext, data: CreateWalletInput) {
+    assertRate(data.taxRatePercent, 50, 'Налоги — целое число от 0 до 50');
+    assertRate(data.acquiringRateBp, 10_000, 'Эквайринг — от 0 до 100%');
     const defaultCurrency = await this.settingsService.getDefaultCurrencyCode(
       ctx.tenantId,
     );
@@ -30,6 +43,8 @@ export class WalletService {
         showInLayout: data.showInLayout ?? false,
         defaultInManualTransaction: data.defaultInManualTransaction ?? false,
         currencyCode: data.currencyCode ?? defaultCurrency,
+        taxRatePercent: data.taxRatePercent ?? 0,
+        acquiringRateBp: data.acquiringRateBp ?? 0,
         tenantId: ctx.tenantId,
         createdBy: ctx.userId,
       },
@@ -39,9 +54,16 @@ export class WalletService {
   async update(ctx: AuthContext, { id, ...data }: UpdateWalletInput) {
     const wallet = await this.findOne(ctx, id);
     if (!wallet) throw new NotFoundException('Счёт не найден');
-    const updateData = Object.fromEntries(
-      Object.entries(data).filter(([_, value]) => value !== undefined),
-    );
+    assertRate(data.taxRatePercent, 50, 'Налоги — целое число от 0 до 50');
+    assertRate(data.acquiringRateBp, 10_000, 'Эквайринг — от 0 до 100%');
+    const { taxRatePercent, acquiringRateBp, ...rest } = data;
+    const updateData = {
+      ...Object.fromEntries(
+        Object.entries(rest).filter(([, value]) => value !== undefined),
+      ),
+      ...(taxRatePercent != null ? { taxRatePercent } : {}),
+      ...(acquiringRateBp != null ? { acquiringRateBp } : {}),
+    };
     return this.prisma.wallet.update({
       where: { id },
       data: updateData,

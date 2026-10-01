@@ -5,6 +5,7 @@ import type { AuthContext } from 'src/common/user-id.store';
 import { SettingsService } from 'src/modules/settings/settings.service';
 import { CustomerTransactionService } from 'src/modules/customer-transaction/customer-transaction.service';
 import { CustomerTransactionSource } from 'src/modules/customer-transaction/enums/customer-transaction-source.enum';
+import { subtract, toMoney } from 'src/common/money';
 import { ProfitService } from 'src/modules/profit/profit.service';
 import { ProfitOrigin } from 'src/modules/profit/enums/profit-origin.enum';
 import { TireStorageStatus } from 'src/modules/tire-storage/enums/tire-storage-status.enum';
@@ -49,6 +50,7 @@ type ItemView = {
   itemId: string;
   type: MotivationItemType;
   profitMinor: bigint;
+  overheadMinor: bigint;
   rows: MotivationRowLike[];
 };
 
@@ -77,10 +79,12 @@ export class MotivationAccrualService {
     const stored = await this.schemes.activeAt(ctx.tenantId, order.closedAt);
     if (!stored) return;
 
-    const [facts, kept] = await Promise.all([
+    const [facts, kept, shares] = await Promise.all([
       this.facts.byOrder(ctx.tenantId, orderId),
       this.keptEmployees(ctx.tenantId),
+      this.profit.overheadShares(this.prisma, ctx, orderId),
     ]);
+    applyBonusOverhead(facts, shares);
     const results = calculateMotivation(facts.items, stored.scheme, kept);
     const rows = results.flatMap((result) =>
       result.rows.map((row) => ({ ...row, type: result.type })),
@@ -160,6 +164,7 @@ export class MotivationAccrualService {
   async orderMotivation(
     ctx: AuthContext,
     orderId: string,
+    previewWalletId?: string | null,
   ): Promise<OrderMotivationModel> {
     const order = await this.loadOrder(ctx.tenantId, orderId);
     const names = await loadMotivationNames(this.prisma, ctx.tenantId);
@@ -174,22 +179,28 @@ export class MotivationAccrualService {
         ProfitOrigin.LIVE,
         [TireStorageStatus.ENTERED, TireStorageStatus.IN_WAREHOUSE],
       );
-      const [facts, resolved, kept] = await Promise.all([
+      const [facts, resolved, kept, shares] = await Promise.all([
         this.facts.byProfitRows(ctx.tenantId, orderId, lines),
         this.schemes.resolveAt(ctx.tenantId, now),
         this.keptEmployees(ctx.tenantId),
+        this.profit.overheadShares(this.prisma, ctx, orderId, {
+          walletId: previewWalletId,
+          rows: lines,
+        }),
       ]);
+      applyBonusOverhead(facts, shares);
       return this.toModel(order, names, facts, {
         mode: OrderMotivationModeEnum.PREVIEW,
         schemeVersion: resolved.stored?.version ?? null,
         canCharge: false,
         items: fromResults(
           calculateMotivation(facts.items, resolved.scheme, kept),
+          overheadByItem(facts.items),
         ),
       });
     }
 
-    const [facts, accruals] = await Promise.all([
+    const [facts, accruals, shares] = await Promise.all([
       this.facts.byOrder(ctx.tenantId, orderId),
       this.prisma.motivationAccrual.findMany({
         where: { tenantId: ctx.tenantId, orderId },
@@ -207,7 +218,9 @@ export class MotivationAccrualService {
         },
         orderBy: { createdAt: 'asc' },
       }),
+      this.profit.overheadShares(this.prisma, ctx, orderId),
     ]);
+    applyBonusOverhead(facts, shares);
 
     if (accruals.length > 0) {
       // Позиции без фонда строк не дают, но в прогнозе они есть — показываем так же
@@ -218,6 +231,7 @@ export class MotivationAccrualService {
             itemId: item.itemId,
             type: item.type,
             profitMinor: item.profitMinor,
+            overheadMinor: item.overheadMinor,
             rows: [],
           },
         ]),
@@ -227,6 +241,7 @@ export class MotivationAccrualService {
           itemId: accrual.itemId,
           type: accrual.itemType as MotivationItemType,
           profitMinor: 0n,
+          overheadMinor: 0n,
           rows: [],
         };
         item.rows.push({
@@ -259,6 +274,7 @@ export class MotivationAccrualService {
         !order.cancelled && resolved.stored !== null && facts.items.length > 0,
       items: fromResults(
         calculateMotivation(facts.items, resolved.scheme, kept),
+        overheadByItem(facts.items),
       ),
     });
   }
@@ -305,6 +321,7 @@ export class MotivationAccrualService {
         type: item.type as MotivationItemTypeEnum,
         label: labels.get(item.itemId) ?? '',
         profit: item.profitMinor,
+        overhead: item.overheadMinor,
         fund: item.rows.reduce((sum, row) => sum + row.amountMinor, 0n),
         rows: item.rows.map((row) => toBreakdownRow(row, names)),
       })),
@@ -395,11 +412,34 @@ export class MotivationAccrualService {
   }
 }
 
-function fromResults(results: MotivationItemResult[]): ItemView[] {
+/** Вычитает расходы из базы бонуса. Прибыль в снапшоте при этом не меняется. */
+function applyBonusOverhead(
+  facts: MotivationFacts,
+  shares: ReadonlyMap<string, bigint>,
+): void {
+  for (const item of facts.items) {
+    const share = toMoney(shares.get(item.itemId) ?? 0n, '', '');
+    const profit = toMoney(item.profitMinor, '', '');
+    item.overheadMinor = share.amountMinor;
+    item.profitMinor = subtract(profit, share).amountMinor;
+  }
+}
+
+function overheadByItem(
+  items: Array<{ itemId: string; overheadMinor: bigint }>,
+): Map<string, bigint> {
+  return new Map(items.map((item) => [item.itemId, item.overheadMinor]));
+}
+
+function fromResults(
+  results: MotivationItemResult[],
+  overheadOf: ReadonlyMap<string, bigint>,
+): ItemView[] {
   return results.map((result) => ({
     itemId: result.itemId,
     type: result.type,
     profitMinor: result.profitMinor,
+    overheadMinor: overheadOf.get(result.itemId) ?? 0n,
     rows: result.rows,
   }));
 }

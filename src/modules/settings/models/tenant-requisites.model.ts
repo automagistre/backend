@@ -1,4 +1,4 @@
-import { Field, ID, ObjectType } from '@nestjs/graphql';
+import { Field, ID, Int, ObjectType } from '@nestjs/graphql';
 
 /**
  * Данные для печатных форм: юр. лицо из привязанной организации плюс торговая марка из настроек.
@@ -83,4 +83,9 @@ export class TenantRequisitesModel {
     description: 'Должность руководителя',
   })
   headType: string | null;
+
+  @Field(() => Int, {
+    description: 'Ставка НДС организации для печати, %. 0 — строку не печатать',
+  })
+  vatRatePercent: number;
 }

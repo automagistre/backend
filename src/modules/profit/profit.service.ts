@@ -12,6 +12,7 @@ import { CustomerTransactionSource } from 'src/modules/customer-transaction/enum
 import { OrderItemServiceKind } from 'src/modules/order/enums/order-item-service-kind.enum';
 import { WarrantyPayerKind } from 'src/modules/order/enums/warranty-payer-kind.enum';
 import { TireStorageStatus } from 'src/modules/tire-storage/enums/tire-storage-status.enum';
+import { sum, toMoney } from 'src/common/money';
 import { PartyKind } from 'src/common/party';
 import type { AuthContext } from 'src/common/user-id.store';
 import {
@@ -34,6 +35,8 @@ import {
 import { ProfitCostBasis } from './enums/profit-cost-basis.enum';
 import { ProfitLineKind } from './enums/profit-line-kind.enum';
 import { ProfitOrigin } from './enums/profit-origin.enum';
+import { allocateOverhead, paymentOverhead } from './overhead';
+import { WalletTransactionSource } from 'src/modules/wallet/enums/wallet-transaction-source.enum';
 import type { BackfillOrderProfitsInput } from './inputs/backfill-order-profits.input';
 import type { OrderProfitModel } from './models/order-profit.model';
 import type { PeriodProfitModel } from './models/period-profit.model';
@@ -88,8 +91,8 @@ export class ProfitService {
 
   /**
    * Строки прибыли заказа без записи: снапшот при закрытии и прогноз бонуса с продаж
-   * на открытом заказе считаются одним кодом. Прогноз учитывает и договоры
-   * хранения, которые закрытие только переведёт на склад.
+   * на открытом заказе считаются одним кодом. Это EBITDA, без налогов и эквайринга.
+   * Прогноз учитывает и договоры хранения, которые закрытие только переведёт на склад.
    */
   async computeOrderRows(
     tx: Prisma.TransactionClient,
@@ -188,6 +191,119 @@ export class ProfitService {
     }
 
     return rows;
+  }
+
+  /**
+   * Налоги и эквайринг заказа по позициям. В снапшот прибыли не пишутся:
+   * там EBITDA, а эти расходы вычитаются только при бонусе с продаж.
+   * Прогноз передаёт свои строки и счёт; без счёта расходы нулевые.
+   * Закрытый заказ берёт фактические платежи и строки снапшота.
+   */
+  async overheadShares(
+    tx: Prisma.TransactionClient,
+    ctx: AuthContext,
+    orderId: string,
+    preview?: {
+      walletId?: string | null;
+      rows: Prisma.OrderItemProfitCreateManyInput[];
+    },
+  ): Promise<Map<string, bigint>> {
+    const weights = preview
+      ? preview.rows.map((row) => ({
+          itemId: row.orderItemId ?? row.storageId ?? '',
+          revenueAmount: row.revenueAmount ?? 0n,
+          profitAmount: row.profitAmount ?? 0n,
+        }))
+      : (
+          await tx.orderItemProfit.findMany({
+            where: { orderId, tenantId: ctx.tenantId },
+            select: {
+              orderItemId: true,
+              storageId: true,
+              revenueAmount: true,
+              profitAmount: true,
+            },
+          })
+        ).map((row) => ({
+          itemId: row.orderItemId ?? row.storageId ?? '',
+          revenueAmount: row.revenueAmount,
+          profitAmount: row.profitAmount,
+        }));
+    const overhead = preview
+      ? preview.walletId
+        ? await this.previewOverhead(tx, ctx, weights, preview.walletId)
+        : toMoney(0n, '', '')
+      : await this.actualOverhead(tx, ctx.tenantId, orderId);
+    const shares = allocateOverhead(weights, overhead);
+    return new Map(
+      shares.map((row, index) => [weights[index].itemId, row.overheadAmount]),
+    );
+  }
+
+  private async actualOverhead(
+    tx: Prisma.TransactionClient,
+    tenantId: string,
+    orderId: string,
+  ) {
+    const payments = await tx.walletTransaction.findMany({
+      where: {
+        tenantId,
+        sourceId: orderId,
+        source: {
+          in: [
+            WalletTransactionSource.OrderPrepay,
+            WalletTransactionSource.OrderDebit,
+          ],
+        },
+      },
+      select: {
+        amountAmount: true,
+        amountCurrencyCode: true,
+        wallet: { select: { taxRatePercent: true, acquiringRateBp: true } },
+      },
+    });
+    return sum(
+      payments.map((payment) =>
+        paymentOverhead(
+          toMoney(
+            payment.amountAmount,
+            payment.amountCurrencyCode,
+            payment.amountCurrencyCode ?? '',
+          ),
+          payment.wallet.taxRatePercent,
+          payment.wallet.acquiringRateBp,
+        ),
+      ),
+      payments[0]?.amountCurrencyCode ?? '',
+    );
+  }
+
+  /** Прогноз: весь итог заказа как один платёж на выбранный счёт. */
+  private async previewOverhead(
+    tx: Prisma.TransactionClient,
+    ctx: AuthContext,
+    rows: Array<{ revenueAmount?: bigint | number | null }>,
+    walletId: string,
+  ) {
+    const wallet = await tx.wallet.findFirst({
+      where: { id: walletId, tenantId: ctx.tenantId },
+      select: { taxRatePercent: true, acquiringRateBp: true },
+    });
+    if (!wallet) throw new BadRequestException('Счёт не найден');
+    const currency = await this.settingsService.getDefaultCurrencyCode(
+      ctx.tenantId,
+    );
+    const total = sum(
+      rows.map((row) =>
+        toMoney(BigInt(row.revenueAmount ?? 0), currency, currency),
+      ),
+      currency,
+    );
+    return paymentOverhead(
+      total,
+      wallet.taxRatePercent,
+      wallet.acquiringRateBp,
+    );
   }
 
   /** Строки снапшота прибыли по заказу (без проверки статуса заказа). */

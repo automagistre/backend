@@ -1,11 +1,14 @@
-import { Field, ID, InputType, PartialType } from '@nestjs/graphql';
+import { Field, ID, InputType, Int, PartialType } from '@nestjs/graphql';
 import {
   IsBoolean,
   IsEmail,
+  IsInt,
   IsOptional,
   Length,
   Matches,
+  Max,
   MaxLength,
+  Min,
 } from 'class-validator';
 import { PhoneNumberScalar } from 'src/common/scalars/phone.scaral';
 
@@ -115,6 +118,16 @@ export class CreateOrganizationInput {
     defaultValue: false,
   })
   seller: boolean;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(50)
+  @Field(() => Int, {
+    nullable: true,
+    description: 'Ставка НДС для печати, %. 0 — строку не печатать',
+  })
+  vatRatePercent?: number | null;
 
   @IsOptional()
   @Field(() => RequisiteInput, { nullable: true, description: 'Реквизиты' })

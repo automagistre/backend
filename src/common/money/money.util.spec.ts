@@ -8,6 +8,8 @@ import {
   add,
   subtract,
   sum,
+  includedRate,
+  multiplyByBasisPoints,
   multiplyByPercent,
   multiplyByQuantity,
   netFromPriceAndDiscount,
@@ -70,6 +72,15 @@ describe('money.util', () => {
 
     it('суммирует элементы одной валюты', () => {
       expect(sum([m(10n), m(20n), m(5n)])).toEqual(m(35n));
+    });
+  });
+
+  describe('includedRate / multiplyByBasisPoints', () => {
+    it('налог входит в сумму, базисные пункты считаются от полной', () => {
+      expect(includedRate(m(10_500n), 5)).toEqual(m(500n));
+      expect(includedRate(m(10_500n), 0)).toEqual(m(0n));
+      expect(multiplyByBasisPoints(m(10_000n), 150)).toEqual(m(150n));
+      expect(multiplyByBasisPoints(m(10_500n), 150)).toEqual(m(157n));
     });
   });
 

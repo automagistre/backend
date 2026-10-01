@@ -1367,6 +1367,8 @@ model Organization {
   requisiteBik          String?              @map("requisite_bik") @db.VarChar(255)
   requisiteHead         String?              @map("requisite_head") @db.VarChar(255)
   requisiteHeadPosition String?              @map("requisite_head_position") @db.VarChar(255)
+  /// Ставка НДС для печати, %. 0 — строку не печатать.
+  vatRatePercent        Int                  @default(0) @map("vat_rate_percent")
   createdAt             DateTime?            @default(now()) @map("created_at") @db.Timestamptz(0)
   createdBy             String?              @map("created_by") @db.Uuid
   balance               Decimal              @default(0) @db.Decimal
@@ -1573,6 +1575,10 @@ model Wallet {
   defaultInManualTransaction Boolean             @map("default_in_manual_transaction")
   tenantId                   String              @map("tenant_id") @db.Uuid
   currencyCode               String?             @map("currency_code") @db.VarChar(3)
+  /// Налоги в платежах на этот счёт, %. 0 — не применяются. Входят в сумму.
+  taxRatePercent             Int                 @default(0) @map("tax_rate_percent")
+  /// Эквайринг, базисные пункты (150 = 1.50%). Считается от полной суммы платежа.
+  acquiringRateBp            Int                 @default(0) @map("acquiring_rate_bp")
   createdAt                  DateTime?           @default(now()) @map("created_at") @db.Timestamptz(0)
   createdBy                  String?             @map("created_by") @db.Uuid
   balance                    Decimal             @default(0) @db.Decimal

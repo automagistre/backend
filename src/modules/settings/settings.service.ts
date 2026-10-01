@@ -33,7 +33,6 @@ const PLAIN_INT_KEYS = [
   SETTINGS_KEYS.slotMinutes,
   SETTINGS_KEYS.orderDeleteCoolingHours,
   SETTINGS_KEYS.discountRoundStep,
-  SETTINGS_KEYS.printVatRatePercent,
   SETTINGS_KEYS.tireStorageMonths,
   SETTINGS_KEYS.tireStorageDefaultQuantity,
   SETTINGS_KEYS.taskOverdueHours,

@@ -263,16 +263,6 @@ export class UpdateSettingsInput {
 
   @Field(() => Int, {
     nullable: true,
-    description: 'Ставка НДС в печати, %; 0 — строку НДС не печатать',
-  })
-  @IsOptional()
-  @IsInt()
-  @Min(SETTING_INT_RANGES.printVatRatePercent.min)
-  @Max(SETTING_INT_RANGES.printVatRatePercent.max)
-  printVatRatePercent?: number;
-
-  @Field(() => Int, {
-    nullable: true,
     description: 'Срок хранения шин в месяцах',
   })
   @IsOptional()

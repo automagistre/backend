@@ -125,6 +125,7 @@ export function buildMotivationFacts(
       itemId: row.itemId,
       type,
       profitMinor: row.profitMinor,
+      overheadMinor: 0n,
       ...(notApplicable.length ? { notApplicable } : {}),
       participants,
       orderId: row.orderId,

@@ -48,8 +48,15 @@ export class MotivationBreakdownItemModel {
   @Field(() => String)
   label: string;
 
-  @Field(() => BigInt)
+  @Field(() => BigInt, {
+    description: 'Прибыль для бонуса, уже за вычетом расходов',
+  })
   profit: bigint;
+
+  @Field(() => BigInt, {
+    description: 'Налоги и эквайринг, отнесённые на позицию',
+  })
+  overhead: bigint;
 
   @Field(() => BigInt)
   fund: bigint;

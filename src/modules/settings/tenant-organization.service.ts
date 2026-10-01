@@ -221,5 +221,6 @@ export function toPrintRequisites(
     telephones: settings.brandTelephones,
     guarantyUrl: settings.brandGuarantyUrl,
     printFooterImageUrl: settings.brandPrintFooterImageUrl,
+    vatRatePercent: organization.vatRatePercent,
   };
 }

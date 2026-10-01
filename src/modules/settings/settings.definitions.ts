@@ -25,7 +25,6 @@ export const SETTINGS_KEYS = {
   slotMinutes: 'slotMinutes',
   orderDeleteCoolingHours: 'orderDeleteCoolingHours',
   discountRoundStep: 'discountRoundStep',
-  printVatRatePercent: 'printVatRatePercent',
   tireStorageMonths: 'tireStorageMonths',
   tireStorageDefaultQuantity: 'tireStorageDefaultQuantity',
   taskOverdueHours: 'taskOverdueHours',
@@ -41,8 +40,6 @@ export const DISCOUNT_ROUND_STEP_OPTIONS = [
 /** Диапазоны целочисленных ключей: общие для чтения из БД и для валидации ввода. */
 export const SETTING_INT_RANGES = {
   orderDeleteCoolingHours: { min: 0, max: 72 },
-  /** Ставка вводится вручную: меняется законом без релиза. 0 — строку НДС не печатать. */
-  printVatRatePercent: { min: 0, max: 50 },
   tireStorageMonths: { min: 1, max: 24 },
   tireStorageDefaultQuantity: { min: 1, max: 12 },
   taskOverdueHours: { min: 1, max: 720 },
@@ -82,7 +79,6 @@ export type SettingsValueByKey = {
   [SETTINGS_KEYS.slotMinutes]: number;
   [SETTINGS_KEYS.orderDeleteCoolingHours]: number;
   [SETTINGS_KEYS.discountRoundStep]: number;
-  [SETTINGS_KEYS.printVatRatePercent]: number;
   [SETTINGS_KEYS.tireStorageMonths]: number;
   [SETTINGS_KEYS.tireStorageDefaultQuantity]: number;
   [SETTINGS_KEYS.taskOverdueHours]: number;
@@ -277,11 +273,6 @@ export const SETTINGS_DEFINITIONS: {
     key: SETTINGS_KEYS.discountRoundStep,
     defaultValue: 5000,
     parse: parseOneOf(DISCOUNT_ROUND_STEP_OPTIONS),
-  },
-  [SETTINGS_KEYS.printVatRatePercent]: {
-    key: SETTINGS_KEYS.printVatRatePercent,
-    defaultValue: 5,
-    parse: parseIntInRange(SETTING_INT_RANGES.printVatRatePercent),
   },
   [SETTINGS_KEYS.tireStorageMonths]: {
     key: SETTINGS_KEYS.tireStorageMonths,

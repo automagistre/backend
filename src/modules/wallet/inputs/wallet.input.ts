@@ -1,4 +1,4 @@
-import { Field, Float, ID, InputType } from '@nestjs/graphql';
+import { Field, ID, InputType, Int } from '@nestjs/graphql';
 
 @InputType()
 export class CreateWalletInput {
@@ -31,6 +31,18 @@ export class CreateWalletInput {
 
   @Field(() => String, { nullable: true, description: 'Код валюты' })
   currencyCode?: string | null;
+
+  @Field(() => Int, {
+    nullable: true,
+    description: 'Налоги в платежах на этот счёт, %. 0 — не применяются',
+  })
+  taxRatePercent?: number | null;
+
+  @Field(() => Int, {
+    nullable: true,
+    description: 'Эквайринг в базисных пунктах, 150 = 1.50%',
+  })
+  acquiringRateBp?: number | null;
 }
 
 @InputType()
@@ -67,4 +79,16 @@ export class UpdateWalletInput {
 
   @Field(() => String, { nullable: true, description: 'Код валюты' })
   currencyCode?: string | null;
+
+  @Field(() => Int, {
+    nullable: true,
+    description: 'Налоги в платежах на этот счёт, %. 0 — не применяются',
+  })
+  taxRatePercent?: number | null;
+
+  @Field(() => Int, {
+    nullable: true,
+    description: 'Эквайринг в базисных пунктах, 150 = 1.50%',
+  })
+  acquiringRateBp?: number | null;
 }

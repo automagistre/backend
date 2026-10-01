@@ -57,6 +57,8 @@ export type MotivationFactItem = MotivationItemFacts & {
   orderNumber: number;
   closedAt: Date;
   label: string;
+  /** Налоги и эквайринг. Из прибыли снапшота не вычитаются, только из базы бонуса. */
+  overheadMinor: bigint;
 };
 
 export type MotivationExcludedItem = {

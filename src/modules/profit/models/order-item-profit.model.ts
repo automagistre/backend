@@ -30,7 +30,9 @@ export class OrderItemProfitModel {
   @Field(() => BigInt, { description: 'Себестоимость в копейках' })
   costAmount: bigint;
 
-  @Field(() => BigInt, { description: 'Прибыль в копейках' })
+  @Field(() => BigInt, {
+    description: 'Прибыль в копейках: выручка минус себестоимость',
+  })
   profitAmount: bigint;
 
   @Field(() => String)

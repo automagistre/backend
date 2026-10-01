@@ -1,4 +1,4 @@
-import { Field, ID, ObjectType } from '@nestjs/graphql';
+import { Field, ID, Int, ObjectType } from '@nestjs/graphql';
 import { Organization, Prisma } from 'src/generated/prisma/client';
 import { PhoneNumberScalar } from 'src/common/scalars/phone.scaral';
 
@@ -69,6 +69,11 @@ export class OrganizationModel implements Organization {
 
   @Field(() => Boolean, { description: 'Является поставщиком' })
   seller: boolean;
+
+  @Field(() => Int, {
+    description: 'Ставка НДС для печати, %. 0 — строку не печатать',
+  })
+  vatRatePercent: number;
 
   @Field(() => String)
   tenantGroupId: string;

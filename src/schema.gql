@@ -1046,6 +1046,9 @@ input CreateOrganizationInput {
 
   """Телефон"""
   telephone: PhoneNumber
+
+  """Ставка НДС для печати, %. 0 — строку не печатать"""
+  vatRatePercent: Int
 }
 
 input CreatePartInput {
@@ -1186,6 +1189,9 @@ input CreateVehicleInput {
 }
 
 input CreateWalletInput {
+  """Эквайринг в базисных пунктах, 150 = 1.50%"""
+  acquiringRateBp: Int
+
   """Код валюты"""
   currencyCode: String
 
@@ -1197,6 +1203,9 @@ input CreateWalletInput {
 
   """Показывать в раскладке"""
   showInLayout: Boolean! = true
+
+  """Налоги в платежах на этот счёт, %. 0 — не применяются"""
+  taxRatePercent: Int
 
   """Использовать в доходах"""
   useInIncome: Boolean! = true
@@ -2136,6 +2145,11 @@ type MotivationBreakdownItem {
   fund: BigInt!
   itemId: ID!
   label: String!
+
+  """Налоги и эквайринг, отнесённые на позицию"""
+  overhead: BigInt!
+
+  """Прибыль для бонуса, уже за вычетом расходов"""
   profit: BigInt!
   rows: [MotivationBreakdownRow!]!
   type: MotivationItemType!
@@ -2744,7 +2758,7 @@ type OrderItemProfitModel {
   orderItemId: ID
   origin: ProfitOrigin!
 
-  """Прибыль в копейках"""
+  """Прибыль в копейках: выручка минус себестоимость"""
   profitAmount: BigInt!
 
   """Выручка в копейках"""
@@ -3063,6 +3077,9 @@ type OrganizationModel {
   telephone: PhoneNumber
   tenantGroupId: String!
   transactions(dateFrom: DateTime, dateTo: DateTime, skip: Int = 0, take: Int = 25): PaginatedCustomerTransactions!
+
+  """Ставка НДС для печати, %. 0 — строку не печатать"""
+  vatRatePercent: Int!
 }
 
 type PaginatedAppeals {
@@ -3608,7 +3625,14 @@ type Query {
   """
   Бонус с продаж по заказу: прогноз на открытом, начисление на закрытом. Прогноз ничего не пишет
   """
-  orderMotivation(orderId: ID!): OrderMotivation!
+  orderMotivation(
+    orderId: ID!
+
+    """
+    Счёт прогноза: расходы считаются, будто весь итог заказа оплачен им. На закрытом заказе не используется
+    """
+    walletId: ID
+  ): OrderMotivation!
 
   """Список всех заказов с пагинацией"""
   orders(carId: ID, customerId: ID, search: String, skip: Int = 0, status: [OrderStatus!], take: Int = 25): PaginatedOrders!
@@ -3964,9 +3988,6 @@ type SettingsModel {
 
   """Сколько часов после создания пустой заказ можно удалить"""
   orderDeleteCoolingHours: Int!
-
-  """Ставка НДС в печати заказ-наряда, 0 — не печатать"""
-  printVatRatePercent: Int!
 
   """
   Через сколько дней после закрытия заказа задача контроля качества попадает на доску
@@ -4574,6 +4595,9 @@ type TenantRequisitesModel {
 
   """Тип по длине ИНН: OOO или IP"""
   type: String!
+
+  """Ставка НДС организации для печати, %. 0 — строку не печатать"""
+  vatRatePercent: Int!
 }
 
 """Сезон шин"""
@@ -5009,6 +5033,9 @@ input UpdateOrganizationInput {
 
   """Телефон"""
   telephone: PhoneNumber
+
+  """Ставка НДС для печати, %. 0 — строку не печатать"""
+  vatRatePercent: Int
 }
 
 input UpdatePartInput {
@@ -5137,9 +5164,6 @@ input UpdateSettingsInput {
   """Сколько часов после создания пустой заказ можно удалить"""
   orderDeleteCoolingHours: Int
 
-  """Ставка НДС в печати, %; 0 — строку НДС не печатать"""
-  printVatRatePercent: Int
-
   """Через сколько дней после закрытия заказа создавать QC-задачу"""
   qualityControlDelayDays: Int
 
@@ -5248,6 +5272,9 @@ input UpdateVehicleInput {
 }
 
 input UpdateWalletInput {
+  """Эквайринг в базисных пунктах, 150 = 1.50%"""
+  acquiringRateBp: Int
+
   """Код валюты"""
   currencyCode: String
 
@@ -5262,6 +5289,9 @@ input UpdateWalletInput {
 
   """Показывать в раскладке"""
   showInLayout: Boolean
+
+  """Налоги в платежах на этот счёт, %. 0 — не применяются"""
+  taxRatePercent: Int
 
   """Использовать в доходах"""
   useInIncome: Boolean
@@ -5317,6 +5347,9 @@ type VehicleModel {
 
 """Кошелёк"""
 type WalletModel {
+  """Эквайринг в базисных пунктах, 150 = 1.50%"""
+  acquiringRateBp: Int!
+
   """Баланс"""
   balance: String!
   createdAt: DateTime
@@ -5333,6 +5366,9 @@ type WalletModel {
 
   """Показывать в раскладке"""
   showInLayout: Boolean!
+
+  """Налоги в платежах на этот счёт, %. 0 — не применяются"""
+  taxRatePercent: Int!
   tenantId: String!
 
   """Использовать в доходах"""

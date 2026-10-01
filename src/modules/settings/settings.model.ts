@@ -122,11 +122,6 @@ export class SettingsModel {
   })
   discountRoundStep: number;
 
-  @Field(() => Int, {
-    description: 'Ставка НДС в печати заказ-наряда, 0 — не печатать',
-  })
-  printVatRatePercent: number;
-
   @Field(() => Int, { description: 'Срок хранения шин в месяцах' })
   tireStorageMonths: number;
 

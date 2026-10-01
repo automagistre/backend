@@ -29,6 +29,13 @@ function text(value: string | null | undefined): string | null {
   return value?.trim() || null;
 }
 
+function assertVatRate(value: number | null | undefined): void {
+  if (value == null) return;
+  if (!Number.isInteger(value) || value < 0 || value > 50) {
+    throw new BadRequestException('Ставка НДС — целое число от 0 до 50');
+  }
+}
+
 /** Нормализует реквизиты и проверяет номера по контрольным суммам. */
 function toRequisiteData(requisite: RequisiteInput) {
   const data = {
@@ -84,6 +91,7 @@ export class OrganizationService {
   }
 
   async create(ctx: AuthContext, data: CreateOrganizationInput) {
+    assertVatRate(data.vatRatePercent);
     const { requisite, ...mainData } = data;
 
     const created = await this.prisma.organization.create({
@@ -92,6 +100,7 @@ export class OrganizationService {
         tenantGroupId: ctx.tenantGroupId,
         createdBy: ctx.userId,
         ...(requisite && toRequisiteData(requisite)),
+        vatRatePercent: data.vatRatePercent ?? 0,
       },
     });
 
@@ -131,9 +140,15 @@ export class OrganizationService {
       }
     }
 
+    assertVatRate(mainData.vatRatePercent);
+    const { vatRatePercent, ...rest } = mainData;
     const updated = await this.prisma.organization.update({
       where: { id },
-      data: { ...mainData, ...requisiteData },
+      data: {
+        ...rest,
+        ...(vatRatePercent != null ? { vatRatePercent } : {}),
+        ...requisiteData,
+      },
     });
 
     await this.auditOrganization(ctx, id, existing, updated);

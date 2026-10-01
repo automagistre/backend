@@ -1,4 +1,4 @@
-import { Field, ID, ObjectType } from '@nestjs/graphql';
+import { Field, ID, Int, ObjectType } from '@nestjs/graphql';
 import { Prisma, Wallet } from 'src/generated/prisma/client';
 
 @ObjectType({ description: 'Кошелёк' })
@@ -38,6 +38,16 @@ export class WalletModel implements Wallet {
 
   @Field(() => String, { nullable: true, description: 'Код валюты' })
   currencyCode: string | null;
+
+  @Field(() => Int, {
+    description: 'Налоги в платежах на этот счёт, %. 0 — не применяются',
+  })
+  taxRatePercent: number;
+
+  @Field(() => Int, {
+    description: 'Эквайринг в базисных пунктах, 150 = 1.50%',
+  })
+  acquiringRateBp: number;
 
   @Field(() => Date, { nullable: true })
   createdAt: Date | null;

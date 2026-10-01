@@ -74,6 +74,33 @@ export function sum(items: Money[], currencyCode = ''): Money {
 }
 
 /**
+ * Налог, входящий в сумму: сумма × ставка / (100 + ставка). Ставка 0 — нуль.
+ */
+export function includedRate(m: Money, ratePercent: number): Money {
+  if (ratePercent <= 0 || m.amountMinor === 0n) {
+    return { amountMinor: 0n, currencyCode: m.currencyCode };
+  }
+  return {
+    amountMinor:
+      (m.amountMinor * BigInt(ratePercent)) / (100n + BigInt(ratePercent)),
+    currencyCode: m.currencyCode,
+  };
+}
+
+/**
+ * Доля в базисных пунктах: 10 000 = 100%. Например эквайринг 150 = 1,50%.
+ */
+export function multiplyByBasisPoints(m: Money, rateBp: number): Money {
+  if (rateBp <= 0 || m.amountMinor === 0n) {
+    return { amountMinor: 0n, currencyCode: m.currencyCode };
+  }
+  return {
+    amountMinor: (m.amountMinor * BigInt(rateBp)) / 10_000n,
+    currencyCode: m.currencyCode,
+  };
+}
+
+/**
  * Умножить сумму на процент (в сотых долях: 100 = 100%).
  */
 export function multiplyByPercent(m: Money, percentHundredths: number): Money {

@@ -9,6 +9,7 @@ import { ProfitCostBasis } from './enums/profit-cost-basis.enum';
 import { ProfitLineKind } from './enums/profit-line-kind.enum';
 import { ProfitOrigin } from './enums/profit-origin.enum';
 import { WarrantyPayerKind } from 'src/modules/order/enums/warranty-payer-kind.enum';
+import { TireStorageStatus } from 'src/modules/tire-storage/enums/tire-storage-status.enum';
 
 describe('ProfitService.snapshotOrder', () => {
   let prisma: DeepMockProxy<PrismaService>;
@@ -41,7 +42,13 @@ describe('ProfitService.snapshotOrder', () => {
     order: { findFirst: jest.fn() },
     orderItem: { findMany: jest.fn() },
     tireStorage: { findMany: jest.fn().mockResolvedValue([]) },
-    orderItemProfit: { deleteMany: jest.fn(), createMany: jest.fn() },
+    orderItemProfit: {
+      deleteMany: jest.fn(),
+      createMany: jest.fn(),
+      findMany: jest.fn(),
+    },
+    walletTransaction: { findMany: jest.fn().mockResolvedValue([]) },
+    wallet: { findFirst: jest.fn() },
   } as any;
 
   it('записывает строки по работе, подрядчику и запчасти', async () => {
@@ -224,6 +231,98 @@ describe('ProfitService.snapshotOrder', () => {
     await expect(
       service.recomputeOrderProfit(ctx, 'order-1'),
     ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('снапшот хранит EBITDA, налоги и эквайринг остаются для бонуса', async () => {
+    jest.mocked(tx.order.findFirst).mockResolvedValue({ id: 'order-1', tenantId: 'tenant-1' });
+    jest.mocked(tx.orderItem.findMany).mockResolvedValue([
+      {
+        id: 'svc-2',
+        service: {
+          kind: 'CONTRACTOR',
+          executorKind: 'ORGANIZATION',
+          executorId: 'org-1',
+          warranty: false,
+          warrantyPayerKind: null,
+          priceAmount: 10_500n,
+          discountAmount: 0n,
+          costAmount: 0n,
+        },
+        part: null,
+      },
+    ]);
+    jest.mocked(tx.walletTransaction.findMany).mockResolvedValue([
+      {
+        amountAmount: 10_500n,
+        wallet: { taxRatePercent: 5, acquiringRateBp: 0 },
+      },
+      {
+        amountAmount: -1_050n,
+        wallet: { taxRatePercent: 5, acquiringRateBp: 0 },
+      },
+    ]);
+
+    await service.snapshotOrder(tx, ctx, 'order-1', closedAt);
+
+    const data = tx.orderItemProfit.createMany.mock.calls.at(-1)[0].data;
+    expect(data[0]).toMatchObject({
+      revenueAmount: 10_500n,
+      profitAmount: 10_500n,
+    });
+
+    jest.mocked(tx.orderItemProfit.findMany).mockResolvedValue([
+      {
+        orderItemId: 'svc-2',
+        storageId: null,
+        revenueAmount: 10_500n,
+        profitAmount: 10_500n,
+      },
+    ]);
+    const shares = await service.overheadShares(tx, ctx, 'order-1');
+    expect(shares.get('svc-2')).toBe(450n);
+  });
+
+  it('прогноз считает расходы так, будто весь итог оплачен выбранным счётом', async () => {
+    jest.mocked(tx.order.findFirst).mockResolvedValue({ id: 'order-1', tenantId: 'tenant-1' });
+    jest.mocked(tx.orderItem.findMany).mockResolvedValue([
+      {
+        id: 'svc-2',
+        service: {
+          kind: 'CONTRACTOR',
+          executorKind: 'ORGANIZATION',
+          executorId: 'org-1',
+          warranty: false,
+          warrantyPayerKind: null,
+          priceAmount: 10_000n,
+          discountAmount: 0n,
+          costAmount: 0n,
+        },
+        part: null,
+      },
+    ]);
+    jest.mocked(tx.walletTransaction.findMany).mockClear();
+    jest.mocked(tx.wallet.findFirst).mockResolvedValue({
+      taxRatePercent: 0,
+      acquiringRateBp: 200,
+    });
+
+    const rows = await service.computeOrderRows(
+      tx,
+      ctx,
+      'order-1',
+      closedAt,
+      ProfitOrigin.LIVE,
+      [TireStorageStatus.IN_WAREHOUSE],
+    );
+
+    expect(rows[0]).toMatchObject({ profitAmount: 10_000n });
+    expect(tx.walletTransaction.findMany).not.toHaveBeenCalled();
+    const shares = await service.overheadShares(tx, ctx, 'order-1', {
+      walletId: 'wallet-1',
+      rows,
+    });
+    expect(shares.get('svc-2')).toBe(200n);
+    expect(tx.walletTransaction.findMany).not.toHaveBeenCalled();
   });
 });
 

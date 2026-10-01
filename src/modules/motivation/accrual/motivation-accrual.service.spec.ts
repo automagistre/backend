@@ -44,6 +44,7 @@ const facts: MotivationFacts = {
       label: 'Замена масла',
       type: 'SERVICE',
       profitMinor: 100_000n,
+      overheadMinor: 0n,
       notApplicable: ['RECOMMENDATION'],
       participants: {
         'SNAPSHOT:ITEM': [
@@ -95,6 +96,7 @@ describe('MotivationAccrualService', () => {
     factsService = mockDeep<MotivationFactsService>();
     schemes = mockDeep<MotivationSchemeService>();
     profit = mockDeep<ProfitService>();
+    profit.overheadShares.mockResolvedValue(new Map());
     transactions = mockDeep<CustomerTransactionService>();
     const settings = mockDeep<SettingsService>();
     settings.getDefaultCurrencyCode.mockResolvedValue('RUB');

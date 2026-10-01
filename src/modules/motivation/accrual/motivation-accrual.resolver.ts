@@ -18,8 +18,15 @@ export class MotivationAccrualResolver {
   orderMotivation(
     @AuthContext() ctx: AuthContextType,
     @Args('orderId', { type: () => ID }) orderId: string,
+    @Args('walletId', {
+      type: () => ID,
+      nullable: true,
+      description:
+        'Счёт прогноза: расходы считаются, будто весь итог заказа оплачен им. На закрытом заказе не используется',
+    })
+    walletId?: string | null,
   ): Promise<OrderMotivationModel> {
-    return this.accruals.orderMotivation(ctx, orderId);
+    return this.accruals.orderMotivation(ctx, orderId, walletId);
   }
 
   @Mutation(() => OrderMotivationModel, {
